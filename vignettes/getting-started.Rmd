@@ -1,0 +1,112 @@
+---
+title: "Getting Started with BayesGrove"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with BayesGrove}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+**BayesGrove** is a graph-based Bayesian workflow orchestrator designed to track the iterative nature of model building. It separates your analysis into two distinct layers:
+1. **The Execution Graph (DAG)**: Built using `dagriculture`, representing the step-by-step transformations and computations (data cleaning, compiling, fitting, diagnosing).
+2. **The Decision Layer**: An annotation overlay that captures the provenance of your choices (why did you change the prior? why did you filter outliers?) via decision gates.
+
+This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process.
+
+## 1. Initializing a Project
+
+Every BayesGrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.
+
+```{r setup}
+library(bayesgrove)
+
+# Use a temporary directory for this vignette
+project_root <- file.path(tempdir(), "bg-quickstart")
+unlink(project_root, recursive = TRUE)
+
+handle <- bg_init(path = project_root, project_name = "Quickstart")
+print(handle)
+```
+
+## 2. Defining the Workflow Structure
+
+In BayesGrove, everything is a node. For this demo, let's register some mock executors to simulate the workflow.
+
+```{r register}
+# Register a simple data provider
+bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+  # In a real workflow, this would read from disk or a database
+  data.frame(x = rnorm(100), y = rnorm(100))
+})
+
+# Register a simple model fitter
+bg_register_node_kind(handle, "model", executor = function(node, inputs) {
+  # Extract the upstream data
+  raw_data <- inputs[[1]]
+  sprintf("Fitted model on %d rows of data!", nrow(raw_data))
+})
+```
+
+Now we build the graph:
+
+```{r build_graph}
+n_data <- bg_add_node(handle, kind = "data", label = "Simulated Dataset")
+n_model <- bg_add_node(handle, kind = "model", label = "Baseline Fit", inputs = n_data)
+```
+
+## 3. Decision Gates
+
+Instead of just running the model directly, let's add a "Decision Gate" to force us to explicitly approve the data before moving on. This captures provenance.
+
+```{r add_gate}
+gate <- bg_add_gate(
+  project = handle,
+  from = n_data,
+  to = n_model,
+  prompt = "Does the simulated data look ready for modeling?",
+  options = c("yes", "no")
+)
+```
+
+If we try to plan the workflow now, the runner will see that the graph is blocked by an unresolved gate:
+
+```{r plan_blocked}
+plan <- bg_plan(handle)
+print(plan$blocked)
+print(bg_pending_gates(handle))
+```
+
+We must explicitly answer the gate and provide a rationale. This rationale is logged permanently.
+
+```{r answer_gate}
+bg_answer_gate(
+  project = handle,
+  id = gate$id,
+  choice = "yes",
+  rationale = "The simulated distributions match our expectations."
+)
+```
+
+## 4. Execution
+
+With the gate resolved, the path is unblocked. We can now run the workflow.
+
+```{r execution}
+run_result <- bg_run(handle, mode = "sync")
+print(run_result$summary)
+```
+
+And that's it! You've successfully built a reproducible execution graph, gated it with an explicit decision, and executed it synchronously. 
+
+## Next Steps
+
+As you advance, you can use `bg_branch()` to create alternative model paths (e.g., trying a different prior without losing your baseline), or use `bg_invalidate()` to safely supersede outdated results.

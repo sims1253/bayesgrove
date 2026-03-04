@@ -1,0 +1,71 @@
+url: "https://mscholz.github.io/bayesgrove"
+template:
+  bootstrap: 5
+
+  development:
+    mode: auto
+
+navbar:
+  structure:
+    left:
+    - home
+    - intro
+    - reference
+    - articles
+  components:
+    home:
+      text: "Home"
+      href: index.html
+    intro:
+      text: "Get Started"
+      menu:
+      - text: "Getting Started"
+        href: articles/getting-started.html
+    reference:
+      text: "Reference"
+      href: reference/index.html
+    articles:
+      text: "Articles"
+      href: articles/index.html
+
+reference:
+  - title: Project Lifecycle
+    contents:
+      - bg_handle
+      - bg_init
+      - bg_open
+      - bg_close
+  - title: Graph Construction
+    contents:
+      - bg_add_node
+      - bg_connect
+      - bg_update_node
+      - bg_remove_node
+  - title: Execution & Orchestration
+    contents:
+      - bg_plan
+      - bg_run
+      - bg_compute_fingerprint
+      - bg_status
+      - bg_result
+  - title: Branching & Invalidation
+    contents:
+      - bg_branch
+      - bg_invalidate
+  - title: Decisions & Gates
+    contents:
+      - bg_add_gate
+      - bg_answer_gate
+      - bg_pending_gates
+      - bg_record_decision
+  - title: Extensions
+    contents:
+      - bg_register_backend
+      - bg_register_node_kind
+      - bg_cmdstanr_plugin
+
+articles:
+  - title: "All Vignettes"
+    desc: ~
+    contents:
+      - getting-started

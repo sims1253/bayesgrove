@@ -1,0 +1,103 @@
+---
+title: BayesGrove
+---
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+[![CRAN status](https://img.shields.io/cran/v/release/bayesgrove)](https://cran.r-project.org/package/bayesgrove)
+[![R-CMD-check](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check/badge.svg)](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+# BayesGrove: Graph-Based Bayesian Workflow Scaffolding
+
+**BayesGrove** is an R-native, graph-based Bayesian workflow orchestrator. It helps you structure, track, and document your Bayesian analyses by separating the execution DAG (directed acyclic graph) from a rich decision-provenance layer.
+
+Built on top of the pure functional graph engine [`dagriculture`](https://github.com/sims1253/dagriculture), BayesGrove provides explicit decision capture, branching, and reproducible workflow management.
+
+## Key Features
+
+- **Graph-Based Workflow**: Structure your analysis as a reproducible DAG of explicitly typed steps.
+- **Decision Tracking (Provenance)**: Record all modeling choices, rationales, and literature references using structural "gates".
+- **Deterministic Fingerprinting**: Precise, intent-based cache invalidation for partial reruns.
+- **Reference-Semantic Handles**: Safely mutate and manage your workflow state using explicit S7-based project handles.
+
+## Installation
+
+```r
+# Install dagriculture foundation first
+# devtools::install_github("sims1253/dagriculture")
+
+# Install BayesGrove from GitHub
+# devtools::install_github("mscholz/bayesgrove")
+```
+
+## Quickstart
+
+This minimal example shows how to initialize a project, build a simple graph, and execute it using the synchronous runner.
+
+```{r quickstart}
+library(bayesgrove)
+
+# Initialize a project directory
+project_path <- file.path(tempdir(), "bayesgrove-demo")
+unlink(project_path, recursive = TRUE)
+
+handle <- bg_init(project_path, project_name = "demo-project")
+
+# Register simple mock executors for the demo
+bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+  message("Loading data...")
+  return(data.frame(x = 1:10))
+})
+
+bg_register_node_kind(handle, "model", executor = function(node, inputs) {
+  message("Fitting model...")
+  return("mock_fit_result")
+})
+
+# Build the workflow graph
+n_data <- bg_add_node(handle, kind = "data", label = "Raw Data")
+n_model <- bg_add_node(handle, kind = "model", label = "Baseline Model", inputs = n_data)
+
+# Create a decision gate
+gate <- bg_add_gate(
+  project = handle,
+  from = n_data,
+  to = n_model,
+  prompt = "Does the data look ready for modeling?",
+  options = c("yes", "no")
+)
+
+# Observe that the graph is blocked by the pending gate
+plan <- bg_plan(handle)
+print(plan$blocked)
+print(bg_pending_gates(handle))
+
+# Answer the gate explicitly
+bg_answer_gate(
+  project = handle,
+  id = gate$id,
+  choice = "yes",
+  rationale = "No missing values found, ready to fit."
+)
+
+# Run the workflow
+bg_run(handle, mode = "sync")
+```
+
+## Vignettes
+
+For a detailed introduction, see our vignettes:
+- `vignette("getting-started", package = "bayesgrove")`
+
+## License
+
+MIT © Maximilian Scholz

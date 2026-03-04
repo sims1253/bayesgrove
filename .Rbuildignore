@@ -1,0 +1,12 @@
+^[.]?air[.]toml$
+^[.]?jarl[.]toml$
+^[.]github$
+^_pkgdown\.yml$
+^docs$
+^design$
+^pkgdown$
+^LICENSE\.md$
+^doc$
+^Meta$
+^README\.Rmd$
+^archive$
