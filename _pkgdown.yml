@@ -54,6 +54,9 @@ reference:
       - bg_compute_fingerprint
       - bg_status
       - bg_result
+      - bg_pause
+      - bg_resume
+      - bg_snapshot
   - title: Branching & Invalidation
     contents:
       - bg_branch
