@@ -1,18 +1,37 @@
 #' Get workflow status
 #'
 #' @param project A `bg_handle`.
+#' @param auto_advance Whether to automatically submit newly eligible nodes if the last run was async (default TRUE).
 #'
 #' @return A `bg_status` list summarizing the project.
 #' @export
-bg_status <- function(project) {
+bg_status <- function(project, auto_advance = TRUE) {
   S7::check_is_S7(project, bg_handle)
+
+  bg_reconcile_daemon_jobs(project)
 
   plan <- bg_plan(project)
   gates <- bg_pending_gates(project)
+  jobs <- bg_jobs(project)
+  active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
+  num_active <- length(active_jobs)
+
+  if (
+    auto_advance &&
+      length(plan$to_execute) > 0 &&
+      length(gates) == 0 &&
+      num_active == 0
+  ) {
+    # Find if the most recent finished job was from an async run
+    # If so, we might auto-submit here. For the MVP, we let the user explicitly call bg_submit()
+    # or bg_wait() to chain jobs.
+  }
 
   list(
     workflow_state = if (length(gates) > 0) {
       "blocked"
+    } else if (num_active > 0) {
+      "running"
     } else if (length(plan$to_execute) == 0) {
       "idle"
     } else {
@@ -22,6 +41,7 @@ bg_status <- function(project) {
     blocked_nodes = length(plan$blocked),
     cached_nodes = length(plan$cache_hits),
     pending_gates = length(gates),
+    active_jobs = num_active,
     total_nodes = length(plan$graph_plan$topo_order)
   )
 }

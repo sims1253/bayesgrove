@@ -1,5 +1,6 @@
 #' Check if an artifact exists in cache
 #' @keywords internal
+#' @export
 bg_check_artifact <- function(project, fingerprint) {
   # Strip prefix for directory path
   hash <- sub("^sha256:", "", fingerprint)
@@ -20,6 +21,7 @@ bg_check_artifact <- function(project, fingerprint) {
 
 #' Store an artifact in cache
 #' @keywords internal
+#' @export
 bg_store_artifact <- function(project, node_id, fingerprint, result) {
   # Write object to temp file to get its hash
   tmp <- tempfile()
@@ -61,6 +63,7 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
 
 #' Fetch an artifact from cache
 #' @keywords internal
+#' @export
 bg_fetch_artifact <- function(project, ref) {
   if (!startsWith(ref, "cas:sha256:")) {
     cli::cli_abort("Invalid artifact ref format: {.val {ref}}")
@@ -200,17 +203,28 @@ bg_plan <- function(project, targets = NULL, mode = c("sync", "async")) {
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
 #' @param mode Execution mode: 'sync' or 'async'.
+#' @param backend For async mode, the backend to use ('auto', 'callr', 'mirai').
 #'
 #' @return A `bg_run_handle` list.
 #' @export
-bg_run <- function(project, targets = NULL, mode = c("sync", "async")) {
+bg_run <- function(
+  project,
+  targets = NULL,
+  mode = c("sync", "async"),
+  backend = c("auto", "callr", "mirai")
+) {
   mode <- match.arg(mode)
+  backend <- match.arg(backend)
   S7::check_is_S7(project, bg_handle)
 
   if (mode == "async") {
-    cli::cli_abort("Async mode not yet implemented for MVP Phase 1.")
+    return(bg_submit(
+      project,
+      targets = targets,
+      mode = "async",
+      backend = backend
+    ))
   }
-
   plan <- bg_plan(project, targets, mode = "sync")
   graph <- bg_read_graph(project)
 

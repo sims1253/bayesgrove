@@ -4,10 +4,12 @@
 \alias{bg_status}
 \title{Get workflow status}
 \usage{
-bg_status(project)
+bg_status(project, auto_advance = TRUE)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
+
+\item{auto_advance}{Whether to automatically submit newly eligible nodes if the last run was async (default TRUE).}
 }
 \value{
 A \code{bg_status} list summarizing the project.

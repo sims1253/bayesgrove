@@ -4,7 +4,12 @@
 \alias{bg_run}
 \title{Run a project workflow}
 \usage{
-bg_run(project, targets = NULL, mode = c("sync", "async"))
+bg_run(
+  project,
+  targets = NULL,
+  mode = c("sync", "async"),
+  backend = c("auto", "callr", "mirai")
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
@@ -12,6 +17,8 @@ bg_run(project, targets = NULL, mode = c("sync", "async"))
 \item{targets}{Optional character vector of target node IDs.}
 
 \item{mode}{Execution mode: 'sync' or 'async'.}
+
+\item{backend}{For async mode, the backend to use ('auto', 'callr', 'mirai').}
 }
 \value{
 A \code{bg_run_handle} list.

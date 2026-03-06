@@ -1,3 +1,13 @@
+# bayesgrove 0.2.0
+
+* **Phase 2 (Async Execution Layer) Implementation**
+* Added `bg_submit()`, `bg_wait()`, and `bg_cancel()` to orchestrate true non-blocking background execution of workflows.
+* Integrated `callr` and `mirai` execution backends for parallel asynchronous job dispatch.
+* Added `bg_jobs()` and JSONL logging (`.bayesgrove/runs/jobs.jsonl`) to durably track job status, start times, completion, and task progress.
+* Updated `bg_status()` to double as a reconciliation poller (`bg_reconcile_daemon_jobs()`), updating crashed or finished daemon jobs automatically without blocking the main session.
+* Ensured isolated failure containment: if a single background task fails, other independent node jobs continue executing.
+* Exported internal artifact/caching methods conditionally to support the standalone worker contract across process boundaries.
+
 # bayesgrove 0.1.1
 
 * **Greenfield Architecture Rewrite**: The `bayesguide` prototype has been renamed and completely rebuilt as `bayesgrove`.

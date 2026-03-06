@@ -5,6 +5,7 @@ NULL
 #' @param project A `bg_handle`
 #' @param graph A `dagri_graph`
 #' @keywords internal
+#' @export
 bg_commit_graph <- function(project, graph) {
   if (project@closed) {
     cli::cli_abort("Cannot commit to a closed project.")
@@ -45,6 +46,7 @@ bg_commit_graph <- function(project, graph) {
 #' Read project graph
 #' @param project A `bg_handle`
 #' @keywords internal
+#' @export
 bg_read_graph <- function(project) {
   bg_dir <- file.path(project@path, ".bayesgrove")
   graph_path <- file.path(bg_dir, "graph", "graph.json")

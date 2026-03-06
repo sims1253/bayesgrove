@@ -45,6 +45,11 @@ reference:
     contents:
       - bg_plan
       - bg_run
+      - bg_submit
+      - bg_wait
+      - bg_cancel
+      - bg_jobs
+      - bg_reconcile_daemon_jobs
       - bg_compute_fingerprint
       - bg_status
       - bg_result
