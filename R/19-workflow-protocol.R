@@ -339,11 +339,17 @@ bg_blocking_obligation_holds <- function(project, obligations) {
 
 #' Compute deterministic next workflow actions
 #'
+#' Evaluates the active workflow packs against a derived workflow context and
+#' returns obligations, suggested actions, and planner-ready external holds.
+#' Callers can pass `result$metadata$external_holds` into [bg_plan()] to keep
+#' workflow holds distinct from structural blockers.
+#'
 #' @param project A `bg_handle`.
 #' @param scope One of `project` or `branch`.
 #' @param branch_id Optional branch id, required for branch-scoped queries.
 #'
-#' @return A `bg_next_actions_result` plain-data list.
+#' @return A `bg_next_actions_result` plain-data list with `context`,
+#'   `obligations`, `actions`, and `metadata$external_holds`.
 #' @export
 bg_next_actions <- function(
   project,

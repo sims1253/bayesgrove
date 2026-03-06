@@ -1,3 +1,9 @@
+# bayesgrove 0.3.3
+
+* Added the first end-to-end workflow-hold integration slice covering summary persistence, workflow context construction, obligation derivation, planner hold propagation, and next-action clearing after fit replacement.
+* Updated `bg_plan()` to accept caller-supplied `external_holds`, surface `external_blocked`, and keep externally held nodes out of `to_execute` without conflating them with structural blockers.
+* Refreshed the README, getting-started vignette, and workflow-protocol reference docs to document summary-driven workflow guidance and planner holds.
+
 # bayesgrove 0.3.2
 
 * Added the first protocol-facing workflow APIs: `bg_workflow_packs()`, `bg_workflow_context()`, and deterministic `bg_next_actions()`.

@@ -4,12 +4,20 @@
 \alias{bg_plan}
 \title{Create an execution plan}
 \usage{
-bg_plan(project, targets = NULL, mode = c("sync", "async"))
+bg_plan(
+  project,
+  targets = NULL,
+  external_holds = list(),
+  mode = c("sync", "async")
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
 
 \item{targets}{Optional character vector of target node IDs.}
+
+\item{external_holds}{Optional named list mapping node ids to external hold
+reasons. Held nodes remain distinct from structural blockers.}
 
 \item{mode}{Execution mode: 'sync' or 'async'.}
 }

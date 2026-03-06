@@ -14,8 +14,12 @@ bg_next_actions(project, scope = c("project", "branch"), branch_id = NULL)
 \item{branch_id}{Optional branch id, required for branch-scoped queries.}
 }
 \value{
-A \code{bg_next_actions_result} plain-data list.
+A \code{bg_next_actions_result} plain-data list with \code{context},
+\code{obligations}, \code{actions}, and \code{metadata$external_holds}.
 }
 \description{
-Compute deterministic next workflow actions
+Evaluates the active workflow packs against a derived workflow context and
+returns obligations, suggested actions, and planner-ready external holds.
+Callers can pass \code{result$metadata$external_holds} into \code{\link[=bg_plan]{bg_plan()}} to keep
+workflow holds distinct from structural blockers.
 }

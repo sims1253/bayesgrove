@@ -1,519 +1,275 @@
 ---
-title: Readme
+title: BayesGrove
 ---
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 
 
-# Graph-Based Bayesian Workflow Prototype for R
+[![CRAN status](https://img.shields.io/cran/v/release/bayesgrove)](https://cran.r-project.org/package/bayesgrove)
+[![R-CMD-check](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check/badge.svg)](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-<!-- badges: start -->
-<!-- badges: end -->
+# BayesGrove: Graph-Based Bayesian Workflow Scaffolding
 
-This repository contains the current MVP package for an R-native, graph-based
-Bayesian workflow tool.
+**BayesGrove** is an R-native, graph-based Bayesian workflow orchestrator. It helps you structure, track, and document your Bayesian analyses by separating the execution DAG (directed acyclic graph) from a rich decision-provenance layer.
 
-What already works:
+Built on top of the pure functional graph engine [`dagriculture`](https://github.com/sims1253/dagriculture), BayesGrove provides explicit decision capture, branching, and reproducible workflow management.
 
-- project initialization with persistent on-disk state
-- typed graph construction for data, transforms, model specs, compile, fit,
-  diagnostic, and compare nodes
-- decision gates that block downstream execution until a rationale-backed choice
-  is recorded
-- workflow controls for pausing, resuming, branching, and backtracking
-- a minimal text REPL that wraps status, decisions, and workflow commands
-- deterministic fingerprints and content-addressed artifact storage
-- shareable workflow bundles with recipe-first data export
-- synchronous and async execution with `mirai`/`callr` backends plus a `cmdstanr` compile/fit split
-- best-effort cancellation for active async runs
-- extension registries for backends, env providers, suggesters, and custom node
-  kinds
-- direct comparison helpers and a basic radar plot for comparison summaries
-- manual cache garbage collection for orphaned artifacts
-- `bg_status()` summaries plus `bg_jobs()` inspection for async work and on-disk project footprint
-- automatic metadata reconciliation on `bg_open()` after interrupted writes or missing cache artifacts
-- workflow export plus focused walkthrough vignettes
+## Key Features
 
-The package name, public repository URL, and release/distribution path are
-still provisional, so this README avoids hard-coding installation instructions
-that are likely to change.
+- **Graph-Based Workflow**: Structure your analysis as a reproducible DAG of explicitly typed steps.
+- **Decision Tracking (Provenance)**: Record all modeling choices, rationales, and literature references using structural "gates".
+- **Deterministic Fingerprinting**: Precise, intent-based cache invalidation for partial reruns.
+- **Workflow Guidance**: Derive obligations and suggested next actions from lightweight summaries via `bg_next_actions()`.
+- **Reference-Semantic Handles**: Safely mutate and manage your workflow state using explicit S7-based project handles.
 
-## Current development workflow
+## Installation
 
-For now, use the package from the local source tree while the package name and
-publication target are still being finalized.
+```r
+# Install dagriculture foundation first
+# devtools::install_github("sims1253/dagriculture")
 
-- Build docs with `devtools::document()`
-- Run package checks with `devtools::check()`
-- Render this file with `devtools::build_readme()`
-- Build the site locally with `pkgdown::build_site()`
+# Install BayesGrove from GitHub
+# devtools::install_github("mscholz/bayesgrove")
+```
 
-## Minimal example
+## Quickstart
 
-This example shows the lightweight graph and decision-gate workflow that is
-already implemented.
+This minimal example shows how to initialize a project, build a simple graph, and execute it using the synchronous runner.
 
 
 ``` r
-project_root <- file.path(tempdir(), "bayesgrove-readme")
-unlink(project_root, recursive = TRUE, force = TRUE)
-dir.create(project_root, recursive = TRUE, showWarnings = FALSE)
+library(bayesgrove)
 
-bg_init(project_root, project_name = "readme-demo")
+# Initialize a project directory
+project_path <- file.path(tempdir(), "bayesgrove-demo")
+unlink(project_path, recursive = TRUE)
 
-source_node <- bg_add_node(
-  kind = "data_source",
-  label = "Raw value",
-  params = list(value = 10L)
+handle <- bg_init(
+  project_path,
+  project_name = "demo-project",
+  workflow_packs = list("bayesguide.default_bayesian")
 )
 
-transform_node <- bg_add_node(
-  kind = "transform",
-  label = "Increment value",
-  params = list(fn = function(x) x + 1L)
+# Register simple mock executors for the demo
+bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+  message("Loading data...")
+  return(data.frame(x = 1:10))
+})
+
+bg_register_node_kind(handle, "model", executor = function(node, inputs) {
+  message("Fitting model...")
+  list(
+    result = "mock_fit_result",
+    summaries = list(list(
+      summary_kind = "optimizer_diagnostics",
+      passed = FALSE,
+      severity = "warning",
+      metrics = list(max_gradient = 0.1)
+    ))
+  )
+})
+
+bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+  sprintf("Compared downstream result: %s", inputs[[1]])
+})
+
+# Build the workflow graph
+n_data <- bg_add_node(handle, kind = "data", label = "Raw Data")
+n_model <- bg_add_node(handle, kind = "model", label = "Baseline Model", inputs = n_data)
+n_compare <- bg_add_node(
+  handle,
+  kind = "compare",
+  label = "Diagnostic Comparison",
+  inputs = n_model
 )
 
-bg_connect(source_node, transform_node, edge_type = "data")
-#> [1] "edge_0001"
-gate_id <- bg_add_decision_gate(source_node, transform_node, "Allow increment?")
+# Create a decision gate
+gate <- bg_add_gate(
+  project = handle,
+  from = n_data,
+  to = n_model,
+  prompt = "Does the data look ready for modeling?",
+  options = c("yes", "no")
+)
 
-bg_run()
-#> $run_id
-#> [1] "run_20260302_213207_001"
+# Observe that the graph is blocked by the pending gate
+plan <- bg_plan(handle)
+print(plan$blocked)
+#> $node_252774bb
+#> [1] "gate"
 #> 
-#> $executed
-#>   node_0001   node_0002 
-#> "succeeded"     "ready"
-bg_pending_decisions()
-#> $gate_001
-#> $gate_001$gate_id
-#> [1] "gate_001"
+#> $node_e8780551
+#> [1] "upstream_blocked"
+print(bg_pending_gates(handle))
+#> $gate_4687b6e0
+#> $gate_4687b6e0$id
+#> [1] "gate_4687b6e0"
 #> 
-#> $gate_001$decision_id
-#> [1] "dec_00001"
+#> $gate_4687b6e0$edge_id
+#> [1] "edge_c7a8a3a9"
 #> 
-#> $gate_001$prompt
-#> [1] "Allow increment?"
+#> $gate_4687b6e0$prompt
+#> [1] "Does the data look ready for modeling?"
 #> 
-#> $gate_001$from_node
-#> [1] "node_0001"
+#> $gate_4687b6e0$options
+#> $gate_4687b6e0$options[[1]]
+#> [1] "yes"
 #> 
-#> $gate_001$to_node
-#> [1] "node_0002"
+#> $gate_4687b6e0$options[[2]]
+#> [1] "no"
 #> 
-#> $gate_001$status
-#> [1] "pending"
 #> 
-#> $gate_001$created_at
-#> [1] "2026-03-02T21:32:07Z"
+#> $gate_4687b6e0$refs
+#> list()
+#> 
+#> $gate_4687b6e0$created_at
+#> [1] "2026-03-06T19:36:06Z"
+#> 
+#> $gate_4687b6e0$metadata
+#> list()
+#> 
+#> $gate_4687b6e0$from_node_id
+#> [1] "node_3f96184c"
+#> 
+#> $gate_4687b6e0$to_node_id
+#> [1] "node_252774bb"
+#> 
+#> $gate_4687b6e0$from_label
+#> [1] "Raw Data"
+#> 
+#> $gate_4687b6e0$to_label
+#> [1] "Baseline Model"
 
-bg_decide(gate_id, choice = "yes", rationale = "Use the default branch.")
+# Answer the gate explicitly
+bg_answer_gate(
+  project = handle,
+  id = gate$id,
+  choice = "yes",
+  rationale = "No missing values found, ready to fit."
+)
 #> $decision_id
-#> [1] "dec_00001"
+#> [1] "dec_741125fa"
 #> 
-#> $timestamp
-#> [1] "2026-03-02T21:32:07Z"
+#> $scope
+#> [1] "gate:gate_4687b6e0"
 #> 
-#> $scope_node_id
-#> [1] "node_0001"
+#> $kind
+#> [1] "gate_answer"
 #> 
 #> $prompt
-#> [1] "Allow increment?"
+#> [1] "Does the data look ready for modeling?"
 #> 
 #> $choice
 #> [1] "yes"
 #> 
 #> $alternatives
-#> character(0)
+#> [1] "no"
 #> 
 #> $rationale
-#> [1] "Use the default branch."
+#> [1] "No missing values found, ready to fit."
 #> 
-#> $references
+#> $refs
 #> list()
+#> 
+#> $evidence
+#> character(0)
 #> 
 #> $status
-#> [1] "resolved"
-#> 
-#> $resolved_at
-#> [1] "2026-03-02T21:32:07Z"
-bg_run()
-#> $run_id
-#> [1] "run_20260302_213207_002"
-#> 
-#> $executed
-#>   node_0001   node_0002 
-#> "succeeded" "succeeded"
-bg_graph()
-```
-
-## REPL example
-
-The package now also includes a minimal text REPL wrapper. In non-interactive
-contexts, pass a scripted command vector.
-
-
-``` r
-repl_root <- file.path(tempdir(), "bayesgrove-readme-repl")
-unlink(repl_root, recursive = TRUE, force = TRUE)
-dir.create(repl_root, recursive = TRUE, showWarnings = FALSE)
-
-bg_init(repl_root, project_name = "repl-demo")
-bg_add_node(
-  kind = "data_source",
-  label = "Seed value",
-  params = list(value = 6L)
-)
-#> [1] "node_0001"
-
-repl_session <- bg_repl(
-  commands = c("status", "next", "quit"),
-  echo = FALSE
-)
-
-vapply(repl_session$history, `[[`, character(1), "action")
-#> [1] "status" "next"   "quit"
-bg_close()
-```
-
-## Workflow control example
-
-The package also now supports lightweight workflow controls on top of the
-current runtime.
-
-
-``` r
-workflow_root <- file.path(tempdir(), "bayesgrove-readme-workflow")
-unlink(workflow_root, recursive = TRUE, force = TRUE)
-dir.create(workflow_root, recursive = TRUE, showWarnings = FALSE)
-
-bg_init(workflow_root, project_name = "workflow-demo")
-
-seed_node <- bg_add_node(
-  kind = "data_source",
-  label = "Seed",
-  params = list(value = 4L)
-)
-
-base_node <- bg_add_node(
-  kind = "transform",
-  label = "Add one",
-  params = list(fn = function(x) x + 1L)
-)
-
-bg_connect(seed_node, base_node, edge_type = "data")
-#> [1] "edge_0001"
-
-pause_info <- bg_pause()
-pause_info$state
-#> [1] "paused"
-
-resume_info <- bg_resume()
-resume_info$workflow_state
-#> [1] "idle"
-
-branch_node <- bg_branch(base_node, label = "Multiply by ten")
-bg_set_params(branch_node, list(fn = function(x) x * 10L))
-#> $id
-#> [1] "node_0003"
-#> 
-#> $kind
-#> [1] "transform"
-#> 
-#> $label
-#> [1] "Multiply by ten"
-#> 
-#> $version
-#> [1] 1
-#> 
-#> $params
-#> $params$fn
-#> function (x) 
-#> x * 10L
-#> 
-#> 
-#> $depends_on
-#> character(0)
-#> 
-#> $execution_state
-#> [1] "stale"
-#> 
-#> $block_reason
-#> [1] "none"
-#> 
-#> $fingerprint
-#> NULL
-#> 
-#> $artifacts
-#> character(0)
+#> [1] "active"
 #> 
 #> $created_at
-#> [1] "2026-03-02T21:32:08Z"
+#> [1] "2026-03-06T19:36:06Z"
 #> 
-#> $updated_at
-#> [1] "2026-03-02T21:32:08Z"
-
-bg_run()
-#> $run_id
-#> [1] "run_20260302_213208_002"
+#> $supersedes
+#> NULL
 #> 
-#> $executed
-#>   node_0001   node_0002   node_0003 
-#> "succeeded" "succeeded" "succeeded"
-bg_backtrack(seed_node)
-bg_status(verbose = TRUE)$pending_decisions
+#> $metadata
+#> $metadata$gate_id
+#> [1] "gate_4687b6e0"
+#> 
+#> $metadata$edge_id
+#> [1] "edge_c7a8a3a9"
+#> 
+#> $metadata$from_node_id
+#> [1] "node_3f96184c"
+#> 
+#> $metadata$to_node_id
+#> [1] "node_252774bb"
+#> 
+#> $metadata$options
+#> [1] "yes" "no" 
+#> 
+#> $metadata$gate_metadata
 #> list()
+
+# Run the workflow
+bg_run(handle, targets = n_model, mode = "sync")
+#> Starting run "run_a963272f" with 1 node to execute.
+#> Running node "node_3f96184c"...
+#> Loading data...
+#> 
+#> Running node "node_252774bb"...
+#> Fitting model...
+#> $run_id
+#> [1] "run_a963272f"
+#> 
+#> $status
+#> [1] "succeeded"
+#> 
+#> $mode
+#> [1] "sync"
+#> 
+#> $targets
+#> [1] "node_252774bb"
+#> 
+#> $job_ids
+#> character(0)
+#> 
+#> $submitted_at
+#> [1] "2026-03-06T19:36:06Z"
+#> 
+#> $started_at
+#> [1] "2026-03-06T19:36:06Z"
+#> 
+#> $finished_at
+#> [1] "2026-03-06T19:36:06Z"
+#> 
+#> $summary
+#> $summary$total_executed
+#> [1] 2
+#> 
+#> 
+#> $error
+#> NULL
+#> 
+#> $metadata
+#> list()
+
+# Ask the workflow protocol what needs attention next
+next_steps <- bg_next_actions(handle)
+next_steps$obligations[[1]]$kind
+#> [1] "review_computation_validity"
+
+# Feed blocking obligations back into planning as external holds
+held_plan <- bg_plan(
+  handle,
+  external_holds = next_steps$metadata$external_holds
+)
+held_plan$external_blocked
+#> $node_e8780551
+#> [1] "Review computation validity"
 ```
 
-## Async execution example
+The final `bg_plan()` call is the key distinction: `held_plan$blocked` still
+contains only structural blockers, while `held_plan$external_blocked` captures
+workflow holds derived from summaries and obligations.
 
-Independent runnable nodes can also be submitted in the background with
-`bg_run(async = TRUE)`. `bg_status()` doubles as a lightweight poller and
-reconciles completed jobs, while `bg_jobs()` exposes per-job manifests and
-`bg_cancel()` can stop the active async queue. When `mirai` is available, it is
-the primary async backend; `callr` remains the fallback path.
+## Vignettes
 
+For a detailed introduction, see our vignettes:
+- `vignette("getting-started", package = "bayesgrove")`
 
-``` r
-async_root <- file.path(tempdir(), "bayesgrove-readme-async")
-unlink(async_root, recursive = TRUE, force = TRUE)
-dir.create(async_root, recursive = TRUE, showWarnings = FALSE)
+## License
 
-bg_init(
-  async_root,
-  project_name = "async-demo",
-  config = list(execution = list(max_workers = 2L))
-)
-
-bg_register_node_kind(
-  "delay_value_readme",
-  validator = function(project, node, node_id) TRUE,
-  executor = function(project, node, node_id, upstream_values, run_id, job_dir) {
-    Sys.sleep(bg_null_coalesce(node$params$delay, 0.05))
-    node$params$value
-  }
-)
-
-bg_add_node(
-  kind = "delay_value_readme",
-  label = "A",
-  params = list(value = 1L, delay = 0.1)
-)
-#> [1] "node_0001"
-bg_add_node(
-  kind = "delay_value_readme",
-  label = "B",
-  params = list(value = 2L, delay = 0.1)
-)
-#> [1] "node_0002"
-
-bg_run(async = TRUE, backend = "callr")
-#> $run_id
-#> [1] "run_20260302_213208_001"
-#> 
-#> $workflow_state
-#> [1] "executing"
-#> 
-#> $active_jobs
-#> [1] 2
-#> 
-#> $queued
-#> [1] 0
-Sys.sleep(0.05)
-bg_jobs()
-#> [[1]]
-#> [[1]]$job_id
-#> [1] "job_001_node_0001"
-#> 
-#> [[1]]$run_id
-#> [1] "run_20260302_213208_001"
-#> 
-#> [[1]]$node_id
-#> [1] "node_0001"
-#> 
-#> [[1]]$backend
-#> [1] "callr"
-#> 
-#> [[1]]$status
-#> [1] "running"
-#> 
-#> [[1]]$pid
-#> [1] 365561
-#> 
-#> [[1]]$started_at
-#> [1] "2026-03-02T21:32:08Z"
-#> 
-#> [[1]]$finished_at
-#> NULL
-#> 
-#> [[1]]$error
-#> NULL
-#> 
-#> [[1]]$artifact_ref
-#> NULL
-#> 
-#> [[1]]$progress
-#> [1] 0.05
-#> 
-#> [[1]]$stage
-#> [1] "running"
-#> 
-#> 
-#> [[2]]
-#> [[2]]$job_id
-#> [1] "job_002_node_0002"
-#> 
-#> [[2]]$run_id
-#> [1] "run_20260302_213208_001"
-#> 
-#> [[2]]$node_id
-#> [1] "node_0002"
-#> 
-#> [[2]]$backend
-#> [1] "callr"
-#> 
-#> [[2]]$status
-#> [1] "running"
-#> 
-#> [[2]]$pid
-#> [1] 365569
-#> 
-#> [[2]]$started_at
-#> [1] "2026-03-02T21:32:08Z"
-#> 
-#> [[2]]$finished_at
-#> NULL
-#> 
-#> [[2]]$error
-#> NULL
-#> 
-#> [[2]]$artifact_ref
-#> NULL
-#> 
-#> [[2]]$progress
-#> [1] 0.05
-#> 
-#> [[2]]$stage
-#> [1] "running"
-bg_cancel(wait = TRUE)
-#> $run_id
-#> [1] "run_20260302_213208_001"
-#> 
-#> $cancelled_jobs
-#> [1] 2
-#> 
-#> $cancelled_nodes
-#> [1] "node_0001" "node_0002"
-#> 
-#> $workflow_state
-#> [1] "idle"
-bg_status()
-#> $project_name
-#> [1] "async-demo"
-#> 
-#> $root
-#> [1] "/tmp/RtmpVSH9Zb/bayesgrove-readme-async"
-#> 
-#> $workflow_state
-#> [1] "idle"
-#> 
-#> $last_checkpoint_id
-#> NULL
-#> 
-#> $node_count
-#> [1] 2
-#> 
-#> $edge_count
-#> [1] 0
-#> 
-#> $states
-#> $states$ready
-#> [1] 2
-#> 
-#> 
-#> $job_states
-#> $job_states$cancelled
-#> [1] 2
-#> 
-#> 
-#> $active_jobs
-#> [1] 0
-#> 
-#> $storage
-#> $storage$bytes
-#> [1] 7640
-#> 
-#> $storage$megabytes
-#> [1] 0.007286072
-#> 
-#> $storage$warn_threshold_mb
-#> [1] 500
-#> 
-#> $storage$near_threshold
-#> [1] FALSE
-bg_close()
-```
-
-## Bundle export example
-
-The package can also export a shareable bundle of the current graph state,
-decision log, artifacts, and recipe metadata.
-
-
-``` r
-bundle_root <- file.path(tempdir(), "bayesgrove-readme-bundle")
-unlink(bundle_root, recursive = TRUE, force = TRUE)
-dir.create(bundle_root, recursive = TRUE, showWarnings = FALSE)
-
-bg_init(bundle_root, project_name = "bundle-demo")
-
-bundle_source <- bg_add_node(
-  kind = "data_source",
-  label = "Value",
-  params = list(value = 8L)
-)
-
-bundle_step <- bg_add_node(
-  kind = "transform",
-  label = "Square",
-  params = list(fn = function(x) x * x)
-)
-
-bg_connect(bundle_source, bundle_step, edge_type = "data")
-#> [1] "edge_0001"
-bg_run()
-#> $run_id
-#> [1] "run_20260302_213209_001"
-#> 
-#> $executed
-#>   node_0001   node_0002 
-#> "succeeded" "succeeded"
-
-bundle_dir <- bg_bundle(include_data = "recipe_only")
-basename(bundle_dir)
-#> [1] "bundle_20260302_213209_1206"
-```
-
-## More complete walkthroughs
-
-For longer examples:
-
-- `phase-one-walkthrough` covers the phase-0/phase-1 MVP, including
-  Stan fitting, diagnostics, direct or graph-based LOO comparison,
-  and bundle export
-- `workflow-controls` covers pause/resume, branching, backtracking, and local
-  async execution, plus a lightweight bundle handoff
-- `ui-case-study` is a UI-first REPL walkthrough that shows a guided session
-  transcript from decision gate to pause/resume and backtrack
-
-## Extensibility
-
-The package now also has early extension hooks:
-
-- `bg_register_backend()` for alternative model backends
-- `bg_register_env_provider()` for custom environment manifests
-- `bg_register_suggester()` for suggestion providers
-- `bg_register_node_kind()` for custom executable node kinds
-
-Those registries are intentionally minimal, but they are already wired into the
-current runtime.
+MIT © Maximilian Scholz

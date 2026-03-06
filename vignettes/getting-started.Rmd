@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 1. **The Execution Graph (DAG)**: Built using `dagriculture`, representing the step-by-step transformations and computations (data cleaning, compiling, fitting, diagnosing).
 2. **The Decision Layer**: An annotation overlay that captures the provenance of your choices (why did you change the prior? why did you filter outliers?) via decision gates.
 
-This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process.
+This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process. The current package also includes a lightweight workflow-protocol layer: executors can emit summaries, `bg_next_actions()` can derive obligations and suggested actions from those summaries, and callers can pass the resulting planner holds into `bg_plan()` without conflating them with structural graph blockers.
 
 ## 1. Initializing a Project
 
@@ -33,7 +33,11 @@ library(bayesgrove)
 project_root <- file.path(tempdir(), "bg-quickstart")
 unlink(project_root, recursive = TRUE)
 
-handle <- bg_init(path = project_root, project_name = "Quickstart")
+handle <- bg_init(
+  path = project_root,
+  project_name = "Quickstart",
+  workflow_packs = list("bayesguide.default_bayesian")
+)
 print(handle)
 ```
 
@@ -52,7 +56,19 @@ bg_register_node_kind(handle, "data", executor = function(node, inputs) {
 bg_register_node_kind(handle, "model", executor = function(node, inputs) {
   # Extract the upstream data
   raw_data <- inputs[[1]]
-  sprintf("Fitted model on %d rows of data!", nrow(raw_data))
+  list(
+    result = sprintf("Fitted model on %d rows of data!", nrow(raw_data)),
+    summaries = list(list(
+      summary_kind = "optimizer_diagnostics",
+      passed = FALSE,
+      severity = "warning",
+      metrics = list(max_gradient = 0.1)
+    ))
+  )
+})
+
+bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+  sprintf("Compared downstream artifact: %s", inputs[[1]])
 })
 ```
 
@@ -61,6 +77,12 @@ Now we build the graph:
 ```{r build_graph}
 n_data <- bg_add_node(handle, kind = "data", label = "Simulated Dataset")
 n_model <- bg_add_node(handle, kind = "model", label = "Baseline Fit", inputs = n_data)
+n_compare <- bg_add_node(
+  handle,
+  kind = "compare",
+  label = "Comparison Step",
+  inputs = n_model
+)
 ```
 
 ## 3. Decision Gates
@@ -98,15 +120,47 @@ bg_answer_gate(
 
 ## 4. Execution
 
-With the gate resolved, the path is unblocked. We can now run the workflow.
+With the gate resolved, the path is unblocked. We now run only through the fit
+node so that we can inspect the workflow protocol before scheduling downstream
+comparison work.
 
 ```{r execution}
-run_result <- bg_run(handle, mode = "sync")
+run_result <- bg_run(handle, targets = n_model, mode = "sync")
 print(run_result$summary)
 ```
 
-And that's it! You've successfully built a reproducible execution graph, gated it with an explicit decision, and executed it synchronously. 
+## 5. Workflow Guidance And External Holds
+
+The fit executor emitted a lightweight warning summary. `bg_next_actions()`
+turns that evidence into an obligation plus a matching next action:
+
+```{r protocol}
+next_steps <- bg_next_actions(handle)
+next_steps$obligations[[1]]$kind
+next_steps$actions[[1]]$payload$decision_type
+```
+
+Those blocking obligations can be passed back into planning as explicit
+external holds. This keeps workflow guidance distinct from structural graph
+state:
+
+```{r external_holds}
+held_plan <- bg_plan(
+  handle,
+  external_holds = next_steps$metadata$external_holds
+)
+
+held_plan$blocked
+held_plan$external_blocked
+```
+
+In this example, the downstream comparison node is not structurally broken. It
+is simply being held until the warning summary is reviewed or replaced by a
+clean rerun.
 
 ## Next Steps
 
-As you advance, you can use `bg_branch()` to create alternative model paths (e.g., trying a different prior without losing your baseline), or use `bg_invalidate()` to safely supersede outdated results.
+As you advance, you can use `bg_branch()` to create alternative model paths
+(e.g., trying a different prior without losing your baseline), `bg_invalidate()`
+to supersede outdated results, and `bg_next_actions()` plus `bg_plan(...,
+external_holds = ...)` to keep workflow obligations visible during scheduling.

@@ -27,6 +27,7 @@ Built on top of the pure functional graph engine [`dagriculture`](https://github
 - **Graph-Based Workflow**: Structure your analysis as a reproducible DAG of explicitly typed steps.
 - **Decision Tracking (Provenance)**: Record all modeling choices, rationales, and literature references using structural "gates".
 - **Deterministic Fingerprinting**: Precise, intent-based cache invalidation for partial reruns.
+- **Workflow Guidance**: Derive obligations and suggested next actions from lightweight summaries via `bg_next_actions()`.
 - **Reference-Semantic Handles**: Safely mutate and manage your workflow state using explicit S7-based project handles.
 
 ## Installation
@@ -50,7 +51,11 @@ library(bayesgrove)
 project_path <- file.path(tempdir(), "bayesgrove-demo")
 unlink(project_path, recursive = TRUE)
 
-handle <- bg_init(project_path, project_name = "demo-project")
+handle <- bg_init(
+  project_path,
+  project_name = "demo-project",
+  workflow_packs = list("bayesguide.default_bayesian")
+)
 
 # Register simple mock executors for the demo
 bg_register_node_kind(handle, "data", executor = function(node, inputs) {
@@ -60,12 +65,30 @@ bg_register_node_kind(handle, "data", executor = function(node, inputs) {
 
 bg_register_node_kind(handle, "model", executor = function(node, inputs) {
   message("Fitting model...")
-  return("mock_fit_result")
+  list(
+    result = "mock_fit_result",
+    summaries = list(list(
+      summary_kind = "optimizer_diagnostics",
+      passed = FALSE,
+      severity = "warning",
+      metrics = list(max_gradient = 0.1)
+    ))
+  )
+})
+
+bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+  sprintf("Compared downstream result: %s", inputs[[1]])
 })
 
 # Build the workflow graph
 n_data <- bg_add_node(handle, kind = "data", label = "Raw Data")
 n_model <- bg_add_node(handle, kind = "model", label = "Baseline Model", inputs = n_data)
+n_compare <- bg_add_node(
+  handle,
+  kind = "compare",
+  label = "Diagnostic Comparison",
+  inputs = n_model
+)
 
 # Create a decision gate
 gate <- bg_add_gate(
@@ -90,8 +113,23 @@ bg_answer_gate(
 )
 
 # Run the workflow
-bg_run(handle, mode = "sync")
+bg_run(handle, targets = n_model, mode = "sync")
+
+# Ask the workflow protocol what needs attention next
+next_steps <- bg_next_actions(handle)
+next_steps$obligations[[1]]$kind
+
+# Feed blocking obligations back into planning as external holds
+held_plan <- bg_plan(
+  handle,
+  external_holds = next_steps$metadata$external_holds
+)
+held_plan$external_blocked
 ```
+
+The final `bg_plan()` call is the key distinction: `held_plan$blocked` still
+contains only structural blockers, while `held_plan$external_blocked` captures
+workflow holds derived from summaries and obligations.
 
 ## Vignettes
 

@@ -142,17 +142,28 @@ bg_normalize_execution_result <- function(result) {
 #'
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
+#' @param external_holds Optional named list mapping node ids to external hold
+#'   reasons. Held nodes remain distinct from structural blockers.
 #' @param mode Execution mode: 'sync' or 'async'.
 #'
 #' @return A `bg_run_plan` list.
 #' @export
-bg_plan <- function(project, targets = NULL, mode = c("sync", "async")) {
+bg_plan <- function(
+  project,
+  targets = NULL,
+  external_holds = list(),
+  mode = c("sync", "async")
+) {
   mode <- match.arg(mode)
   S7::check_is_S7(project, bg_handle)
 
   graph <- bg_read_graph(project)
   graph <- dagriculture::dagri_recompute_state(graph)
-  graph_plan <- dagriculture::dagri_plan(graph, targets)
+  graph_plan <- dagriculture::dagri_plan(
+    graph,
+    targets,
+    external_holds = external_holds
+  )
 
   # Forward propagate fingerprints to determine cache hits
   fingerprints <- list()
@@ -234,13 +245,18 @@ bg_plan <- function(project, targets = NULL, mode = c("sync", "async")) {
     }
   }
 
-  to_execute <- intersect(missing_results, graph_plan$eligible)
+  held_nodes <- names(graph_plan$external_blocked %||% list())
+  to_execute <- setdiff(
+    intersect(missing_results, graph_plan$eligible),
+    held_nodes
+  )
 
   list(
     graph_plan = graph_plan,
     targets = targets %||% graph_plan$targets,
     eligible = graph_plan$eligible,
     blocked = graph_plan$blocked,
+    external_blocked = graph_plan$external_blocked,
     cache_hits = cache_hits,
     missing_results = missing_results,
     to_execute = to_execute,

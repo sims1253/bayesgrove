@@ -20,6 +20,11 @@ This vignette shows how the current BayesGrove MVP can support a small
 simulation study with explicit workflow state, branching, cached execution, and
 decision logging.
 
+It focuses on structural branching and explicit gate decisions. Summary-driven
+workflow guidance is also available in the current package through
+`bg_next_actions()` and `bg_plan(..., external_holds = ...)`, but that layer is
+kept out of this vignette so the simulation example stays focused.
+
 It is intentionally modest relative to the full vision for the package. The
 workflow is inspired by the simulation-oriented perspective of
 <https://arxiv.org/abs/2408.06504> and
