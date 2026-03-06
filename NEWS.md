@@ -1,3 +1,11 @@
+# bayesgrove 0.3.0
+
+* Added persisted workflow context plumbing for branch registries, goal registries, and summary logs.
+* Added branch-aware scope resolution plus `bg_build_workflow_context()` with structural, execution, and evidence partitions.
+* Added summary freshness/staleness derivation from predicted fingerprints and active artifact-index bindings.
+* Updated branching, goal-setting, invalidation, and execution paths to persist workflow summaries and registries without reopening heavy artifacts.
+* Simplified async workers to always load the installed package, removing source-tree autodetection from background execution.
+
 # bayesgrove 0.2.0
 
 * **Phase 2 (Async Execution Layer) Implementation**
@@ -13,6 +21,6 @@
 * **Greenfield Architecture Rewrite**: The `bayesguide` prototype has been renamed and completely rebuilt as `bayesgrove`.
 * **Graph Engine Split**: The pure graph execution logic has been moved to a separate, foundational package called `dagriculture` (`sims1253/dagriculture`), ensuring strict separation of computation from Bayesian semantics.
 * **S7 Object Model**: Core workflow states are now backed by explicit reference-semantic `S7` classes (like `bg_handle`).
-* **Decision Provenance Layer**: Decisions, alternative choices, and rationales are now explicitly captured through semantic "gates" layered over the topological graph. 
+* **Decision Provenance Layer**: Decisions, alternative choices, and rationales are now explicitly captured through semantic "gates" layered over the topological graph.
 * **Deterministic Fingerprinting & Caching**: Cache keys are now built from upstream fingerprints and structured backend signatures, creating a robust local Content-Addressed Storage (CAS) mechanism.
 * **Async & Plugin Foundations**: Synchronous runtime execution (`bg_run()`) and backend registry (`bg_register_backend()`) are now fully operational, including the initial `cmdstanr` MVP plugin.

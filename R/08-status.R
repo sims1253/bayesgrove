@@ -15,12 +15,14 @@ bg_status <- function(project, auto_advance = TRUE) {
   jobs <- bg_jobs(project)
   active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
   num_active <- length(active_jobs)
+  paused <- bg_workflow_paused(project)
 
   if (
     auto_advance &&
       length(plan$to_execute) > 0 &&
       length(gates) == 0 &&
-      num_active == 0
+      num_active == 0 &&
+      !paused
   ) {
     # Find if the most recent finished job was from an async run
     # If so, we might auto-submit here. For the MVP, we let the user explicitly call bg_submit()
@@ -28,10 +30,12 @@ bg_status <- function(project, auto_advance = TRUE) {
   }
 
   list(
-    workflow_state = if (length(gates) > 0) {
-      "blocked"
-    } else if (num_active > 0) {
+    workflow_state = if (num_active > 0) {
       "running"
+    } else if (paused) {
+      "paused"
+    } else if (length(gates) > 0) {
+      "blocked"
     } else if (length(plan$to_execute) == 0) {
       "idle"
     } else {
@@ -42,7 +46,8 @@ bg_status <- function(project, auto_advance = TRUE) {
     cached_nodes = length(plan$cache_hits),
     pending_gates = length(gates),
     active_jobs = num_active,
-    total_nodes = length(plan$graph_plan$topo_order)
+    total_nodes = length(plan$graph_plan$topo_order),
+    paused = paused
   )
 }
 
@@ -67,7 +72,7 @@ bg_result <- function(project, node_id) {
   }
 
   fp <- plan$metadata$fingerprints[[node_id]]
-  ref <- bg_check_artifact(project, fp)
+  ref <- bg_check_artifact(project, fp, node_id = node_id)
 
   bg_fetch_artifact(project, ref)
 }

@@ -24,19 +24,8 @@ bg_commit_graph <- function(project, graph) {
 
   bg_dir <- file.path(project@path, ".bayesgrove")
   graph_path <- file.path(bg_dir, "graph", "graph.json")
-  temp_path <- paste0(graph_path, ".tmp")
 
-  # Write to temp file
-  jsonlite::write_json(
-    unclass(graph),
-    temp_path,
-    auto_unbox = TRUE,
-    pretty = TRUE,
-    force = TRUE
-  )
-
-  # Atomic rename
-  file.rename(temp_path, graph_path)
+  bg_write_json_atomic(graph_path, unclass(graph), sort_keys = FALSE)
 
   # Update handle
   project@loaded_graph_version <- graph$version

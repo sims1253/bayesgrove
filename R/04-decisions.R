@@ -96,6 +96,10 @@ bg_answer_gate <- function(
   }
 
   gate_spec <- specs[[id]]
+  gate_spec$options <- as.character(unlist(
+    gate_spec$options,
+    use.names = FALSE
+  ))
   if (!choice %in% gate_spec$options) {
     cli::cli_abort(
       "Choice {.val {choice}} is not one of the valid options: {.val {gate_spec$options}}"
@@ -108,6 +112,8 @@ bg_answer_gate <- function(
     cli::cli_abort("Gate {.val {id}} not found in graph.")
   }
 
+  edge <- graph$edges[[gate_spec$edge_id]]
+
   graph <- dagriculture::dagri_resolve_gate(graph, id)
   bg_commit_graph(project, graph)
 
@@ -117,10 +123,19 @@ bg_answer_gate <- function(
     scope = paste0("gate:", id),
     prompt = gate_spec$prompt,
     choice = choice,
+    alternatives = as.character(setdiff(gate_spec$options, choice)),
     rationale = rationale,
-    refs = refs,
+    refs = refs %||% gate_spec$refs,
     evidence = evidence,
-    kind = "gate_answer"
+    kind = "gate_answer",
+    metadata = list(
+      gate_id = id,
+      edge_id = gate_spec$edge_id,
+      from_node_id = edge$from,
+      to_node_id = edge$to,
+      options = gate_spec$options,
+      gate_metadata = gate_spec$metadata %||% list()
+    )
   )
 
   # Remove from pending gate specs
@@ -169,10 +184,12 @@ bg_pending_gates <- function(project) {
 #' @param scope Scope of the decision (e.g. 'project', 'node:node_id').
 #' @param prompt The question/context.
 #' @param choice The decision made.
+#' @param alternatives Optional alternatives not chosen.
 #' @param rationale Required rationale string.
 #' @param refs Optional references.
 #' @param evidence Optional node IDs providing evidence.
 #' @param kind Decision kind, typically "note" or "gate_answer".
+#' @param metadata Optional decision metadata.
 #'
 #' @return The generated `bg_decision_record`.
 #' @export
@@ -181,10 +198,12 @@ bg_record_decision <- function(
   scope,
   prompt,
   choice,
+  alternatives = NULL,
   rationale = NULL,
   refs = NULL,
   evidence = NULL,
-  kind = "note"
+  kind = "note",
+  metadata = list()
 ) {
   S7::check_is_S7(project, bg_handle)
 
@@ -200,13 +219,14 @@ bg_record_decision <- function(
     kind = kind,
     prompt = prompt,
     choice = choice,
+    alternatives = alternatives %||% character(),
     rationale = rationale,
     refs = refs %||% list(),
     evidence = evidence %||% character(),
     status = "active",
     created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     supersedes = NULL,
-    metadata = list()
+    metadata = metadata %||% list()
   )
 
   log_path <- file.path(
@@ -215,12 +235,39 @@ bg_record_decision <- function(
     "decisions",
     "decisions.jsonl"
   )
-  json_line <- jsonlite::toJSON(record, auto_unbox = TRUE)
-
-  # Append to JSONL log
-  cat(paste0(json_line, "\n"), file = log_path, append = TRUE)
+  bg_append_jsonl(log_path, record)
+  bg_update_goal_registry_from_decision(project, record)
 
   record
+}
+
+bg_read_decisions <- function(project) {
+  log_path <- file.path(
+    project@path,
+    ".bayesgrove",
+    "decisions",
+    "decisions.jsonl"
+  )
+
+  if (!file.exists(log_path)) {
+    return(list())
+  }
+
+  lines <- readLines(log_path, warn = FALSE)
+  if (length(lines) == 0) {
+    return(list())
+  }
+
+  decisions <- list()
+  for (line in lines) {
+    if (trimws(line) == "") {
+      next
+    }
+    record <- jsonlite::fromJSON(line, simplifyVector = FALSE)
+    decisions[[record$decision_id]] <- record
+  }
+
+  decisions
 }
 
 # --- IO Helpers for Gate Specs ---

@@ -9,10 +9,12 @@ bg_record_decision(
   scope,
   prompt,
   choice,
+  alternatives = NULL,
   rationale = NULL,
   refs = NULL,
   evidence = NULL,
-  kind = "note"
+  kind = "note",
+  metadata = list()
 )
 }
 \arguments{
@@ -24,6 +26,8 @@ bg_record_decision(
 
 \item{choice}{The decision made.}
 
+\item{alternatives}{Optional alternatives not chosen.}
+
 \item{rationale}{Required rationale string.}
 
 \item{refs}{Optional references.}
@@ -31,6 +35,8 @@ bg_record_decision(
 \item{evidence}{Optional node IDs providing evidence.}
 
 \item{kind}{Decision kind, typically "note" or "gate_answer".}
+
+\item{metadata}{Optional decision metadata.}
 }
 \value{
 The generated \code{bg_decision_record}.

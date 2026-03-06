@@ -1,22 +1,23 @@
 #' Check if an artifact exists in cache
 #' @keywords internal
 #' @export
-bg_check_artifact <- function(project, fingerprint) {
-  # Strip prefix for directory path
-  hash <- sub("^sha256:", "", fingerprint)
-  prefix <- substr(hash, 1, 2)
-
-  index_path <- file.path(project@path, ".bayesgrove", "cache", "index.json")
-  if (!file.exists(index_path)) {
+bg_check_artifact <- function(project, fingerprint, node_id = NULL) {
+  idx <- bg_read_artifact_index(project)
+  entry <- idx[[fingerprint]] %||% NULL
+  if (is.null(entry) || !identical(entry$status, "active")) {
     return(NULL)
   }
 
-  idx <- jsonlite::read_json(index_path)
-  if (!is.null(idx[[fingerprint]])) {
-    return(idx[[fingerprint]]$artifact_ref)
+  if (!is.null(node_id)) {
+    binding <- bg_artifact_binding(idx, fingerprint, node_id)
+    if (!is.null(binding)) {
+      return(
+        if (identical(binding$status, "active")) entry$artifact_ref else NULL
+      )
+    }
   }
 
-  NULL
+  entry$artifact_ref
 }
 
 #' Store an artifact in cache
@@ -42,21 +43,30 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
     unlink(tmp)
   }
 
-  # Update index
-  index_path <- file.path(project@path, ".bayesgrove", "cache", "index.json")
-  if (file.exists(index_path)) {
-    idx <- jsonlite::read_json(index_path)
-  } else {
-    idx <- list()
-  }
-
-  idx[[fingerprint]] <- list(
-    artifact_ref = artifact_ref,
-    node_id = node_id,
-    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  idx <- bg_read_artifact_index(project)
+  superseded <- bg_supersede_artifacts_for_node(
+    idx,
+    node_id,
+    except_fingerprint = fingerprint
   )
+  idx <- superseded$index
 
-  jsonlite::write_json(idx, index_path, auto_unbox = TRUE, pretty = TRUE)
+  entry <- bg_normalize_artifact_entry(
+    fingerprint,
+    idx[[fingerprint]] %||% list()
+  )
+  created_at <- entry$created_at %||% bg_now_timestamp()
+  entry$artifact_ref <- artifact_ref
+  entry$created_at <- created_at
+  entry$bindings[[node_id]] <- list(
+    node_id = node_id,
+    status = "active",
+    updated_at = bg_now_timestamp()
+  )
+  entry <- bg_refresh_artifact_entry(entry)
+  idx[[fingerprint]] <- entry
+
+  bg_write_artifact_index(project, idx)
 
   artifact_ref
 }
@@ -88,6 +98,46 @@ bg_fetch_artifact <- function(project, ref) {
   readRDS(path)
 }
 
+bg_read_artifact_index <- function(project) {
+  index_path <- file.path(project@path, ".bayesgrove", "cache", "index.json")
+  if (!file.exists(index_path)) {
+    return(list())
+  }
+
+  bg_normalize_artifact_index(jsonlite::read_json(
+    index_path,
+    simplifyVector = FALSE
+  ))
+}
+
+#' @keywords internal
+bg_normalize_execution_result <- function(result) {
+  if (!is.list(result) || is.null(names(result))) {
+    return(list(artifact = result, summaries = list(), metadata = list()))
+  }
+
+  if (!"summaries" %in% names(result)) {
+    return(list(artifact = result, summaries = list(), metadata = list()))
+  }
+
+  artifact <- result$result %||% result$artifact %||% result$value
+  if (is.null(artifact) && !is.null(result$artifacts)) {
+    artifact <- result$artifacts
+  }
+  if (is.null(artifact)) {
+    artifact <- result[setdiff(
+      names(result),
+      c("summaries", "metadata", "status", "execution_fingerprint")
+    )]
+  }
+
+  list(
+    artifact = artifact,
+    summaries = result$summaries %||% list(),
+    metadata = result$metadata %||% list()
+  )
+}
+
 #' Create an execution plan
 #'
 #' @param project A `bg_handle`.
@@ -112,27 +162,35 @@ bg_plan <- function(project, targets = NULL, mode = c("sync", "async")) {
   input_bindings <- list()
 
   for (node_id in graph_plan$topo_order) {
-    # If the node is blocked or a pending gate blocks it, we stop planning this path
-    # (dagri_plan eligible only contains ready unblocked nodes, but we iterate topo_order)
-
-    # We only compute for structurally eligible, but what about downstream of cache hits?
-    # A structurally blocked node (e.g. missing upstream) is not eligible.
-    # But if upstream was a cache hit, the node IS eligible.
-
-    # Let's collect upstream fingerprints and artifact bindings
     upstream_edges <- Filter(function(e) e$to == node_id, graph$edges)
     up_fps <- list()
+    can_fingerprint <- TRUE
+
+    for (e in upstream_edges) {
+      if (is.null(fingerprints[[e$from]])) {
+        can_fingerprint <- FALSE
+        break
+      }
+      up_fps[[e$from]] <- fingerprints[[e$from]]
+    }
+
+    if (!can_fingerprint) {
+      next
+    }
+
+    fingerprints[[node_id]] <- bg_compute_fingerprint(
+      project,
+      node_id,
+      upstream_fingerprints = up_fps
+    )
+  }
+
+  for (node_id in graph_plan$topo_order) {
+    upstream_edges <- Filter(function(e) e$to == node_id, graph$edges)
     node_bindings <- list()
     can_plan <- TRUE
 
     for (e in upstream_edges) {
-      if (is.null(fingerprints[[e$from]])) {
-        can_plan <- FALSE
-        break
-      }
-      up_fps[[e$from]] <- fingerprints[[e$from]]
-
-      # We also need to bind the actual artifacts for execution
       if (is.null(artifact_refs[[e$from]])) {
         can_plan <- FALSE
         break
@@ -150,22 +208,18 @@ bg_plan <- function(project, targets = NULL, mode = c("sync", "async")) {
       next
     }
 
-    # Compute fingerprint
-    fp <- bg_compute_fingerprint(
-      project,
-      node_id,
-      upstream_fingerprints = up_fps
-    )
+    fp <- fingerprints[[node_id]] %||% NULL
+    if (is.null(fp)) {
+      next
+    }
     fingerprints[[node_id]] <- fp
 
     input_bindings[[node_id]] <- node_bindings
 
-    # Check cache
-    # In the MVP we check our dummy metadata cache
     cached_ref <- if (!is.null(project@metadata$mvp_cache[[fp]])) {
       project@metadata$mvp_cache[[fp]]
     } else {
-      bg_check_artifact(project, fp)
+      bg_check_artifact(project, fp, node_id = node_id)
     }
 
     if (!is.null(cached_ref)) {
@@ -217,6 +271,12 @@ bg_run <- function(
   backend <- match.arg(backend)
   S7::check_is_S7(project, bg_handle)
 
+  if (bg_workflow_paused(project)) {
+    cli::cli_abort(
+      "Workflow is paused. Call {.fn bg_resume} before dispatching new work."
+    )
+  }
+
   if (mode == "async") {
     return(bg_submit(
       project,
@@ -263,7 +323,7 @@ bg_run <- function(
     }
 
     # Execute
-    result <- tryCatch(
+    execution <- tryCatch(
       {
         kind_reg$executor(node, resolved_inputs)
       },
@@ -273,15 +333,18 @@ bg_run <- function(
         )
       }
     )
+    normalized <- bg_normalize_execution_result(execution)
 
-    # Store artifact
     fp <- plan$metadata$fingerprints[[node_id]]
-    ref <- bg_store_artifact(project, node_id, fp, result)
+    ref <- bg_store_artifact(project, node_id, fp, normalized$artifact)
+    bg_write_summaries(
+      project = project,
+      node_id = node_id,
+      artifact_ref = ref,
+      execution_fingerprint = fp,
+      summaries = normalized$summaries
+    )
 
-    # We must replan to update downstream artifact bindings in case they become eligible
-    # For a pure synchronous loop, updating our local artifact_refs would suffice,
-    # but replanning is safer for branching.
-    # For MVP, we'll just re-call bg_plan to get the next step.
     plan <- bg_plan(project, targets, mode = "sync")
   }
 

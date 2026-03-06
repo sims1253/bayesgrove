@@ -4,7 +4,7 @@
 \alias{bg_check_artifact}
 \title{Check if an artifact exists in cache}
 \usage{
-bg_check_artifact(project, fingerprint)
+bg_check_artifact(project, fingerprint, node_id = NULL)
 }
 \description{
 Check if an artifact exists in cache

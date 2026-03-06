@@ -1,6 +1,14 @@
 describe("Async Execution Layer", {
+  skip_if_async_package_unavailable <- function() {
+    installed_path <- tryCatch(find.package("bayesgrove"), error = function(e) "")
+    if (!nzchar(installed_path)) {
+      skip("async worker tests require an installed bayesgrove package")
+    }
+  }
+
   it("can submit jobs via callr and wait for completion", {
     skip_if_not_installed("callr")
+    skip_if_async_package_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -73,6 +81,7 @@ describe("Async Execution Layer", {
 
   it("handles failed async jobs gracefully", {
     skip_if_not_installed("callr")
+    skip_if_async_package_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -101,6 +110,7 @@ describe("Async Execution Layer", {
 
   it("can submit jobs via mirai and wait for completion", {
     skip_if_not_installed("mirai")
+    skip_if_async_package_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -135,6 +145,7 @@ describe("Async Execution Layer", {
 
   it("can cancel jobs", {
     skip_if_not_installed("callr")
+    skip_if_async_package_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)

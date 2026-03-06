@@ -53,6 +53,13 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   }
 
   bg_commit_graph(project, graph)
+  bg_register_branch(
+    project = project,
+    root_node_id = new_id,
+    source_node_id = node_id,
+    label = new_label,
+    metadata = list(copy_params = isTRUE(copy_params))
+  )
 
   new_id
 }
@@ -80,14 +87,33 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
   if (recursive) {
     descendants <- dagriculture::dagri_descendants(graph, node_id)
     nodes_to_invalidate <- unique(c(nodes_to_invalidate, descendants))
+  } else {
+    cli::cli_warn(
+      paste0(
+        "Non-recursive invalidation leaves downstream cache entries untouched. ",
+        "Use {.code recursive = TRUE} for the consistency-preserving path."
+      )
+    )
   }
 
-  # For the MVP, invalidation modifies the cache/artifact index, which we haven't
-  # fully implemented. We'll simulate the index update here or stub it out until
-  # the storage/artifact layer is implemented.
+  index <- bg_read_artifact_index(project)
+  changed <- FALSE
+  superseded_count <- 0L
 
-  # TODO: implement bg_artifact_index invalidation
-  cli::cli_inform("Invalidating {length(nodes_to_invalidate)} node{?s}...")
+  for (target_id in nodes_to_invalidate) {
+    updated <- bg_supersede_artifacts_for_node(index, target_id)
+    index <- updated$index
+    changed <- changed || updated$changed
+    superseded_count <- superseded_count + updated$count
+  }
+
+  if (changed) {
+    bg_write_artifact_index(project, index)
+  }
+
+  cli::cli_inform(
+    "Invalidated {length(nodes_to_invalidate)} node{?s}; superseded {superseded_count} cache binding{?s}."
+  )
 
   invisible(TRUE)
 }

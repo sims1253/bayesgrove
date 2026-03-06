@@ -28,7 +28,8 @@ bg_init <- function(path = ".", project_name = NULL, config = list()) {
     "runs",
     "cache",
     "checkpoints",
-    "env"
+    "env",
+    "workflow"
   )
 
   for (d in dirs) {
@@ -67,6 +68,26 @@ bg_init <- function(path = ".", project_name = NULL, config = list()) {
     config_path,
     auto_unbox = TRUE,
     pretty = TRUE
+  )
+
+  init_handle <- bg_handle(
+    project_id = project_id,
+    path = path,
+    readonly = FALSE,
+    closed = FALSE,
+    loaded_graph_version = graph$version,
+    lock_token = NA_character_,
+    registries = list(),
+    metadata = list()
+  )
+
+  bg_write_branch_registry(
+    project = init_handle,
+    registry = bg_empty_branch_registry(init_handle)
+  )
+  bg_write_goal_registry(
+    project = init_handle,
+    registry = bg_empty_goal_registry(init_handle)
   )
 
   # Return handle

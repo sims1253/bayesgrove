@@ -17,6 +17,12 @@ bg_submit <- function(
   backend <- match.arg(backend)
   S7::check_is_S7(project, bg_handle)
 
+  if (bg_workflow_paused(project)) {
+    cli::cli_abort(
+      "Workflow is paused. Call {.fn bg_resume} before dispatching new work."
+    )
+  }
+
   if (backend == "auto") {
     backend <- if (requireNamespace("mirai", quietly = TRUE)) {
       "mirai"
@@ -27,6 +33,43 @@ bg_submit <- function(
 
   if (backend == "callr" && !requireNamespace("callr", quietly = TRUE)) {
     cli::cli_abort("The {.pkg callr} package is required for async execution.")
+  }
+
+  if (backend == "mirai" && !requireNamespace("mirai", quietly = TRUE)) {
+    cli::cli_abort("The {.pkg mirai} package is required for async execution.")
+  }
+
+  if (backend == "mirai") {
+    mirai_ready <- tryCatch(
+      {
+        if (mirai::status(.compute = project@project_id)$daemons == 0) {
+          mirai::daemons(1, .compute = project@project_id)
+        }
+        TRUE
+      },
+      error = function(e) {
+        e
+      }
+    )
+
+    if (inherits(mirai_ready, "error")) {
+      if (requireNamespace("callr", quietly = TRUE)) {
+        cli::cli_inform(
+          paste0(
+            "Unable to start the {.pkg mirai} daemon pool in this environment ",
+            "({mirai_ready$message}). Falling back to {.pkg callr}."
+          )
+        )
+        backend <- "callr"
+      } else {
+        cli::cli_abort(
+          paste0(
+            "Unable to start the {.pkg mirai} daemon pool in this environment: ",
+            mirai_ready$message
+          )
+        )
+      }
+    }
   }
 
   plan <- bg_plan(project, targets, mode = "async")
@@ -56,19 +99,6 @@ bg_submit <- function(
       started_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     )
 
-    dev_path <- NULL
-    try(
-      {
-        d <- getwd()
-        if (file.exists(file.path(d, "DESCRIPTION"))) {
-          dev_path <- d
-        } else if (file.exists(file.path(d, "..", "..", "DESCRIPTION"))) {
-          dev_path <- normalizePath(file.path(d, "..", ".."))
-        }
-      },
-      silent = TRUE
-    )
-
     # We pass the absolute path and identifiers to the background worker
     worker_args <- list(
       project_path = normalizePath(project@path),
@@ -77,13 +107,19 @@ bg_submit <- function(
       fingerprint = plan$metadata$fingerprints[[node_id]],
       input_bindings = plan$input_bindings[[node_id]],
       lib_paths = .libPaths(),
-      dev_path = dev_path,
       registries = project@registries
     )
 
     if (backend == "callr") {
       p <- callr::r_bg(
-        func = bg_worker_process,
+        func = function(args) {
+          if (!is.null(args$lib_paths)) {
+            .libPaths(args$lib_paths)
+          }
+          library(bayesgrove)
+          fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
+          fn(args)
+        },
         args = list(args = worker_args),
         stdout = file.path(
           project@path,
@@ -105,22 +141,12 @@ bg_submit <- function(
       }
       project@metadata$callr_procs[[job$job_id]] <- p
     } else if (backend == "mirai") {
-      # Ensure mirai daemon pool is running for this project
-      if (mirai::status(.compute = project@project_id)$daemons == 0) {
-        # Default to 1 worker for MVP, configurable later
-        mirai::daemons(1, .compute = project@project_id)
-      }
-
       m <- mirai::mirai(
         {
           if (!is.null(args$lib_paths)) {
             .libPaths(args$lib_paths)
           }
-          if (!is.null(args$dev_path)) {
-            pkgload::load_all(args$dev_path, quiet = TRUE)
-          } else {
-            library(bayesgrove)
-          }
+          library(bayesgrove)
           fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
           fn(args)
         },
@@ -265,11 +291,7 @@ bg_worker_process <- function(args) {
     .libPaths(args$lib_paths)
   }
 
-  if (!is.null(args$dev_path)) {
-    pkgload::load_all(args$dev_path, quiet = TRUE)
-  } else {
-    library(bayesgrove)
-  }
+  library(bayesgrove)
 
   cat(
     "Package loaded\n",
@@ -316,7 +338,8 @@ bg_worker_process <- function(args) {
   # Execute
   result <- tryCatch(
     {
-      res <- kind_reg$executor(node, resolved_inputs)
+      execution <- kind_reg$executor(node, resolved_inputs)
+      normalized <- bg_normalize_execution_result(execution)
       cat(
         "Executor finished\n",
         file = file.path(
@@ -333,7 +356,14 @@ bg_worker_process <- function(args) {
         handle,
         args$node_id,
         args$fingerprint,
-        res
+        normalized$artifact
+      )
+      bg_write_summaries(
+        project = handle,
+        node_id = args$node_id,
+        artifact_ref = ref,
+        execution_fingerprint = args$fingerprint,
+        summaries = normalized$summaries
       )
       cat(
         "Artifact stored\n",
@@ -365,7 +395,7 @@ bg_worker_process <- function(args) {
         append = TRUE
       )
 
-      res
+      normalized$artifact
     },
     error = function(e) {
       cat(
