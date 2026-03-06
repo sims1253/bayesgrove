@@ -35,7 +35,7 @@ bg_bundle <- function(
   bg_reconcile_daemon_jobs(project)
   snap <- bg_snapshot(project)
 
-  tmp_dir <- file.path(tempdir(), "bg_bundle_staging")
+  tmp_dir <- tempfile("bgb")
   unlink(tmp_dir, recursive = TRUE)
   dir.create(tmp_dir, recursive = TRUE)
 
@@ -128,11 +128,12 @@ bg_bundle <- function(
   orig_wd <- setwd(tmp_dir)
   on.exit(setwd(orig_wd))
 
+  tar_bin <- Sys.which("tar")
   utils::tar(
     path,
     files = basename(project@path),
     compression = "gzip",
-    tar = "internal"
+    tar = if (nzchar(tar_bin)) tar_bin else "internal"
   )
 
   cli::cli_inform("Project bundled successfully: {.path {path}}")
@@ -156,6 +157,7 @@ bg_export_report <- function(project, out_file = "workflow_report.md") {
     sprintf("# BayesGrove Workflow Report: %s", snap$name),
     sprintf("**Project ID:** `%s`", snap$project_id),
     sprintf("**Generated:** %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+    sprintf("**Workflow state:** `%s`", snap$status$workflow_state),
     "",
     "## Graph Topology"
   )
@@ -184,36 +186,78 @@ bg_export_report <- function(project, out_file = "workflow_report.md") {
 
   # Add Decisions
   lines <- c(lines, "", "## Decision Provenance")
-  if (length(snap$jobs) == 0) {
-    lines <- c(lines, "No decisions recorded.") # using jobs is wrong here, fixing below
-  }
-
-  # Read decision log explicitly
-  log_path <- file.path(
-    project@path,
-    ".bayesgrove",
-    "decisions",
-    "decisions.jsonl"
-  )
-  if (file.exists(log_path)) {
-    raw_logs <- readLines(log_path, warn = FALSE)
-    for (line in raw_logs) {
-      if (trimws(line) == "") {
-        next
-      }
-      dec <- jsonlite::fromJSON(line, simplifyVector = FALSE)
-
+  if (length(snap$decisions) == 0) {
+    lines <- c(lines, "No decisions recorded.")
+  } else {
+    for (dec in snap$decisions) {
       lines <- c(
         lines,
         sprintf("### %s", dec$prompt),
         sprintf("- **Choice:** %s", dec$choice),
         sprintf("- **Rationale:** %s", dec$rationale),
-        sprintf("- **Timestamp:** %s", dec$created_at),
-        ""
+        sprintf("- **Scope:** %s", dec$scope),
+        sprintf("- **Timestamp:** %s", dec$created_at)
+      )
+
+      if (length(dec$alternatives) > 0) {
+        lines <- c(
+          lines,
+          sprintf(
+            "- **Alternatives considered:** %s",
+            paste(dec$alternatives, collapse = ", ")
+          )
+        )
+      }
+
+      if (length(dec$evidence) > 0) {
+        lines <- c(
+          lines,
+          sprintf(
+            "- **Evidence nodes:** %s",
+            paste(dec$evidence, collapse = ", ")
+          )
+        )
+      }
+
+      if (length(dec$refs) > 0) {
+        lines <- c(
+          lines,
+          sprintf("- **References:** %s", bg_format_report_refs(dec$refs))
+        )
+      }
+
+      if (!is.null(dec$metadata$edge_id)) {
+        lines <- c(
+          lines,
+          sprintf(
+            "- **Gate edge:** %s (%s -> %s)",
+            dec$metadata$edge_id,
+            dec$metadata$from_node_id,
+            dec$metadata$to_node_id
+          )
+        )
+      }
+
+      lines <- c(lines, "")
+    }
+  }
+
+  lines <- c(lines, "## Artifact Index")
+  if (length(snap$artifacts) == 0) {
+    lines <- c(lines, "No cached artifacts recorded.")
+  } else {
+    for (fp in names(snap$artifacts)) {
+      meta <- snap$artifacts[[fp]]
+      lines <- c(
+        lines,
+        sprintf(
+          "- `%s`: %s (%s)",
+          meta$node_id,
+          fp,
+          meta$artifact_ref
+        )
       )
     }
-  } else {
-    lines <- c(lines, "No decisions recorded.")
   }
 
   out_path <- file.path(project@path, out_file)
@@ -221,4 +265,30 @@ bg_export_report <- function(project, out_file = "workflow_report.md") {
 
   cli::cli_inform("Report exported to {.path {out_path}}")
   out_path
+}
+
+bg_format_report_refs <- function(refs) {
+  rendered <- vapply(
+    refs,
+    function(ref) {
+      if (is.list(ref)) {
+        paste(
+          Filter(
+            nzchar,
+            c(
+              ref$citekey %||% "",
+              ref$note %||% "",
+              ref$url %||% ""
+            )
+          ),
+          collapse = " | "
+        )
+      } else {
+        as.character(ref)
+      }
+    },
+    character(1)
+  )
+
+  paste(rendered, collapse = "; ")
 }

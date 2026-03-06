@@ -14,16 +14,13 @@ bg_snapshot <- function(project) {
   # Ensure background jobs are reconciled first
   bg_reconcile_daemon_jobs(project)
 
-  config_path <- file.path(project@path, ".bayesgrove", "config.json")
-  config <- if (file.exists(config_path)) {
-    jsonlite::read_json(config_path)
-  } else {
-    list()
-  }
+  config <- bg_read_project_config(project)
 
   graph <- bg_read_graph(project)
   jobs <- bg_jobs(project)
   gates <- bg_pending_gates(project)
+  decisions <- bg_read_decisions(project)
+  artifacts <- bg_read_artifact_index(project)
   status <- bg_status(project, auto_advance = FALSE)
 
   list(
@@ -38,7 +35,9 @@ bg_snapshot <- function(project) {
         list()
       }
     }),
+    decisions = decisions,
     gate_specs = gates,
+    artifacts = artifacts,
     jobs = jobs,
     config = config,
     status = status
@@ -59,11 +58,7 @@ bg_pause <- function(project) {
   # For MVP, pausing is implemented by modifying the config to disable auto_advance
   # and adding a 'paused' marker to the project state.
   config_path <- file.path(project@path, ".bayesgrove", "config.json")
-  config <- if (file.exists(config_path)) {
-    jsonlite::read_json(config_path)
-  } else {
-    list()
-  }
+  config <- bg_read_project_config(project)
 
   config$paused <- TRUE
 
@@ -72,7 +67,7 @@ bg_pause <- function(project) {
     "Workflow paused. Currently running background jobs will continue to run, but no new jobs will be dispatched."
   )
 
-  invisible(TRUE)
+  invisible(list(state = "paused", workflow_state = "paused"))
 }
 
 #' Resume the workflow execution
@@ -86,11 +81,7 @@ bg_resume <- function(project) {
   S7::check_is_S7(project, bg_handle)
 
   config_path <- file.path(project@path, ".bayesgrove", "config.json")
-  config <- if (file.exists(config_path)) {
-    jsonlite::read_json(config_path)
-  } else {
-    list()
-  }
+  config <- bg_read_project_config(project)
 
   config$paused <- FALSE
 
@@ -99,5 +90,18 @@ bg_resume <- function(project) {
 
   # Optionally trigger an auto-advance here if desired
   # For now, rely on user calling bg_submit() or bg_run()
-  invisible(TRUE)
+  invisible(bg_status(project, auto_advance = FALSE))
+}
+
+bg_read_project_config <- function(project) {
+  config_path <- file.path(project@path, ".bayesgrove", "config.json")
+  if (!file.exists(config_path)) {
+    return(list())
+  }
+
+  jsonlite::read_json(config_path)
+}
+
+bg_workflow_paused <- function(project) {
+  isTRUE(bg_read_project_config(project)$paused)
 }

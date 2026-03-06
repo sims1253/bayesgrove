@@ -10,7 +10,7 @@ describe("Handoff and Export Layer", {
 
     bg_run(handle, mode = "sync")
 
-    bundle_path <- bg_bundle(handle)
+    bundle_path <- expect_no_warning(bg_bundle(handle))
     expect_true(file.exists(bundle_path))
     expect_true(grepl("\\.tar\\.gz$", bundle_path))
 
@@ -49,9 +49,16 @@ describe("Handoff and Export Layer", {
       from = n_data,
       to = n_fit,
       prompt = "OK?",
-      options = c("yes", "no")
+      options = c("yes", "no"),
+      refs = list(list(citekey = "demo2026", note = "Workflow checkpoint"))
     )
-    bg_answer_gate(handle, gate$id, "yes", rationale = "Because it is good")
+    bg_answer_gate(
+      handle,
+      gate$id,
+      "yes",
+      rationale = "Because it is good",
+      evidence = n_data
+    )
 
     report_path <- bg_export_report(handle, out_file = "my_report.md")
     expect_true(file.exists(report_path))
@@ -64,5 +71,8 @@ describe("Handoff and Export Layer", {
 
     # Check for decisions
     expect_true(any(grepl("Because it is good", content, fixed = TRUE)))
+    expect_true(any(grepl("Gate edge", content, fixed = TRUE)))
+    expect_true(any(grepl("Evidence nodes", content, fixed = TRUE)))
+    expect_true(any(grepl("References", content, fixed = TRUE)))
   })
 })

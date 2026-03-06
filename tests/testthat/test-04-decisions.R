@@ -82,6 +82,9 @@ describe("Decision and Gate Layer", {
 
     expect_equal(decision$choice, "yes")
     expect_equal(decision$rationale, "looks good")
+    expect_equal(decision$alternatives, "no")
+    expect_equal(decision$metadata$from_node_id, n1)
+    expect_equal(decision$metadata$to_node_id, n2)
 
     # Pending list should be empty
     pending <- bg_pending_gates(handle)

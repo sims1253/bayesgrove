@@ -1,3 +1,8 @@
+# bayesgrove 0.3.1
+
+* Expanded project snapshots, handoff bundles, and workflow reports to include decisions, artifacts, richer pause/resume state, and gate context.
+* Added a simulation-study vignette and pkgdown article navigation for the workflow example.
+
 # bayesgrove 0.3.0
 
 * Added persisted workflow context plumbing for branch registries, goal registries, and summary logs.
