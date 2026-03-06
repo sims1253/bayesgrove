@@ -818,6 +818,8 @@ bg_build_workflow_context <- function(project, scope = "project") {
     vector("list", length(scope_node_ids)),
     scope_node_ids
   )
+  available_artifacts <- list()
+  missing_artifacts <- character()
   for (node_id in scope_node_ids) {
     fp <- predicted_fingerprints[[node_id]] %||% NULL
     binding <- if (!is.null(fp)) {
@@ -830,6 +832,15 @@ bg_build_workflow_context <- function(project, scope = "project") {
       has_active_artifact = !is.null(binding),
       state = graph$nodes[[node_id]]$state
     )
+    if (!is.null(binding)) {
+      available_artifacts[[node_id]] <- list(
+        node_id = node_id,
+        artifact_ref = binding,
+        execution_fingerprint = fp
+      )
+    } else if (!is.null(fp)) {
+      missing_artifacts <- c(missing_artifacts, node_id)
+    }
   }
 
   summaries <- bg_read_summaries(
@@ -854,7 +865,12 @@ bg_build_workflow_context <- function(project, scope = "project") {
     function(edge) edge$to %in% scope_node_ids,
     graph$edges
   ))
-  active_packs <- bg_read_project_config(project)$workflow_packs %||% list()
+  active_packs <- lapply(bg_workflow_packs(project), function(pack) {
+    list(
+      pack_id = pack$pack_id,
+      version = pack$version
+    )
+  })
   branch_record <- if (startsWith(scope, "branch:")) {
     bg_read_branch_registry(project)$branches[[scope]] %||% NULL
   } else {
@@ -878,6 +894,10 @@ bg_build_workflow_context <- function(project, scope = "project") {
       failed_nodes = character()
     ),
     evidence = list(
+      artifacts = list(
+        available = available_artifacts,
+        missing = unique(missing_artifacts)
+      ),
       summaries = summaries,
       decisions = decisions
     ),

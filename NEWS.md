@@ -1,3 +1,10 @@
+# bayesgrove 0.3.2
+
+* Added the first protocol-facing workflow APIs: `bg_workflow_packs()`, `bg_workflow_context()`, and deterministic `bg_next_actions()`.
+* Added workflow-pack provider dispatch plus canonical runtime-side ID generation and deduplication for obligations and curated actions.
+* Added a minimal built-in default Bayesian pack that emits branch goal-setting and computation-review workflow guidance from decisions and summaries.
+* Extended workflow context evidence with lightweight artifact availability and added tests for empty packs, obligations, actions, deduplication, and project-vs-branch scope behavior.
+
 # bayesgrove 0.3.1
 
 * Expanded project snapshots, handoff bundles, and workflow reports to include decisions, artifacts, richer pause/resume state, and gate context.

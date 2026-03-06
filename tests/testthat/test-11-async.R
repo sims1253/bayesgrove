@@ -1,6 +1,8 @@
 describe("Async Execution Layer", {
   skip_if_async_package_unavailable <- function() {
-    installed_path <- tryCatch(find.package("bayesgrove"), error = function(e) "")
+    installed_path <- tryCatch(find.package("bayesgrove"), error = function(e) {
+      ""
+    })
     if (!nzchar(installed_path)) {
       skip("async worker tests require an installed bayesgrove package")
     }

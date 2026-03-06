@@ -4,7 +4,12 @@
 \alias{bg_init}
 \title{Initialize a BayesGrove Project}
 \usage{
-bg_init(path = ".", project_name = NULL, config = list())
+bg_init(
+  path = ".",
+  project_name = NULL,
+  config = list(),
+  workflow_packs = NULL
+)
 }
 \arguments{
 \item{path}{Directory path where the project should be initialized.}
@@ -12,6 +17,9 @@ bg_init(path = ".", project_name = NULL, config = list())
 \item{project_name}{Optional. Name of the project. Defaults to the basename of the path.}
 
 \item{config}{Optional. Configuration list.}
+
+\item{workflow_packs}{Optional list of active workflow packs. In v1 these are
+fixed at project initialization.}
 }
 \value{
 A \code{bg_handle} representing the open project.

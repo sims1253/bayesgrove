@@ -5,10 +5,17 @@
 #' @param path Directory path where the project should be initialized.
 #' @param project_name Optional. Name of the project. Defaults to the basename of the path.
 #' @param config Optional. Configuration list.
+#' @param workflow_packs Optional list of active workflow packs. In v1 these are
+#'   fixed at project initialization.
 #'
 #' @return A `bg_handle` representing the open project.
 #' @export
-bg_init <- function(path = ".", project_name = NULL, config = list()) {
+bg_init <- function(
+  path = ".",
+  project_name = NULL,
+  config = list(),
+  workflow_packs = NULL
+) {
   path <- normalizePath(path, mustWork = FALSE)
 
   if (is.null(project_name)) {
@@ -54,11 +61,20 @@ bg_init <- function(path = ".", project_name = NULL, config = list()) {
 
   # Save config
   config_path <- file.path(bg_dir, "config.json")
+  configured_workflow_packs <- workflow_packs
+  if (is.null(configured_workflow_packs)) {
+    configured_workflow_packs <- config$workflow_packs %||%
+      bg_default_workflow_pack_refs()
+  }
+  config$workflow_packs <- NULL
   full_config <- utils::modifyList(
     list(
       project_id = project_id,
       project_name = project_name,
-      version = "0.1.0"
+      version = "0.1.0",
+      workflow_packs = bg_normalize_workflow_pack_refs(
+        configured_workflow_packs
+      )
     ),
     config
   )
