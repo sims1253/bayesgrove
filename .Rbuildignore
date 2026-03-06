@@ -10,3 +10,5 @@
 ^Meta$
 ^README\.Rmd$
 ^archive$
+^\.lintr$
+^README\.html$

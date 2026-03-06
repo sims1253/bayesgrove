@@ -59,7 +59,10 @@ bg_result <- function(project, node_id) {
   plan <- bg_plan(project)
   if (!node_id %in% plan$cache_hits) {
     cli::cli_abort(
-      "No cached result available for node {.val {node_id}}. It may need to be run, or its upstream dependencies changed."
+      paste0(
+        "No cached result available for node {.val {node_id}}. ",
+        "It may need to be run, or its upstream dependencies changed."
+      )
     )
   }
 
