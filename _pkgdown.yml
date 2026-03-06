@@ -72,6 +72,8 @@ reference:
       - bg_register_backend
       - bg_register_node_kind
       - bg_cmdstanr_plugin
+      - bg_brms_plugin
+      - bg_diagnostics_plugin
 
 articles:
   - title: "All Vignettes"

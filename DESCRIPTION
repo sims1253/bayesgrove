@@ -31,6 +31,8 @@ Suggests:
     knitr,
     mirai,
     pkgload,
+    posterior,
+    loo,
     rmarkdown,
     rstan,
     testthat (>= 3.0.0),

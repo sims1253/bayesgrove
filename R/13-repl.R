@@ -19,8 +19,7 @@ bg_repl <- function(project) {
     st <- bg_status(project, auto_advance = FALSE)
 
     # Context-aware prompt color
-    prompt_str <- switch(
-      st$workflow_state,
+    prompt_str <- switch(st$workflow_state,
       "idle" = cli::col_blue("bayesgrove (idle)> "),
       "ready" = cli::col_green("bayesgrove (ready)> "),
       "running" = cli::col_yellow("bayesgrove (running)> "),
@@ -45,8 +44,7 @@ bg_repl <- function(project) {
 
     tryCatch(
       {
-        switch(
-          cmd,
+        switch(cmd,
           "help" = {
             cli::cli_inform(c(
               "Commands:",
