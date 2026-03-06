@@ -43,6 +43,7 @@ reference:
       - bg_remove_node
   - title: Execution & Orchestration
     contents:
+      - bg_repl
       - bg_plan
       - bg_run
       - bg_submit
