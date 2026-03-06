@@ -52,6 +52,7 @@ describe("Fingerprint Properties (Developer Tests)", {
     forall(gen.list(gen_val, from = 2, to = 2), function(vals) {
       # Ensure they are actually different
       if (vals[[1]] == vals[[2]]) {
+        expect_true(TRUE)
         return(TRUE)
       }
 
