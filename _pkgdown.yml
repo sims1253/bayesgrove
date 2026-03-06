@@ -57,6 +57,8 @@ reference:
       - bg_pause
       - bg_resume
       - bg_snapshot
+      - bg_bundle
+      - bg_export_report
   - title: Branching & Invalidation
     contents:
       - bg_branch

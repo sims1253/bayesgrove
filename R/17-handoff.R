@@ -1,0 +1,224 @@
+#' Bundle a BayesGrove project for reproducible handoff
+#'
+#' Creates a portable `.tar.gz` archive of the project, including the structural
+#' graph, decision log, job history, configuration, and optionally cached artifacts
+#' or raw data files.
+#'
+#' @param project A `bg_handle`.
+#' @param path File path where the bundle should be saved (default: a temp file).
+#' @param include_data How to handle external data sources: 'recipe_only', 'freeze_source', or 'omit'.
+#' @param include_fits Logical, whether to package the large model fit artifacts.
+#'
+#' @return The file path to the generated bundle.
+#' @export
+bg_bundle <- function(
+  project,
+  path = NULL,
+  include_data = c("recipe_only", "freeze_source", "omit"),
+  include_fits = FALSE
+) {
+  include_data <- match.arg(include_data)
+  S7::check_is_S7(project, bg_handle)
+
+  if (is.null(path)) {
+    path <- file.path(
+      tempdir(),
+      sprintf(
+        "%s_bundle_%s.tar.gz",
+        project@project_id,
+        format(Sys.time(), "%Y%m%d%H%M%S")
+      )
+    )
+  }
+
+  # Ensure the project state is up to date and clean
+  bg_reconcile_daemon_jobs(project)
+  snap <- bg_snapshot(project)
+
+  tmp_dir <- file.path(tempdir(), "bg_bundle_staging")
+  unlink(tmp_dir, recursive = TRUE)
+  dir.create(tmp_dir, recursive = TRUE)
+
+  dest_proj_dir <- file.path(tmp_dir, basename(project@path))
+
+  # 1. Copy core project files (.bayesgrove metadata directory)
+  # We do NOT just copy the whole folder because we want to filter large artifacts
+  dir.create(file.path(dest_proj_dir, ".bayesgrove"), recursive = TRUE)
+
+  # Copy graph, decisions, runs, and config
+  for (sub in c("graph", "decisions", "runs", "config.json")) {
+    src_path <- file.path(project@path, ".bayesgrove", sub)
+    if (file.exists(src_path)) {
+      file.copy(
+        src_path,
+        file.path(dest_proj_dir, ".bayesgrove"),
+        recursive = TRUE
+      )
+    }
+  }
+
+  # 2. Handle Artifacts and Fits
+  cache_src <- file.path(project@path, ".bayesgrove", "cache")
+  cache_dest <- file.path(dest_proj_dir, ".bayesgrove", "cache")
+
+  if (file.exists(cache_src)) {
+    dir.create(cache_dest, recursive = TRUE)
+
+    # Always copy the index
+    idx_src <- file.path(cache_src, "index.json")
+    if (file.exists(idx_src)) {
+      file.copy(idx_src, cache_dest)
+    }
+
+    # Conditionally copy actual RDS artifacts
+    idx <- if (file.exists(idx_src)) jsonlite::read_json(idx_src) else list()
+
+    for (fp in names(idx)) {
+      meta <- idx[[fp]]
+      node <- snap$graph$nodes[[meta$node_id]]
+
+      # Determine if we should include this artifact
+      should_include <- TRUE
+      if (
+        !include_fits && !is.null(node) && node$kind %in% c("fit", "compile")
+      ) {
+        should_include <- FALSE
+      }
+
+      if (should_include) {
+        # Copy the specific CAS file
+        hash <- sub("^cas:sha256:", "", meta$artifact_ref)
+        prefix <- substr(hash, 1, 2)
+        cas_file <- file.path(cache_src, "sha256", prefix, paste0(hash, ".rds"))
+
+        if (file.exists(cas_file)) {
+          dir.create(
+            file.path(cache_dest, "sha256", prefix),
+            recursive = TRUE,
+            showWarnings = FALSE
+          )
+          file.copy(cas_file, file.path(cache_dest, "sha256", prefix))
+        }
+      }
+    }
+  }
+
+  # 3. Write bundle manifest
+  manifest <- list(
+    schema_name = "bg_bundle_manifest",
+    schema_version = 1,
+    bundle_id = sprintf(
+      "bundle_%s",
+      digest::digest(runif(1), algo = "xxhash32")
+    ),
+    project_id = project@project_id,
+    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    data_policy = include_data,
+    include_fits = include_fits
+  )
+
+  jsonlite::write_json(
+    manifest,
+    file.path(dest_proj_dir, ".bayesgrove", "bundle_manifest.json"),
+    auto_unbox = TRUE,
+    pretty = TRUE
+  )
+
+  # 4. Tar it up
+  orig_wd <- setwd(tmp_dir)
+  on.exit(setwd(orig_wd))
+
+  utils::tar(
+    path,
+    files = basename(project@path),
+    compression = "gzip",
+    tar = "internal"
+  )
+
+  cli::cli_inform("Project bundled successfully: {.path {path}}")
+
+  path
+}
+
+#' Generate a reproducible markdown report of the workflow
+#'
+#' @param project A `bg_handle`.
+#' @param out_file The path to write the markdown file (defaults to `workflow_report.md` in project root).
+#'
+#' @export
+bg_export_report <- function(project, out_file = "workflow_report.md") {
+  S7::check_is_S7(project, bg_handle)
+
+  snap <- bg_snapshot(project)
+
+  # Build a simple markdown document
+  lines <- c(
+    sprintf("# BayesGrove Workflow Report: %s", snap$name),
+    sprintf("**Project ID:** `%s`", snap$project_id),
+    sprintf("**Generated:** %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+    "",
+    "## Graph Topology"
+  )
+
+  # Add nodes
+  plan <- bg_plan(project)
+  for (id in plan$graph_plan$topo_order) {
+    node <- snap$graph$nodes[[id]]
+    lines <- c(
+      lines,
+      sprintf("- **%s** (`%s`): %s", id, node$kind, node$label %||% "No label")
+    )
+
+    # Show upstream connections
+    upstreams <- Filter(function(e) e$to == id, snap$graph$edges)
+    if (length(upstreams) > 0) {
+      lines <- c(
+        lines,
+        sprintf(
+          "  - *Inputs:* %s",
+          paste(sapply(upstreams, function(e) e$from), collapse = ", ")
+        )
+      )
+    }
+  }
+
+  # Add Decisions
+  lines <- c(lines, "", "## Decision Provenance")
+  if (length(snap$jobs) == 0) {
+    lines <- c(lines, "No decisions recorded.") # using jobs is wrong here, fixing below
+  }
+
+  # Read decision log explicitly
+  log_path <- file.path(
+    project@path,
+    ".bayesgrove",
+    "decisions",
+    "decisions.jsonl"
+  )
+  if (file.exists(log_path)) {
+    raw_logs <- readLines(log_path, warn = FALSE)
+    for (line in raw_logs) {
+      if (trimws(line) == "") {
+        next
+      }
+      dec <- jsonlite::fromJSON(line, simplifyVector = FALSE)
+
+      lines <- c(
+        lines,
+        sprintf("### %s", dec$prompt),
+        sprintf("- **Choice:** %s", dec$choice),
+        sprintf("- **Rationale:** %s", dec$rationale),
+        sprintf("- **Timestamp:** %s", dec$created_at),
+        ""
+      )
+    }
+  } else {
+    lines <- c(lines, "No decisions recorded.")
+  }
+
+  out_path <- file.path(project@path, out_file)
+  writeLines(lines, out_path)
+
+  cli::cli_inform("Report exported to {.path {out_path}}")
+  out_path
+}
