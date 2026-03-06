@@ -4,12 +4,22 @@
 \alias{bg_export_report}
 \title{Generate a reproducible markdown report of the workflow}
 \usage{
-bg_export_report(project, out_file = "workflow_report.md")
+bg_export_report(
+  project,
+  path = NULL,
+  format = c("html", "md"),
+  out_file = NULL
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
 
-\item{out_file}{The path to write the markdown file (defaults to \code{workflow_report.md} in project root).}
+\item{path}{Optional output path. Defaults to \code{workflow_report.md} or
+\code{workflow_report.html} in the project root depending on \code{format}.}
+
+\item{format}{Output format: markdown (\code{"md"}) or html (\code{"html"}).}
+
+\item{out_file}{Deprecated alias for \code{path}.}
 }
 \description{
 Generate a reproducible markdown report of the workflow

@@ -60,7 +60,11 @@ describe("Handoff and Export Layer", {
       evidence = n_data
     )
 
-    report_path <- bg_export_report(handle, out_file = "my_report.md")
+    report_path <- bg_export_report(
+      handle,
+      path = "my_report.md",
+      format = "md"
+    )
     expect_true(file.exists(report_path))
 
     content <- readLines(report_path)
@@ -74,5 +78,32 @@ describe("Handoff and Export Layer", {
     expect_true(any(grepl("Gate edge", content, fixed = TRUE)))
     expect_true(any(grepl("Evidence nodes", content, fixed = TRUE)))
     expect_true(any(grepl("References", content, fixed = TRUE)))
+  })
+
+  it("supports html reports and modern bundle data policies", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      "data"
+    })
+    bg_add_node(handle, "data", label = "A")
+    bg_run(handle, mode = "sync")
+
+    bundle_path <- expect_no_warning(
+      bg_bundle(handle, include_data = "copy")
+    )
+    expect_true(file.exists(bundle_path))
+
+    report_path <- bg_export_report(
+      handle,
+      path = "workflow.html",
+      format = "html"
+    )
+    expect_true(file.exists(report_path))
+
+    content <- paste(readLines(report_path), collapse = "\n")
+    expect_true(grepl("<html>", content, fixed = TRUE))
+    expect_true(grepl("BayesGrove Workflow Report", content, fixed = TRUE))
   })
 })

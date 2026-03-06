@@ -7,7 +7,7 @@
 bg_bundle(
   project,
   path = NULL,
-  include_data = c("recipe_only", "freeze_source", "omit"),
+  include_data = c("omit", "freeze_source", "copy", "recipe_only"),
   include_fits = FALSE
 )
 }
@@ -16,7 +16,9 @@ bg_bundle(
 
 \item{path}{File path where the bundle should be saved (default: a temp file).}
 
-\item{include_data}{How to handle external data sources: 'recipe_only', 'freeze_source', or 'omit'.}
+\item{include_data}{How to handle external data sources: 'omit',
+'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
+treated as 'omit'.}
 
 \item{include_fits}{Logical, whether to package the large model fit artifacts.}
 }

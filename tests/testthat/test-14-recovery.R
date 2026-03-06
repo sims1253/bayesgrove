@@ -47,6 +47,6 @@ describe("Recovery and Checkpointing", {
 
     config <- jsonlite::read_json(config_path)
     expect_false(config$paused)
-    expect_true(resume_state$workflow_state %in% c("ready", "idle"))
+    expect_equal(resume_state$workflow_state, "idle")
   })
 })

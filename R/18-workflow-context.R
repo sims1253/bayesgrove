@@ -48,15 +48,59 @@ bg_write_json_atomic <- function(path, data, sort_keys = TRUE) {
 }
 
 #' @keywords internal
+bg_with_file_lock <- function(lock_path, code, timeout = 10, poll = 0.05) {
+  dir.create(dirname(lock_path), recursive = TRUE, showWarnings = FALSE)
+  acquired <- FALSE
+  start <- Sys.time()
+
+  while (!acquired) {
+    acquired <- dir.create(lock_path, recursive = FALSE, showWarnings = FALSE)
+    if (acquired) {
+      break
+    }
+
+    if (as.numeric(Sys.time() - start, units = "secs") >= timeout) {
+      cli::cli_abort(
+        "Timed out waiting for project lock at {.path {lock_path}}."
+      )
+    }
+
+    Sys.sleep(poll)
+  }
+
+  on.exit(unlink(lock_path, recursive = TRUE, force = TRUE), add = TRUE)
+  eval.parent(substitute(code))
+}
+
+#' @keywords internal
 bg_append_jsonl <- function(path, record) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-  json_line <- jsonlite::toJSON(
-    bg_sort_persisted_value(record),
-    auto_unbox = TRUE,
-    null = "null"
+  lock_path <- paste0(path, ".lock")
+
+  bg_with_file_lock(lock_path, {
+    json_line <- jsonlite::toJSON(
+      bg_sort_persisted_value(record),
+      auto_unbox = TRUE,
+      null = "null"
+    )
+    cat(paste0(json_line, "\n"), file = path, append = TRUE)
+    invisible(TRUE)
+  })
+}
+
+#' @keywords internal
+bg_artifact_index_path <- function(project) {
+  file.path(project@path, ".bayesgrove", "cache", "index.json")
+}
+
+#' @keywords internal
+bg_modify_artifact_index <- function(project, code, timeout = 10, poll = 0.05) {
+  bg_with_file_lock(
+    paste0(bg_artifact_index_path(project), ".lock"),
+    code,
+    timeout = timeout,
+    poll = poll
   )
-  cat(paste0(json_line, "\n"), file = path, append = TRUE)
-  invisible(TRUE)
 }
 
 #' @keywords internal
@@ -344,6 +388,49 @@ bg_normalize_artifact_entry <- function(fingerprint, entry) {
 #' @keywords internal
 bg_normalize_artifact_index <- function(index) {
   index <- index %||% list()
+  if (
+    identical(index$schema_name %||% NULL, "bg_artifact_index") &&
+      !is.null(index$entries)
+  ) {
+    entries <- index$entries %||% list()
+    normalized <- list()
+
+    for (node_id in names(entries)) {
+      node_entries <- entries[[node_id]] %||% list()
+      for (fingerprint in names(node_entries)) {
+        leaf <- node_entries[[fingerprint]] %||% list()
+        entry <- normalized[[fingerprint]] %||%
+          list(
+            artifact_ref = leaf$artifact_ref %||% NULL,
+            created_at = leaf$created_at %||% NULL,
+            updated_at = leaf$updated_at %||% leaf$created_at %||% NULL,
+            metadata = leaf$metadata %||% list(),
+            bindings = list()
+          )
+        entry$artifact_ref <- entry$artifact_ref %||%
+          leaf$artifact_ref %||%
+          NULL
+        entry$created_at <- entry$created_at %||% leaf$created_at %||% NULL
+        entry$updated_at <- leaf$updated_at %||%
+          leaf$created_at %||%
+          entry$updated_at %||%
+          NULL
+        entry$metadata <- utils::modifyList(
+          entry$metadata %||% list(),
+          leaf$metadata %||% list()
+        )
+        entry$bindings[[node_id]] <- list(
+          node_id = node_id,
+          status = leaf$status %||% "active",
+          updated_at = leaf$updated_at %||% leaf$created_at %||% NULL
+        )
+        normalized[[fingerprint]] <- entry
+      }
+    }
+
+    index <- normalized
+  }
+
   stats::setNames(
     lapply(names(index), function(fingerprint) {
       bg_normalize_artifact_entry(fingerprint, index[[fingerprint]])
@@ -354,10 +441,31 @@ bg_normalize_artifact_index <- function(index) {
 
 #' @keywords internal
 bg_write_artifact_index <- function(project, index) {
-  persisted <- lapply(index, function(entry) {
-    entry$fingerprint <- NULL
-    entry
-  })
+  entries <- list()
+
+  for (fingerprint in names(index)) {
+    entry <- index[[fingerprint]]
+    bindings <- entry$bindings %||% list()
+    for (node_id in names(bindings)) {
+      binding <- bindings[[node_id]]
+      entries[[node_id]] <- entries[[node_id]] %||% list()
+      entries[[node_id]][[fingerprint]] <- list(
+        artifact_ref = entry$artifact_ref %||% NULL,
+        status = binding$status %||% "active",
+        created_at = entry$created_at %||% NULL,
+        updated_at = binding$updated_at %||% entry$updated_at %||% NULL,
+        metadata = entry$metadata %||% list()
+      )
+    }
+  }
+
+  persisted <- list(
+    schema_name = "bg_artifact_index",
+    schema_version = 1L,
+    project_id = project@project_id,
+    entries = entries
+  )
+
   bg_write_json_atomic(
     bg_storage_path(project, "cache", "index.json"),
     persisted
@@ -567,7 +675,7 @@ bg_scope_supports_branch_lineage <- function(scope) {
 #' @keywords internal
 bg_scope_matches <- function(project, scope, candidate_scope) {
   if (identical(scope, "project")) {
-    return(TRUE)
+    return(identical(candidate_scope, "project"))
   }
 
   valid_scopes <- c("project", scope)
@@ -851,6 +959,13 @@ bg_build_workflow_context <- function(project, scope = "project") {
     artifact_index = artifact_index
   )
   decisions <- bg_scope_decisions(project, scope)
+  failed_nodes <- unique(vapply(
+    Filter(function(job) identical(job$status, "failed"), bg_jobs(project)),
+    `[[`,
+    character(1),
+    "node_id"
+  ))
+  failed_nodes <- intersect(failed_nodes, scope_node_ids)
 
   ready_nodes <- intersect(plan$eligible, scope_node_ids)
   blocked_nodes <- intersect(names(plan$blocked), scope_node_ids)
@@ -891,7 +1006,7 @@ bg_build_workflow_context <- function(project, scope = "project") {
     execution = list(
       node_status = node_status,
       stale_nodes = stale_nodes,
-      failed_nodes = character()
+      failed_nodes = failed_nodes
     ),
     evidence = list(
       artifacts = list(

@@ -4,17 +4,18 @@ describe("Project Status and Results", {
     handle <- bg_init(path = tmp)
 
     st <- bg_status(handle)
-    expect_equal(st$workflow_state, "idle")
-    expect_equal(st$total_nodes, 0)
+    expect_equal(st$workflow_state, "open")
+    expect_equal(st$health, "ok")
+    expect_true(is.null(st$last_run_id))
+    expect_true(is.character(st$messages))
 
     bg_register_node_kind(handle, "data", executor = function(node, inputs) 42)
     bg_add_node(handle, "data", label = "A")
 
     st2 <- bg_status(handle)
-    expect_equal(st2$workflow_state, "ready")
-    expect_equal(st2$total_nodes, 1)
+    expect_equal(st2$workflow_state, "idle")
     expect_equal(st2$runnable_nodes, 1)
-    expect_equal(st2$cached_nodes, 0)
+    expect_equal(st2$health, "ok")
   })
 
   it("identifies blocked workflows correctly", {
@@ -36,6 +37,7 @@ describe("Project Status and Results", {
     st <- bg_status(handle)
     expect_equal(st$workflow_state, "blocked")
     expect_equal(st$pending_gates, 1)
+    expect_equal(st$health, "warning")
   })
 
   it("can execute, cache to disk, and retrieve results", {
@@ -53,8 +55,8 @@ describe("Project Status and Results", {
 
     st <- bg_status(handle)
     expect_equal(st$workflow_state, "idle")
-    expect_equal(st$cached_nodes, 1)
     expect_equal(st$runnable_nodes, 0)
+    expect_false(is.null(st$last_run_id))
 
     # Retrieve result
     res <- bg_result(handle, n1)

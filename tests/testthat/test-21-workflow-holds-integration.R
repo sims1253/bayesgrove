@@ -83,6 +83,23 @@ describe("Workflow holds end-to-end", {
       fixture$compare_id %in% held_plan$to_execute,
       info = "Externally held nodes must stay out of the execution set."
     )
+    expect_equal(
+      held_plan$held_by_policy[[fixture$compare_id]],
+      "Review computation validity",
+      info = "The orchestrator-facing plan should also expose policy holds under `held_by_policy`."
+    )
+
+    blocked_run <- bg_run(handle, targets = fixture$compare_id, mode = "sync")
+    expect_equal(
+      blocked_run$status,
+      "blocked",
+      info = "The sync runner must honor workflow holds instead of executing blocked downstream work."
+    )
+    expect_equal(
+      blocked_run$summary$total_executed,
+      0,
+      info = "Held nodes must not execute when a blocking workflow obligation is active."
+    )
 
     bg_invalidate(handle, fixture$fit_id, recursive = TRUE)
     fixture$set_fit_summary_mode("ok")

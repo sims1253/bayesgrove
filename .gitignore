@@ -3,3 +3,5 @@ docs
 /Meta/
 design/
 archive/
+tools/demo/repl-workflow/*.gif
+tools/demo/repl-workflow/*.mp4

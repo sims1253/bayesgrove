@@ -116,6 +116,9 @@ describe("Decision and Gate Layer", {
     expect_length(lines, 1)
 
     record <- jsonlite::fromJSON(lines[1])
+    expect_equal(record$schema_name, "bg_decision_entry")
+    expect_equal(record$schema_version, 1)
+    expect_equal(record$project_id, handle@project_id)
     expect_equal(record$choice, "Normal(0, 1)")
     expect_equal(record$rationale, "Standard weakly informative.")
   })

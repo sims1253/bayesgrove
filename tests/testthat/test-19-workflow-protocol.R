@@ -59,11 +59,8 @@ describe("Workflow protocol APIs", {
 
     bg_register_node_kind(handle, "fit")
     seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
-    branch_root <- bg_branch(handle, seed_id, label = "Alternative")
-    branch_id <- Filter(
-      function(x) identical(x$root_node_id, branch_root),
-      bg_read_branch_registry(handle)$branches
-    )[[1]]$branch_id
+    branch <- bg_branch(handle, seed_id, label = "Alternative")
+    branch_id <- branch$branch_id
 
     result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
 
@@ -86,11 +83,8 @@ describe("Workflow protocol APIs", {
 
     bg_register_node_kind(handle, "fit")
     seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
-    branch_root <- bg_branch(handle, seed_id, label = "Alternative")
-    branch_id <- Filter(
-      function(x) identical(x$root_node_id, branch_root),
-      bg_read_branch_registry(handle)$branches
-    )[[1]]$branch_id
+    branch <- bg_branch(handle, seed_id, label = "Alternative")
+    branch_id <- branch$branch_id
 
     result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
 
@@ -131,13 +125,10 @@ describe("Workflow protocol APIs", {
     )
 
     baseline_id <- bg_add_node(handle, kind = "fit", label = "Baseline")
-    branch_root <- bg_branch(handle, baseline_id, label = "Alternative")
-    branch_id <- Filter(
-      function(x) identical(x$root_node_id, branch_root),
-      bg_read_branch_registry(handle)$branches
-    )[[1]]$branch_id
+    branch <- bg_branch(handle, baseline_id, label = "Alternative")
+    branch_id <- branch$branch_id
 
-    bg_run(handle, targets = branch_root, mode = "sync")
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
 
     branch_result <- bg_next_actions(
       handle,

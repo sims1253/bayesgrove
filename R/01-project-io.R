@@ -24,11 +24,30 @@ bg_commit_graph <- function(project, graph) {
 
   bg_dir <- file.path(project@path, ".bayesgrove")
   graph_path <- file.path(bg_dir, "graph", "graph.json")
+  lock_path <- paste0(graph_path, ".lock")
 
-  bg_write_json_atomic(graph_path, unclass(graph), sort_keys = FALSE)
+  bg_with_file_lock(lock_path, {
+    persisted_graph <- if (file.exists(graph_path)) {
+      jsonlite::read_json(graph_path, simplifyVector = FALSE)
+    } else {
+      NULL
+    }
+    persisted_version <- as.integer(persisted_graph$version %||% 0L)
+    loaded_version <- as.integer(project@loaded_graph_version %||% 0L)
 
-  # Update handle
-  project@loaded_graph_version <- graph$version
+    if (!identical(persisted_version, loaded_version)) {
+      cli::cli_abort(c(
+        "Version conflict: attempted to commit graph version {graph$version},",
+        "but persisted graph version is {persisted_version} and this handle last loaded version {loaded_version}."
+      ))
+    }
+
+    bg_write_json_atomic(graph_path, unclass(graph), sort_keys = FALSE)
+
+    # Update handle only after the persisted write succeeds.
+    project@loaded_graph_version <- graph$version
+  })
+
   invisible(TRUE)
 }
 
@@ -45,6 +64,7 @@ bg_read_graph <- function(project) {
   }
 
   raw <- jsonlite::read_json(graph_path)
+  project@loaded_graph_version <- as.integer(raw$version %||% 0L)
   # groots doesn't have a json deserializer exposed yet, but we can coerce the lists.
   # Assuming groots provides groots_graph() to construct it or we pass the raw lists if groots validates them.
   # Actually groots might require reconstructing the objects. For now, groots_graph() from lists.

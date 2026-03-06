@@ -246,6 +246,23 @@ bg_merge_protocol_items <- function(items, id_field) {
       next
     }
 
+    if (
+      identical(id_field, "obligation_id") &&
+        !is.null(existing$severity) &&
+        !is.null(item$severity)
+    ) {
+      severity_order <- c(
+        advisory = 1L,
+        warning = 2L,
+        blocking = 3L
+      )
+      existing_rank <- severity_order[[existing$severity]] %||% 0L
+      item_rank <- severity_order[[item$severity]] %||% 0L
+      if (item_rank > existing_rank) {
+        existing$severity <- item$severity
+      }
+    }
+
     pack_ids <- unique(c(
       existing$metadata$pack_id %||% character(),
       existing$metadata$pack_ids %||% character(),
@@ -337,6 +354,16 @@ bg_blocking_obligation_holds <- function(project, obligations) {
   holds
 }
 
+#' @keywords internal
+bg_workflow_external_holds <- function(project) {
+  if (length(bg_workflow_packs(project)) == 0) {
+    return(list())
+  }
+
+  bg_next_actions(project, scope = "project")$metadata$external_holds %||%
+    list()
+}
+
 #' Compute deterministic next workflow actions
 #'
 #' Evaluates the active workflow packs against a derived workflow context and
@@ -389,7 +416,7 @@ bg_next_actions <- function(
   actions <- bg_merge_protocol_items(action_items, "action_id")
 
   list(
-    context = bg_build_workflow_context(project, scope = resolved_scope),
+    context = contexts[[1]],
     obligations = obligations,
     actions = actions,
     metadata = list(

@@ -44,4 +44,23 @@ describe("Project Lifecycle", {
     bg_close(handle)
     expect_equal(handle@closed, TRUE)
   })
+
+  it("detects persisted graph version conflicts across handles", {
+    tmp <- withr::local_tempdir()
+    handle_a <- bg_init(path = tmp)
+    handle_b <- bg_open(path = tmp)
+
+    graph_a <- bg_read_graph(handle_a)
+    graph_b <- bg_read_graph(handle_b)
+
+    graph_a$version <- graph_a$version + 1L
+    graph_b$version <- graph_b$version + 1L
+
+    bg_commit_graph(handle_a, graph_a)
+
+    expect_error(
+      bg_commit_graph(handle_b, graph_b),
+      "persisted graph version"
+    )
+  })
 })

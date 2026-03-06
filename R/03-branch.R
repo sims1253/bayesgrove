@@ -7,7 +7,7 @@
 #' @param label Optional label for the new branched node.
 #' @param copy_params Whether to copy the parameters of the branched node (default: TRUE).
 #'
-#' @return The generated node ID of the new branch.
+#' @return A `bg_branch_record`.
 #' @export
 bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   S7::check_is_S7(project, bg_handle)
@@ -53,7 +53,7 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   }
 
   bg_commit_graph(project, graph)
-  bg_register_branch(
+  record <- bg_register_branch(
     project = project,
     root_node_id = new_id,
     source_node_id = node_id,
@@ -61,7 +61,7 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
     metadata = list(copy_params = isTRUE(copy_params))
   )
 
-  new_id
+  record
 }
 
 #' Invalidate a node's result
@@ -96,20 +96,23 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
     )
   }
 
-  index <- bg_read_artifact_index(project)
   changed <- FALSE
   superseded_count <- 0L
 
-  for (target_id in nodes_to_invalidate) {
-    updated <- bg_supersede_artifacts_for_node(index, target_id)
-    index <- updated$index
-    changed <- changed || updated$changed
-    superseded_count <- superseded_count + updated$count
-  }
+  bg_modify_artifact_index(project, {
+    index <- bg_read_artifact_index(project)
 
-  if (changed) {
-    bg_write_artifact_index(project, index)
-  }
+    for (target_id in nodes_to_invalidate) {
+      updated <- bg_supersede_artifacts_for_node(index, target_id)
+      index <- updated$index
+      changed <- changed || updated$changed
+      superseded_count <- superseded_count + updated$count
+    }
+
+    if (changed) {
+      bg_write_artifact_index(project, index)
+    }
+  })
 
   cli::cli_inform(
     "Invalidated {length(nodes_to_invalidate)} node{?s}; superseded {superseded_count} cache binding{?s}."

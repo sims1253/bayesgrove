@@ -16,7 +16,7 @@ bg_branch(project, node_id, label = NULL, copy_params = TRUE)
 \item{copy_params}{Whether to copy the parameters of the branched node (default: TRUE).}
 }
 \value{
-The generated node ID of the new branch.
+A \code{bg_branch_record}.
 }
 \description{
 Clones an existing node and its upstream dependencies (edges) to create a new branch.

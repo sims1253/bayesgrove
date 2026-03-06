@@ -61,6 +61,23 @@ reference:
       - bg_snapshot
       - bg_bundle
       - bg_export_report
+  - title: Workflow Protocol
+    contents:
+      - bg_workflow_packs
+      - bg_workflow_context
+      - bg_next_actions
+      - bg_build_workflow_context
+  - title: Workflow State
+    contents:
+      - bg_read_branch_registry
+      - bg_read_goal_registry
+      - bg_branch_lineage
+      - bg_resolve_node_scope
+      - bg_set_goal
+      - bg_get_goal
+      - bg_read_summaries
+      - bg_write_summaries
+      - bg_summary_is_fresh
   - title: Branching & Invalidation
     contents:
       - bg_branch

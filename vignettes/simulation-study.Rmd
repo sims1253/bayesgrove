@@ -331,7 +331,7 @@ next step is stored alongside the computational state.
 # Export an audit report
 
 ```{r report}
-report_path <- bg_export_report(handle, out_file = "simulation-study-report.md")
+report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 report_path
 ```
 

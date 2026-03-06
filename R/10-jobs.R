@@ -39,8 +39,7 @@ bg_log_job <- function(project, job_record) {
   # Ensure runs directory exists
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 
-  json_line <- jsonlite::toJSON(job_record, auto_unbox = TRUE, null = "null")
-  cat(paste0(json_line, "\n"), file = log_path, append = TRUE)
+  bg_append_jsonl(log_path, job_record)
 
   invisible(job_record)
 }

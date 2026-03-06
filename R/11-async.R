@@ -72,7 +72,13 @@ bg_submit <- function(
     }
   }
 
-  plan <- bg_plan(project, targets, mode = "async")
+  external_holds <- bg_workflow_external_holds(project)
+  plan <- bg_plan(
+    project,
+    targets,
+    external_holds = external_holds,
+    mode = "async"
+  )
 
   run_id <- sprintf("run_%s", digest::digest(runif(1), algo = "xxhash32"))
 

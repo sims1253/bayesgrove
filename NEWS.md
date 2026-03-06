@@ -1,3 +1,10 @@
+# bayesgrove 0.3.4
+
+* Enforced workflow holds inside `bg_run()` and `bg_submit()` so blocking obligations now affect real execution, not just advisory planning.
+* Tightened workflow-context scoping, transactional gate answering, sync job logging, and severity merging to match the workflow protocol and persistence contracts.
+* Added locking around shared artifact-index, summary, decision, job, gate-spec, and graph writes to harden async and multi-session behavior.
+* Aligned public APIs and docs for status reporting, branching returns, bundling/export arguments, workflow reference topics, and report examples.
+
 # bayesgrove 0.3.3
 
 * Added the first end-to-end workflow-hold integration slice covering summary persistence, workflow context construction, obligation derivation, planner hold propagation, and next-action clearing after fit replacement.

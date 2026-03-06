@@ -58,9 +58,10 @@ bg_add_gate <- function(
     metadata = metadata
   )
 
-  specs <- bg_read_gate_specs(project)
-  specs[[gate_id]] <- gate_spec
-  bg_write_gate_specs(project, specs)
+  bg_modify_gate_specs(project, function(specs) {
+    specs[[gate_id]] <- gate_spec
+    specs
+  })
 
   gate_spec
 }
@@ -108,6 +109,8 @@ bg_answer_gate <- function(
 
   # 1. Resolve structural gate in graph
   graph <- bg_read_graph(project)
+  original_graph <- graph
+  original_loaded_version <- project@loaded_graph_version
   if (!id %in% names(graph$gates)) {
     cli::cli_abort("Gate {.val {id}} not found in graph.")
   }
@@ -115,10 +118,9 @@ bg_answer_gate <- function(
   edge <- graph$edges[[gate_spec$edge_id]]
 
   graph <- dagriculture::dagri_resolve_gate(graph, id)
-  bg_commit_graph(project, graph)
 
-  # 2. Record the decision
-  decision <- bg_record_decision(
+  # 2. Build the decision and then commit the full transaction.
+  decision <- bg_new_decision_record(
     project = project,
     scope = paste0("gate:", id),
     prompt = gate_spec$prompt,
@@ -138,9 +140,45 @@ bg_answer_gate <- function(
     )
   )
 
-  # Remove from pending gate specs
-  specs[[id]] <- NULL
-  bg_write_gate_specs(project, specs)
+  tryCatch(
+    {
+      bg_commit_graph(project, graph)
+      bg_modify_gate_specs(project, function(current_specs) {
+        current_specs[[id]] <- NULL
+        current_specs
+      })
+      bg_write_decision_record(project, decision)
+    },
+    error = function(e) {
+      rollback_error <- tryCatch(
+        {
+          graph_path <- file.path(
+            project@path,
+            ".bayesgrove",
+            "graph",
+            "graph.json"
+          )
+          bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
+          project@loaded_graph_version <- original_loaded_version
+          bg_modify_gate_specs(project, function(current_specs) {
+            specs
+          })
+          NULL
+        },
+        error = function(rollback_e) rollback_e
+      )
+
+      if (!is.null(rollback_error)) {
+        cli::cli_abort(c(
+          "Failed to answer gate transactionally.",
+          "Primary error: {e$message}",
+          "Rollback error: {rollback_error$message}"
+        ))
+      }
+
+      cli::cli_abort("Failed to answer gate transactionally: {e$message}")
+    }
+  )
 
   decision
 }
@@ -211,10 +249,43 @@ bg_record_decision <- function(
     cli::cli_abort("Rationale is required for reproducibility.")
   }
 
+  record <- bg_new_decision_record(
+    project = project,
+    scope = scope,
+    prompt = prompt,
+    choice = choice,
+    alternatives = alternatives,
+    rationale = rationale,
+    refs = refs,
+    evidence = evidence,
+    kind = kind,
+    metadata = metadata
+  )
+  bg_write_decision_record(project, record)
+
+  record
+}
+
+#' @keywords internal
+bg_new_decision_record <- function(
+  project,
+  scope,
+  prompt,
+  choice,
+  alternatives = NULL,
+  rationale = NULL,
+  refs = NULL,
+  evidence = NULL,
+  kind = "note",
+  metadata = list()
+) {
   decision_id <- sprintf("dec_%s", digest::digest(runif(1), algo = "xxhash32"))
 
-  record <- list(
+  list(
+    schema_name = "bg_decision_entry",
+    schema_version = 1L,
     decision_id = decision_id,
+    project_id = project@project_id,
     scope = scope,
     kind = kind,
     prompt = prompt,
@@ -228,7 +299,10 @@ bg_record_decision <- function(
     supersedes = NULL,
     metadata = metadata %||% list()
   )
+}
 
+#' @keywords internal
+bg_write_decision_record <- function(project, record) {
   log_path <- file.path(
     project@path,
     ".bayesgrove",
@@ -238,7 +312,7 @@ bg_record_decision <- function(
   bg_append_jsonl(log_path, record)
   bg_update_goal_registry_from_decision(project, record)
 
-  record
+  invisible(record)
 }
 
 bg_read_decisions <- function(project) {
@@ -273,12 +347,7 @@ bg_read_decisions <- function(project) {
 # --- IO Helpers for Gate Specs ---
 
 bg_read_gate_specs <- function(project) {
-  spec_path <- file.path(
-    project@path,
-    ".bayesgrove",
-    "decisions",
-    "gate_specs.json"
-  )
+  spec_path <- bg_gate_specs_path(project)
   if (!file.exists(spec_path)) {
     return(list())
   }
@@ -286,12 +355,7 @@ bg_read_gate_specs <- function(project) {
 }
 
 bg_write_gate_specs <- function(project, specs) {
-  spec_path <- file.path(
-    project@path,
-    ".bayesgrove",
-    "decisions",
-    "gate_specs.json"
-  )
+  spec_path <- bg_gate_specs_path(project)
   temp_path <- paste0(spec_path, ".tmp")
 
   # If list is empty, write an empty object {}
@@ -310,4 +374,33 @@ bg_write_gate_specs <- function(project, specs) {
 
   file.rename(temp_path, spec_path)
   invisible(TRUE)
+}
+
+bg_gate_specs_path <- function(project) {
+  file.path(
+    project@path,
+    ".bayesgrove",
+    "decisions",
+    "gate_specs.json"
+  )
+}
+
+bg_modify_gate_specs <- function(project, code, timeout = 10, poll = 0.05) {
+  spec_path <- bg_gate_specs_path(project)
+  lock_path <- paste0(spec_path, ".lock")
+
+  bg_with_file_lock(
+    lock_path,
+    {
+      specs <- bg_read_gate_specs(project)
+      updated_specs <- code(specs)
+      if (!is.list(updated_specs)) {
+        cli::cli_abort("Gate spec modifier must return a list.")
+      }
+      bg_write_gate_specs(project, updated_specs)
+      invisible(updated_specs)
+    },
+    timeout = timeout,
+    poll = poll
+  )
 }

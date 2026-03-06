@@ -6,7 +6,9 @@
 #'
 #' @param project A `bg_handle`.
 #' @param path File path where the bundle should be saved (default: a temp file).
-#' @param include_data How to handle external data sources: 'recipe_only', 'freeze_source', or 'omit'.
+#' @param include_data How to handle external data sources: 'omit',
+#'   'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
+#'   treated as 'omit'.
 #' @param include_fits Logical, whether to package the large model fit artifacts.
 #'
 #' @return The file path to the generated bundle.
@@ -14,11 +16,18 @@
 bg_bundle <- function(
   project,
   path = NULL,
-  include_data = c("recipe_only", "freeze_source", "omit"),
+  include_data = c("omit", "freeze_source", "copy", "recipe_only"),
   include_fits = FALSE
 ) {
   include_data <- match.arg(include_data)
   S7::check_is_S7(project, bg_handle)
+
+  if (identical(include_data, "recipe_only")) {
+    cli::cli_warn(
+      "include_data = 'recipe_only' is deprecated; using 'omit' instead."
+    )
+    include_data <- "omit"
+  }
 
   if (is.null(path)) {
     path <- file.path(
@@ -71,34 +80,48 @@ bg_bundle <- function(
     }
 
     # Conditionally copy actual RDS artifacts
-    idx <- if (file.exists(idx_src)) jsonlite::read_json(idx_src) else list()
+    idx <- bg_read_artifact_index(project)
 
     for (fp in names(idx)) {
       meta <- idx[[fp]]
-      node <- snap$graph$nodes[[meta$node_id]]
+      binding_nodes <- names(Filter(
+        function(binding) identical(binding$status, "active"),
+        meta$bindings %||% list()
+      ))
+      bound_graph_nodes <- Filter(
+        Negate(is.null),
+        lapply(binding_nodes, function(node_id) {
+          snap$graph$nodes[[node_id]] %||% NULL
+        })
+      )
 
-      # Determine if we should include this artifact
       should_include <- TRUE
       if (
-        !include_fits && !is.null(node) && node$kind %in% c("fit", "compile")
+        !include_fits &&
+          any(vapply(
+            bound_graph_nodes,
+            function(node) node$kind %in% c("fit", "compile"),
+            logical(1)
+          ))
       ) {
         should_include <- FALSE
       }
 
-      if (should_include) {
-        # Copy the specific CAS file
-        hash <- sub("^cas:sha256:", "", meta$artifact_ref)
-        prefix <- substr(hash, 1, 2)
-        cas_file <- file.path(cache_src, "sha256", prefix, paste0(hash, ".rds"))
+      if (!should_include || is.null(meta$artifact_ref)) {
+        next
+      }
 
-        if (file.exists(cas_file)) {
-          dir.create(
-            file.path(cache_dest, "sha256", prefix),
-            recursive = TRUE,
-            showWarnings = FALSE
-          )
-          file.copy(cas_file, file.path(cache_dest, "sha256", prefix))
-        }
+      hash <- sub("^cas:sha256:", "", meta$artifact_ref)
+      prefix <- substr(hash, 1, 2)
+      cas_file <- file.path(cache_src, "sha256", prefix, paste0(hash, ".rds"))
+
+      if (file.exists(cas_file)) {
+        dir.create(
+          file.path(cache_dest, "sha256", prefix),
+          recursive = TRUE,
+          showWarnings = FALSE
+        )
+        file.copy(cas_file, file.path(cache_dest, "sha256", prefix))
       }
     }
   }
@@ -144,11 +167,40 @@ bg_bundle <- function(
 #' Generate a reproducible markdown report of the workflow
 #'
 #' @param project A `bg_handle`.
-#' @param out_file The path to write the markdown file (defaults to `workflow_report.md` in project root).
+#' @param path Optional output path. Defaults to `workflow_report.md` or
+#'   `workflow_report.html` in the project root depending on `format`.
+#' @param format Output format: markdown (`"md"`) or html (`"html"`).
+#' @param out_file Deprecated alias for `path`.
 #'
 #' @export
-bg_export_report <- function(project, out_file = "workflow_report.md") {
+bg_export_report <- function(
+  project,
+  path = NULL,
+  format = c("html", "md"),
+  out_file = NULL
+) {
   S7::check_is_S7(project, bg_handle)
+  format <- match.arg(format)
+
+  if (!is.null(out_file)) {
+    cli::cli_warn(
+      "`out_file` is deprecated; use `path` and `format` instead."
+    )
+    path <- out_file
+  }
+
+  if (is.null(path)) {
+    path <- file.path(
+      project@path,
+      if (identical(format, "html")) {
+        "workflow_report.html"
+      } else {
+        "workflow_report.md"
+      }
+    )
+  } else if (!grepl("^(/|[A-Za-z]:[\\\\/])", path)) {
+    path <- file.path(project@path, path)
+  }
 
   snap <- bg_snapshot(project)
 
@@ -260,11 +312,20 @@ bg_export_report <- function(project, out_file = "workflow_report.md") {
     }
   }
 
-  out_path <- file.path(project@path, out_file)
-  writeLines(lines, out_path)
+  if (identical(format, "html")) {
+    html_lines <- c(
+      "<!DOCTYPE html>",
+      "<html><head><meta charset=\"utf-8\"><title>BayesGrove Workflow Report</title></head><body><pre>",
+      bg_escape_html(paste(lines, collapse = "\n")),
+      "</pre></body></html>"
+    )
+    writeLines(html_lines, path)
+  } else {
+    writeLines(lines, path)
+  }
 
-  cli::cli_inform("Report exported to {.path {out_path}}")
-  out_path
+  cli::cli_inform("Report exported to {.path {path}}")
+  path
 }
 
 bg_format_report_refs <- function(refs) {
@@ -291,4 +352,10 @@ bg_format_report_refs <- function(refs) {
   )
 
   paste(rendered, collapse = "; ")
+}
+
+bg_escape_html <- function(text) {
+  text <- gsub("&", "&amp;", text, fixed = TRUE)
+  text <- gsub("<", "&lt;", text, fixed = TRUE)
+  gsub(">", "&gt;", text, fixed = TRUE)
 }

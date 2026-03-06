@@ -43,30 +43,32 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
     unlink(tmp)
   }
 
-  idx <- bg_read_artifact_index(project)
-  superseded <- bg_supersede_artifacts_for_node(
-    idx,
-    node_id,
-    except_fingerprint = fingerprint
-  )
-  idx <- superseded$index
+  bg_modify_artifact_index(project, {
+    idx <- bg_read_artifact_index(project)
+    superseded <- bg_supersede_artifacts_for_node(
+      idx,
+      node_id,
+      except_fingerprint = fingerprint
+    )
+    idx <- superseded$index
 
-  entry <- bg_normalize_artifact_entry(
-    fingerprint,
-    idx[[fingerprint]] %||% list()
-  )
-  created_at <- entry$created_at %||% bg_now_timestamp()
-  entry$artifact_ref <- artifact_ref
-  entry$created_at <- created_at
-  entry$bindings[[node_id]] <- list(
-    node_id = node_id,
-    status = "active",
-    updated_at = bg_now_timestamp()
-  )
-  entry <- bg_refresh_artifact_entry(entry)
-  idx[[fingerprint]] <- entry
+    entry <- bg_normalize_artifact_entry(
+      fingerprint,
+      idx[[fingerprint]] %||% list()
+    )
+    created_at <- entry$created_at %||% bg_now_timestamp()
+    entry$artifact_ref <- artifact_ref
+    entry$created_at <- created_at
+    entry$bindings[[node_id]] <- list(
+      node_id = node_id,
+      status = "active",
+      updated_at = bg_now_timestamp()
+    )
+    entry <- bg_refresh_artifact_entry(entry)
+    idx[[fingerprint]] <- entry
 
-  bg_write_artifact_index(project, idx)
+    bg_write_artifact_index(project, idx)
+  })
 
   artifact_ref
 }
@@ -99,7 +101,7 @@ bg_fetch_artifact <- function(project, ref) {
 }
 
 bg_read_artifact_index <- function(project) {
-  index_path <- file.path(project@path, ".bayesgrove", "cache", "index.json")
+  index_path <- bg_artifact_index_path(project)
   if (!file.exists(index_path)) {
     return(list())
   }
@@ -227,11 +229,7 @@ bg_plan <- function(
 
     input_bindings[[node_id]] <- node_bindings
 
-    cached_ref <- if (!is.null(project@metadata$mvp_cache[[fp]])) {
-      project@metadata$mvp_cache[[fp]]
-    } else {
-      bg_check_artifact(project, fp, node_id = node_id)
-    }
+    cached_ref <- bg_check_artifact(project, fp, node_id = node_id)
 
     if (!is.null(cached_ref)) {
       cache_hits <- c(cache_hits, node_id)
@@ -257,6 +255,7 @@ bg_plan <- function(
     eligible = graph_plan$eligible,
     blocked = graph_plan$blocked,
     external_blocked = graph_plan$external_blocked,
+    held_by_policy = graph_plan$external_blocked,
     cache_hits = cache_hits,
     missing_results = missing_results,
     to_execute = to_execute,
@@ -301,12 +300,19 @@ bg_run <- function(
       backend = backend
     ))
   }
-  plan <- bg_plan(project, targets, mode = "sync")
+  external_holds <- bg_workflow_external_holds(project)
+  plan <- bg_plan(
+    project,
+    targets,
+    external_holds = external_holds,
+    mode = "sync"
+  )
   graph <- bg_read_graph(project)
 
   run_id <- sprintf("run_%s", digest::digest(runif(1), algo = "xxhash32"))
   job_ids <- character(0)
   num_executed <- 0L
+  run_started_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 
   cli::cli_inform(
     "Starting run {.val {run_id}} with {length(plan$to_execute)} node{?s} to execute."
@@ -320,12 +326,51 @@ bg_run <- function(
 
     cli::cli_inform("Running node {.val {node_id}}...")
     num_executed <- num_executed + 1L
+    job <- bg_create_job(project, run_id, node_id, backend = "sync")
+    job_ids <- c(job_ids, job$job_id)
+    bg_update_job(
+      project,
+      job$job_id,
+      status = "running",
+      started_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+    )
 
     node <- graph$nodes[[node_id]]
     kind_reg <- project@registries$node_kinds[[node$kind]]
 
     if (is.null(kind_reg) || is.null(kind_reg$executor)) {
-      cli::cli_abort("No executor registered for node kind {.val {node$kind}}.")
+      bg_update_job(
+        project,
+        job$job_id,
+        status = "failed",
+        error = list(
+          message = sprintf(
+            "No executor registered for node kind %s.",
+            node$kind
+          )
+        ),
+        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+      )
+      return(list(
+        run_id = run_id,
+        status = "failed",
+        mode = mode,
+        targets = plan$targets,
+        job_ids = job_ids,
+        submitted_at = run_started_at,
+        started_at = run_started_at,
+        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        summary = list(total_executed = num_executed - 1L),
+        error = list(
+          message = sprintf(
+            "No executor registered for node kind %s.",
+            node$kind
+          )
+        ),
+        metadata = list(
+          held_by_policy = plan$held_by_policy %||% list()
+        )
+      ))
     }
 
     # Resolve input bindings
@@ -339,42 +384,93 @@ bg_run <- function(
     }
 
     # Execute
-    execution <- tryCatch(
+    execution_result <- tryCatch(
       {
-        kind_reg$executor(node, resolved_inputs)
+        execution <- kind_reg$executor(node, resolved_inputs)
+        normalized <- bg_normalize_execution_result(execution)
+
+        fp <- plan$metadata$fingerprints[[node_id]]
+        ref <- bg_store_artifact(project, node_id, fp, normalized$artifact)
+        bg_write_summaries(
+          project = project,
+          node_id = node_id,
+          artifact_ref = ref,
+          execution_fingerprint = fp,
+          summaries = normalized$summaries
+        )
+
+        bg_update_job(
+          project,
+          job$job_id,
+          status = "succeeded",
+          result_ref = ref,
+          finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+        )
+
+        list(ok = TRUE, ref = ref)
       },
       error = function(e) {
-        cli::cli_abort(
-          "Execution failed for node {.val {node_id}}: {e$message}"
+        bg_update_job(
+          project,
+          job$job_id,
+          status = "failed",
+          error = list(message = e$message),
+          finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
         )
+        list(ok = FALSE, error = e)
       }
     )
-    normalized <- bg_normalize_execution_result(execution)
 
-    fp <- plan$metadata$fingerprints[[node_id]]
-    ref <- bg_store_artifact(project, node_id, fp, normalized$artifact)
-    bg_write_summaries(
-      project = project,
-      node_id = node_id,
-      artifact_ref = ref,
-      execution_fingerprint = fp,
-      summaries = normalized$summaries
+    if (!isTRUE(execution_result$ok)) {
+      return(list(
+        run_id = run_id,
+        status = "failed",
+        mode = mode,
+        targets = plan$targets,
+        job_ids = job_ids,
+        submitted_at = run_started_at,
+        started_at = run_started_at,
+        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        summary = list(total_executed = num_executed - 1L),
+        error = list(message = execution_result$error$message),
+        metadata = list(
+          held_by_policy = plan$held_by_policy %||% list()
+        )
+      ))
+    }
+
+    external_holds <- bg_workflow_external_holds(project)
+    plan <- bg_plan(
+      project,
+      targets,
+      external_holds = external_holds,
+      mode = "sync"
     )
+  }
 
-    plan <- bg_plan(project, targets, mode = "sync")
+  final_status <- if (length(plan$to_execute) == 0) {
+    if (length(plan$held_by_policy %||% list()) > 0) {
+      "blocked"
+    } else {
+      "succeeded"
+    }
+  } else {
+    "partial"
   }
 
   list(
     run_id = run_id,
-    status = if (length(plan$to_execute) == 0) "succeeded" else "partial",
+    status = final_status,
     mode = mode,
     targets = plan$targets,
     job_ids = job_ids,
-    submitted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
-    started_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    submitted_at = run_started_at,
+    started_at = run_started_at,
     finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     summary = list(total_executed = num_executed),
     error = NULL,
-    metadata = list()
+    metadata = list(
+      held_by_policy = plan$held_by_policy %||% list()
+    )
   )
 }

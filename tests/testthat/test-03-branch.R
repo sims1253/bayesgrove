@@ -17,8 +17,10 @@ describe("Graph Branching", {
     )
 
     # Branch n2
-    n3 <- bg_branch(handle, n2, label = "Transform Branch")
+    branch <- bg_branch(handle, n2, label = "Transform Branch")
+    n3 <- branch$root_node_id
     expect_true(startsWith(n3, "node_"))
+    expect_true(startsWith(branch$branch_id, "branch:"))
 
     g2 <- bg_read_graph(handle)
 

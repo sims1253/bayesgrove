@@ -93,7 +93,7 @@ describe("End-to-End Workflow Integration", {
     # 6. Verify Cache
     st2 <- bg_status(handle)
     expect_equal(st2$workflow_state, "idle")
-    expect_equal(st2$cached_nodes, 4)
+    expect_equal(length(bg_plan(handle)$cache_hits), 4)
 
     res_base <- bg_result(handle, n_fit_base)
     expect_true(res_base$fit)
@@ -104,7 +104,7 @@ describe("End-to-End Workflow Integration", {
     n_fit_branch <- bg_branch(handle, n_fit_base, label = "8_chains")
     bg_update_node(
       handle,
-      n_fit_branch,
+      n_fit_branch$root_node_id,
       params = list(backend = "cmdstanr", chains = 8)
     )
 
@@ -113,7 +113,7 @@ describe("End-to-End Workflow Integration", {
     run2 <- bg_run(handle, mode = "sync")
     expect_equal(run2$summary$total_executed, 1) # ONLY the new fit node ran!
 
-    res_branch <- bg_result(handle, n_fit_branch)
+    res_branch <- bg_result(handle, n_fit_branch$root_node_id)
     expect_equal(res_branch$chains, 8)
 
     # Both fits share the same compiled object identity

@@ -6,7 +6,8 @@ describe("Workflow persistence and context", {
     bg_register_node_kind(handle, "test_kind")
     n1 <- bg_add_node(handle, kind = "test_kind", label = "Source")
     n2 <- bg_add_node(handle, kind = "test_kind", label = "Fit", inputs = n1)
-    n3 <- bg_branch(handle, n2, label = "Fit Branch")
+    branch_record <- bg_branch(handle, n2, label = "Fit Branch")
+    n3 <- branch_record$root_node_id
 
     registry <- bg_read_branch_registry(handle)
     expect_length(registry$branches, 1)
@@ -24,12 +25,7 @@ describe("Workflow persistence and context", {
 
     bg_register_node_kind(handle, "test_kind")
     n1 <- bg_add_node(handle, kind = "test_kind", label = "Seed")
-    n2 <- bg_branch(handle, n1, label = "Main")
-
-    branch <- Filter(
-      function(x) identical(x$root_node_id, n2),
-      bg_read_branch_registry(handle)$branches
-    )[[1]]
+    branch <- bg_branch(handle, n1, label = "Main")
 
     decision <- bg_record_decision(
       project = handle,
@@ -94,6 +90,15 @@ describe("Workflow persistence and context", {
       "workflow",
       "summaries.jsonl"
     )))
+
+    index_path <- file.path(tmp, ".bayesgrove", "cache", "index.json")
+    expect_true(file.exists(index_path))
+    index_doc <- jsonlite::read_json(index_path, simplifyVector = FALSE)
+    expect_equal(index_doc$schema_name, "bg_artifact_index")
+    expect_equal(index_doc$schema_version, 1L)
+    expect_equal(index_doc$project_id, handle@project_id)
+    expect_true(node_id %in% names(index_doc$entries))
+    expect_length(index_doc$entries[[node_id]], 1)
   })
 
   it("marks summaries stale after invalidation supersedes the artifact binding", {
@@ -144,12 +149,8 @@ describe("Workflow persistence and context", {
       label = "Baseline",
       inputs = n_source
     )
-    n_branch <- bg_branch(handle, n_fit, label = "Alternative")
-
-    branch <- Filter(
-      function(x) identical(x$root_node_id, n_branch),
-      bg_read_branch_registry(handle)$branches
-    )[[1]]
+    branch <- bg_branch(handle, n_fit, label = "Alternative")
+    n_branch <- branch$root_node_id
 
     bg_set_goal(
       project = handle,
@@ -197,5 +198,60 @@ describe("Workflow persistence and context", {
     )
     expect_true("project" %in% decision_scopes)
     expect_true(branch$branch_id %in% decision_scopes)
+  })
+
+  it("keeps project-scoped contexts free of branch-only summaries", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(node_id = node$id),
+        summaries = list(list(
+          summary_kind = "optimizer_diagnostics",
+          passed = FALSE,
+          severity = "warning"
+        ))
+      )
+    })
+
+    n_source <- bg_add_node(handle, kind = "source", label = "Data")
+    n_fit <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = n_source
+    )
+    branch <- bg_branch(handle, n_fit, label = "Alternative")
+    n_branch <- branch$root_node_id
+
+    bg_run(handle, targets = n_branch, mode = "sync")
+
+    project_context <- bg_build_workflow_context(handle, scope = "project")
+    branch_context <- bg_build_workflow_context(
+      handle,
+      scope = branch$branch_id
+    )
+
+    expect_equal(
+      project_context$evidence$summaries,
+      list(),
+      info = "Project-scoped context should not pull branch-only summaries into the project evidence set."
+    )
+    expect_equal(
+      unique(vapply(
+        branch_context$evidence$summaries,
+        `[[`,
+        character(1),
+        "node_id"
+      )),
+      n_branch
+    )
   })
 })
