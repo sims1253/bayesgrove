@@ -1,3 +1,8 @@
+# bayesgrove 0.3.11
+
+* Moved the contributor-facing `dagriculture` boundary note out of `docs/` so pkgdown can clean and rebuild the GitHub Pages output directory in CI.
+* Disabled `indentation_linter` in `.lintr` so formatting remains enforced by `air format` without a conflicting lint failure.
+
 # bayesgrove 0.3.10
 
 * Removed stale default-workflow comparison action code, moved parameter-suggestion helpers into the default pack layer, and tightened comparison/disposition identity handling around compact `comparison_signature` values.
@@ -6,7 +11,7 @@
 
 # bayesgrove 0.3.9
 
-* Added an explicit Phase 7 architecture note at `docs/architecture/dagriculture-boundary.md` plus a small internal adapter layer that isolates BayesGrove's graph-generic dependency on `dagriculture`.
+* Added an explicit Phase 7 architecture note at `architecture/dagriculture-boundary.md` plus a small internal adapter layer that isolates BayesGrove's graph-generic dependency on `dagriculture`.
 * Refactored repeated inline structural graph queries into focused `bg_dagri_*` helpers for edge selection, descendant lookup, deterministic edge ordering, state recomputation, and structural graph diffs without moving workflow semantics out of BayesGrove.
 * Added regression coverage that distinguishes graph-generic helper behavior from BayesGrove-specific workflow, branch, and provenance logic.
 * Synced the README and pkgdown-facing site sources for the phase-7 boundary work, including a dedicated architecture page that pkgdown can render without a broken navbar link.

@@ -8,7 +8,7 @@ vignette: >
 ---
 
 This page mirrors the contributor-facing architecture note at
-`docs/architecture/dagriculture-boundary.md` so pkgdown can expose it as a
+`architecture/dagriculture-boundary.md` so pkgdown can expose it as a
 first-class site page.
 
 | Concern | Package owner | Reason |
