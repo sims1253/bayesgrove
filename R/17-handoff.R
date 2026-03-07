@@ -224,7 +224,7 @@ bg_export_report <- function(
     )
 
     # Show upstream connections
-    upstreams <- Filter(function(e) e$to == id, snap$graph$edges)
+    upstreams <- bg_dagri_incoming_edges(snap$graph, id)
     if (length(upstreams) > 0) {
       lines <- c(
         lines,

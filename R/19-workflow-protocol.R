@@ -376,7 +376,7 @@ bg_blocking_obligation_holds <- function(project, obligations) {
       obligation$basis$node_ids %||%
       character()
     for (node_id in node_ids) {
-      descendants <- dagriculture::dagri_descendants(graph, node_id)
+      descendants <- bg_dagri_descendants(graph, node_id)
       if (length(descendants) == 0) {
         next
       }

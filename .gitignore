@@ -1,4 +1,7 @@
-docs
+docs/*
+!docs/architecture/
+docs/architecture/*
+!docs/architecture/dagriculture-boundary.md
 /doc/
 /Meta/
 /bayesgrove.Rcheck/

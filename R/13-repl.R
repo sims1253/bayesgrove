@@ -329,7 +329,7 @@ bg_repl_print_status <- function(status, project = NULL) {
 bg_repl_node_rows <- function(project) {
   external_holds <- bg_workflow_external_holds(project)
   plan <- bg_plan(project, external_holds = external_holds)
-  graph <- dagriculture::dagri_recompute_state(bg_read_graph(project))
+  graph <- bg_dagri_recompute_state(bg_read_graph(project))
   jobs <- bg_jobs(project)
   active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
 
@@ -393,7 +393,7 @@ bg_repl_node_rows <- function(project) {
 
 #' @keywords internal
 bg_repl_print_nodes <- function(project, scope = "project") {
-  graph <- dagriculture::dagri_recompute_state(bg_read_graph(project))
+  graph <- bg_dagri_recompute_state(bg_read_graph(project))
 
   external_holds <- bg_workflow_external_holds(project)
   plan <- bg_plan(project, external_holds = external_holds)

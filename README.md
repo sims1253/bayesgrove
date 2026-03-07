@@ -19,6 +19,11 @@ checks, seamlessly cache intermediate computations like MCMC fits, and
 branch models asynchronously—all without losing the rationale behind
 your choices.
 
+Contributor note: graph-generic `dagriculture` boundary helpers now live
+in `R/22-dagri-adapters.R`, while workflow semantics such as policy
+holds, branch scope, summaries, and decision provenance remain in
+BayesGrove.
+
 ## Why BayesGrove?
 
 Modern Bayesian analysis requires iterative model building, checking,
@@ -109,10 +114,10 @@ Run the workflow. The fit completes but produces warning diagnostics:
 
 ``` r
 bg_run(handle, mode = "sync")
-#> Starting run "run_c9e1b16b" with 1 node to execute.
-#> Running node "node_9b64533c"...
-#> Running node "node_3fcbe570"...
-#> <bg_run_handle> run_c9e1b16b
+#> Starting run "run_2fced118" with 1 node to execute.
+#> Running node "node_620f253c"...
+#> Running node "node_1880413b"...
+#> <bg_run_handle> run_2fced118
 #> 
 #> • Status: blocked
 #> 

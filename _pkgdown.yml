@@ -10,6 +10,7 @@ navbar:
     left:
     - home
     - intro
+    - architecture
     - reference
     - articles
   components:
@@ -25,6 +26,9 @@ navbar:
         href: articles/simulation-study.html
       - text: "Guided Review Loop"
         href: articles/guided-review-loop.html
+    architecture:
+      text: "Architecture"
+      href: dagriculture-boundary.html
     reference:
       text: "Reference"
       href: reference/index.html

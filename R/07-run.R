@@ -182,8 +182,8 @@ bg_plan <- function(
   } else {
     bg_active_graph(project, graph = full_graph)
   }
-  graph <- dagriculture::dagri_recompute_state(graph)
-  graph_plan <- dagriculture::dagri_plan(
+  graph <- bg_dagri_recompute_state(graph)
+  graph_plan <- bg_dagri_plan(
     graph,
     targets,
     external_holds = external_holds
@@ -197,7 +197,7 @@ bg_plan <- function(
   input_bindings <- list()
 
   for (node_id in graph_plan$topo_order) {
-    upstream_edges <- Filter(function(e) e$to == node_id, graph$edges)
+    upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
     up_fps <- list()
     can_fingerprint <- TRUE
 
@@ -221,7 +221,7 @@ bg_plan <- function(
   }
 
   for (node_id in graph_plan$topo_order) {
-    upstream_edges <- Filter(function(e) e$to == node_id, graph$edges)
+    upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
     node_bindings <- list()
     can_plan <- TRUE
 

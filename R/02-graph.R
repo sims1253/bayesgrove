@@ -24,7 +24,7 @@ bg_add_node <- function(
   graph <- bg_read_graph(project)
 
   # Add the node
-  graph <- dagriculture::dagri_add_node(
+  graph <- bg_dagri_add_node(
     graph = graph,
     id = node_id,
     kind = kind,
@@ -37,7 +37,7 @@ bg_add_node <- function(
   if (!is.null(inputs)) {
     for (input in inputs) {
       edge_id <- sprintf("edge_%s", digest::digest(runif(1), algo = "xxhash32"))
-      graph <- dagriculture::dagri_add_edge(
+      graph <- bg_dagri_add_edge(
         graph = graph,
         from = input,
         to = node_id,
@@ -76,7 +76,7 @@ bg_connect <- function(
 
   graph <- bg_read_graph(project)
 
-  graph <- dagriculture::dagri_add_edge(
+  graph <- bg_dagri_add_edge(
     graph = graph,
     from = from,
     to = to,
@@ -111,7 +111,7 @@ bg_update_node <- function(
 
   graph <- bg_read_graph(project)
 
-  graph <- dagriculture::dagri_update_node(
+  graph <- bg_dagri_update_node(
     graph = graph,
     node_id = node_id,
     label = label,
@@ -136,7 +136,7 @@ bg_remove_node <- function(project, node_id) {
 
   graph <- bg_read_graph(project)
 
-  graph <- dagriculture::dagri_remove_node(
+  graph <- bg_dagri_remove_node(
     graph = graph,
     node_id = node_id
   )

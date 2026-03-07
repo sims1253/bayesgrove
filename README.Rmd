@@ -23,6 +23,8 @@ knitr::opts_chunk$set(
 
 Built on the purely functional `dagriculture` graph library, BayesGrove allows you to explicitly encode modeling decisions, enforce workflow checks, seamlessly cache intermediate computations like MCMC fits, and branch models asynchronously—all without losing the rationale behind your choices.
 
+Contributor note: graph-generic `dagriculture` boundary helpers now live in `R/22-dagri-adapters.R`, while workflow semantics such as policy holds, branch scope, summaries, and decision provenance remain in BayesGrove.
+
 ## Why BayesGrove?
 
 Modern Bayesian analysis requires iterative model building, checking, and revision. Typically, this process gets lost in unstructured scripts or implicit notebook states. 

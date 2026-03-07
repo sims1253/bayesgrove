@@ -25,7 +25,7 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   new_params <- if (copy_params) old_node$params else list()
 
   # Create the new node
-  graph <- dagriculture::dagri_add_node(
+  graph <- bg_dagri_add_node(
     graph = graph,
     id = new_id,
     kind = old_node$kind,
@@ -35,14 +35,14 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   )
 
   # Find upstream edges and duplicate them for the new node
-  upstream_edges <- Filter(function(e) e$to == node_id, graph$edges)
+  upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
 
   for (e in upstream_edges) {
     new_edge_id <- sprintf(
       "edge_%s",
       digest::digest(runif(1), algo = "xxhash32")
     )
-    graph <- dagriculture::dagri_add_edge(
+    graph <- bg_dagri_add_edge(
       graph = graph,
       from = e$from,
       to = new_id,
@@ -112,7 +112,7 @@ bg_branch_with_continuation <- function(
   continuation_nodes <- list()
 
   # Find direct downstream edges from the source node
-  downstream_edges <- Filter(function(e) e$from == node_id, graph$edges)
+  downstream_edges <- bg_dagri_outgoing_edges(graph, node_id)
 
   if (length(downstream_edges) == 0) {
     return(list(
@@ -161,7 +161,7 @@ bg_branch_with_continuation <- function(
     )
 
     # Find all edges into this target and remap inputs
-    incoming_edges <- Filter(function(e) e$to == target_id, graph$edges)
+    incoming_edges <- bg_dagri_incoming_edges(graph, target_id)
 
     # Determine new inputs: remap from branch source, keep others as-is
     new_inputs <- character()
@@ -181,7 +181,7 @@ bg_branch_with_continuation <- function(
       " (from branch)"
     )
 
-    graph <- dagriculture::dagri_add_node(
+    graph <- bg_dagri_add_node(
       graph = graph,
       id = new_target_id,
       kind = target_node$kind,
@@ -202,7 +202,7 @@ bg_branch_with_continuation <- function(
         "edge_%s",
         digest::digest(runif(1), algo = "xxhash32")
       )
-      graph <- dagriculture::dagri_add_edge(
+      graph <- bg_dagri_add_edge(
         graph = graph,
         from = new_inputs[[i]],
         to = new_target_id,
@@ -251,7 +251,7 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
   nodes_to_invalidate <- c(node_id)
 
   if (recursive) {
-    descendants <- dagriculture::dagri_descendants(graph, node_id)
+    descendants <- bg_dagri_descendants(graph, node_id)
     nodes_to_invalidate <- unique(c(nodes_to_invalidate, descendants))
   } else {
     cli::cli_warn(
@@ -366,7 +366,7 @@ bg_retire_node <- function(project, node_id, recursive = TRUE, reason = NULL) {
   if (isTRUE(recursive)) {
     node_ids <- unique(c(
       node_ids,
-      dagriculture::dagri_descendants(graph, node_id)
+      bg_dagri_descendants(graph, node_id)
     ))
   }
 

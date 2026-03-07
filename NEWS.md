@@ -1,3 +1,10 @@
+# bayesgrove 0.3.9
+
+* Added an explicit phase-7 architecture note at `docs/architecture/dagriculture-boundary.md` plus a small internal adapter layer that concentrates BayesGrove's graph-generic dependency on `dagriculture`.
+* Refactored repeated inline structural graph queries behind focused `bg_dagri_*` helpers for edge selection, descendant lookup, deterministic edge ordering, state recomputation, and structural graph diffs without moving workflow semantics out of BayesGrove.
+* Added regression coverage that distinguishes graph-generic helper behavior from BayesGrove-specific workflow, branch, and provenance logic.
+* Synced the README and pkgdown-facing site sources for the phase-7 boundary work, including a dedicated architecture page that pkgdown can render without a broken navbar link.
+
 # bayesgrove 0.3.8
 
 * Added a deterministic `guided-review-loop` vignette plus regression coverage for one full case-study loop covering workflow holds, branch lineage, criticism and comparison decisions, branch dispositions, stale summaries, and report export.
