@@ -8,7 +8,8 @@ bg_plan(
   project,
   targets = NULL,
   external_holds = list(),
-  mode = c("sync", "async")
+  mode = c("sync", "async"),
+  include_inactive = FALSE
 )
 }
 \arguments{
@@ -20,6 +21,9 @@ bg_plan(
 reasons. Held nodes remain distinct from structural blockers.}
 
 \item{mode}{Execution mode: 'sync' or 'async'.}
+
+\item{include_inactive}{Whether to keep retired or disabled nodes in the
+planning graph. Defaults to \code{FALSE}.}
 }
 \value{
 A \code{bg_run_plan} list.

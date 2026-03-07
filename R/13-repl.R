@@ -717,12 +717,26 @@ bg_repl_post_action_hint <- function(project, scope, action_kind) {
     hints <- c(hints, "actions - see next suggested actions")
   }
 
-  # Context-specific hints based on action kind
-  if (identical(action_kind, "branch_and_modify")) {
-    hints <- c(hints, "run - execute the new branch")
-  } else if (identical(action_kind, "create_node_from_template")) {
+  template_ref <- if (is.list(action_kind)) {
+    bg_action_template_ref(action_kind)
+  } else {
+    NULL
+  }
+  kind <- if (is.list(action_kind)) action_kind$kind %||% NULL else action_kind
+
+  if (identical(template_ref, "diagnostic_check")) {
+    hints <- c(hints, "run - execute the diagnostic check")
+  } else if (identical(template_ref, "branch_comparison")) {
     hints <- c(hints, "run - execute the comparison")
-  } else if (identical(action_kind, "record_decision")) {
+  } else if (identical(template_ref, "branch_and_modify_fit")) {
+    hints <- c(hints, "run - execute the new branch")
+  } else if (identical(template_ref, "review_decision")) {
+    hints <- c(hints, "run - continue execution")
+  } else if (identical(kind, "branch_and_modify")) {
+    hints <- c(hints, "run - execute the new branch")
+  } else if (identical(kind, "create_node_from_template")) {
+    hints <- c(hints, "run - execute the new node")
+  } else if (identical(kind, "record_decision")) {
     hints <- c(hints, "run - continue execution")
   }
 
@@ -739,133 +753,53 @@ bg_repl_post_action_hint <- function(project, scope, action_kind) {
 bg_repl_execute_action <- function(project, action, scope = "project") {
   kind <- action$kind
   target_scope <- action$scope %||% scope
+  template_ref <- bg_action_template_ref(action)
 
-  result <- switch(
-    kind,
-    "record_decision" = {
-      bg_repl_execute_record_decision(project, action, target_scope)
-    },
-    "branch_and_modify" = {
-      bg_repl_execute_branch_and_modify(project, action, target_scope)
-    },
-    "create_node_from_template" = {
-      bg_repl_execute_create_node_from_template(project, action, target_scope)
-    },
-    {
-      cli::cli_alert_warning(
-        "Action kind {.val {kind}} is not yet supported for direct execution."
-      )
-      cli::cli_text(
-        "{cli::col_grey('You can still perform this action using the low-level API.')}"
-      )
-      return(invisible(NULL))
-    }
-  )
+  result <- if (!is.null(template_ref)) {
+    bg_apply_template_action(project, action, target_scope)
+  } else {
+    switch(
+      kind,
+      "record_decision" = {
+        bg_repl_execute_record_decision(project, action, target_scope)
+      },
+      "branch_and_modify" = {
+        bg_repl_execute_branch_and_modify(project, action, target_scope)
+      },
+      "create_node_from_template" = {
+        bg_repl_execute_create_node_from_template(project, action, target_scope)
+      },
+      {
+        cli::cli_alert_warning(
+          "Action kind {.val {kind}} is not yet supported for direct execution."
+        )
+        cli::cli_text(
+          "{cli::col_grey('You can still perform this action using the low-level API.')}"
+        )
+        return(invisible(NULL))
+      }
+    )
+  }
 
   # Provide post-action guidance
-  bg_repl_post_action_hint(project, scope, kind)
+  bg_repl_post_action_hint(project, scope, action)
 
   invisible(result)
 }
 
 #' @keywords internal
 bg_repl_execute_create_node_from_template <- function(project, action, scope) {
-  payload <- action$payload
-  template_ref <- payload$template_ref
-
-  if (is.null(template_ref)) {
-    cli::cli_abort("Template action missing `template_ref`.")
-  }
-
-  if (!identical(template_ref, "branch_comparison")) {
-    cli::cli_abort(
-      "Template {.val {template_ref}} is not supported. Only {.val branch_comparison} is implemented."
-    )
-  }
-
-  input_ids <- payload$inputs %||% character()
-  if (length(input_ids) < 2) {
-    cli::cli_abort("Comparison requires at least two input nodes.")
-  }
-
-  graph <- bg_read_graph(project)
-  input_nodes <- lapply(input_ids, function(id) graph$nodes[[id]])
-  input_labels <- vapply(
-    input_ids,
-    function(id) {
-      node <- graph$nodes[[id]]
-      node$label %||% id
-    },
-    character(1)
-  )
-
-  cli::cli_h2("Create Comparison Node")
-  cli::cli_text("{cli::col_cyan(action$title)}")
-  cli::cli_text("")
-
-  cli::cli_text("{.strong Inputs to compare:}")
-  for (i in seq_along(input_ids)) {
-    cli::cli_bullets(c(
-      "*" = "{cli::col_cyan(input_labels[[i]])} [{input_ids[[i]]}]"
-    ))
-  }
-  cli::cli_text("")
-
-  default_label <- payload$default_label %||%
-    paste("Compare:", paste(input_labels, collapse = " vs "))
-
-  label_input <- bg_repl_readline(
-    "Label for comparison node (press Enter for default): "
-  )
-  label <- if (nzchar(trimws(label_input))) {
-    trimws(label_input)
-  } else {
-    default_label
-  }
-
-  # Add the comparison node with the fit nodes as inputs
-  compare_node_id <- bg_add_node(
-    project = project,
-    kind = "compare",
-    label = label,
-    inputs = input_ids
-  )
-
-  cli::cli_alert_success("Created comparison node: {.val {compare_node_id}}")
-  cli::cli_bullets(c(
-    "*" = "{cli::col_grey('Label:')} {label}",
-    "*" = "{cli::col_grey('Inputs:')} {paste(input_labels, collapse = ', ')}"
-  ))
-  cli::cli_text("")
-  cli::cli_text(
-    "{cli::col_grey('Use `run` to execute the comparison, or `result {compare_node_id}` to inspect after execution.')}"
-  )
-
-  decision <- bg_repl_record_action_note(
-    project = project,
-    scope = scope,
-    action = action,
-    choice = paste0("Created comparison node ", label),
-    rationale = "Guided comparison action executed from the REPL.",
-    metadata = list(
-      node_id = compare_node_id,
-      template_ref = template_ref,
-      inputs = input_ids
-    )
-  )
-
-  invisible(list(
-    node_id = compare_node_id,
-    label = label,
-    inputs = input_ids,
-    decision = decision
-  ))
+  bg_apply_template_action(project, action, scope)
 }
 
 #' @keywords internal
 bg_repl_execute_record_decision <- function(project, action, scope) {
   payload <- action$payload
   decision_type <- payload$decision_type %||% "note"
+
+  if (identical(bg_action_template_ref(action), "review_decision")) {
+    return(bg_apply_template_action(project, action, scope))
+  }
 
   cli::cli_h2("Record Decision")
   cli::cli_text("{cli::col_cyan(action$title)}")
@@ -884,49 +818,7 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
   cli::cli_text("{cli::col_yellow('Prompt:')} {prompt}")
   cli::cli_text("")
 
-  if (decision_type == "computation_review") {
-    cli::cli_text("{.strong Options:}")
-    cli::cli_bullets(c("*" = "[1] Accept - computation is valid for use"))
-    cli::cli_bullets(c("*" = "[2] Reject - computation is not acceptable"))
-    cli::cli_bullets(c("*" = "[3] Needs revision - acceptable with changes"))
-    cli::cli_text("")
-
-    choice_idx <- bg_repl_readline("Choose an option (1-3): ")
-    idx <- as.integer(choice_idx)
-
-    if (is.na(idx) || idx < 1 || idx > 3) {
-      cli::cli_abort("Invalid choice.")
-    }
-
-    choice <- switch(
-      idx,
-      "accept",
-      "reject",
-      "needs_revision"
-    )
-
-    choice_label <- switch(
-      idx,
-      "Accept",
-      "Reject",
-      "Needs revision"
-    )
-  } else if (decision_type == "branch_disposition") {
-    cli::cli_text("{.strong Options:}")
-    cli::cli_bullets(c("*" = "[1] Accept"))
-    cli::cli_bullets(c("*" = "[2] Reject"))
-    cli::cli_text("")
-
-    choice_idx <- bg_repl_readline("Choose an option (1-2): ")
-    idx <- as.integer(choice_idx)
-
-    if (is.na(idx) || idx < 1 || idx > 2) {
-      cli::cli_abort("Invalid choice.")
-    }
-
-    choice <- if (identical(idx, 1L)) "accept" else "reject"
-    choice_label <- if (identical(idx, 1L)) "accept" else "reject"
-  } else if (decision_type == "goal_update") {
+  if (decision_type == "goal_update") {
     allowed_kinds <- payload$allowed_goal_kinds %||%
       c("observable_prediction", "latent_inference")
 
@@ -1009,187 +901,7 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
 
 #' @keywords internal
 bg_repl_execute_branch_and_modify <- function(project, action, scope) {
-  payload <- action$payload
-  source_node_id <- payload$source_node_id %||% action$basis$node_ids[[1]]
-
-  if (is.null(source_node_id)) {
-    cli::cli_abort("No source node specified for branch operation.")
-  }
-
-  graph <- bg_read_graph(project)
-  source_node <- graph$nodes[[source_node_id]]
-
-  if (is.null(source_node)) {
-    cli::cli_abort("Source node {.val {source_node_id}} not found.")
-  }
-
-  modification_hint <- payload$modification_hint
-  parameter_suggestions <- payload$parameter_suggestions %||% list()
-  continuation_kinds <- payload$continuation_kinds %||% c("check", "ppc")
-  auto_run <- isTRUE(payload$auto_run)
-  default_label <- payload$default_label %||%
-    paste0(source_node$label %||% source_node$kind, " (revised)")
-
-  cli::cli_h2("Branch and Modify")
-  cli::cli_text("{cli::col_cyan(action$title)}")
-  cli::cli_text("")
-  cli::cli_bullets(c(
-    "*" = "{cli::col_grey('Source node:')} {source_node$label %||% source_node_id}",
-    "*" = "{cli::col_grey('Kind:')} {source_node$kind}"
-  ))
-
-  if (!is.null(modification_hint)) {
-    cli::cli_bullets(c(
-      "*" = "{cli::col_grey('Suggested fix:')} {cli::col_yellow(modification_hint)}"
-    ))
-  }
-
-  if (length(parameter_suggestions) > 0) {
-    cli::cli_text("")
-    cli::cli_text("{.strong Suggested parameter changes:}")
-    for (param_name in names(parameter_suggestions)) {
-      suggested_val <- parameter_suggestions[[param_name]]
-      current_val <- source_node$params[[param_name]] %||% "(not set)"
-      cli::cli_bullets(c(
-        "*" = "{param_name}: {cli::col_grey(current_val)} -> {cli::col_green(suggested_val)}"
-      ))
-    }
-  }
-  cli::cli_text("")
-
-  # Get branch label from user
-  label_input <- bg_repl_readline(
-    "Label for the new branch (press Enter for default): "
-  )
-  label <- if (nzchar(trimws(label_input))) {
-    trimws(label_input)
-  } else {
-    default_label
-  }
-
-  # Create the branch with continuation nodes
-  result <- bg_branch_with_continuation(
-    project = project,
-    node_id = source_node_id,
-    label = label,
-    continuation_kinds = continuation_kinds
-  )
-  branch <- result$branch
-  continuation_nodes <- result$continuation_nodes
-  branch_root_id <- branch$root_node_id
-
-  bg_update_branch_metadata(
-    project,
-    branch$branch_id,
-    list(
-      goal_optional = TRUE,
-      branch_purpose = "technical_revision",
-      remediation_action_id = action$action_id %||% NULL,
-      remediation_source_node_id = source_node_id
-    )
-  )
-  branch$metadata <- utils::modifyList(
-    branch$metadata %||% list(),
-    list(goal_optional = TRUE)
-  )
-
-  cli::cli_alert_success("Created branch: {.val {branch$branch_id}}")
-  cli::cli_bullets(c(
-    "*" = "{cli::col_grey('Branch root:')} {branch_root_id}",
-    "*" = "{cli::col_grey('Label:')} {label}"
-  ))
-
-  # Apply parameter suggestions to the new branch root
-  applied_params <- list()
-  if (length(parameter_suggestions) > 0) {
-    apply_input <- bg_repl_readline(
-      "Apply suggested parameter changes? [Y/n]: "
-    )
-    apply_params <- !identical(tolower(trimws(apply_input)), "n")
-
-    if (apply_params) {
-      branch_node <- bg_read_graph(project)$nodes[[branch_root_id]]
-      new_params <- utils::modifyList(
-        branch_node$params %||% list(),
-        parameter_suggestions
-      )
-      bg_update_node(project, branch_root_id, params = new_params)
-      applied_params <- parameter_suggestions
-
-      cli::cli_alert_success("Applied parameter changes to branch root.")
-      for (param_name in names(parameter_suggestions)) {
-        cli::cli_bullets(c(
-          "*" = "{param_name} = {parameter_suggestions[[param_name]]}"
-        ))
-      }
-    }
-  }
-
-  decision <- bg_repl_record_action_note(
-    project = project,
-    scope = branch$branch_id,
-    action = action,
-    choice = paste0("Created remediation branch ", label),
-    rationale = "Guided remediation action executed from the REPL.",
-    metadata = list(
-      branch_id = branch$branch_id,
-      branch_root_id = branch_root_id,
-      source_node_id = source_node_id,
-      applied_params = applied_params,
-      continuation_node_ids = vapply(
-        continuation_nodes,
-        `[[`,
-        character(1),
-        "clone_id"
-      )
-    )
-  )
-
-  if (length(continuation_nodes) > 0) {
-    cli::cli_text("")
-    cli::cli_text("{.strong Continuation nodes:}")
-    for (source_id in names(continuation_nodes)) {
-      cont <- continuation_nodes[[source_id]]
-      cli::cli_bullets(c(
-        "*" = "{cli::col_cyan(cont$label)} [{cont$kind}]"
-      ))
-    }
-  }
-
-  # Suggest next steps based on workflow state
-  cli::cli_text("")
-  cli::cli_h3("Next Steps")
-
-  if (length(applied_params) > 0) {
-    cli::cli_bullets(c(
-      "*" = "{.code run} - Execute the modified branch to test the fix"
-    ))
-  } else {
-    cli::cli_bullets(c(
-      "*" = "{.code set {branch_root_id} <key>=<value>} - Modify parameters",
-      "*" = "{.code run} - Execute the branch"
-    ))
-  }
-
-  # Check if branch has a goal
-  goal <- bg_get_goal(project, branch$branch_id)
-  if (is.null(goal) && !isTRUE(branch$metadata$goal_optional)) {
-    cli::cli_bullets(c(
-      "*" = "{.code scope {branch$branch_id}} - Switch to branch scope",
-      "*" = "{.code goal set} - Define inferential goal for this branch"
-    ))
-  } else {
-    cli::cli_bullets(c(
-      "*" = "{.code scope {branch$branch_id}} - Switch to branch scope"
-    ))
-  }
-
-  invisible(list(
-    branch = branch,
-    continuation_nodes = continuation_nodes,
-    applied_params = applied_params,
-    decision = decision
-  ))
+  bg_apply_template_action(project, action, scope)
 }
 
 #' @keywords internal

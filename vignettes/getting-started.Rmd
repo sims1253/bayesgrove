@@ -22,13 +22,22 @@ knitr::opts_chunk$set(
 
 This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process. The current package also includes a workflow-protocol layer: executors can emit summaries, `bg_next_actions()` can derive obligations and suggested actions from those summaries, and callers can pass the resulting planner holds into `bg_plan()` without conflating them with structural graph blockers. The built-in `bayesguide.default_bayesian` pack now covers a narrow review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection.
 
+That review loop is exposed through a small built-in template registry. The
+registry keeps common next steps explicit instead of hardcoding one-off REPL
+behaviors:
+
+```{r templates}
+library(bayesgrove)
+
+names(bg_list_templates())
+bg_list_templates("branch_comparison")$operation_type
+```
+
 ## 1. Initializing a Project
 
 Every BayesGrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.
 
 ```{r setup}
-library(bayesgrove)
-
 # Use a temporary directory for this vignette
 project_root <- file.path(tempdir(), "bg-quickstart")
 unlink(project_root, recursive = TRUE)
@@ -252,6 +261,10 @@ Filter(
   comparison_guide$actions
 )[[1]]$payload$template_ref
 ```
+
+That `template_ref` is stable and maps to the built-in descriptor returned by
+`bg_list_templates("branch_comparison")`. The same registry is what the REPL
+uses when you execute a suggested action interactively.
 
 Create and run the comparison node, then record a `model_comparison` decision
 using the payload fields supplied by the workflow action:

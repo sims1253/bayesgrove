@@ -1,3 +1,9 @@
+# bayesgrove 0.3.7
+
+* Added a first-class built-in template registry plus `bg_list_templates()` for `diagnostic_check`, `branch_comparison`, `branch_and_modify_fit`, and `review_decision`.
+* Reworked the guided REPL and workflow action payloads to execute template-backed node creation, branching, and review decisions through the shared registry while preserving `branch_comparison` compatibility.
+* Split the checked-in REPL demo surface into reusable checkpoints plus focused remediation, comparison, and disposition tapes while keeping the original full walkthrough.
+
 # bayesgrove 0.3.6
 
 * Added explicit retirement semantics with `bg_retire_node()` and `bg_retire_branch()` so stale analysis paths can be removed from planning and workflow guidance without changing `bg_invalidate()`'s recompute-oriented behavior.

@@ -182,7 +182,12 @@ describe("Interactive REPL", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data source")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Alternative")
 
     expect_no_error(repl_ns("bg_repl_print_guide")(handle, branch$branch_id))
@@ -575,9 +580,13 @@ describe("Interactive REPL", {
       workflow_packs = list("bayesguide.default_bayesian")
     )
 
-    bg_register_node_kind(handle, "data_prep", executor = function(node, inputs) {
-      data.frame(group = rep(1:5, each = 10), y = seq_len(50))
-    })
+    bg_register_node_kind(
+      handle,
+      "data_prep",
+      executor = function(node, inputs) {
+        data.frame(group = rep(1:5, each = 10), y = seq_len(50))
+      }
+    )
     bg_register_node_kind(handle, "compile", executor = function(node, inputs) {
       list(model = "compiled_binary")
     })
@@ -690,7 +699,11 @@ describe("Interactive REPL", {
       )
     )
 
-    answers <- c("1", "Revised comparison goal", "Keep this branch in comparison.")
+    answers <- c(
+      "1",
+      "Revised comparison goal",
+      "Keep this branch in comparison."
+    )
     answer_idx <- 0L
 
     testthat::with_mocked_bindings(
@@ -708,16 +721,240 @@ describe("Interactive REPL", {
     expect_null(bg_get_goal(handle, "project"))
   })
 
-  it("supports the scripted demo flow through comparison and branch disposition", {
-    local_env <- new.env(parent = globalenv())
-    sys.source(
-      testthat::test_path(
-        "..", "..", "tools", "demo", "repl-workflow", "launch-demo.R"
-      ),
-      envir = local_env
+  it("creates diagnostic checks from template-backed actions", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "fit")
+    bg_register_node_kind(handle, "check")
+
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline Fit")
+    action <- list(
+      action_id = "test_diagnostic_check",
+      kind = "create_node_from_template",
+      scope = "project",
+      title = "Create diagnostic check",
+      basis = list(node_ids = fit_id),
+      payload = list(
+        template_ref = "diagnostic_check",
+        source_node_id = fit_id
+      )
     )
 
-    demo <- local_env$demo_repl_workflow(start_repl = FALSE)
+    result <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
+      bg_repl_readline = function(prompt = "") "",
+      .package = "bayesgrove"
+    )
+
+    graph <- bg_read_graph(handle)
+    expect_true(result$node_id %in% names(graph$nodes))
+    expect_equal(graph$nodes[[result$node_id]]$kind, "check")
+    expect_equal(
+      graph$nodes[[result$node_id]]$label,
+      "Diagnostics: Baseline Fit"
+    )
+
+    edges <- Filter(function(e) e$to == result$node_id, graph$edges)
+    expect_length(edges, 1L)
+    expect_equal(edges[[1]]$from, fit_id)
+  })
+
+  it("preserves backward compatibility for branch_comparison template actions", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "fit")
+    bg_register_node_kind(handle, "compare")
+
+    fit_a <- bg_add_node(handle, kind = "fit", label = "Fit A")
+    fit_b <- bg_add_node(handle, kind = "fit", label = "Fit B")
+    action <- list(
+      action_id = "test_branch_comparison",
+      kind = "create_node_from_template",
+      scope = "project",
+      title = "Create comparison node",
+      basis = list(node_ids = c(fit_a, fit_b)),
+      payload = list(
+        template_ref = "branch_comparison",
+        inputs = c(fit_a, fit_b)
+      )
+    )
+
+    result <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_create_node_from_template")(
+        handle,
+        action,
+        "project"
+      ),
+      bg_repl_readline = function(prompt = "") "",
+      .package = "bayesgrove"
+    )
+
+    graph <- bg_read_graph(handle)
+    expect_equal(graph$nodes[[result$node_id]]$kind, "compare")
+
+    edges <- Filter(function(e) e$to == result$node_id, graph$edges)
+    expect_equal(
+      unname(sort(vapply(edges, `[[`, character(1), "from"))),
+      sort(c(fit_a, fit_b))
+    )
+  })
+
+  it("executes branch_and_modify_fit through bg_branch_with_continuation", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "fit")
+    bg_register_node_kind(handle, "check")
+    bg_register_node_kind(handle, "ppc")
+
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit")
+    bg_add_node(handle, kind = "check", label = "Diagnostics", inputs = fit_id)
+    bg_add_node(handle, kind = "ppc", label = "PPC", inputs = fit_id)
+
+    action <- list(
+      action_id = "test_template_branch",
+      kind = "branch_and_modify",
+      scope = "project",
+      title = "Branch and modify fit",
+      basis = list(node_ids = fit_id),
+      payload = list(
+        template_ref = "branch_and_modify_fit",
+        source_node_id = fit_id,
+        continuation_kinds = c("check", "ppc")
+      )
+    )
+
+    branch_with_continuation <- repl_ns("bg_branch_with_continuation")
+    called <- NULL
+
+    result <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
+      bg_repl_readline = local({
+        answers <- c("", "n")
+        idx <- 0L
+        function(prompt = "") {
+          idx <<- idx + 1L
+          answers[[idx]]
+        }
+      }),
+      bg_branch_with_continuation = function(
+        project,
+        node_id,
+        label = NULL,
+        copy_params = TRUE,
+        continuation_kinds = NULL,
+        continuation_depth = 1L
+      ) {
+        called <<- list(
+          node_id = node_id,
+          label = label,
+          continuation_kinds = continuation_kinds
+        )
+        branch_with_continuation(
+          project = project,
+          node_id = node_id,
+          label = label,
+          copy_params = copy_params,
+          continuation_kinds = continuation_kinds,
+          continuation_depth = continuation_depth
+        )
+      },
+      .package = "bayesgrove"
+    )
+
+    expect_equal(called$node_id, fit_id)
+    expect_equal(called$continuation_kinds, c("check", "ppc"))
+    expect_true(startsWith(result$branch$branch_id, "branch:"))
+  })
+
+  it("records review_decision template decisions with intended basis", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    action <- list(
+      action_id = "test_review_decision",
+      kind = "record_decision",
+      scope = "project",
+      title = "Record model comparison decision",
+      payload = list(
+        template_ref = "review_decision",
+        decision_type = "model_comparison",
+        fit_node_ids = c("node_a", "node_b"),
+        branch_ids = c("project", "branch:alternative"),
+        summary_ids = c("sum_1", "sum_2"),
+        candidate_signature = "cand_sig",
+        comparison_signature = "cmp_sig",
+        comparison_context = list(
+          candidate_signature = "cand_sig",
+          comparison_signature = "cmp_sig"
+        )
+      )
+    )
+
+    decision <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
+      bg_repl_readline = local({
+        answers <- c("prefer_branch_b", "Cleaner diagnostics and better fit.")
+        idx <- 0L
+        function(prompt = "") {
+          idx <<- idx + 1L
+          answers[[idx]]
+        }
+      }),
+      .package = "bayesgrove"
+    )
+
+    expect_equal(decision$kind, "model_comparison")
+    expect_equal(decision$choice, "prefer_branch_b")
+    expect_equal(decision$metadata$template_ref, "review_decision")
+    expect_equal(decision$metadata$fit_node_ids, c("node_a", "node_b"))
+    expect_equal(decision$metadata$summary_ids, c("sum_1", "sum_2"))
+    expect_equal(decision$metadata$comparison_signature, "cmp_sig")
+  })
+
+  it("supports focused demo checkpoints for comparison and disposition", {
+    comparison_demo <- test_demo_repl_fixture("comparison_ready")
+    comparison_actions <- bg_next_actions(
+      comparison_demo$handle,
+      scope = "project"
+    )$actions
+    comparison_template <- Filter(
+      function(action) {
+        identical(action$kind, "create_node_from_template") &&
+          identical(action$payload$template_ref %||% NULL, "branch_comparison")
+      },
+      comparison_actions
+    )
+    expect_length(comparison_template, 1L)
+    expect_equal(comparison_demo$initial_scope, "project")
+
+    disposition_demo <- test_demo_repl_fixture("disposition_ready")
+    disposition_actions <- bg_next_actions(
+      disposition_demo$handle,
+      scope = "branch",
+      branch_id = disposition_demo$revised_branch$branch_id
+    )$actions
+    disposition_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(
+            action$payload$decision_type %||% NULL,
+            "branch_disposition"
+          )
+      },
+      disposition_actions
+    )
+    expect_length(disposition_action, 1L)
+    expect_equal(
+      disposition_demo$initial_scope,
+      disposition_demo$revised_branch$branch_id
+    )
+  })
+
+  it("supports the scripted demo flow through comparison and branch disposition", {
+    demo <- test_demo_repl_fixture("warning_branch")
     handle <- demo$handle
 
     initial_actions <- bg_next_actions(handle, scope = "project")
@@ -753,7 +990,10 @@ describe("Interactive REPL", {
     run_res <- bg_run(handle, targets = revised_root, mode = "sync")
     expect_equal(run_res$status, "succeeded")
 
-    stale_node <- repl_ns("bg_repl_find_node")(handle, "Fit Centered Parametrization")
+    stale_node <- repl_ns("bg_repl_find_node")(
+      handle,
+      "Fit Centered Parametrization"
+    )
     bayesgrove:::bg_retire_node(handle, stale_node, recursive = TRUE)
 
     after_invalidate <- bg_next_actions(handle, scope = "project")

@@ -207,9 +207,11 @@ bg_branch_lifecycle <- function(branch) {
 bg_active_branch_ids <- function(project) {
   branches <- bg_read_branch_registry(project)$branches %||% list()
   Filter(
-    function(branch_id) bg_is_active_lifecycle(
-      bg_branch_lifecycle(branches[[branch_id]])
-    ),
+    function(branch_id) {
+      bg_is_active_lifecycle(
+        bg_branch_lifecycle(branches[[branch_id]])
+      )
+    },
     names(branches)
   )
 }
@@ -843,7 +845,8 @@ bg_predicted_fingerprints <- function(project, include_inactive = TRUE) {
     project,
     mode = "sync",
     include_inactive = include_inactive
-  )$metadata$fingerprints %||% list()
+  )$metadata$fingerprints %||%
+    list()
 }
 
 #' @keywords internal
@@ -1035,6 +1038,8 @@ bg_summary_is_fresh <- function(
 #' @param project A `bg_handle`.
 #' @param scope Optional scope filter.
 #' @param include_stale Whether to keep stale entries.
+#' @param include_inactive Whether to keep summaries from retired or disabled
+#'   nodes. Defaults to `TRUE`.
 #' @param predicted_fingerprints Optional named fingerprint map.
 #' @param artifact_index Optional artifact index.
 #'

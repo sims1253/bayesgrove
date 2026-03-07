@@ -147,6 +147,8 @@ bg_normalize_execution_result <- function(result) {
 #' @param external_holds Optional named list mapping node ids to external hold
 #'   reasons. Held nodes remain distinct from structural blockers.
 #' @param mode Execution mode: 'sync' or 'async'.
+#' @param include_inactive Whether to keep retired or disabled nodes in the
+#'   planning graph. Defaults to `FALSE`.
 #'
 #' @return A `bg_run_plan` list.
 #' @export

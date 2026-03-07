@@ -734,6 +734,7 @@ bg_default_bayesian_summary_actions <- function(
       node_ids = node_ids
     ),
     payload = list(
+      template_ref = "review_decision",
       decision_type = "computation_review",
       summary_ids = summary_ids,
       node_ids = node_ids
@@ -782,6 +783,7 @@ bg_default_bayesian_summary_actions <- function(
           node_ids = node_ids
         ),
         payload = list(
+          template_ref = "branch_and_modify_fit",
           source_node_id = source_node_id,
           modification_hint = modification_hint,
           default_label = if (!is.null(source_node)) {

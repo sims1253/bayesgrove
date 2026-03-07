@@ -103,10 +103,10 @@ Run the workflow. The fit completes but produces warning diagnostics:
 
 ``` r
 bg_run(handle, mode = "sync")
-#> Starting run "run_ff5f7c8e" with 1 node to execute.
-#> Running node "node_9ae54b33"...
-#> Running node "node_b45fe58f"...
-#> <bg_run_handle> run_ff5f7c8e
+#> Starting run "run_bf4c4c45" with 1 node to execute.
+#> Running node "node_b2aee278"...
+#> Running node "node_9771f3ac"...
+#> <bg_run_handle> run_bf4c4c45
 #> 
 #> • Status: blocked
 #> 
@@ -192,6 +192,28 @@ bg_record_decision(
 # branch scope with a `branch_disposition` decision.
 ```
 
+## Built-in Templates
+
+Common guided next steps are now exposed as first-class built-in
+templates:
+
+- `diagnostic_check` creates a downstream `check` node from a fit
+- `branch_comparison` creates a `compare` node across fit candidates
+- `branch_and_modify_fit` wraps `bg_branch_with_continuation()`
+- `review_decision` records explicit review decisions such as
+  computation review, fit criticism, model comparison, and branch
+  disposition
+
+You can inspect the registry directly:
+
+``` r
+bg_list_templates()
+bg_list_templates("branch_comparison")
+```
+
+The interactive REPL uses the same registry when it executes
+template-backed actions.
+
 ## Interactive REPL
 
 The REPL provides a guided loop for working through obligations:
@@ -204,9 +226,3 @@ The REPL provides a guided loop for working through obligations:
 - `run` - Execute ready nodes
 - `nodes` - View the execution graph with states
 - `result <label>` - Inspect cached results and diagnostics
-
-<img src="tools/demo/repl-workflow/repl-workflow.gif" width="100%" alt="BayesGrove Interactive REPL Demo"/>
-
-The demo shows the full guided loop: a fit with divergent transitions
-triggers a blocking obligation, you branch and modify to use
-non-centered parametrization, rerun, and the workflow advances.

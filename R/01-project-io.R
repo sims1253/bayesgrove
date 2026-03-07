@@ -34,13 +34,15 @@ bg_validate_graph_payload <- function(raw, graph_path) {
     )
   }
 
-  invalid_edge_idx <- which(!vapply(
-    raw$edges,
-    function(edge) {
-      is.list(edge) && !is.null(edge$from) && !is.null(edge$to)
-    },
-    logical(1)
-  ))
+  invalid_edge_idx <- which(
+    !vapply(
+      raw$edges,
+      function(edge) {
+        is.list(edge) && !is.null(edge$from) && !is.null(edge$to)
+      },
+      logical(1)
+    )
+  )
   if (length(invalid_edge_idx) > 0) {
     cli::cli_abort(
       paste0(

@@ -1,4 +1,25 @@
 describe("Workflow protocol APIs", {
+  it("lists built-in templates and supports lookup by template_ref", {
+    templates <- bg_list_templates()
+
+    expect_equal(
+      sort(names(templates)),
+      sort(c(
+        "diagnostic_check",
+        "branch_comparison",
+        "branch_and_modify_fit",
+        "review_decision"
+      ))
+    )
+    expect_equal(templates$branch_comparison$template_ref, "branch_comparison")
+    expect_equal(templates$branch_comparison$operation_type, "create_node")
+    expect_equal(
+      bg_list_templates("branch_and_modify_fit")$template_ref,
+      "branch_and_modify_fit"
+    )
+    expect_null(bg_list_templates("missing_template"))
+  })
+
   it("returns empty protocol results when no workflow packs are active", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp, workflow_packs = list())
@@ -184,12 +205,15 @@ describe("Workflow protocol APIs", {
     result <- bg_next_actions(handle)
 
     expect_gte(length(result$obligations), 1)
-    expect_true(all(vapply(
-      result$obligations,
-      `[[`,
-      character(1),
-      "kind"
-    ) == "review_computation_validity"))
+    expect_true(all(
+      vapply(
+        result$obligations,
+        `[[`,
+        character(1),
+        "kind"
+      ) ==
+        "review_computation_validity"
+    ))
 
     expect_length(result$actions, 2)
 
@@ -197,12 +221,14 @@ describe("Workflow protocol APIs", {
       function(a) identical(a$kind, "record_decision"),
       result$actions
     )[[1]]
+    expect_equal(record_action$payload$template_ref, "review_decision")
     expect_equal(record_action$payload$decision_type, "computation_review")
 
     branch_action <- Filter(
       function(a) identical(a$kind, "branch_and_modify"),
       result$actions
     )[[1]]
+    expect_equal(branch_action$payload$template_ref, "branch_and_modify_fit")
     expect_equal(branch_action$payload$source_node_id, node_id)
     expect_equal(branch_action$payload$modification_hint, "reparametrize")
     expect_match(branch_action$payload$default_label, "revised")
@@ -409,8 +435,18 @@ describe("Workflow protocol APIs", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = source_id)
-    check_id <- bg_add_node(handle, kind = "check", label = "Check", inputs = fit_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = source_id
+    )
+    check_id <- bg_add_node(
+      handle,
+      kind = "check",
+      label = "Check",
+      inputs = fit_id
+    )
 
     bg_run(handle, targets = check_id, mode = "sync")
 
@@ -780,7 +816,12 @@ describe("Workflow protocol APIs", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Test Branch")
     branch_id <- branch$branch_id
 
@@ -836,7 +877,12 @@ describe("Workflow protocol APIs", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Test Branch")
     branch_id <- branch$branch_id
 
@@ -870,8 +916,17 @@ describe("Workflow protocol APIs", {
     )
 
     # Check that fit_criticism obligation is cleared
-    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
-    obligation_kinds <- vapply(result_after$obligations, `[[`, character(1), "kind")
+    result_after <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch_id
+    )
+    obligation_kinds <- vapply(
+      result_after$obligations,
+      `[[`,
+      character(1),
+      "kind"
+    )
     expect_false("review_fit_criticism" %in% obligation_kinds)
   })
 
@@ -904,7 +959,12 @@ describe("Workflow protocol APIs", {
     bg_register_node_kind(handle, "fit", executor = warning_executor)
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Test Branch")
     branch_id <- branch$branch_id
 
@@ -942,8 +1002,17 @@ describe("Workflow protocol APIs", {
 
     # The fit_criticism decision addressed old (now stale) summaries
     # New fresh summaries should trigger a new obligation
-    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
-    obligation_kinds <- vapply(result_after$obligations, `[[`, character(1), "kind")
+    result_after <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch_id
+    )
+    obligation_kinds <- vapply(
+      result_after$obligations,
+      `[[`,
+      character(1),
+      "kind"
+    )
     expect_true("review_fit_criticism" %in% obligation_kinds)
     expect_true("review_computation_validity" %in% obligation_kinds)
   })
@@ -1049,7 +1118,12 @@ describe("Workflow protocol APIs", {
     bg_register_node_kind(handle, "fit", executor = clean_executor)
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit1_id <- bg_add_node(handle, kind = "fit", label = "Clean Fit", inputs = source_id)
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Clean Fit",
+      inputs = source_id
+    )
     bg_run(handle, mode = "sync")
 
     # Branch with warning
@@ -1342,7 +1416,11 @@ describe("Workflow protocol APIs", {
     bg_run(handle, targets = compare_id, mode = "sync")
 
     # Verify disposition obligation exists for the branch
-    result_before <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    result_before <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )
     disposition_obls <- Filter(
       function(o) identical(o$kind, "accept_or_reject_branch"),
       result_before$obligations
@@ -1374,7 +1452,11 @@ describe("Workflow protocol APIs", {
     )
 
     # Verify obligation is cleared for this branch
-    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    result_after <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )
     disposition_obls_after <- Filter(
       function(o) identical(o$kind, "accept_or_reject_branch"),
       result_after$obligations
@@ -1406,19 +1488,44 @@ describe("Workflow protocol APIs", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     bg_run(handle, mode = "sync")
 
     result1 <- bg_next_actions(handle, scope = "project")
     result2 <- bg_next_actions(handle, scope = "project")
 
-    ids1 <- sort(vapply(result1$obligations, `[[`, character(1), "obligation_id"))
-    ids2 <- sort(vapply(result2$obligations, `[[`, character(1), "obligation_id"))
+    ids1 <- sort(vapply(
+      result1$obligations,
+      `[[`,
+      character(1),
+      "obligation_id"
+    ))
+    ids2 <- sort(vapply(
+      result2$obligations,
+      `[[`,
+      character(1),
+      "obligation_id"
+    ))
 
     expect_equal(ids1, ids2)
 
-    action_ids1 <- sort(vapply(result1$actions, `[[`, character(1), "action_id"))
-    action_ids2 <- sort(vapply(result2$actions, `[[`, character(1), "action_id"))
+    action_ids1 <- sort(vapply(
+      result1$actions,
+      `[[`,
+      character(1),
+      "action_id"
+    ))
+    action_ids2 <- sort(vapply(
+      result2$actions,
+      `[[`,
+      character(1),
+      "action_id"
+    ))
 
     expect_equal(action_ids1, action_ids2)
   })
@@ -1448,7 +1555,12 @@ describe("Workflow protocol APIs", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Test Branch")
     branch_id <- branch$branch_id
 
@@ -1473,6 +1585,7 @@ describe("Workflow protocol APIs", {
       result$actions
     )
     expect_gte(length(criticism_actions), 1)
+    expect_equal(criticism_actions[[1]]$payload$template_ref, "review_decision")
 
     # Should also have branch_and_modify action for criticism
     branch_actions <- Filter(
@@ -1480,6 +1593,10 @@ describe("Workflow protocol APIs", {
       result$actions
     )
     expect_gte(length(branch_actions), 1)
+    expect_equal(
+      branch_actions[[1]]$payload$template_ref,
+      "branch_and_modify_fit"
+    )
   })
 
   it("emits model_comparison decision action when comparison node exists", {
@@ -1555,5 +1672,9 @@ describe("Workflow protocol APIs", {
       result$actions
     )
     expect_gte(length(comparison_actions), 1)
+    expect_equal(
+      comparison_actions[[1]]$payload$template_ref,
+      "review_decision"
+    )
   })
 })

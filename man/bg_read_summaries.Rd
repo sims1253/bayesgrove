@@ -8,6 +8,7 @@ bg_read_summaries(
   project,
   scope = NULL,
   include_stale = TRUE,
+  include_inactive = TRUE,
   predicted_fingerprints = NULL,
   artifact_index = NULL
 )
@@ -18,6 +19,9 @@ bg_read_summaries(
 \item{scope}{Optional scope filter.}
 
 \item{include_stale}{Whether to keep stale entries.}
+
+\item{include_inactive}{Whether to keep summaries from retired or disabled
+nodes. Defaults to \code{TRUE}.}
 
 \item{predicted_fingerprints}{Optional named fingerprint map.}
 

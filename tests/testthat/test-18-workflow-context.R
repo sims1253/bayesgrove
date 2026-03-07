@@ -277,26 +277,40 @@ describe("Workflow persistence and context", {
     bg_register_node_kind(handle, "fit")
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Alternative")
 
     bg_run(handle, targets = source_id, mode = "sync")
 
     project_context <- bg_build_workflow_context(handle, scope = "project")
-    branch_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+    branch_context <- bg_build_workflow_context(
+      handle,
+      scope = branch$branch_id
+    )
 
-    expect_true(source_id %in% vapply(
-      project_context$evidence$summaries,
-      `[[`,
-      character(1),
-      "node_id"
-    ))
-    expect_true(source_id %in% vapply(
-      branch_context$evidence$summaries,
-      `[[`,
-      character(1),
-      "node_id"
-    ))
+    expect_true(
+      source_id %in%
+        vapply(
+          project_context$evidence$summaries,
+          `[[`,
+          character(1),
+          "node_id"
+        )
+    )
+    expect_true(
+      source_id %in%
+        vapply(
+          branch_context$evidence$summaries,
+          `[[`,
+          character(1),
+          "node_id"
+        )
+    )
   })
 
   it("lists branches with metadata via bg_list_branches", {
@@ -356,15 +370,26 @@ describe("Workflow persistence and context", {
     })
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
-    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = source_id)
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = source_id
+    )
     branch <- bg_branch(handle, fit_id, label = "Alternative")
 
-    branch_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+    branch_context <- bg_build_workflow_context(
+      handle,
+      scope = branch$branch_id
+    )
     expect_equal(names(branch_context$structural$nodes), branch$root_node_id)
 
     bayesgrove:::bg_retire_branch(handle, branch$branch_id)
 
-    retired_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+    retired_context <- bg_build_workflow_context(
+      handle,
+      scope = branch$branch_id
+    )
     expect_length(retired_context$structural$nodes, 0L)
 
     actions <- bg_next_actions(handle, scope = "project")

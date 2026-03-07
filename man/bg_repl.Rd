@@ -42,6 +42,8 @@ Supported commands include:
 \item \verb{branch <node>}: create a new branch from a node and switch to it
 \item \verb{set <node> <key>=<value>}: update a node label or parameter
 \item \verb{invalidate <node>}: invalidate a node and downstream cache lineage
+\item \verb{retire <node>}: retire a node and its downstream lineage
+\item \verb{retire-branch <branch>}: retire an entire branch from future planning
 \item \code{gates} / \code{answer}: inspect and answer pending structural gates
 \item \code{run} / \code{submit}: execute or enqueue ready work in the current scope
 \item \code{jobs} and \verb{cancel <run_id>}: inspect or cancel background work

@@ -420,13 +420,17 @@ describe("Branch with continuation", {
       list(rows = 10L)
     })
     bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-      severity <- if (identical(node$params$parametrization %||% "centered", "centered")) {
+      severity <- if (
+        identical(node$params$parametrization %||% "centered", "centered")
+      ) {
         "warning"
       } else {
         "ok"
       }
       list(
-        result = list(parametrization = node$params$parametrization %||% "centered"),
+        result = list(
+          parametrization = node$params$parametrization %||% "centered"
+        ),
         summaries = list(list(
           summary_kind = "hmc_diagnostics",
           passed = identical(severity, "ok"),
@@ -439,7 +443,12 @@ describe("Branch with continuation", {
     })
 
     n_source <- bg_add_node(handle, kind = "source", label = "Data")
-    n_fit <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = n_source)
+    n_fit <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = n_source
+    )
     bg_run(handle, targets = n_fit, mode = "sync")
 
     branch <- bg_branch_with_continuation(
@@ -492,7 +501,12 @@ describe("Branch with continuation", {
     })
 
     n_source <- bg_add_node(handle, kind = "source", label = "Data")
-    n_fit <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = n_source)
+    n_fit <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline",
+      inputs = n_source
+    )
     bg_run(handle, mode = "sync")
 
     branch <- bg_branch(handle, n_fit, label = "Alternative")

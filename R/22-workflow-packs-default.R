@@ -165,7 +165,8 @@ bg_default_bayesian_clean_fit_candidates <- function(context) {
 
     warning_summaries <- Filter(
       function(summary) {
-        (summary$severity %||% NULL) %in% c("warning", "error") &&
+        (summary$severity %||% NULL) %in%
+          c("warning", "error") &&
           identical(summary$scope %||% NULL, node_scope)
       },
       node_summaries
@@ -265,10 +266,13 @@ bg_default_bayesian_candidate_basis <- function(candidates) {
     character(1),
     "scope"
   )))
-  summary_ids <- sort(unique(unlist(lapply(
-    ordered,
-    function(candidate) candidate$ok_summary_ids %||% character()
-  ), use.names = FALSE)))
+  summary_ids <- sort(unique(unlist(
+    lapply(
+      ordered,
+      function(candidate) candidate$ok_summary_ids %||% character()
+    ),
+    use.names = FALSE
+  )))
 
   list(
     candidates = ordered,
@@ -712,10 +716,13 @@ bg_default_bayesian_disposition_obligations <- function(
         character(1),
         "node_id"
       ))),
-      summary_ids = sort(unique(unlist(lapply(
-        branch_candidates,
-        function(candidate) candidate$ok_summary_ids %||% character()
-      ), use.names = FALSE))),
+      summary_ids = sort(unique(unlist(
+        lapply(
+          branch_candidates,
+          function(candidate) candidate$ok_summary_ids %||% character()
+        ),
+        use.names = FALSE
+      ))),
       decision_ids = character(),
       comparison_context = comparison_context
     ),
@@ -740,7 +747,9 @@ bg_default_bayesian_fit_criticism_actions <- function(
   pack_config = list()
 ) {
   criticism_obligation <- Filter(
-    function(obligation) identical(obligation$kind %||% NULL, "review_fit_criticism"),
+    function(obligation) {
+      identical(obligation$kind %||% NULL, "review_fit_criticism")
+    },
     obligations
   )
   if (length(criticism_obligation) == 0) {
@@ -764,6 +773,7 @@ bg_default_bayesian_fit_criticism_actions <- function(
       summary_ids = summary_ids
     ),
     payload = list(
+      template_ref = "review_decision",
       decision_type = "fit_criticism",
       node_ids = node_ids,
       summary_ids = summary_ids
@@ -786,7 +796,9 @@ bg_default_bayesian_fit_criticism_actions <- function(
   source_node <- context$structural$nodes[[source_node_id]] %||% NULL
 
   modification_hint <- NULL
-  if ("hmc_diagnostics" %in% (obligation$metadata$summary_kinds %||% character())) {
+  if (
+    "hmc_diagnostics" %in% (obligation$metadata$summary_kinds %||% character())
+  ) {
     modification_hint <- "reparametrize"
   } else if (
     "optimizer_diagnostics" %in%
@@ -795,38 +807,42 @@ bg_default_bayesian_fit_criticism_actions <- function(
     modification_hint <- "adjust_tolerances"
   }
 
-  actions <- c(actions, list(list(
-    kind = "branch_and_modify",
-    scope = context$scope,
-    title = "Branch and modify to resolve diagnostics",
-    basis = list(
-      obligation_refs = list(list(
-        kind = "review_fit_criticism",
-        scope = context$scope
-      )),
-      node_ids = node_ids
-    ),
-    payload = list(
-      source_node_id = source_node_id,
-      modification_hint = modification_hint,
-      default_label = if (!is.null(source_node)) {
-        paste0(source_node$label %||% source_node$kind, " (revised)")
-      } else {
-        NULL
-      },
-      parameter_suggestions = bg_parameter_suggestions_from_hint(
-        hint = modification_hint,
-        current_params = source_node$params %||% list()
+  actions <- c(
+    actions,
+    list(list(
+      kind = "branch_and_modify",
+      scope = context$scope,
+      title = "Branch and modify to resolve diagnostics",
+      basis = list(
+        obligation_refs = list(list(
+          kind = "review_fit_criticism",
+          scope = context$scope
+        )),
+        node_ids = node_ids
       ),
-      continuation_kinds = c("check", "ppc"),
-      auto_run = TRUE
-    ),
-    explanation = list(
-      why_now = "A new branch keeps the diagnostic revision loop explicit.",
-      references = character()
-    ),
-    metadata = list()
-  )))
+      payload = list(
+        template_ref = "branch_and_modify_fit",
+        source_node_id = source_node_id,
+        modification_hint = modification_hint,
+        default_label = if (!is.null(source_node)) {
+          paste0(source_node$label %||% source_node$kind, " (revised)")
+        } else {
+          NULL
+        },
+        parameter_suggestions = bg_parameter_suggestions_from_hint(
+          hint = modification_hint,
+          current_params = source_node$params %||% list()
+        ),
+        continuation_kinds = c("check", "ppc"),
+        auto_run = TRUE
+      ),
+      explanation = list(
+        why_now = "A new branch keeps the diagnostic revision loop explicit.",
+        references = character()
+      ),
+      metadata = list()
+    ))
+  )
 
   actions
 }
@@ -923,6 +939,7 @@ bg_default_bayesian_comparison_decision_actions <- function(
       )))
     ),
     payload = list(
+      template_ref = "review_decision",
       decision_type = "model_comparison",
       fit_node_ids = candidate_basis$node_ids,
       branch_ids = candidate_basis$branch_ids,
@@ -977,6 +994,7 @@ bg_default_bayesian_disposition_actions <- function(
       summary_ids = obligation$basis$summary_ids %||% character()
     ),
     payload = list(
+      template_ref = "review_decision",
       decision_type = "branch_disposition",
       allowed_dispositions = c("accept", "reject"),
       node_ids = obligation$basis$node_ids %||% character(),

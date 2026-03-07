@@ -63,6 +63,7 @@ reference:
       - bg_export_report
   - title: Workflow Protocol
     contents:
+      - bg_list_templates
       - bg_workflow_packs
       - bg_workflow_context
       - bg_next_actions
@@ -85,6 +86,8 @@ reference:
     contents:
       - bg_branch
       - bg_branch_with_continuation
+      - bg_retire_node
+      - bg_retire_branch
       - bg_invalidate
   - title: Decisions & Gates
     contents:

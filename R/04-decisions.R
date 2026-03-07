@@ -200,13 +200,16 @@ bg_pending_gates <- function(project) {
   graph <- bg_read_graph(project)
   inactive_node_ids <- bg_inactive_node_ids(project, graph = graph)
 
-  gates <- Filter(function(spec) {
-    edge <- graph$edges[[spec$edge_id]] %||% NULL
-    if (is.null(edge)) {
-      return(FALSE)
-    }
-    !edge$from %in% inactive_node_ids && !edge$to %in% inactive_node_ids
-  }, specs)
+  gates <- Filter(
+    function(spec) {
+      edge <- graph$edges[[spec$edge_id]] %||% NULL
+      if (is.null(edge)) {
+        return(FALSE)
+      }
+      !edge$from %in% inactive_node_ids && !edge$to %in% inactive_node_ids
+    },
+    specs
+  )
 
   lapply(gates, function(spec) {
     edge <- graph$edges[[spec$edge_id]]

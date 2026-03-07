@@ -1,40 +1,70 @@
-# REPL VHS Demo
+# REPL VHS Demos
 
-This demo records a meaningful REPL checkpoint instead of a blank project.
+The repo now keeps several focused REPL demos instead of relying on one large
+walkthrough for every use case.
 
-Story:
+Available tapes:
 
-- a simple Bayesian workflow has already run through data preparation,
-  compilation, and a clean baseline fit
-- a centered branch was then run and completed with warning diagnostics, so the
-  workflow protocol surfaces blocking computation-review and fit-criticism
-  obligations for that branch
-- the REPL guides the user to branch and modify the problematic fit into a
-  non-centered revision and retire the stale warning branch
-- once two clean fits remain, the demo continues into comparison creation,
-  explicit `model_comparison`, and explicit branch acceptance
+- `repl-remediation.tape`: starts at a warning-driven branch and shows the
+  template-backed remediation loop
+- `repl-comparison.tape`: starts at the comparison-ready checkpoint and focuses
+  on `branch_comparison`
+- `repl-disposition.tape`: starts after model comparison and focuses on the
+  final branch disposition action
+- `repl-workflow.tape`: the original full end-to-end walkthrough
+
+Each focused tape uses the same launcher and checkpoints into a meaningful
+state instead of replaying the full setup story every time.
 
 This matches the package's current strengths and the design notes in
 [`design/system-design.md`](/home/m0hawk/Documents/bayesguide/design/system-design.md)
 and
 [`design/workflow-protocol.md`](/home/m0hawk/Documents/bayesguide/design/workflow-protocol.md):
 resume from a checkpoint, inspect protocol guidance, branch to resolve
-diagnostics, compare clean candidates, and explicitly accept the surviving
-branch.
+diagnostics, execute template-backed comparison/review actions, compare clean
+candidates, and explicitly accept the surviving branch.
 
-Run the launcher manually from the repository root:
+Run the full launcher manually from the repository root:
 
 ```bash
 R --quiet
 source("tools/demo/repl-workflow/launch-demo.R")
 ```
 
-Render the tape from the repository root:
+Run a focused checkpoint manually:
 
 ```bash
+R --quiet
+options(bg_demo_autostart = FALSE)
+source("tools/demo/repl-workflow/launch-demo.R")
+demo_repl_workflow(checkpoint = "comparison_ready", start_repl = TRUE)
+```
+
+Render any tape from the repository root:
+
+```bash
+vhs tools/demo/repl-workflow/repl-remediation.tape
+vhs tools/demo/repl-workflow/repl-comparison.tape
+vhs tools/demo/repl-workflow/repl-disposition.tape
 vhs tools/demo/repl-workflow/repl-workflow.tape
 ```
 
-When `vhs` runs successfully, it writes an MP4 at
-[`tools/demo/repl-workflow/repl-workflow.mp4`](/home/m0hawk/Documents/bayesguide/tools/demo/repl-workflow/repl-workflow.mp4)
-and uses slower command typing so short REPL commands are easier to follow.
+Render every checked-in demo plus matching GIF previews in one shot:
+
+```bash
+bash tools/demo/repl-workflow/render-all-demos.sh
+```
+
+You can also pass tape basenames to render only a subset:
+
+```bash
+bash tools/demo/repl-workflow/render-all-demos.sh repl-comparison repl-disposition
+```
+
+The batch script now recompacts every MP4 after `vhs` renders it, using a
+smaller default export profile (`960px`, `12fps`, `CRF 30`) before deriving the
+GIF previews. You can tune that profile per run:
+
+```bash
+DEMO_WIDTH=840 DEMO_FPS=10 DEMO_CRF=32 bash tools/demo/repl-workflow/render-all-demos.sh
+```

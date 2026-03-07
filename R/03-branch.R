@@ -364,7 +364,10 @@ bg_retire_node <- function(project, node_id, recursive = TRUE, reason = NULL) {
 
   node_ids <- c(node_id)
   if (isTRUE(recursive)) {
-    node_ids <- unique(c(node_ids, dagriculture::dagri_descendants(graph, node_id)))
+    node_ids <- unique(c(
+      node_ids,
+      dagriculture::dagri_descendants(graph, node_id)
+    ))
   }
 
   bg_set_node_lifecycle(

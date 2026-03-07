@@ -3,7 +3,7 @@ Output tools/demo/repl-workflow/repl-workflow.mp4
 Require R
 
 Set Shell "bash"
-Set FontSize 18
+Set FontSize 20
 Set Width 1200
 Set Height 800
 Set Padding 25
@@ -57,7 +57,7 @@ Sleep 1s
 Enter
 Sleep 3s
 
-Type "# 5. Branch and modify the problematic fit"
+Type "# 5. Execute the template-backed remediation action"
 Enter
 Type "#    Action 2 suggests a non-centered revision"
 Enter
@@ -113,7 +113,7 @@ Sleep 1s
 Enter
 Sleep 2s
 
-Type "# 10. With two clean fits, create the comparison node"
+Type "# 10. With two clean fits, execute the comparison template"
 Enter
 Sleep 500ms
 Type "do 1"
@@ -135,7 +135,7 @@ Sleep 1s
 Enter
 Sleep 4s
 
-Type "# 12. Review the comparison decision action"
+Type "# 12. Review the template-backed comparison decision action"
 Enter
 Sleep 500ms
 Type "guide"
@@ -143,7 +143,7 @@ Sleep 1s
 Enter
 Sleep 2s
 
-Type "# 13. Record the model comparison decision"
+Type "# 13. Execute the review-decision template"
 Enter
 Sleep 500ms
 Type "do 1"
