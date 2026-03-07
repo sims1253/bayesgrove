@@ -1,0 +1,227 @@
+# BayesGrove
+
+**BayesGrove** is a graph-based Bayesian workflow engine for R. It helps
+you design, track, and document your statistical analyses by completely
+separating the *execution graph* (the code that runs) from the *decision
+provenance* (why you ran it).
+
+Built on the purely functional `dagriculture` graph library, BayesGrove
+allows you to explicitly encode modeling decisions, enforce workflow
+checks, seamlessly cache intermediate computations like MCMC fits, and
+branch models asynchronously—all without losing the rationale behind
+your choices.
+
+## Why BayesGrove?
+
+Modern Bayesian analysis requires iterative model building, checking,
+and revision. Typically, this process gets lost in unstructured scripts
+or implicit notebook states.
+
+BayesGrove solves this by giving you:
+
+1.  **Explicit Provenance**: Record qualitative rationales (e.g., “Why
+    did we use a heavy-tailed prior?”) directly into the workflow using
+    structural gates.
+2.  **Intent-Based Caching**: Skip redundant computations. If an
+    upstream data step doesn’t change semantically, your costly
+    `cmdstanr` or `brms` fits won’t rerun.
+3.  **Workflow Obligations**: The built-in protocol engine automatically
+    flags diagnostic problems, asks for explicit fit criticism, requires
+    formal comparison between clean candidates, and ends the loop with
+    explicit branch acceptance or rejection.
+4.  **Reproducible Handoffs**: Export your entire decision tree and
+    causal graph into a reproducible bundle or markdown report with one
+    command.
+
+For one deterministic end-to-end product loop, see the
+`guided-review-loop` vignette. It walks through branch lineage, held
+downstream work, explicit criticism and comparison decisions, branch
+accept/reject dispositions, and report export without depending on a
+heavyweight model fit.
+
+## Installation
+
+You can install the development version of BayesGrove (which includes
+its `dagriculture` foundation) via [`pak`](https://pak.r-lib.org/):
+
+``` r
+# install.packages("pak")
+pak::pkg_install("sims1253/bayesgrove")
+```
+
+## Example: Protocol-Driven Workflow
+
+BayesGrove separates the execution graph from decision provenance. When
+computations produce diagnostic warnings, the protocol engine
+automatically creates blocking obligations and holds downstream work
+until you resolve them.
+
+``` r
+library(bayesgrove)
+
+# 1. Initialize a workflow workspace
+project_path <- file.path(tempdir(), "bayesgrove-intro")
+handle <- bg_init(
+  path = project_path,
+  project_name = "hierarchical_analysis",
+  workflow_packs = list("bayesguide.default_bayesian")
+)
+
+# 2. Register executors that return diagnostic summaries
+bg_register_node_kind(handle, "data_prep", executor = function(node, inputs) {
+  data.frame(group = rep(1:5, each = 10), y = rnorm(50))
+})
+
+bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+  # Mock fit that returns warning diagnostics (e.g., divergent transitions)
+  list(
+    status = "fit_completed",
+    summaries = list(
+      list(
+        summary_kind = "hmc_diagnostics",
+        severity = "warning",
+        passed = FALSE,
+        metrics = list(divergences = 15, rhat_max = 1.02)
+      )
+    )
+  )
+})
+
+bg_register_node_kind(handle, "ppc", executor = function(node, inputs) {
+  list(plot = "ppc_density_plot")
+})
+
+# 3. Construct the graph
+n_data <- bg_add_node(handle, "data_prep", label = "Load Data")
+n_fit <- bg_add_node(handle, "fit", label = "Hierarchical Fit", inputs = n_data)
+n_ppc <- bg_add_node(handle, "ppc", label = "Posterior Check", inputs = n_fit)
+```
+
+Run the workflow. The fit completes but produces warning diagnostics:
+
+``` r
+bg_run(handle, mode = "sync")
+#> Starting run "run_c9e1b16b" with 1 node to execute.
+#> Running node "node_9b64533c"...
+#> Running node "node_3fcbe570"...
+#> <bg_run_handle> run_c9e1b16b
+#> 
+#> • Status: blocked
+#> 
+#> • Mode: sync
+#> 
+#> • Executed Nodes: 2
+```
+
+The protocol engine detects the warning and creates a blocking
+obligation. Downstream work (the PPC) is held:
+
+``` r
+status <- bg_status(handle)
+cat(sprintf("Workflow State: %s\n", status$workflow_state))
+#> Workflow State: blocked
+```
+
+Inspect active obligations and suggested actions:
+
+``` r
+actions <- bg_next_actions(handle)
+cat(sprintf("Blocking obligations: %d\n", length(actions$obligations)))
+#> Blocking obligations: 1
+if (length(actions$actions) > 0) {
+  cat(sprintf("First suggested action: %s\n", actions$actions[[1]]$title))
+}
+#> First suggested action: Record a computation review
+```
+
+To resolve the issue, you can branch and modify the fit with a
+non-centered parametrization. The interactive REPL provides a guided
+interface for this workflow:
+
+``` r
+bg_repl(handle)
+```
+
+## Stronger Default Pack Loop
+
+The built-in `bayesguide.default_bayesian` pack now enforces one narrow
+review loop:
+
+1.  warning or error summaries create a blocking
+    `review_computation_validity` obligation;
+2.  branch-scoped fit warnings also create `review_fit_criticism`;
+3.  once two fits are clean, project scope creates
+    `compare_candidate_branches`;
+4.  after a comparison exists, each candidate branch gets
+    `accept_or_reject_branch` until you record `accept` or `reject`.
+
+A concise end-to-end example looks like this:
+
+``` r
+# After branching, modifying, and rerunning an alternative fit:
+project_guide <- bg_next_actions(handle, scope = "project")
+vapply(project_guide$obligations, `[[`, character(1), "kind")
+#> "compare_candidate_branches"
+
+# Create and run the comparison node, then record the project decision.
+comparison_action <- Filter(
+  function(x) identical(x$kind, "record_decision") &&
+    identical(x$payload$decision_type, "model_comparison"),
+  project_guide$actions
+)[[1]]
+
+bg_record_decision(
+  handle,
+  scope = "project",
+  prompt = "Compare candidate branches",
+  choice = "prefer_non_centered",
+  rationale = "The alternative fit is cleaner and easier to trust.",
+  kind = "model_comparison",
+  metadata = comparison_action$payload[c(
+    "fit_node_ids",
+    "summary_ids",
+    "candidate_signature",
+    "comparison_signature",
+    "comparison_context"
+  )]
+)
+
+# Each candidate branch can then be explicitly accepted or rejected in
+# branch scope with a `branch_disposition` decision.
+```
+
+## Built-in Templates
+
+Common guided next steps are now exposed as first-class built-in
+templates:
+
+- `diagnostic_check` creates a downstream `check` node from a fit
+- `branch_comparison` creates a `compare` node across fit candidates
+- `branch_and_modify_fit` wraps
+  [`bg_branch_with_continuation()`](https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.md)
+- `review_decision` records explicit review decisions such as
+  computation review, fit criticism, model comparison, and branch
+  disposition
+
+You can inspect the registry directly:
+
+``` r
+bg_list_templates()
+bg_list_templates("branch_comparison")
+```
+
+The interactive REPL uses the same registry when it executes
+template-backed actions.
+
+## Interactive REPL
+
+The REPL provides a guided loop for working through obligations:
+
+- `status` - Show workflow state (blocked, idle, etc.)
+- `guide` - See active obligations and suggested actions
+- `actions` - List detailed actions with payloads
+- `do <n>` - Execute action \#n (branch and modify, record decision,
+  etc.)
+- `run` - Execute ready nodes
+- `nodes` - View the execution graph with states
+- `result <label>` - Inspect cached results and diagnostics
