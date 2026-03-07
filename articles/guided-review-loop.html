@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,7 @@
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul>
@@ -115,12 +116,12 @@ reproducible on contributor machines and in CI.</p>
 <span>    <span class="op">}</span></span>
 <span></span>
 <span>    <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">decision_type</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span>
-<span>      <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">decision_type</span> <span class="op"><a href="https://rdrr.io/r/base/Control.html" class="external-link">%||%</a></span> <span class="cn">NULL</span>, <span class="va">decision_type</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>          <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">decision_type</span> <span class="op"><a href="https://rdrr.io/r/base/Control.html" class="external-link">%||%</a></span> <span class="cn">NULL</span>, <span class="va">decision_type</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>      <span class="kw">next</span></span>
 <span>    <span class="op">}</span></span>
 <span></span>
 <span>    <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">template_ref</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span>
-<span>      <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">template_ref</span> <span class="op"><a href="https://rdrr.io/r/base/Control.html" class="external-link">%||%</a></span> <span class="cn">NULL</span>, <span class="va">template_ref</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>          <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">template_ref</span> <span class="op"><a href="https://rdrr.io/r/base/Control.html" class="external-link">%||%</a></span> <span class="cn">NULL</span>, <span class="va">template_ref</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>      <span class="kw">next</span></span>
 <span>    <span class="op">}</span></span>
 <span></span>
@@ -590,8 +591,8 @@ candidates are clean, project scope surfaces a comparison action.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">project_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                 obligations</span></span>
 <span><span class="co">#&gt; 1         Project  compare_candidate_branches</span></span>
-<span><span class="co">#&gt; 2 Centered branch review_computation_validity</span></span>
-<span><span class="co">#&gt; 3 Repaired branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 2 Repaired branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 3 Centered branch review_computation_validity</span></span>
 <span><span class="co">#&gt; 4   Robust branch                        none</span></span>
 <span><span class="co">#&gt;                              actions</span></span>
 <span><span class="co">#&gt; 1          create_node_from_template</span></span>
@@ -768,7 +769,7 @@ machines.</p>
 <span>  format <span class="op">=</span> <span class="st">"md"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpaFmyD4/bg-guided-review-loop/case-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmprBmDVF/bg-guided-review-loop/case-study-report.md</span></span></span>
 <span></span>
 <span><span class="va">report_path_relative</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"^"</span>, <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span>, <span class="st">"/?"</span><span class="op">)</span>,</span>
@@ -781,7 +782,7 @@ machines.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">report_path</span>, n <span class="op">=</span> <span class="fl">12</span>, warn <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # BayesGrove Workflow Report: Guided Review Loop</span></span>
 <span><span class="co">#&gt; **Project ID:** `proj_79663245`</span></span>
-<span><span class="co">#&gt; **Generated:** 2026-03-07 20:07:47</span></span>
+<span><span class="co">#&gt; **Generated:** 2026-03-07 21:49:59</span></span>
 <span><span class="co">#&gt; **Workflow state:** `blocked`</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ## Graph Topology</span></span>

@@ -56,9 +56,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x5633120b9e38> 
+#>  @ .state              :<environment: 0x562075d59ba8> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/RtmpAI1NSq/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpHzNDNu/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -162,7 +162,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-07T20:07:38Z"
+#> [1] "2026-03-07T21:49:51Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -361,7 +361,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_20c7f5a2 
+#>                 obl_ef4a582d 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -397,8 +397,10 @@ bg_run(comparison_handle, targets = comparison_node_id, mode = "sync")
 
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 comparison_action <- Filter(
-  function(x) identical(x$kind, "record_decision") &&
-    identical(x$payload$decision_type, "model_comparison"),
+  function(x) {
+    identical(x$kind, "record_decision") &&
+      identical(x$payload$decision_type, "model_comparison")
+  },
   comparison_guide$actions
 )[[1]]
 
@@ -433,12 +435,14 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_9df777be 
+#>              obl_44445ef5 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(
-  function(x) identical(x$kind, "record_decision") &&
-    identical(x$payload$decision_type, "branch_disposition"),
+  function(x) {
+    identical(x$kind, "record_decision") &&
+      identical(x$payload$decision_type, "branch_disposition")
+  },
   branch_guide$actions
 )[[1]]
 

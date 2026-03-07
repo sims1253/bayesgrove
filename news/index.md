@@ -1,5 +1,44 @@
 # Changelog
 
+## bayesgrove 0.3.11
+
+- Moved the contributor-facing `dagriculture` boundary note out of
+  `docs/` so pkgdown can clean and rebuild the GitHub Pages output
+  directory in CI.
+- Disabled `indentation_linter` in `.lintr` so formatting remains
+  enforced by `air format` without a conflicting lint failure.
+
+## bayesgrove 0.3.10
+
+- Removed stale default-workflow comparison action code, moved
+  parameter-suggestion helpers into the default pack layer, and
+  tightened comparison/disposition identity handling around compact
+  `comparison_signature` values.
+- Hardened the internal `dagriculture` adapter helpers with clearer
+  internal markers, deterministic edge-ID handling for graph diffs, and
+  regression coverage for unnamed-edge diffs plus comparison/disposition
+  staleness.
+- Narrowed lint policy by disabling `object_length_linter` for the
+  package’s deliberate protocol helper names while fixing the remaining
+  indentation and brace warnings in tests and vignettes.
+
+## bayesgrove 0.3.9
+
+- Added an explicit Phase 7 architecture note at
+  `architecture/dagriculture-boundary.md` plus a small internal adapter
+  layer that isolates BayesGrove’s graph-generic dependency on
+  `dagriculture`.
+- Refactored repeated inline structural graph queries into focused
+  `bg_dagri_*` helpers for edge selection, descendant lookup,
+  deterministic edge ordering, state recomputation, and structural graph
+  diffs without moving workflow semantics out of BayesGrove.
+- Added regression coverage that distinguishes graph-generic helper
+  behavior from BayesGrove-specific workflow, branch, and provenance
+  logic.
+- Synced the README and pkgdown-facing site sources for the phase-7
+  boundary work, including a dedicated architecture page that pkgdown
+  can render without a broken navbar link.
+
 ## bayesgrove 0.3.8
 
 - Added a deterministic `guided-review-loop` vignette plus regression

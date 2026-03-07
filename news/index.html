@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -39,6 +40,24 @@
       <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.11" id="bayesgrove-0311">bayesgrove 0.3.11<a class="anchor" aria-label="anchor" href="#bayesgrove-0311"></a></h2>
+<ul><li>Moved the contributor-facing <code>dagriculture</code> boundary note out of <code>docs/</code> so pkgdown can clean and rebuild the GitHub Pages output directory in CI.</li>
+<li>Disabled <code>indentation_linter</code> in <code>.lintr</code> so formatting remains enforced by <code>air format</code> without a conflicting lint failure.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.10" id="bayesgrove-0310">bayesgrove 0.3.10<a class="anchor" aria-label="anchor" href="#bayesgrove-0310"></a></h2>
+<ul><li>Removed stale default-workflow comparison action code, moved parameter-suggestion helpers into the default pack layer, and tightened comparison/disposition identity handling around compact <code>comparison_signature</code> values.</li>
+<li>Hardened the internal <code>dagriculture</code> adapter helpers with clearer internal markers, deterministic edge-ID handling for graph diffs, and regression coverage for unnamed-edge diffs plus comparison/disposition staleness.</li>
+<li>Narrowed lint policy by disabling <code>object_length_linter</code> for the package’s deliberate protocol helper names while fixing the remaining indentation and brace warnings in tests and vignettes.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.9" id="bayesgrove-039">bayesgrove 0.3.9<a class="anchor" aria-label="anchor" href="#bayesgrove-039"></a></h2>
+<ul><li>Added an explicit Phase 7 architecture note at <code>architecture/dagriculture-boundary.md</code> plus a small internal adapter layer that isolates BayesGrove’s graph-generic dependency on <code>dagriculture</code>.</li>
+<li>Refactored repeated inline structural graph queries into focused <code>bg_dagri_*</code> helpers for edge selection, descendant lookup, deterministic edge ordering, state recomputation, and structural graph diffs without moving workflow semantics out of BayesGrove.</li>
+<li>Added regression coverage that distinguishes graph-generic helper behavior from BayesGrove-specific workflow, branch, and provenance logic.</li>
+<li>Synced the README and pkgdown-facing site sources for the phase-7 boundary work, including a dedicated architecture page that pkgdown can render without a broken navbar link.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.8" id="bayesgrove-038">bayesgrove 0.3.8<a class="anchor" aria-label="anchor" href="#bayesgrove-038"></a></h2>
 <ul><li>Added a deterministic <code>guided-review-loop</code> vignette plus regression coverage for one full case-study loop covering workflow holds, branch lineage, criticism and comparison decisions, branch dispositions, stale summaries, and report export.</li>

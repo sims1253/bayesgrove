@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,6 +40,7 @@
     <li><a class="dropdown-item" href="articles/guided-review-loop.html">Guided Review Loop</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="articles/index.html">Articles</a></li>
       </ul>
@@ -62,6 +63,7 @@
 
 <p><strong>BayesGrove</strong> is a graph-based Bayesian workflow engine for R. It helps you design, track, and document your statistical analyses by completely separating the <em>execution graph</em> (the code that runs) from the <em>decision provenance</em> (why you ran it).</p>
 <p>Built on the purely functional <code>dagriculture</code> graph library, BayesGrove allows you to explicitly encode modeling decisions, enforce workflow checks, seamlessly cache intermediate computations like MCMC fits, and branch models asynchronously—all without losing the rationale behind your choices.</p>
+<p>Contributor note: graph-generic <code>dagriculture</code> boundary helpers now live in <code>R/22-dagri-adapters.R</code>, while workflow semantics such as policy holds, branch scope, summaries, and decision provenance remain in BayesGrove.</p>
 <div class="section level2">
 <h2 id="why-bayesgrove">Why BayesGrove?<a class="anchor" aria-label="anchor" href="#why-bayesgrove"></a>
 </h2>
@@ -133,10 +135,10 @@
 <p>Run the workflow. The fit completes but produces warning diagnostics:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run "run_c9e1b16b" with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node "node_9b64533c"...</span></span>
-<span><span class="co">#&gt; Running node "node_3fcbe570"...</span></span>
-<span><span class="co">#&gt; &lt;bg_run_handle&gt; run_c9e1b16b</span></span>
+<span><span class="co">#&gt; Starting run "run_8194bdea" with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node "node_d9d205c6"...</span></span>
+<span><span class="co">#&gt; Running node "node_a20338d6"...</span></span>
+<span><span class="co">#&gt; &lt;bg_run_handle&gt; run_8194bdea</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; • Status: blocked</span></span>
 <span><span class="co">#&gt; </span></span>

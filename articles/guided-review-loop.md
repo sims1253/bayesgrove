@@ -45,12 +45,12 @@ find_action <- function(actions, kind, decision_type = NULL, template_ref = NULL
     }
 
     if (!is.null(decision_type) &&
-      !identical(action$payload$decision_type %||% NULL, decision_type)) {
+          !identical(action$payload$decision_type %||% NULL, decision_type)) {
       next
     }
 
     if (!is.null(template_ref) &&
-      !identical(action$payload$template_ref %||% NULL, template_ref)) {
+          !identical(action$payload$template_ref %||% NULL, template_ref)) {
       next
     }
 
@@ -525,8 +525,8 @@ project_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(project_protocol)
 #>             scope                 obligations
 #> 1         Project  compare_candidate_branches
-#> 2 Centered branch review_computation_validity
-#> 3 Repaired branch review_computation_validity
+#> 2 Repaired branch review_computation_validity
+#> 3 Centered branch review_computation_validity
 #> 4   Robust branch                        none
 #>                              actions
 #> 1          create_node_from_template
@@ -706,7 +706,7 @@ report_path <- bg_export_report(
   format = "md"
 )
 #> Report exported to
-#> /tmp/RtmpaFmyD4/bg-guided-review-loop/case-study-report.md
+#> /tmp/RtmprBmDVF/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -719,7 +719,7 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # BayesGrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-07 20:07:47
+#> **Generated:** 2026-03-07 21:49:59
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology

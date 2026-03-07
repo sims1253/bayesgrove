@@ -2,6 +2,8 @@
 
 ### All Vignettes
 
+- [Dagriculture
+  Boundary](https://sims1253.github.io/bayesgrove/articles/dagriculture-boundary.md):
 - [Getting Started with
   BayesGrove](https://sims1253.github.io/bayesgrove/articles/getting-started.md):
 - [Guided Review
