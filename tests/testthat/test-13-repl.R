@@ -994,7 +994,7 @@ describe("Interactive REPL", {
       handle,
       "Fit Centered Parametrization"
     )
-    bayesgrove:::bg_retire_node(handle, stale_node, recursive = TRUE)
+    bg_retire_node(handle, stale_node, recursive = TRUE)
 
     after_invalidate <- bg_next_actions(handle, scope = "project")
     expect_equal(

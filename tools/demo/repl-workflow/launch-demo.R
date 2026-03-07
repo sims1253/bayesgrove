@@ -1,3 +1,8 @@
+.bg_demo_upd_meta <- getFromNamespace(
+  "bg_update_branch_metadata",
+  "bayesgrove"
+)
+
 bg_demo_repl_load_package <- function() {
   if (!requireNamespace("pkgload", quietly = TRUE)) {
     stop("The repl workflow demo needs the pkgload package.", call. = FALSE)
@@ -73,7 +78,7 @@ bg_demo_repl_register_kinds <- function(handle) {
   })
 }
 
-bg_demo_repl_build_base_project <- function(project_root) {
+bg_demo_build_base <- function(project_root) {
   handle <- bg_init(
     path = project_root,
     project_name = "Hierarchical Analysis",
@@ -112,7 +117,7 @@ bg_demo_repl_build_base_project <- function(project_root) {
   )
 }
 
-bg_demo_repl_create_warning_branch <- function(handle, n_fit) {
+bg_demo_warn_branch <- function(handle, n_fit) {
   centered_branch <- bg_branch_with_continuation(
     project = handle,
     node_id = n_fit,
@@ -154,7 +159,7 @@ bg_demo_repl_create_warning_branch <- function(handle, n_fit) {
   centered_branch
 }
 
-bg_demo_repl_create_revision_branch <- function(handle, warning_branch) {
+bg_demo_revision_branch <- function(handle, warning_branch) {
   revised <- bg_branch_with_continuation(
     project = handle,
     node_id = warning_branch$branch$root_node_id,
@@ -182,7 +187,7 @@ bg_demo_repl_create_revision_branch <- function(handle, warning_branch) {
     }
   }
 
-  bayesgrove:::bg_update_branch_metadata(
+  .bg_demo_upd_meta(
     handle,
     revised$branch$branch_id,
     list(
@@ -201,7 +206,7 @@ bg_demo_repl_create_revision_branch <- function(handle, warning_branch) {
   revised
 }
 
-bg_demo_repl_create_comparison_node <- function(
+bg_demo_compare_node <- function(
   handle,
   label = "Compare Baseline vs Revision"
 ) {
@@ -225,7 +230,7 @@ bg_demo_repl_create_comparison_node <- function(
   compare_node_id
 }
 
-bg_demo_repl_record_model_comparison <- function(handle) {
+bg_demo_record_comparison <- function(handle) {
   project_actions <- bg_next_actions(handle, scope = "project")$actions
   comparison_action <- Filter(
     function(action) {
@@ -252,7 +257,7 @@ bg_demo_repl_record_model_comparison <- function(handle) {
   )
 }
 
-bg_demo_repl_record_branch_disposition <- function(handle, branch_id) {
+bg_demo_record_disposition <- function(handle, branch_id) {
   branch_actions <- bg_next_actions(
     handle,
     scope = "branch",
@@ -378,20 +383,20 @@ demo_repl_workflow <- function(
   )
   unlink(project_root, recursive = TRUE, force = TRUE)
 
-  base <- bg_demo_repl_build_base_project(project_root)
+  base <- bg_demo_build_base(project_root)
   handle <- base$handle
-  warning_branch <- bg_demo_repl_create_warning_branch(handle, base$n_fit)
+  warning_branch <- bg_demo_warn_branch(handle, base$n_fit)
 
   revised_branch <- NULL
   compare_node_id <- NULL
   initial_scope <- "project"
 
   if (checkpoint %in% c("comparison_ready", "disposition_ready", "healthy")) {
-    revised_branch <- bg_demo_repl_create_revision_branch(
+    revised_branch <- bg_demo_revision_branch(
       handle,
       warning_branch
     )
-    bayesgrove:::bg_retire_node(
+    bg_retire_node(
       handle,
       warning_branch$branch$root_node_id,
       recursive = TRUE
@@ -399,13 +404,13 @@ demo_repl_workflow <- function(
   }
 
   if (checkpoint %in% c("disposition_ready", "healthy")) {
-    compare_node_id <- bg_demo_repl_create_comparison_node(handle)
-    bg_demo_repl_record_model_comparison(handle)
+    compare_node_id <- bg_demo_compare_node(handle)
+    bg_demo_record_comparison(handle)
     initial_scope <- revised_branch$branch$branch_id
   }
 
   if (identical(checkpoint, "healthy")) {
-    bg_demo_repl_record_branch_disposition(
+    bg_demo_record_disposition(
       handle,
       revised_branch$branch$branch_id
     )

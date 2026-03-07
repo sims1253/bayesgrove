@@ -472,7 +472,7 @@ describe("Branch with continuation", {
 
     expect_no_error(bg_result(handle, branch$branch$root_node_id))
 
-    bayesgrove:::bg_retire_branch(handle, branch$branch$branch_id)
+    bg_retire_branch(handle, branch$branch$branch_id)
 
     after_retire <- bg_next_actions(handle, scope = "project")
     expect_false(any(vapply(
@@ -510,7 +510,7 @@ describe("Branch with continuation", {
     bg_run(handle, mode = "sync")
 
     branch <- bg_branch(handle, n_fit, label = "Alternative")
-    bayesgrove:::bg_retire_node(handle, branch$root_node_id, recursive = TRUE)
+    bg_retire_node(handle, branch$root_node_id, recursive = TRUE)
 
     bg_invalidate(handle, branch$root_node_id, recursive = TRUE)
     run_res <- bg_run(handle, mode = "sync")
@@ -521,18 +521,23 @@ describe("Branch with continuation", {
 })
 
 describe("Parameter suggestions from hints", {
+  bg_param_hint_fn <- getFromNamespace(
+    "bg_parameter_suggestions_from_hint",
+    "bayesgrove"
+  )
+
   it("returns empty suggestions for NULL hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(NULL)
+    suggestions <- bg_param_hint_fn(NULL)
     expect_length(suggestions, 0)
   })
 
   it("returns empty suggestions for empty hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint("")
+    suggestions <- bg_param_hint_fn("")
     expect_length(suggestions, 0)
   })
 
   it("suggests non-centered parametrization for reparametrize hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "reparametrize",
       current_params = list(parametrization = "centered")
     )
@@ -540,7 +545,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests centered parametrization when already non-centered", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "reparametrize",
       current_params = list(parametrization = "non-centered")
     )
@@ -548,7 +553,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("returns empty suggestions when parametrization param not present", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "reparametrize",
       current_params = list(iter = 1000)
     )
@@ -556,7 +561,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests looser tolerance for adjust_tolerances hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "adjust_tolerances",
       current_params = list(tolerance = 1e-6)
     )
@@ -564,7 +569,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests even looser tolerance when already at 1e-4", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "adjust_tolerances",
       current_params = list(tolerance = 1e-4)
     )
@@ -572,7 +577,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests adapt_delta when tolerance not present", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "adjust_tolerances",
       current_params = list(adapt_delta = 0.8)
     )
@@ -580,7 +585,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests higher adapt_delta when already at 0.95", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "adjust_tolerances",
       current_params = list(adapt_delta = 0.95)
     )
@@ -588,7 +593,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("suggests doubled iterations for increase_iterations hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "increase_iterations",
       current_params = list(iter = 1000)
     )
@@ -596,7 +601,7 @@ describe("Parameter suggestions from hints", {
   })
 
   it("returns empty suggestions for unknown hint", {
-    suggestions <- bayesgrove:::bg_parameter_suggestions_from_hint(
+    suggestions <- bg_param_hint_fn(
       hint = "unknown_hint",
       current_params = list(parametrization = "centered")
     )

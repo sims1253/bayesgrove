@@ -1,3 +1,10 @@
+# bayesgrove 0.3.8
+
+* Added a deterministic `guided-review-loop` vignette plus regression coverage for one full case-study loop covering workflow holds, branch lineage, criticism and comparison decisions, branch dispositions, stale summaries, and report export.
+* Updated the README and pkgdown article navigation to surface the new case study alongside the lower-level workflow examples.
+* Fixed the `DESCRIPTION` remote metadata so `pak` can parse the GitHub remotes correctly during CI lockfile creation.
+* Replaced `:::` test and demo accesses with exported calls or namespace lookups to clear the internal-function lint warnings without changing behavior.
+
 # bayesgrove 0.3.7
 
 * Added a first-class built-in template registry plus `bg_list_templates()` for `diagnostic_check`, `branch_comparison`, `branch_and_modify_fit`, and `review_decision`.

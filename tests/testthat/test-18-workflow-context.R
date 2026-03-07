@@ -384,7 +384,7 @@ describe("Workflow persistence and context", {
     )
     expect_equal(names(branch_context$structural$nodes), branch$root_node_id)
 
-    bayesgrove:::bg_retire_branch(handle, branch$branch_id)
+    bg_retire_branch(handle, branch$branch_id)
 
     retired_context <- bg_build_workflow_context(
       handle,

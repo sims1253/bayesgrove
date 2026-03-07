@@ -41,6 +41,12 @@ BayesGrove solves this by giving you:
     causal graph into a reproducible bundle or markdown report with one
     command.
 
+For one deterministic end-to-end product loop, see the
+`guided-review-loop` vignette. It walks through branch lineage, held
+downstream work, explicit criticism and comparison decisions, branch
+accept/reject dispositions, and report export without depending on a
+heavyweight model fit.
+
 ## Installation
 
 You can install the development version of BayesGrove (which includes
@@ -103,10 +109,10 @@ Run the workflow. The fit completes but produces warning diagnostics:
 
 ``` r
 bg_run(handle, mode = "sync")
-#> Starting run "run_bf4c4c45" with 1 node to execute.
-#> Running node "node_b2aee278"...
-#> Running node "node_9771f3ac"...
-#> <bg_run_handle> run_bf4c4c45
+#> Starting run "run_c9e1b16b" with 1 node to execute.
+#> Running node "node_9b64533c"...
+#> Running node "node_3fcbe570"...
+#> <bg_run_handle> run_c9e1b16b
 #> 
 #> • Status: blocked
 #> 

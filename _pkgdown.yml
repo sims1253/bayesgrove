@@ -23,6 +23,8 @@ navbar:
         href: articles/getting-started.html
       - text: "Simulation Study Workflow"
         href: articles/simulation-study.html
+      - text: "Guided Review Loop"
+        href: articles/guided-review-loop.html
     reference:
       text: "Reference"
       href: reference/index.html
@@ -108,4 +110,5 @@ articles:
     desc: ~
     contents:
       - getting-started
+      - guided-review-loop
       - simulation-study

@@ -1,3 +1,8 @@
+test_bg_update_meta <- getFromNamespace(
+  "bg_update_branch_metadata",
+  "bayesgrove"
+)
+
 test_demo_repl_register_kinds <- function(handle) {
   bg_register_node_kind(handle, "data_prep", executor = function(node, inputs) {
     set.seed(123)
@@ -166,7 +171,7 @@ test_demo_repl_fixture <- function(
         )
       }
     }
-    bayesgrove:::bg_update_branch_metadata(
+    test_bg_update_meta(
       handle,
       revised_branch$branch$branch_id,
       list(
@@ -176,7 +181,7 @@ test_demo_repl_fixture <- function(
       )
     )
     bg_run(handle, targets = revised_branch$branch$root_node_id, mode = "sync")
-    bayesgrove:::bg_retire_node(
+    bg_retire_node(
       handle,
       warning_branch$branch$root_node_id,
       recursive = TRUE
