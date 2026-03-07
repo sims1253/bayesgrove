@@ -174,4 +174,36 @@ describe("Async Execution Layer", {
     jobs <- bg_jobs(handle)
     expect_equal(jobs[[run_res$job_ids[1]]]$status, "cancelled")
   })
+
+  it("returns a consistent handle when nothing needs execution", {
+    skip_if_not_installed("callr")
+    skip_if_async_package_unavailable()
+
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(
+      handle,
+      "source",
+      executor = function(node, inputs) {
+        42
+      }
+    )
+
+    node_id <- bg_add_node(handle, "source", label = "A")
+    bg_run(handle, mode = "sync")
+
+    run_res <- bg_submit(handle, backend = "callr")
+
+    expect_s3_class(run_res, "bg_run_handle")
+    expect_equal(run_res$status, "succeeded")
+    expect_equal(run_res$mode, "async")
+    expect_equal(run_res$targets, node_id)
+    expect_equal(run_res$job_ids, character(0))
+    expect_null(run_res$submitted_at)
+    expect_null(run_res$started_at)
+    expect_null(run_res$finished_at)
+    expect_equal(run_res$summary$total_jobs, 0L)
+    expect_equal(run_res$metadata, list())
+  })
 })

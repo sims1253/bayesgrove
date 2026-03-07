@@ -10,7 +10,8 @@ bg_builtin_workflow_registry <- function() {
       ),
       action_providers = list(
         bg_default_bayesian_goal_actions,
-        bg_default_bayesian_summary_actions
+        bg_default_bayesian_summary_actions,
+        bg_default_bayesian_comparison_actions
       )
     )
   )
@@ -285,12 +286,35 @@ bg_collect_workflow_contexts <- function(project, resolved_scope) {
   branch_ids <- sort(names(
     bg_read_branch_registry(project)$branches %||% list()
   ))
-  contexts <- list(bg_build_workflow_context(project, scope = "project"))
+  project_context <- bg_build_workflow_context(project, scope = "project")
   branch_contexts <- lapply(branch_ids, function(branch_id) {
     bg_build_workflow_context(project, scope = branch_id)
   })
 
-  c(contexts, branch_contexts)
+  all_contexts <- c(list(project_context), branch_contexts)
+
+  project_context$metadata$cross_scope_summaries <- list()
+  project_context$metadata$cross_scope_nodes <- list()
+  for (context in all_contexts) {
+    summaries <- context$evidence$summaries %||% list()
+    if (length(summaries) > 0) {
+      for (summary_id in names(summaries)) {
+        project_context$metadata$cross_scope_summaries[[summary_id]] <-
+          summaries[[summary_id]]
+      }
+    }
+
+    nodes <- context$structural$nodes %||% list()
+    if (length(nodes) > 0) {
+      for (node_id in names(nodes)) {
+        project_context$metadata$cross_scope_nodes[[node_id]] <- nodes[[
+          node_id
+        ]]
+      }
+    }
+  }
+
+  c(list(project_context), branch_contexts)
 }
 
 #' @keywords internal
@@ -426,6 +450,84 @@ bg_next_actions <- function(
   )
 }
 
+#' Partition protocol results by scope
+#'
+#' Helper for UI layers to group obligations and actions by scope. Returns
+#' a nested structure where each scope has its own obligations and actions,
+#' making branch-aware rendering straightforward.
+#'
+#' @param result A `bg_next_actions` result object.
+#' @param project Optional `bg_handle` to include display labels.
+#'
+#' @return A named list where each element corresponds to a scope, containing:
+#'   - `scope`: The scope string
+#'   - `scope_label`: Human-readable label (if project provided)
+#'   - `obligations`: List of obligations for this scope
+#'   - `actions`: List of actions for this scope
+#' @export
+bg_partition_protocol_by_scope <- function(result, project = NULL) {
+  obligations <- result$obligations %||% list()
+  actions <- result$actions %||% list()
+  evaluated_scopes <- result$metadata$evaluated_scopes %||% character()
+
+  obligation_scopes <- vapply(
+    obligations,
+    function(x) x$scope %||% NA_character_,
+    character(1)
+  )
+  action_scopes <- vapply(
+    actions,
+    function(x) x$scope %||% NA_character_,
+    character(1)
+  )
+
+  # Prefer the evaluation order when available, but fall back to the
+  # scopes carried by the protocol items so ad hoc/mock results still work.
+  scopes <- unique(c(evaluated_scopes, obligation_scopes, action_scopes))
+  scopes <- scopes[!is.na(scopes) & nzchar(scopes)]
+
+  partitioned <- list()
+
+  for (scope in scopes) {
+    scope_obligations <- Filter(
+      function(x) identical(x$scope, scope),
+      obligations
+    )
+    scope_actions <- Filter(
+      function(x) identical(x$scope, scope),
+      actions
+    )
+
+    scope_label <- if (!is.null(project)) {
+      bg_scope_label(project, scope)
+    } else {
+      scope
+    }
+
+    partitioned[[scope]] <- list(
+      scope = scope,
+      scope_label = scope_label,
+      obligations = scope_obligations,
+      actions = scope_actions
+    )
+  }
+
+  # Add summary counts at the top level for convenience
+  partitioned$summary <- list(
+    n_scopes = length(scopes),
+    n_obligations = length(obligations),
+    n_actions = length(actions),
+    n_blocking = sum(vapply(
+      obligations,
+      function(x) identical(x$severity, "blocking"),
+      integer(1)
+    )),
+    scopes = scopes
+  )
+
+  partitioned
+}
+
 #' @keywords internal
 bg_default_bayesian_reviewed_summary_ids <- function(decisions) {
   reviewed <- character()
@@ -451,7 +553,9 @@ bg_default_bayesian_goal_obligations <- function(
   pack_config = list()
 ) {
   if (
-    !startsWith(context$scope, "branch:") || !is.null(context$inferential_goal)
+    !startsWith(context$scope, "branch:") ||
+      !is.null(context$inferential_goal) ||
+      isTRUE(context$scope_context$branch_metadata$goal_optional)
   ) {
     return(list())
   }
@@ -587,7 +691,10 @@ bg_default_bayesian_summary_actions <- function(
   }
 
   obligation <- review_obligation[[1]]
-  list(list(
+  node_ids <- obligation$basis$node_ids %||% character()
+  summary_ids <- obligation$basis$summary_ids %||% character()
+
+  actions <- list(list(
     kind = "record_decision",
     scope = context$scope,
     title = "Record a computation review",
@@ -596,12 +703,12 @@ bg_default_bayesian_summary_actions <- function(
         kind = "review_computation_validity",
         scope = context$scope
       )),
-      node_ids = obligation$basis$node_ids %||% character()
+      node_ids = node_ids
     ),
     payload = list(
       decision_type = "computation_review",
-      summary_ids = obligation$basis$summary_ids %||% character(),
-      node_ids = obligation$basis$node_ids %||% character()
+      summary_ids = summary_ids,
+      node_ids = node_ids
     ),
     explanation = list(
       why_now = "A blocking computation-validity obligation is active.",
@@ -609,4 +716,184 @@ bg_default_bayesian_summary_actions <- function(
     ),
     metadata = list()
   ))
+
+  if (length(node_ids) > 0) {
+    source_node_id <- node_ids[[1]]
+    source_node <- context$structural$nodes[[source_node_id]] %||% NULL
+
+    modification_hint <- NULL
+    parameter_suggestions <- list()
+    continuation_kinds <- c("check", "ppc")
+
+    if (!is.null(source_node)) {
+      summary_kinds <- obligation$metadata$summary_kinds %||% character()
+      if ("hmc_diagnostics" %in% summary_kinds) {
+        modification_hint <- "reparametrize"
+      } else if ("optimizer_diagnostics" %in% summary_kinds) {
+        modification_hint <- "adjust_tolerances"
+      }
+
+      # Compute parameter suggestions using the helper
+      parameter_suggestions <- bg_parameter_suggestions_from_hint(
+        hint = modification_hint,
+        current_params = source_node$params %||% list()
+      )
+    }
+
+    actions <- c(
+      actions,
+      list(list(
+        kind = "branch_and_modify",
+        scope = context$scope,
+        title = "Branch and modify to resolve diagnostics",
+        basis = list(
+          obligation_refs = list(list(
+            kind = "review_computation_validity",
+            scope = context$scope
+          )),
+          node_ids = node_ids
+        ),
+        payload = list(
+          source_node_id = source_node_id,
+          modification_hint = modification_hint,
+          default_label = if (!is.null(source_node)) {
+            paste0(source_node$label %||% source_node$kind, " (revised)")
+          } else {
+            NULL
+          },
+          parameter_suggestions = parameter_suggestions,
+          continuation_kinds = continuation_kinds,
+          auto_run = TRUE
+        ),
+        explanation = list(
+          why_now = "A new branch preserves provenance while you iterate on diagnostics.",
+          references = character()
+        ),
+        metadata = list()
+      ))
+    )
+  }
+
+  actions
+}
+
+#' @keywords internal
+bg_default_bayesian_comparison_actions <- function(
+  context,
+  obligations,
+  pack_config = list()
+) {
+  if (!identical(context$scope, "project")) {
+    return(list())
+  }
+
+  blocking_obligations <- Filter(
+    function(obligation) {
+      identical(obligation$severity, "blocking")
+    },
+    obligations
+  )
+  if (length(blocking_obligations) > 0) {
+    return(list())
+  }
+
+  summaries <- context$metadata$cross_scope_summaries %||%
+    context$evidence$summaries %||%
+    list()
+  candidate_nodes <- c(
+    context$structural$nodes %||% list(),
+    context$metadata$cross_scope_nodes %||% list()
+  )
+  fresh_fit_summaries <- Filter(
+    function(summary) {
+      node <- candidate_nodes[[summary$node_id]] %||% NULL
+      isTRUE(summary$is_fresh) &&
+        !isTRUE(summary$is_stale) &&
+        identical(summary$severity, "ok") &&
+        !is.null(node) &&
+        identical(node$kind %||% NULL, "fit") &&
+        grepl("diagnostics", summary$summary_kind, fixed = TRUE)
+    },
+    summaries
+  )
+
+  if (length(fresh_fit_summaries) < 2) {
+    return(list())
+  }
+
+  fit_node_ids <- unique(vapply(
+    fresh_fit_summaries,
+    `[[`,
+    character(1),
+    "node_id"
+  ))
+  if (length(fit_node_ids) < 2) {
+    return(list())
+  }
+
+  fit_nodes <- candidate_nodes[fit_node_ids]
+  fit_labels <- vapply(
+    fit_node_ids,
+    function(node_id) {
+      node <- fit_nodes[[node_id]] %||% list()
+      node$label %||% node_id
+    },
+    character(1)
+  )
+
+  list(list(
+    kind = "create_node_from_template",
+    scope = context$scope,
+    title = "Compare clean fits",
+    basis = list(
+      node_ids = fit_node_ids
+    ),
+    payload = list(
+      template_ref = "branch_comparison",
+      inputs = fit_node_ids,
+      default_label = paste("Compare:", paste(fit_labels, collapse = " vs "))
+    ),
+    explanation = list(
+      why_now = "Multiple fits have clean diagnostics and are ready for comparison.",
+      references = character()
+    ),
+    metadata = list()
+  ))
+}
+
+#' @keywords internal
+bg_read_branch_registry_from_context <- function(context) {
+  branches <- list()
+
+  for (node_id in names(context$structural$nodes %||% list())) {
+    node <- context$structural$nodes[[node_id]]
+    if (!is.null(node$metadata$branch_id)) {
+      branch_id <- node$metadata$branch_id
+      branches[[branch_id]] <- list(
+        branch_id = branch_id,
+        root_node_id = node_id,
+        label = node$label %||% branch_id,
+        source_node_id = node$metadata$source_node_id %||% NULL
+      )
+    }
+  }
+
+  if (length(context$scope_context$branch_lineage %||% list()) > 0) {
+    scope <- context$scope
+    if (!scope %in% names(branches) && startsWith(scope, "branch:")) {
+      root <- context$scope_context$branch_root
+      if (!is.null(root)) {
+        branches[[scope]] <- list(
+          branch_id = scope,
+          root_node_id = root,
+          label = scope
+        )
+      }
+    }
+  }
+
+  list(
+    schema_name = "bg_branch_registry",
+    branches = branches
+  )
 }

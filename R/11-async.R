@@ -84,7 +84,21 @@ bg_submit <- function(
 
   if (length(plan$to_execute) == 0) {
     cli::cli_inform("No nodes require execution.")
-    return(list(run_id = run_id, status = "succeeded", job_ids = character(0)))
+    res <- list(
+      run_id = run_id,
+      status = "succeeded",
+      mode = "async",
+      targets = plan$targets %||% character(0),
+      job_ids = character(0),
+      submitted_at = NULL,
+      started_at = NULL,
+      finished_at = NULL,
+      summary = list(total_jobs = 0L),
+      error = NULL,
+      metadata = list()
+    )
+    class(res) <- "bg_run_handle"
+    return(res)
   }
 
   cli::cli_inform(
@@ -167,7 +181,7 @@ bg_submit <- function(
     }
   }
 
-  list(
+  res <- list(
     run_id = run_id,
     status = "running",
     mode = "async",
@@ -180,6 +194,8 @@ bg_submit <- function(
     error = NULL,
     metadata = list()
   )
+  class(res) <- "bg_run_handle"
+  res
 }
 
 #' Cancel an asynchronous run

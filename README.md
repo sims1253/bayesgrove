@@ -1,275 +1,164 @@
----
-title: BayesGrove
----
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+# BayesGrove
 
+<!-- badges: start -->
 
-[![CRAN status](https://img.shields.io/cran/v/release/bayesgrove)](https://cran.r-project.org/package/bayesgrove)
-[![R-CMD-check](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check/badge.svg)](https://github.com/mscholz/bayesgrove/actions/workflows/R-CMD-check)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![R-CMD-check](https://github.com/sims1253/bayesgrove/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/sims1253/bayesgrove/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
 
-# BayesGrove: Graph-Based Bayesian Workflow Scaffolding
+**BayesGrove** is a graph-based Bayesian workflow engine for R. It helps
+you design, track, and document your statistical analyses by completely
+separating the *execution graph* (the code that runs) from the *decision
+provenance* (why you ran it).
 
-**BayesGrove** is an R-native, graph-based Bayesian workflow orchestrator. It helps you structure, track, and document your Bayesian analyses by separating the execution DAG (directed acyclic graph) from a rich decision-provenance layer.
+Built on the purely functional `dagriculture` graph library, BayesGrove
+allows you to explicitly encode modeling decisions, enforce workflow
+checks, seamlessly cache intermediate computations like MCMC fits, and
+branch models asynchronously—all without losing the rationale behind
+your choices.
 
-Built on top of the pure functional graph engine [`dagriculture`](https://github.com/sims1253/dagriculture), BayesGrove provides explicit decision capture, branching, and reproducible workflow management.
+## Why BayesGrove?
 
-## Key Features
+Modern Bayesian analysis requires iterative model building, checking,
+and revision. Typically, this process gets lost in unstructured scripts
+or implicit notebook states.
 
-- **Graph-Based Workflow**: Structure your analysis as a reproducible DAG of explicitly typed steps.
-- **Decision Tracking (Provenance)**: Record all modeling choices, rationales, and literature references using structural "gates".
-- **Deterministic Fingerprinting**: Precise, intent-based cache invalidation for partial reruns.
-- **Workflow Guidance**: Derive obligations and suggested next actions from lightweight summaries via `bg_next_actions()`.
-- **Reference-Semantic Handles**: Safely mutate and manage your workflow state using explicit S7-based project handles.
+BayesGrove solves this by giving you:
+
+1.  **Explicit Provenance**: Record qualitative rationales (e.g., “Why
+    did we use a heavy-tailed prior?”) directly into the workflow using
+    structural gates.
+2.  **Intent-Based Caching**: Skip redundant computations. If an
+    upstream data step doesn’t change semantically, your costly
+    `cmdstanr` or `brms` fits won’t rerun.
+3.  **Workflow Obligations**: The built-in protocol engine automatically
+    flags divergent models or diagnostic warnings (like divergent
+    transitions or high $\hat{R}$), pausing downstream comparisons until
+    they are reviewed.
+4.  **Reproducible Handoffs**: Export your entire decision tree and
+    causal graph into a reproducible bundle or markdown report with one
+    command.
 
 ## Installation
 
-```r
-# Install dagriculture foundation first
-# devtools::install_github("sims1253/dagriculture")
+You can install the development version of BayesGrove (which includes
+its `dagriculture` foundation) via [`pak`](https://pak.r-lib.org/):
 
-# Install BayesGrove from GitHub
-# devtools::install_github("mscholz/bayesgrove")
+``` r
+# install.packages("pak")
+pak::pkg_install("sims1253/bayesgrove")
 ```
 
-## Quickstart
+## Example: Protocol-Driven Workflow
 
-This minimal example shows how to initialize a project, build a simple graph, and execute it using the synchronous runner.
-
+BayesGrove separates the execution graph from decision provenance. When
+computations produce diagnostic warnings, the protocol engine
+automatically creates blocking obligations and holds downstream work
+until you resolve them.
 
 ``` r
 library(bayesgrove)
 
-# Initialize a project directory
-project_path <- file.path(tempdir(), "bayesgrove-demo")
-unlink(project_path, recursive = TRUE)
-
+# 1. Initialize a workflow workspace
+project_path <- file.path(tempdir(), "bayesgrove-intro")
 handle <- bg_init(
-  project_path,
-  project_name = "demo-project",
+  path = project_path,
+  project_name = "hierarchical_analysis",
   workflow_packs = list("bayesguide.default_bayesian")
 )
 
-# Register simple mock executors for the demo
-bg_register_node_kind(handle, "data", executor = function(node, inputs) {
-  message("Loading data...")
-  return(data.frame(x = 1:10))
+# 2. Register executors that return diagnostic summaries
+bg_register_node_kind(handle, "data_prep", executor = function(node, inputs) {
+  data.frame(group = rep(1:5, each = 10), y = rnorm(50))
 })
 
-bg_register_node_kind(handle, "model", executor = function(node, inputs) {
-  message("Fitting model...")
+bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+  # Mock fit that returns warning diagnostics (e.g., divergent transitions)
   list(
-    result = "mock_fit_result",
-    summaries = list(list(
-      summary_kind = "optimizer_diagnostics",
-      passed = FALSE,
-      severity = "warning",
-      metrics = list(max_gradient = 0.1)
-    ))
+    status = "fit_completed",
+    summaries = list(
+      list(
+        summary_kind = "hmc_diagnostics",
+        severity = "warning",
+        passed = FALSE,
+        metrics = list(divergences = 15, rhat_max = 1.02)
+      )
+    )
   )
 })
 
-bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
-  sprintf("Compared downstream result: %s", inputs[[1]])
+bg_register_node_kind(handle, "ppc", executor = function(node, inputs) {
+  list(plot = "ppc_density_plot")
 })
 
-# Build the workflow graph
-n_data <- bg_add_node(handle, kind = "data", label = "Raw Data")
-n_model <- bg_add_node(handle, kind = "model", label = "Baseline Model", inputs = n_data)
-n_compare <- bg_add_node(
-  handle,
-  kind = "compare",
-  label = "Diagnostic Comparison",
-  inputs = n_model
-)
-
-# Create a decision gate
-gate <- bg_add_gate(
-  project = handle,
-  from = n_data,
-  to = n_model,
-  prompt = "Does the data look ready for modeling?",
-  options = c("yes", "no")
-)
-
-# Observe that the graph is blocked by the pending gate
-plan <- bg_plan(handle)
-print(plan$blocked)
-#> $node_252774bb
-#> [1] "gate"
-#> 
-#> $node_e8780551
-#> [1] "upstream_blocked"
-print(bg_pending_gates(handle))
-#> $gate_4687b6e0
-#> $gate_4687b6e0$id
-#> [1] "gate_4687b6e0"
-#> 
-#> $gate_4687b6e0$edge_id
-#> [1] "edge_c7a8a3a9"
-#> 
-#> $gate_4687b6e0$prompt
-#> [1] "Does the data look ready for modeling?"
-#> 
-#> $gate_4687b6e0$options
-#> $gate_4687b6e0$options[[1]]
-#> [1] "yes"
-#> 
-#> $gate_4687b6e0$options[[2]]
-#> [1] "no"
-#> 
-#> 
-#> $gate_4687b6e0$refs
-#> list()
-#> 
-#> $gate_4687b6e0$created_at
-#> [1] "2026-03-06T19:36:06Z"
-#> 
-#> $gate_4687b6e0$metadata
-#> list()
-#> 
-#> $gate_4687b6e0$from_node_id
-#> [1] "node_3f96184c"
-#> 
-#> $gate_4687b6e0$to_node_id
-#> [1] "node_252774bb"
-#> 
-#> $gate_4687b6e0$from_label
-#> [1] "Raw Data"
-#> 
-#> $gate_4687b6e0$to_label
-#> [1] "Baseline Model"
-
-# Answer the gate explicitly
-bg_answer_gate(
-  project = handle,
-  id = gate$id,
-  choice = "yes",
-  rationale = "No missing values found, ready to fit."
-)
-#> $decision_id
-#> [1] "dec_741125fa"
-#> 
-#> $scope
-#> [1] "gate:gate_4687b6e0"
-#> 
-#> $kind
-#> [1] "gate_answer"
-#> 
-#> $prompt
-#> [1] "Does the data look ready for modeling?"
-#> 
-#> $choice
-#> [1] "yes"
-#> 
-#> $alternatives
-#> [1] "no"
-#> 
-#> $rationale
-#> [1] "No missing values found, ready to fit."
-#> 
-#> $refs
-#> list()
-#> 
-#> $evidence
-#> character(0)
-#> 
-#> $status
-#> [1] "active"
-#> 
-#> $created_at
-#> [1] "2026-03-06T19:36:06Z"
-#> 
-#> $supersedes
-#> NULL
-#> 
-#> $metadata
-#> $metadata$gate_id
-#> [1] "gate_4687b6e0"
-#> 
-#> $metadata$edge_id
-#> [1] "edge_c7a8a3a9"
-#> 
-#> $metadata$from_node_id
-#> [1] "node_3f96184c"
-#> 
-#> $metadata$to_node_id
-#> [1] "node_252774bb"
-#> 
-#> $metadata$options
-#> [1] "yes" "no" 
-#> 
-#> $metadata$gate_metadata
-#> list()
-
-# Run the workflow
-bg_run(handle, targets = n_model, mode = "sync")
-#> Starting run "run_a963272f" with 1 node to execute.
-#> Running node "node_3f96184c"...
-#> Loading data...
-#> 
-#> Running node "node_252774bb"...
-#> Fitting model...
-#> $run_id
-#> [1] "run_a963272f"
-#> 
-#> $status
-#> [1] "succeeded"
-#> 
-#> $mode
-#> [1] "sync"
-#> 
-#> $targets
-#> [1] "node_252774bb"
-#> 
-#> $job_ids
-#> character(0)
-#> 
-#> $submitted_at
-#> [1] "2026-03-06T19:36:06Z"
-#> 
-#> $started_at
-#> [1] "2026-03-06T19:36:06Z"
-#> 
-#> $finished_at
-#> [1] "2026-03-06T19:36:06Z"
-#> 
-#> $summary
-#> $summary$total_executed
-#> [1] 2
-#> 
-#> 
-#> $error
-#> NULL
-#> 
-#> $metadata
-#> list()
-
-# Ask the workflow protocol what needs attention next
-next_steps <- bg_next_actions(handle)
-next_steps$obligations[[1]]$kind
-#> [1] "review_computation_validity"
-
-# Feed blocking obligations back into planning as external holds
-held_plan <- bg_plan(
-  handle,
-  external_holds = next_steps$metadata$external_holds
-)
-held_plan$external_blocked
-#> $node_e8780551
-#> [1] "Review computation validity"
+# 3. Construct the graph
+n_data <- bg_add_node(handle, "data_prep", label = "Load Data")
+n_fit <- bg_add_node(handle, "fit", label = "Hierarchical Fit", inputs = n_data)
+n_ppc <- bg_add_node(handle, "ppc", label = "Posterior Check", inputs = n_fit)
 ```
 
-The final `bg_plan()` call is the key distinction: `held_plan$blocked` still
-contains only structural blockers, while `held_plan$external_blocked` captures
-workflow holds derived from summaries and obligations.
+Run the workflow. The fit completes but produces warning diagnostics:
 
-## Vignettes
+``` r
+bg_run(handle, mode = "sync")
+#> Starting run "run_d16d7bd3" with 1 node to execute.
+#> Running node "node_2bd9c9d1"...
+#> Running node "node_ca6c40c2"...
+#> <bg_run_handle> run_d16d7bd3
+#> 
+#> • Status: blocked
+#> 
+#> • Mode: sync
+#> 
+#> • Executed Nodes: 2
+```
 
-For a detailed introduction, see our vignettes:
-- `vignette("getting-started", package = "bayesgrove")`
+The protocol engine detects the warning and creates a blocking
+obligation. Downstream work (the PPC) is held:
 
-## License
+``` r
+status <- bg_status(handle)
+cat(sprintf("Workflow State: %s\n", status$workflow_state))
+#> Workflow State: blocked
+```
 
-MIT © Maximilian Scholz
+Inspect active obligations and suggested actions:
+
+``` r
+actions <- bg_next_actions(handle)
+cat(sprintf("Blocking obligations: %d\n", length(actions$obligations)))
+#> Blocking obligations: 1
+if (length(actions$actions) > 0) {
+  cat(sprintf("First suggested action: %s\n", actions$actions[[1]]$title))
+}
+#> First suggested action: Record a computation review
+```
+
+To resolve the issue, you can branch and modify the fit with a
+non-centered parametrization. The interactive REPL provides a guided
+interface for this workflow:
+
+``` r
+bg_repl(handle)
+```
+
+## Interactive REPL
+
+The REPL provides a guided loop for working through obligations:
+
+- `status` - Show workflow state (blocked, idle, etc.)
+- `guide` - See active obligations and suggested actions
+- `actions` - List detailed actions with payloads
+- `do <n>` - Execute action \#n (branch and modify, record decision,
+  etc.)
+- `run` - Execute ready nodes
+- `nodes` - View the execution graph with states
+- `result <label>` - Inspect cached results and diagnostics
+
+<img src="tools/demo/repl-workflow/repl-workflow.gif" width="100%" alt="BayesGrove Interactive REPL Demo"/>
+
+The demo shows the full guided loop: a fit with divergent transitions
+triggers a blocking obligation, you branch and modify to use
+non-centered parametrization, rerun, and the workflow advances.

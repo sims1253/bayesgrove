@@ -1,6 +1,58 @@
 #' @importFrom rlang %||%
 NULL
 
+#' @keywords internal
+bg_validate_graph_payload <- function(raw, graph_path) {
+  if (!is.list(raw)) {
+    cli::cli_abort(
+      "Malformed graph at {.path {graph_path}}: expected a JSON object."
+    )
+  }
+
+  if (is.null(raw$version) || length(raw$version) != 1L) {
+    cli::cli_abort(
+      "Malformed graph at {.path {graph_path}}: missing scalar `version`."
+    )
+  }
+
+  if (is.null(raw$nodes) || !is.list(raw$nodes)) {
+    cli::cli_abort(
+      "Malformed graph at {.path {graph_path}}: `nodes` must be a list."
+    )
+  }
+
+  if (is.null(raw$edges) || !is.list(raw$edges)) {
+    cli::cli_abort(
+      "Malformed graph at {.path {graph_path}}: `edges` must be a list."
+    )
+  }
+
+  invalid_node_idx <- which(!vapply(raw$nodes, is.list, logical(1)))
+  if (length(invalid_node_idx) > 0) {
+    cli::cli_abort(
+      "Malformed graph at {.path {graph_path}}: every node entry must be a list."
+    )
+  }
+
+  invalid_edge_idx <- which(!vapply(
+    raw$edges,
+    function(edge) {
+      is.list(edge) && !is.null(edge$from) && !is.null(edge$to)
+    },
+    logical(1)
+  ))
+  if (length(invalid_edge_idx) > 0) {
+    cli::cli_abort(
+      paste0(
+        "Malformed graph at {.path {graph_path}}: every edge must be a list ",
+        "with `from` and `to` fields."
+      )
+    )
+  }
+
+  invisible(TRUE)
+}
+
 #' Write project graph safely
 #' @param project A `bg_handle`
 #' @param graph A `dagri_graph`
@@ -79,8 +131,7 @@ bg_read_graph <- function(project) {
   # Let's rely on groots::from_list(raw) if it exists, otherwise we'll build it.
   # I'll just return the raw object and we can see what groots does.
   # Wait, groots alpha design has `groots_graph(registry, nodes=..., edges=...)`.
-  # For the rewrite, groots API provides constructors.
-  # I'll use a placeholder `groots:::from_list(raw)` or just try to pass raw to groots if it's S3/list.
-  # Given `groots` is local, I can check its API.
+  bg_validate_graph_payload(raw, graph_path)
+  class(raw) <- unique(c("dagriculture_graph", class(raw)))
   raw
 }

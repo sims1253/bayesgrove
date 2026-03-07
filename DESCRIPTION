@@ -1,6 +1,6 @@
 Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
-Version: 0.3.4
+Version: 0.3.5
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
 Description: Implements the BayesGrove workflow runtime with typed graph
     construction, deterministic fingerprinting, synchronous execution, content-
@@ -39,5 +39,5 @@ Suggests:
     withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/mscholz/bayesgrove, https://mscholz.github.io/bayesgrove/
-BugReports: https://github.com/mscholz/bayesgrove/issues
+URL: https://github.com/sims1253/bayesgrove, https://sims1253.github.io/bayesgrove/
+BugReports: https://github.com/sims1253/bayesgrove/issues

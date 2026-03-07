@@ -4,11 +4,49 @@
 \alias{bg_repl}
 \title{Interactive REPL for BayesGrove}
 \usage{
-bg_repl(project)
+bg_repl(project, initial_scope = NULL)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
+
+\item{initial_scope}{Optional initial scope (e.g., "project" or "branch:xxx").}
+}
+\value{
+Invisibly returns \code{NULL} when the session exits.
 }
 \description{
 Interactive REPL for BayesGrove
+}
+\details{
+\code{bg_repl()} provides an interactive loop for navigating workflow state,
+reviewing protocol guidance, and applying common workflow actions without
+manually calling the lower-level APIs.
+
+The REPL is scope-aware. In project scope it can surface obligations and
+actions across the whole workflow; in branch scope it focuses on the selected
+branch and its branch-local graph view.
+
+Supported commands include:
+\itemize{
+\item \code{help}: show the command list
+\item \code{status}: print workflow state and health
+\item \code{guide}: show active obligations and suggested actions
+\item \code{actions}: list actionable protocol suggestions with payload details
+\item \verb{do <n>}: execute the nth suggested action
+\item \code{scope} / \verb{scope <scope>}: inspect or change the current scope
+\item \code{branches} and \verb{use <n>}: inspect branches and switch by index
+\item \code{goal} / \verb{goal set}: inspect or set a branch-scoped inferential goal
+\item \code{decisions}: show recent decisions for the current scope
+\item \code{nodes}: print the scoped execution graph
+\item \verb{result <node>}: inspect a cached result and fresh summaries
+\item \verb{branch <node>}: create a new branch from a node and switch to it
+\item \verb{set <node> <key>=<value>}: update a node label or parameter
+\item \verb{invalidate <node>}: invalidate a node and downstream cache lineage
+\item \code{gates} / \code{answer}: inspect and answer pending structural gates
+\item \code{run} / \code{submit}: execute or enqueue ready work in the current scope
+\item \code{jobs} and \verb{cancel <run_id>}: inspect or cancel background work
+\item \code{exit}, \code{quit}, \code{q}: leave the REPL
+}
+
+The function must be called from an interactive R session.
 }

@@ -283,7 +283,10 @@ bg_answer_gate(
   handle,
   randomized$gate$id,
   choice = "no",
-  rationale = "The standardized mean difference for z is small, so the adjustment branch is not required to justify interpretation here.",
+  rationale = paste(
+    "The standardized mean difference for z is small, so the adjustment branch",
+    "is not required to justify interpretation here."
+  ),
   evidence = randomized$descriptive,
   refs = list(
     list(
@@ -297,7 +300,10 @@ bg_answer_gate(
   handle,
   confounded$gate$id,
   choice = "yes",
-  rationale = "Treatment assignment is visibly associated with z, so the adjusted branch is the only trustworthy explanatory candidate.",
+  rationale = paste(
+    "Treatment assignment is visibly associated with z, so the adjusted branch",
+    "is the only trustworthy explanatory candidate."
+  ),
   evidence = confounded$descriptive,
   refs = list(
     list(

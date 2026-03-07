@@ -13,3 +13,5 @@
 ^\.lintr$
 ^README\.html$
 ^tools/demo($|/)
+^ROADMAP\.local\.md
+

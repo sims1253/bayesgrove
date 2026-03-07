@@ -1,4 +1,4 @@
-url: "https://mscholz.github.io/bayesgrove"
+url: "https://sims1253.github.io/bayesgrove"
 template:
   bootstrap: 5
 
@@ -66,13 +66,16 @@ reference:
       - bg_workflow_packs
       - bg_workflow_context
       - bg_next_actions
+      - bg_partition_protocol_by_scope
       - bg_build_workflow_context
   - title: Workflow State
     contents:
       - bg_read_branch_registry
       - bg_read_goal_registry
+      - bg_list_branches
       - bg_branch_lineage
       - bg_resolve_node_scope
+      - bg_scope_label
       - bg_set_goal
       - bg_get_goal
       - bg_read_summaries
@@ -81,6 +84,7 @@ reference:
   - title: Branching & Invalidation
     contents:
       - bg_branch
+      - bg_branch_with_continuation
       - bg_invalidate
   - title: Decisions & Gates
     contents:

@@ -168,6 +168,22 @@ bg_write_branch_registry <- function(project, registry) {
 }
 
 #' @keywords internal
+bg_update_branch_metadata <- function(project, branch_id, metadata = list()) {
+  registry <- bg_read_branch_registry(project)
+  record <- registry$branches[[branch_id]] %||% NULL
+
+  if (is.null(record)) {
+    cli::cli_abort("Branch {.val {branch_id}} not found in branch registry.")
+  }
+
+  record$metadata <- utils::modifyList(record$metadata %||% list(), metadata)
+  registry$branches[[branch_id]] <- record
+  bg_write_branch_registry(project, registry)
+
+  invisible(record)
+}
+
+#' @keywords internal
 bg_new_branch_record <- function(
   project,
   root_node_id,
@@ -646,6 +662,71 @@ bg_branch_lineage <- function(project, branch_id) {
   lineage
 }
 
+#' List all branches with their metadata
+#'
+#' Returns a data-frame-like list of all registered branches with their
+#' identifying information and optional display labels.
+#'
+#' @param project A `bg_handle`.
+#'
+#' @return A named list of branch records, each containing `branch_id`,
+#'   `label`, `root_node_id`, `source_node_id`, `created_at`, and `has_goal`.
+#' @export
+bg_list_branches <- function(project) {
+  S7::check_is_S7(project, bg_handle)
+
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  if (length(branches) == 0) {
+    return(list())
+  }
+
+  goals <- bg_read_goal_registry(project)$branch_goals %||% list()
+
+  lapply(branches, function(record) {
+    list(
+      branch_id = record$branch_id,
+      label = record$label %||% "",
+      root_node_id = record$root_node_id,
+      source_node_id = record$source_node_id,
+      created_at = record$created_at,
+      has_goal = !is.null(goals[[record$branch_id]])
+    )
+  })
+}
+
+#' Get a display label for a scope
+#'
+#' Returns a human-readable label for a scope string. For project scope,
+#' returns "Project". For branch scopes, returns the branch label or a
+#' truncated branch id.
+#'
+#' @param project A `bg_handle`.
+#' @param scope A scope string like "project" or "branch:...".
+#'
+#' @return A character string suitable for display.
+#' @export
+bg_scope_label <- function(project, scope) {
+  S7::check_is_S7(project, bg_handle)
+
+  if (identical(scope, "project")) {
+    return("Project")
+  }
+
+  if (!startsWith(scope, "branch:")) {
+    return(scope)
+  }
+
+  branches <- bg_read_branch_registry(project)$branches
+  record <- branches[[scope]] %||% NULL
+
+  if (!is.null(record) && !is.null(record$label) && nzchar(record$label)) {
+    return(record$label)
+  }
+
+  # Fall back to truncated branch id
+  sprintf("Branch %s", substr(scope, 8, 14))
+}
+
 #' @keywords internal
 bg_scope_node_ids <- function(project, scope) {
   graph <- bg_read_graph(project)
@@ -684,6 +765,11 @@ bg_scope_matches <- function(project, scope, candidate_scope) {
   }
 
   candidate_scope %in% valid_scopes
+}
+
+#' @keywords internal
+bg_summary_scope_matches <- function(project, scope, candidate_scope) {
+  bg_scope_matches(project, scope, candidate_scope)
 }
 
 #' @keywords internal
@@ -892,7 +978,9 @@ bg_read_summaries <- function(
     )
     entry$is_stale <- !entry$is_fresh
 
-    if (!is.null(scope) && !bg_scope_matches(project, scope, entry$scope)) {
+    if (
+      !is.null(scope) && !bg_summary_scope_matches(project, scope, entry$scope)
+    ) {
       next
     }
 
@@ -1018,6 +1106,7 @@ bg_build_workflow_context <- function(project, scope = "project") {
     ),
     scope_context = list(
       branch_root = branch_record$root_node_id %||% NULL,
+      branch_metadata = branch_record$metadata %||% list(),
       branch_lineage = if (startsWith(scope, "branch:")) {
         bg_branch_lineage(project, scope)
       } else {

@@ -36,6 +36,16 @@ describe("Project Lifecycle", {
     expect_equal(handle@project_id, init_handle@project_id)
   })
 
+  it("hydrates graphs with dagriculture and list classes preserved", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+
+    expect_s3_class(graph, "dagriculture_graph")
+    expect_true(inherits(graph, "list"))
+  })
+
   it("sets closed flag on close", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)

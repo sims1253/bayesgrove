@@ -281,7 +281,7 @@ bg_new_decision_record <- function(
 ) {
   decision_id <- sprintf("dec_%s", digest::digest(runif(1), algo = "xxhash32"))
 
-  list(
+  res <- list(
     schema_name = "bg_decision_entry",
     schema_version = 1L,
     decision_id = decision_id,
@@ -299,6 +299,8 @@ bg_new_decision_record <- function(
     supersedes = NULL,
     metadata = metadata %||% list()
   )
+  class(res) <- "bg_decision_record"
+  res
 }
 
 #' @keywords internal
@@ -338,6 +340,7 @@ bg_read_decisions <- function(project) {
       next
     }
     record <- jsonlite::fromJSON(line, simplifyVector = FALSE)
+    class(record) <- "bg_decision_record"
     decisions[[record$decision_id]] <- record
   }
 

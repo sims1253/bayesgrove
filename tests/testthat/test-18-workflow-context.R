@@ -101,6 +101,11 @@ describe("Workflow persistence and context", {
     expect_length(index_doc$entries[[node_id]], 1)
   })
 
+  it("validates the project handle in bg_scope_label", {
+    expect_error(bg_scope_label(1, "project"), "bg_handle")
+    expect_error(bg_scope_label(1, "branch:test"), "bg_handle")
+  })
+
   it("marks summaries stale after invalidation supersedes the artifact binding", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -253,5 +258,100 @@ describe("Workflow persistence and context", {
       )),
       n_branch
     )
+  })
+
+  it("keeps project summaries visible inside branch contexts", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(
+        result = list(rows = 10L),
+        summaries = list(list(
+          summary_kind = "data_diagnostics",
+          passed = FALSE,
+          severity = "warning"
+        ))
+      )
+    })
+    bg_register_node_kind(handle, "fit")
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Alternative")
+
+    bg_run(handle, targets = source_id, mode = "sync")
+
+    project_context <- bg_build_workflow_context(handle, scope = "project")
+    branch_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+
+    expect_true(source_id %in% vapply(
+      project_context$evidence$summaries,
+      `[[`,
+      character(1),
+      "node_id"
+    ))
+    expect_true(source_id %in% vapply(
+      branch_context$evidence$summaries,
+      `[[`,
+      character(1),
+      "node_id"
+    ))
+  })
+
+  it("lists branches with metadata via bg_list_branches", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "test_kind")
+    n1 <- bg_add_node(handle, kind = "test_kind", label = "Source")
+    n2 <- bg_add_node(handle, kind = "test_kind", label = "Fit", inputs = n1)
+
+    # No branches initially
+    expect_length(bg_list_branches(handle), 0)
+
+    # Create first branch with goal
+    branch1 <- bg_branch(handle, n2, label = "First Branch")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch1$branch_id,
+      kind = "observable_prediction",
+      label = "Predictive goal",
+      rationale = "Test goal"
+    )
+
+    # Create second branch without goal
+    branch2 <- bg_branch(handle, n1, label = "Second Branch")
+
+    branches <- bg_list_branches(handle)
+    expect_length(branches, 2)
+
+    expect_true(branch1$branch_id %in% names(branches))
+    expect_true(branch2$branch_id %in% names(branches))
+
+    b1 <- branches[[branch1$branch_id]]
+    expect_equal(b1$label, "First Branch")
+    expect_equal(b1$root_node_id, branch1$root_node_id)
+    expect_true(b1$has_goal)
+
+    b2 <- branches[[branch2$branch_id]]
+    expect_equal(b2$label, "Second Branch")
+    expect_false(b2$has_goal)
+  })
+
+  it("provides human-readable scope labels via bg_scope_label", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "test_kind")
+    n1 <- bg_add_node(handle, kind = "test_kind", label = "Source")
+    branch <- bg_branch(handle, n1, label = "My Branch")
+
+    expect_equal(bg_scope_label(handle, "project"), "Project")
+    expect_equal(bg_scope_label(handle, branch$branch_id), "My Branch")
+
+    # Unknown branch falls back to truncated id
+    unknown_label <- bg_scope_label(handle, "branch:unknown123")
+    expect_true(startsWith(unknown_label, "Branch "))
   })
 })

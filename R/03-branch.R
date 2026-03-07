@@ -64,6 +64,172 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   record
 }
 
+#' Branch a node with downstream continuation
+#'
+#' Creates a branch from a node and optionally clones immediate downstream
+#' nodes to establish a continuation path. This is a narrowly scoped helper
+#' for guided workflows where a branched fit should flow into downstream
+#' diagnostic or comparison nodes.
+#'
+#' @param project A `bg_handle`.
+#' @param node_id The ID of the node to branch.
+#' @param label Optional label for the new branched node.
+#' @param copy_params Whether to copy the parameters of the branched node (default: TRUE).
+#' @param continuation_kinds Character vector of node kinds to clone downstream.
+#'   If NULL (default), clones all immediate children. If empty, behaves like
+#'   `bg_branch()` with no continuation.
+#' @param continuation_depth How many levels of downstream nodes to clone.
+#'   Only 1 (immediate children) is supported in v1.
+#'
+#' @return A list containing the `branch` record and `continuation_nodes`
+#'   mapping source node IDs to their cloned counterparts.
+#' @export
+bg_branch_with_continuation <- function(
+  project,
+  node_id,
+  label = NULL,
+  copy_params = TRUE,
+  continuation_kinds = NULL,
+  continuation_depth = 1L
+) {
+  S7::check_is_S7(project, bg_handle)
+
+  if (!identical(continuation_depth, 1L)) {
+    cli::cli_abort(
+      "Only {.val continuation_depth = 1} is supported in the current version."
+    )
+  }
+
+  # Create the base branch first
+  branch <- bg_branch(
+    project = project,
+    node_id = node_id,
+    label = label,
+    copy_params = copy_params
+  )
+
+  graph <- bg_read_graph(project)
+  continuation_nodes <- list()
+
+  # Find direct downstream edges from the source node
+  downstream_edges <- Filter(function(e) e$from == node_id, graph$edges)
+
+  if (length(downstream_edges) == 0) {
+    return(list(
+      branch = branch,
+      continuation_nodes = continuation_nodes
+    ))
+  }
+
+  # Group edges by target node to handle multiple edges to the same node
+  targets <- unique(vapply(downstream_edges, `[[`, character(1), "to"))
+
+  # Filter by continuation_kinds if specified
+  if (!is.null(continuation_kinds) && length(continuation_kinds) > 0) {
+    targets <- Filter(
+      function(target_id) {
+        target_node <- graph$nodes[[target_id]]
+        !is.null(target_node) && target_node$kind %in% continuation_kinds
+      },
+      targets
+    )
+  }
+
+  if (length(targets) == 0) {
+    return(list(
+      branch = branch,
+      continuation_nodes = continuation_nodes
+    ))
+  }
+
+  # Build a mapping from source node IDs to their cloned counterparts
+  node_mapping <- stats::setNames(
+    branch$root_node_id,
+    node_id
+  )
+
+  # Clone each downstream target
+  for (target_id in targets) {
+    target_node <- graph$nodes[[target_id]]
+    if (is.null(target_node)) {
+      next
+    }
+
+    new_target_id <- sprintf(
+      "node_%s",
+      digest::digest(runif(1), algo = "xxhash32")
+    )
+
+    # Find all edges into this target and remap inputs
+    incoming_edges <- Filter(function(e) e$to == target_id, graph$edges)
+
+    # Determine new inputs: remap from branch source, keep others as-is
+    new_inputs <- character()
+    for (e in incoming_edges) {
+      if (e$from %in% names(node_mapping)) {
+        # This input comes from the branch lineage, remap to clone
+        new_inputs <- c(new_inputs, node_mapping[[e$from]])
+      } else {
+        # This input is external to the branch, keep it
+        new_inputs <- c(new_inputs, e$from)
+      }
+    }
+
+    # Create the cloned downstream node
+    new_label <- paste0(
+      target_node$label %||% target_node$kind,
+      " (from branch)"
+    )
+
+    graph <- dagriculture::dagri_add_node(
+      graph = graph,
+      id = new_target_id,
+      kind = target_node$kind,
+      label = new_label,
+      params = target_node$params %||% list(),
+      metadata = utils::modifyList(
+        target_node$metadata %||% list(),
+        list(
+          branched_from = target_id,
+          branch_id = branch$branch_id
+        )
+      )
+    )
+
+    # Add edges from the remapped inputs
+    for (i in seq_along(new_inputs)) {
+      new_edge_id <- sprintf(
+        "edge_%s",
+        digest::digest(runif(1), algo = "xxhash32")
+      )
+      graph <- dagriculture::dagri_add_edge(
+        graph = graph,
+        from = new_inputs[[i]],
+        to = new_target_id,
+        type = incoming_edges[[i]]$type %||% "default",
+        id = new_edge_id,
+        metadata = incoming_edges[[i]]$metadata %||% list()
+      )
+    }
+
+    # Track the mapping for provenance
+    node_mapping[[target_id]] <- new_target_id
+    continuation_nodes[[target_id]] <- list(
+      source_id = target_id,
+      clone_id = new_target_id,
+      kind = target_node$kind,
+      label = new_label
+    )
+  }
+
+  bg_commit_graph(project, graph)
+
+  list(
+    branch = branch,
+    continuation_nodes = continuation_nodes
+  )
+}
+
 #' Invalidate a node's result
 #'
 #' Invalidation is an explicit escape hatch for intentional recomputation.
@@ -119,4 +285,79 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
   )
 
   invisible(TRUE)
+}
+
+#' Compute parameter suggestions from a modification hint
+#'
+#' Given a modification hint (e.g., "reparametrize", "adjust_tolerances") and
+#' current node parameters, returns a list of suggested parameter changes.
+#'
+#' @param hint Modification hint string.
+#' @param current_params Current node parameters as a named list.
+#'
+#' @return Named list of suggested parameter changes.
+#' @noRd
+bg_parameter_suggestions_from_hint <- function(hint, current_params = list()) {
+  if (is.null(hint) || !nzchar(hint)) {
+    return(list())
+  }
+
+  suggestions <- switch(
+    hint,
+    "reparametrize" = {
+      if ("parametrization" %in% names(current_params)) {
+        current <- current_params$parametrization
+        if (identical(current, "centered")) {
+          list(parametrization = "non-centered")
+        } else if (identical(current, "non-centered")) {
+          list(parametrization = "centered")
+        } else {
+          list(parametrization = "non-centered")
+        }
+      } else {
+        list()
+      }
+    },
+    "adjust_tolerances" = {
+      if ("tolerance" %in% names(current_params)) {
+        current_tol <- current_params$tolerance
+        if (is.numeric(current_tol) && current_tol < 1e-4) {
+          list(tolerance = 1e-4)
+        } else {
+          list(tolerance = 1e-3)
+        }
+      } else if ("adapt_delta" %in% names(current_params)) {
+        current_delta <- current_params$adapt_delta
+        if (is.numeric(current_delta) && current_delta < 0.95) {
+          list(adapt_delta = 0.95)
+        } else {
+          list(adapt_delta = 0.99)
+        }
+      } else {
+        list()
+      }
+    },
+    "increase_iterations" = {
+      if ("iter" %in% names(current_params)) {
+        current_iter <- current_params$iter
+        if (is.numeric(current_iter)) {
+          list(iter = as.integer(current_iter * 2))
+        } else {
+          list()
+        }
+      } else if ("iterations" %in% names(current_params)) {
+        current_iter <- current_params$iterations
+        if (is.numeric(current_iter)) {
+          list(iterations = as.integer(current_iter * 2))
+        } else {
+          list()
+        }
+      } else {
+        list()
+      }
+    },
+    list()
+  )
+
+  suggestions
 }

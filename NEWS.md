@@ -1,3 +1,9 @@
+# bayesgrove 0.3.5
+
+* Added a guided, branch-aware REPL workflow with scope switching, action execution, richer graph/status rendering, and helper APIs for branch labels, branch listings, and scope-partitioned protocol results.
+* Added branch-with-continuation support for guided workflow branching and refreshed the REPL demo, README, and reference docs to match the new protocol-driven workflow loop.
+* Tightened workflow scope behavior so branch contexts inherit project summaries, comparison actions only target fit nodes, and branch-local graph views no longer leak cross-scope edges.
+
 # bayesgrove 0.3.4
 
 * Enforced workflow holds inside `bg_run()` and `bg_submit()` so blocking obligations now affect real execution, not just advisory planning.

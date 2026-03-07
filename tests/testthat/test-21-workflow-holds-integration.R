@@ -50,11 +50,18 @@ describe("Workflow holds end-to-end", {
     expect_equal(obligation$basis$summary_ids, summaries[[1]]$summary_id)
 
     expect_equal(
-      length(next_actions$actions),
+      sum(vapply(
+        next_actions$actions,
+        function(x) identical(x$kind, "record_decision"),
+        logical(1)
+      )),
       1,
       info = "The active computation-review obligation should surface a matching review action."
     )
-    action <- next_actions$actions[[1]]
+    action <- Filter(
+      function(x) identical(x$kind, "record_decision"),
+      next_actions$actions
+    )[[1]]
     expect_equal(action$kind, "record_decision")
     expect_equal(action$payload$decision_type, "computation_review")
     expect_equal(action$payload$node_ids, fixture$fit_id)

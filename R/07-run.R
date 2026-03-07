@@ -351,7 +351,7 @@ bg_run <- function(
         ),
         finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
       )
-      return(list(
+      res <- list(
         run_id = run_id,
         status = "failed",
         mode = mode,
@@ -370,7 +370,9 @@ bg_run <- function(
         metadata = list(
           held_by_policy = plan$held_by_policy %||% list()
         )
-      ))
+      )
+      class(res) <- "bg_run_handle"
+      return(res)
     }
 
     # Resolve input bindings
@@ -422,7 +424,7 @@ bg_run <- function(
     )
 
     if (!isTRUE(execution_result$ok)) {
-      return(list(
+      res <- list(
         run_id = run_id,
         status = "failed",
         mode = mode,
@@ -436,7 +438,9 @@ bg_run <- function(
         metadata = list(
           held_by_policy = plan$held_by_policy %||% list()
         )
-      ))
+      )
+      class(res) <- "bg_run_handle"
+      return(res)
     }
 
     external_holds <- bg_workflow_external_holds(project)
@@ -458,7 +462,7 @@ bg_run <- function(
     "partial"
   }
 
-  list(
+  res <- list(
     run_id = run_id,
     status = final_status,
     mode = mode,
@@ -473,4 +477,6 @@ bg_run <- function(
       held_by_policy = plan$held_by_policy %||% list()
     )
   )
+  class(res) <- "bg_run_handle"
+  res
 }

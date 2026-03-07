@@ -1,7 +1,11 @@
 docs
 /doc/
 /Meta/
+/bayesgrove.Rcheck/
+/bayesgrove_*.tar.gz
 design/
 archive/
 tools/demo/repl-workflow/*.gif
 tools/demo/repl-workflow/*.mp4
+ROADMAP.local.md
+agent-prompts/
