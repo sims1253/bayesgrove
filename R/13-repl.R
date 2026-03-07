@@ -24,6 +24,21 @@ bg_repl_scope_label <- function(scope) {
 }
 
 #' @keywords internal
+bg_repl_protocol_query <- function(scope = "project") {
+  if (!is.null(scope) && startsWith(scope, "branch:")) {
+    return(list(
+      scope = "branch",
+      branch_id = scope
+    ))
+  }
+
+  list(
+    scope = "project",
+    branch_id = NULL
+  )
+}
+
+#' @keywords internal
 bg_repl_coerce_param_value <- function(value) {
   numeric_value <- suppressWarnings(as.numeric(value))
 
@@ -98,6 +113,15 @@ bg_repl_scope_targets <- function(project, scope = "project") {
 }
 
 #' @keywords internal
+bg_repl_resolve_run_targets <- function(project, scope = "project", args = "") {
+  if (length(args) > 0 && nzchar(trimws(args))) {
+    return(bg_repl_find_node(project, args))
+  }
+
+  bg_repl_scope_targets(project, scope)
+}
+
+#' @keywords internal
 bg_repl_record_action_note <- function(
   project,
   scope,
@@ -122,11 +146,44 @@ bg_repl_record_action_note <- function(
 
 #' @keywords internal
 bg_repl_list_branches <- function(project) {
-  branches <- bg_read_branch_registry(project)$branches %||% list()
+  branches <- bg_list_branches(project)
   if (length(branches) == 0) {
     return(character())
   }
   sort(names(branches))
+}
+
+#' @keywords internal
+bg_repl_find_branch <- function(project, ref) {
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  if (ref %in% names(branches)) {
+    return(ref)
+  }
+
+  labels <- vapply(
+    branches,
+    function(branch) branch$label %||% "",
+    character(1)
+  )
+  exact <- names(labels)[labels == ref]
+  if (length(exact) == 1) {
+    return(exact[[1]])
+  }
+  if (length(exact) > 1) {
+    cli::cli_abort(
+      "Multiple branches match '{ref}'. Please use a more specific label or ID."
+    )
+  }
+
+  node_id <- bg_repl_find_node(project, ref)
+  branch_id <- bg_resolve_node_scope(project, node_id)
+  if (!startsWith(branch_id, "branch:")) {
+    cli::cli_abort(
+      "Node {.val {node_id}} is not part of a branch. Provide a branch id or a branch node."
+    )
+  }
+
+  branch_id
 }
 
 #' @keywords internal
@@ -159,11 +216,18 @@ bg_repl_print_branches <- function(project, current_scope = "project") {
     } else {
       cli::col_red(paste(cli::symbol$cross, "no goal"))
     }
+    lifecycle <- branch$lifecycle %||% "active"
+    lifecycle_label <- if (identical(lifecycle, "active")) {
+      cli::col_green("active")
+    } else {
+      cli::col_yellow(lifecycle)
+    }
 
     label <- if (nzchar(branch$label)) branch$label else "(no label)"
     cli::cli_bullets(c(
       "*" = "{cli::col_cyan(label)}{current_marker}",
       " " = "{cli::col_grey('ID:')} {branch$branch_id}",
+      " " = "{cli::col_grey('Lifecycle:')} {lifecycle_label}",
       " " = "{cli::col_grey('Goal:')} {goal_status}"
     ))
   }
@@ -281,9 +345,12 @@ bg_repl_node_rows <- function(project) {
   lapply(plan$graph_plan$topo_order, function(node_id) {
     node <- graph$nodes[[node_id]]
     node_job <- job_by_node[[node_id]] %||% NULL
+    lifecycle <- bg_node_lifecycle(node)
 
     state <- if (!is.null(node_job)) {
       node_job$status
+    } else if (!bg_is_active_lifecycle(lifecycle)) {
+      lifecycle
     } else if (node_id %in% plan$cache_hits) {
       "cached"
     } else if (node_id %in% plan$to_execute) {
@@ -298,6 +365,8 @@ bg_repl_node_rows <- function(project) {
 
     detail <- if (!is.null(node_job)) {
       sprintf("Run %s", node_job$run_id)
+    } else if (!bg_is_active_lifecycle(lifecycle)) {
+      sprintf("Lifecycle: %s", lifecycle)
     } else if (node_id %in% names(plan$held_by_policy %||% list())) {
       sprintf("Policy hold: %s", plan$held_by_policy[[node_id]])
     } else if (node_id %in% names(plan$blocked %||% list())) {
@@ -343,9 +412,12 @@ bg_repl_print_nodes <- function(project, scope = "project") {
   # Overlay execution state onto the structural graph state for printing
   for (node_id in names(graph$nodes)) {
     node_job <- job_by_node[[node_id]] %||% NULL
+    lifecycle <- bg_node_lifecycle(graph$nodes[[node_id]])
 
     state <- if (!is.null(node_job)) {
       node_job$status
+    } else if (!bg_is_active_lifecycle(lifecycle)) {
+      lifecycle
     } else if (node_id %in% plan$cache_hits) {
       "cached"
     } else if (node_id %in% plan$to_execute) {
@@ -459,12 +531,11 @@ bg_repl_print_jobs <- function(project) {
 
 #' @keywords internal
 bg_repl_print_guide <- function(project, scope = "project") {
-  resolved_scope <- if (startsWith(scope, "branch:")) scope else "project"
-  branch_id <- if (startsWith(scope, "branch:")) scope else NULL
+  query <- bg_repl_protocol_query(scope)
   actions <- bg_next_actions(
     project,
-    scope = resolved_scope,
-    branch_id = branch_id
+    scope = query$scope,
+    branch_id = query$branch_id
   )
   partitioned <- bg_partition_protocol_by_scope(actions, project = project)
 
@@ -565,12 +636,11 @@ bg_repl_print_scope <- function(project, current_scope) {
 
 #' @keywords internal
 bg_repl_print_actions <- function(project, scope = "project") {
-  resolved_scope <- if (startsWith(scope, "branch:")) scope else "project"
-  branch_id <- if (startsWith(scope, "branch:")) scope else NULL
+  query <- bg_repl_protocol_query(scope)
   actions <- bg_next_actions(
     project,
-    scope = resolved_scope,
-    branch_id = branch_id
+    scope = query$scope,
+    branch_id = query$branch_id
   )
 
   if (length(actions$actions) == 0) {
@@ -623,10 +693,11 @@ bg_repl_print_actions <- function(project, scope = "project") {
 #' @keywords internal
 bg_repl_post_action_hint <- function(project, scope, action_kind) {
   # Get fresh state after action
+  query <- bg_repl_protocol_query(scope)
   actions <- bg_next_actions(
     project,
-    scope = if (startsWith(scope, "branch:")) scope else "project",
-    branch_id = if (startsWith(scope, "branch:")) scope else NULL
+    scope = query$scope,
+    branch_id = query$branch_id
   )
 
   n_blocking <- sum(vapply(
@@ -667,17 +738,18 @@ bg_repl_post_action_hint <- function(project, scope, action_kind) {
 #' @keywords internal
 bg_repl_execute_action <- function(project, action, scope = "project") {
   kind <- action$kind
+  target_scope <- action$scope %||% scope
 
   result <- switch(
     kind,
     "record_decision" = {
-      bg_repl_execute_record_decision(project, action, scope)
+      bg_repl_execute_record_decision(project, action, target_scope)
     },
     "branch_and_modify" = {
-      bg_repl_execute_branch_and_modify(project, action, scope)
+      bg_repl_execute_branch_and_modify(project, action, target_scope)
     },
     "create_node_from_template" = {
-      bg_repl_execute_create_node_from_template(project, action, scope)
+      bg_repl_execute_create_node_from_template(project, action, target_scope)
     },
     {
       cli::cli_alert_warning(
@@ -802,6 +874,9 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
   prompt <- switch(
     decision_type,
     "computation_review" = "Is this computation acceptable for downstream use?",
+    "fit_criticism" = "What is your fit criticism assessment for these summaries?",
+    "model_comparison" = "What is your explicit model comparison decision?",
+    "branch_disposition" = "Should this branch be accepted or rejected?",
     "goal_update" = "Describe the inferential goal for this branch:",
     action$title
   )
@@ -836,6 +911,21 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
       "Reject",
       "Needs revision"
     )
+  } else if (decision_type == "branch_disposition") {
+    cli::cli_text("{.strong Options:}")
+    cli::cli_bullets(c("*" = "[1] Accept"))
+    cli::cli_bullets(c("*" = "[2] Reject"))
+    cli::cli_text("")
+
+    choice_idx <- bg_repl_readline("Choose an option (1-2): ")
+    idx <- as.integer(choice_idx)
+
+    if (is.na(idx) || idx < 1 || idx > 2) {
+      cli::cli_abort("Invalid choice.")
+    }
+
+    choice <- if (identical(idx, 1L)) "accept" else "reject"
+    choice_label <- if (identical(idx, 1L)) "accept" else "reject"
   } else if (decision_type == "goal_update") {
     allowed_kinds <- payload$allowed_goal_kinds %||%
       c("observable_prediction", "latent_inference")
@@ -884,6 +974,24 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
       rationale = rationale
     )
   } else {
+    decision_metadata <- Filter(
+      Negate(is.null),
+      list(
+        action_id = action$action_id,
+        summary_ids = payload$summary_ids %||% character(),
+        node_ids = payload$node_ids %||% character(),
+        fit_node_ids = payload$fit_node_ids %||% character(),
+        branch_ids = payload$branch_ids %||% character(),
+        candidate_signature = payload$candidate_signature %||% NULL,
+        comparison_signature = payload$comparison_signature %||% NULL,
+        comparison_context = payload$comparison_context %||% NULL
+      )
+    )
+
+    if (identical(decision_type, "branch_disposition")) {
+      decision_metadata$disposition <- choice
+    }
+
     decision <- bg_record_decision(
       project = project,
       scope = scope,
@@ -891,11 +999,7 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
       choice = choice_label,
       rationale = rationale,
       kind = decision_type,
-      metadata = list(
-        action_id = action$action_id,
-        summary_ids = payload$summary_ids %||% character(),
-        node_ids = payload$node_ids %||% character()
-      )
+      metadata = decision_metadata
     )
   }
 
@@ -1249,7 +1353,9 @@ bg_repl_help_lines <- function() {
     "branch      Branch from an existing node (requires node_id or label)",
     "set         Set a parameter on a node: set <node_id or label> <key>=<value>",
     "invalidate  Invalidate a node and its downstream (requires node_id or label)",
-    "run         Run eligible nodes synchronously",
+    "retire      Retire a node and downstream lineage (requires node_id or label)",
+    "retire-branch Retire an entire branch (requires branch id, branch label, or branch node)",
+    "run [node]  Run eligible nodes or a specific node synchronously",
     "submit      Submit eligible nodes asynchronously",
     "jobs        List active background jobs",
     "cancel      Cancel an active run (requires run_id)",
@@ -1320,6 +1426,8 @@ bg_repl_find_node <- function(project, ref) {
 #'   \item `branch <node>`: create a new branch from a node and switch to it
 #'   \item `set <node> <key>=<value>`: update a node label or parameter
 #'   \item `invalidate <node>`: invalidate a node and downstream cache lineage
+#'   \item `retire <node>`: retire a node and its downstream lineage
+#'   \item `retire-branch <branch>`: retire an entire branch from future planning
 #'   \item `gates` / `answer`: inspect and answer pending structural gates
 #'   \item `run` / `submit`: execute or enqueue ready work in the current scope
 #'   \item `jobs` and `cancel <run_id>`: inspect or cancel background work
@@ -1474,20 +1582,11 @@ bg_repl <- function(project, initial_scope = NULL) {
               cli::cli_abort("Invalid action number.")
             }
 
-            resolved_scope <- if (startsWith(current_scope, "branch:")) {
-              current_scope
-            } else {
-              "project"
-            }
-            branch_id <- if (startsWith(current_scope, "branch:")) {
-              current_scope
-            } else {
-              NULL
-            }
+            query <- bg_repl_protocol_query(current_scope)
             actions_result <- bg_next_actions(
               project,
-              scope = resolved_scope,
-              branch_id = branch_id
+              scope = query$scope,
+              branch_id = query$branch_id
             )
 
             if (length(actions_result$actions) < idx) {
@@ -1589,6 +1688,22 @@ bg_repl <- function(project, initial_scope = NULL) {
             }
             node_id <- bg_repl_find_node(project, args)
             bg_invalidate(project, node_id)
+          },
+          "retire" = {
+            if (length(args) == 0) {
+              cli::cli_abort("Provide a node_id or label to retire.")
+            }
+            node_id <- bg_repl_find_node(project, args)
+            bg_retire_node(project, node_id, recursive = TRUE)
+          },
+          "retire-branch" = {
+            if (length(args) == 0) {
+              cli::cli_abort(
+                "Provide a branch id, branch label, or branch node to retire."
+              )
+            }
+            branch_id <- bg_repl_find_branch(project, args)
+            bg_retire_branch(project, branch_id)
           },
           "nodes" = {
             bg_repl_print_nodes(project, current_scope)
@@ -1719,7 +1834,11 @@ bg_repl <- function(project, initial_scope = NULL) {
             } else {
               bg_run(
                 project,
-                targets = bg_repl_scope_targets(project, current_scope),
+                targets = bg_repl_resolve_run_targets(
+                  project,
+                  current_scope,
+                  args
+                ),
                 mode = "sync"
               )
             }

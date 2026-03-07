@@ -154,12 +154,32 @@ bg_plan <- function(
   project,
   targets = NULL,
   external_holds = list(),
-  mode = c("sync", "async")
+  mode = c("sync", "async"),
+  include_inactive = FALSE
 ) {
   mode <- match.arg(mode)
   S7::check_is_S7(project, bg_handle)
 
-  graph <- bg_read_graph(project)
+  full_graph <- bg_read_graph(project)
+  inactive_node_ids <- if (isTRUE(include_inactive)) {
+    character()
+  } else {
+    bg_inactive_node_ids(project, graph = full_graph)
+  }
+  if (!is.null(targets) && length(targets) > 0 && !isTRUE(include_inactive)) {
+    inactive_targets <- intersect(targets, inactive_node_ids)
+    if (length(inactive_targets) > 0) {
+      cli::cli_abort(
+        "Cannot plan retired or disabled nodes: {.val {inactive_targets}}."
+      )
+    }
+  }
+
+  graph <- if (isTRUE(include_inactive)) {
+    full_graph
+  } else {
+    bg_active_graph(project, graph = full_graph)
+  }
   graph <- dagriculture::dagri_recompute_state(graph)
   graph_plan <- dagriculture::dagri_plan(
     graph,

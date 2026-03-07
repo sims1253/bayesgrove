@@ -318,20 +318,22 @@ describe("Workflow protocol APIs", {
 
     result <- bg_next_actions(handle, scope = "project")
 
+    # First fit has warnings, so only review_computation_validity obligation
     expect_gte(length(result$obligations), 1)
-    expect_true(all(vapply(
+    expect_true(any(vapply(
       result$obligations,
-      `[[`,
-      character(1),
-      "kind"
-    ) == "review_computation_validity"))
+      function(o) identical(o$kind, "review_computation_validity"),
+      logical(1)
+    )))
 
-    compare_action <- Filter(
-      function(a) identical(a$kind, "create_node_from_template"),
-      result$actions
+    # No comparison obligation yet because one fit has warnings
+    compare_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      result$obligations
     )
-    expect_length(compare_action, 0)
+    expect_length(compare_obl, 0)
 
+    # Fix the first fit
     bg_invalidate(handle, fit1_id, recursive = TRUE)
     bg_update_node(
       handle,
@@ -357,8 +359,15 @@ describe("Workflow protocol APIs", {
 
     result <- bg_next_actions(handle, scope = "project")
 
-    expect_length(result$obligations, 0)
+    # Now we have a comparison obligation because both fits are clean
+    compare_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      result$obligations
+    )
+    expect_length(compare_obl, 1)
+    expect_equal(compare_obl[[1]]$severity, "blocking")
 
+    # And we should have a create_node_from_template action
     compare_action <- Filter(
       function(a) identical(a$kind, "create_node_from_template"),
       result$actions
@@ -366,7 +375,6 @@ describe("Workflow protocol APIs", {
     expect_length(compare_action, 1)
     expect_equal(compare_action[[1]]$payload$template_ref, "branch_comparison")
     expect_length(compare_action[[1]]$payload$inputs, 2)
-    expect_match(compare_action[[1]]$title, "Compare clean fits")
   })
 
   it("does not offer branch comparison for non-fit diagnostics", {
@@ -544,7 +552,7 @@ describe("Workflow protocol APIs", {
     # Run only branch A to produce a warning
     bg_run(handle, targets = branch_with_warning$root_node_id, mode = "sync")
 
-    # Query branch A - should have computation review obligation
+    # Query branch A - should have computation review and fit criticism obligations
     result_a <- bg_next_actions(
       handle,
       scope = "branch",
@@ -553,6 +561,11 @@ describe("Workflow protocol APIs", {
     expect_true(any(vapply(
       result_a$obligations,
       function(x) identical(x$kind, "review_computation_validity"),
+      logical(1)
+    )))
+    expect_true(any(vapply(
+      result_a$obligations,
+      function(x) identical(x$kind, "review_fit_criticism"),
       logical(1)
     )))
 
@@ -568,11 +581,11 @@ describe("Workflow protocol APIs", {
     project_result <- bg_next_actions(handle, scope = "project")
     partitioned <- bg_partition_protocol_by_scope(project_result)
 
-    # Branch A should have obligations, Branch B should not
+    # Branch A should have obligations (2: computation_review + fit_criticism), Branch B should not
     a_entry <- partitioned[[branch_with_warning$branch_id]]
     b_entry <- partitioned[[branch_clean$branch_id]]
 
-    expect_length(a_entry$obligations, 1)
+    expect_gte(length(a_entry$obligations), 2)
     expect_length(b_entry$obligations, 0)
   })
 
@@ -684,12 +697,12 @@ describe("Workflow protocol APIs", {
 
     result <- bg_next_actions(handle, scope = "project")
 
-    # Should have no blocking obligations (both fits have clean diagnostics)
-    blocking <- Filter(
-      function(o) identical(o$severity, "blocking"),
+    # Should have comparison obligation (both fits have clean diagnostics)
+    comparison_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
       result$obligations
     )
-    expect_length(blocking, 0)
+    expect_length(comparison_obl, 1)
 
     # Should have comparison action
     compare_action <- Filter(
@@ -736,5 +749,811 @@ describe("Workflow protocol APIs", {
     # Verify comparison result
     compare_result <- bg_result(handle, compare_node_id)
     expect_length(compare_result$compared, 2)
+  })
+
+  # ==========================================================================
+  # Phase 4: Stronger Default Workflow Pack Tests
+  # ==========================================================================
+
+  it("emits review_fit_criticism obligation for branch-scoped non-ok summaries", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning",
+            metrics = list(divergences = 15)
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Test Branch")
+    branch_id <- branch$branch_id
+
+    bg_set_goal(
+      project = handle,
+      branch_id = branch_id,
+      kind = "observable_prediction",
+      label = "Test goal",
+      rationale = "Test goal"
+    )
+
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+
+    # Should have both computation_review and fit_criticism obligations
+    obligation_kinds <- vapply(result$obligations, `[[`, character(1), "kind")
+    expect_true("review_computation_validity" %in% obligation_kinds)
+    expect_true("review_fit_criticism" %in% obligation_kinds)
+
+    # Both should be blocking
+    criticism_obl <- Filter(
+      function(o) identical(o$kind, "review_fit_criticism"),
+      result$obligations
+    )[[1]]
+    expect_equal(criticism_obl$severity, "blocking")
+    expect_equal(criticism_obl$scope, branch_id)
+    expect_true(length(criticism_obl$basis$summary_ids) >= 1)
+  })
+
+  it("clears fit_criticism obligation when decision addresses the summaries", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning",
+            metrics = list(divergences = 15)
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Test Branch")
+    branch_id <- branch$branch_id
+
+    bg_set_goal(
+      project = handle,
+      branch_id = branch_id,
+      kind = "observable_prediction",
+      label = "Test goal",
+      rationale = "Test goal"
+    )
+
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    # Get the summary IDs
+    result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+    computation_obl <- Filter(
+      function(o) identical(o$kind, "review_computation_validity"),
+      result$obligations
+    )[[1]]
+    summary_ids <- computation_obl$basis$summary_ids
+
+    # Record a fit_criticism decision addressing these summaries
+    bg_record_decision(
+      project = handle,
+      scope = branch_id,
+      prompt = "Review fit criticism",
+      choice = "acceptable",
+      rationale = "Diagnostics are acceptable for this analysis",
+      kind = "fit_criticism",
+      metadata = list(summary_ids = summary_ids)
+    )
+
+    # Check that fit_criticism obligation is cleared
+    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+    obligation_kinds <- vapply(result_after$obligations, `[[`, character(1), "kind")
+    expect_false("review_fit_criticism" %in% obligation_kinds)
+  })
+
+  it("does not clear fit_criticism obligation when summaries are stale", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+
+    # First executor produces warning
+    warning_executor <- function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning",
+            metrics = list(divergences = 15)
+          )
+        )
+      )
+    }
+
+    bg_register_node_kind(handle, "fit", executor = warning_executor)
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Test Branch")
+    branch_id <- branch$branch_id
+
+    bg_set_goal(
+      project = handle,
+      branch_id = branch_id,
+      kind = "observable_prediction",
+      label = "Test goal",
+      rationale = "Test goal"
+    )
+
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    # Get the summary IDs and record decision
+    result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+    computation_obl <- Filter(
+      function(o) identical(o$kind, "review_computation_validity"),
+      result$obligations
+    )[[1]]
+    old_summary_ids <- computation_obl$basis$summary_ids
+
+    bg_record_decision(
+      project = handle,
+      scope = branch_id,
+      prompt = "Review fit criticism",
+      choice = "acceptable",
+      rationale = "Diagnostics are acceptable",
+      kind = "fit_criticism",
+      metadata = list(summary_ids = old_summary_ids)
+    )
+
+    # Now rerun with new warning summaries (stale the old ones)
+    bg_invalidate(handle, branch$root_node_id, recursive = TRUE)
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    # The fit_criticism decision addressed old (now stale) summaries
+    # New fresh summaries should trigger a new obligation
+    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+    obligation_kinds <- vapply(result_after$obligations, `[[`, character(1), "kind")
+    expect_true("review_fit_criticism" %in% obligation_kinds)
+    expect_true("review_computation_validity" %in% obligation_kinds)
+  })
+
+  it("emits compare_candidate_branches obligation with two clean fits", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(divergences = 0, variant = variant)
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "project")
+
+    comparison_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      result$obligations
+    )
+    expect_length(comparison_obl, 1)
+    expect_equal(comparison_obl[[1]]$severity, "blocking")
+    expect_length(comparison_obl[[1]]$basis$node_ids, 2)
+  })
+
+  it("does not emit comparison obligation when a candidate has blocking review", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+
+    clean_executor <- function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok"
+          )
+        )
+      )
+    }
+
+    warning_executor <- function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning"
+          )
+        )
+      )
+    }
+
+    bg_register_node_kind(handle, "fit", executor = clean_executor)
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(handle, kind = "fit", label = "Clean Fit", inputs = source_id)
+    bg_run(handle, mode = "sync")
+
+    # Branch with warning
+    branch <- bg_branch(handle, fit1_id, label = "Problematic Fit")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+
+    # Switch executor to produce warning for branch
+    bg_register_node_kind(handle, "fit", executor = warning_executor)
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "project")
+
+    # Should not have comparison obligation because one candidate has warnings
+    comparison_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      result$obligations
+    )
+    expect_length(comparison_obl, 0)
+  })
+
+  it("clears comparison obligation after model_comparison decision", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variant = variant)
+          )
+        )
+      )
+    })
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(
+        result = list(compared = names(inputs)),
+        summaries = list(list(
+          summary_kind = "comparison_results",
+          passed = TRUE,
+          severity = "ok"
+        ))
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Compare Fits",
+      inputs = c(fit1_id, branch$root_node_id)
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    # Verify comparison obligation exists
+    result_before <- bg_next_actions(handle, scope = "project")
+    expect_true(any(vapply(
+      result_before$obligations,
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      logical(1)
+    )))
+
+    comparison_action <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "model_comparison")
+      },
+      result_before$actions
+    )[[1]]
+
+    bg_record_decision(
+      project = handle,
+      scope = "project",
+      prompt = "Compare models",
+      choice = "prefer_branch",
+      rationale = "Branch fit has better diagnostics",
+      kind = "model_comparison",
+      metadata = list(
+        fit_node_ids = comparison_action$payload$fit_node_ids,
+        summary_ids = comparison_action$payload$summary_ids,
+        candidate_signature = comparison_action$payload$candidate_signature,
+        comparison_signature = comparison_action$payload$comparison_signature,
+        comparison_context = comparison_action$payload$comparison_context
+      )
+    )
+
+    # Verify comparison obligation is cleared
+    result_after <- bg_next_actions(handle, scope = "project")
+    comparison_obl <- Filter(
+      function(o) identical(o$kind, "compare_candidate_branches"),
+      result_after$obligations
+    )
+    expect_length(comparison_obl, 0)
+  })
+
+  it("emits accept_or_reject_branch obligation after comparison", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variant = variant)
+          )
+        )
+      )
+    })
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(
+        result = list(compared = names(inputs)),
+        summaries = list(
+          list(
+            summary_kind = "comparison_results",
+            passed = TRUE,
+            severity = "ok"
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    # Create comparison node and run it
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Compare Fits",
+      inputs = c(fit1_id, branch$root_node_id)
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "project")
+
+    # Should have accept_or_reject_branch obligations for both branches
+    disposition_obls <- Filter(
+      function(o) identical(o$kind, "accept_or_reject_branch"),
+      result$obligations
+    )
+    expect_gte(length(disposition_obls), 1)
+    expect_true(all(vapply(
+      disposition_obls,
+      function(o) identical(o$severity, "blocking"),
+      logical(1)
+    )))
+  })
+
+  it("clears accept_or_reject obligation after branch_disposition decision", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variant = variant)
+          )
+        )
+      )
+    })
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(
+        result = list(compared = names(inputs)),
+        summaries = list(
+          list(
+            summary_kind = "comparison_results",
+            passed = TRUE,
+            severity = "ok"
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Compare Fits",
+      inputs = c(fit1_id, branch$root_node_id)
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    # Verify disposition obligation exists for the branch
+    result_before <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    disposition_obls <- Filter(
+      function(o) identical(o$kind, "accept_or_reject_branch"),
+      result_before$obligations
+    )
+    expect_gte(length(disposition_obls), 1)
+
+    disposition_action <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "branch_disposition")
+      },
+      result_before$actions
+    )[[1]]
+
+    # Record branch_disposition decision
+    bg_record_decision(
+      project = handle,
+      scope = branch$branch_id,
+      prompt = "Accept or reject branch",
+      choice = "accept",
+      rationale = "This branch performs better",
+      kind = "branch_disposition",
+      metadata = list(
+        disposition = "accept",
+        summary_ids = disposition_action$payload$summary_ids,
+        comparison_signature = disposition_action$payload$comparison_signature,
+        comparison_context = disposition_action$payload$comparison_context
+      )
+    )
+
+    # Verify obligation is cleared for this branch
+    result_after <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    disposition_obls_after <- Filter(
+      function(o) identical(o$kind, "accept_or_reject_branch"),
+      result_after$obligations
+    )
+    expect_length(disposition_obls_after, 0)
+  })
+
+  it("produces deterministic obligation ids across repeated evaluation", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning"
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    bg_run(handle, mode = "sync")
+
+    result1 <- bg_next_actions(handle, scope = "project")
+    result2 <- bg_next_actions(handle, scope = "project")
+
+    ids1 <- sort(vapply(result1$obligations, `[[`, character(1), "obligation_id"))
+    ids2 <- sort(vapply(result2$obligations, `[[`, character(1), "obligation_id"))
+
+    expect_equal(ids1, ids2)
+
+    action_ids1 <- sort(vapply(result1$actions, `[[`, character(1), "action_id"))
+    action_ids2 <- sort(vapply(result2$actions, `[[`, character(1), "action_id"))
+
+    expect_equal(action_ids1, action_ids2)
+  })
+
+  it("emits fit_criticism actions alongside computation_review actions", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = FALSE,
+            severity = "warning",
+            metrics = list(divergences = 15)
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Test Branch")
+    branch_id <- branch$branch_id
+
+    bg_set_goal(
+      project = handle,
+      branch_id = branch_id,
+      kind = "observable_prediction",
+      label = "Test goal",
+      rationale = "Test goal"
+    )
+
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "branch", branch_id = branch_id)
+
+    # Should have fit_criticism record_decision action
+    criticism_actions <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "fit_criticism")
+      },
+      result$actions
+    )
+    expect_gte(length(criticism_actions), 1)
+
+    # Should also have branch_and_modify action for criticism
+    branch_actions <- Filter(
+      function(a) identical(a$kind, "branch_and_modify"),
+      result$actions
+    )
+    expect_gte(length(branch_actions), 1)
+  })
+
+  it("emits model_comparison decision action when comparison node exists", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variant = variant)
+          )
+        )
+      )
+    })
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(result = list(compared = names(inputs)))
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    # Create comparison node
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Compare Fits",
+      inputs = c(fit1_id, branch$root_node_id)
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    result <- bg_next_actions(handle, scope = "project")
+
+    # Should have model_comparison decision action
+    comparison_actions <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "model_comparison")
+      },
+      result$actions
+    )
+    expect_gte(length(comparison_actions), 1)
   })
 })

@@ -333,10 +333,43 @@ describe("Workflow persistence and context", {
     expect_equal(b1$label, "First Branch")
     expect_equal(b1$root_node_id, branch1$root_node_id)
     expect_true(b1$has_goal)
+    expect_equal(b1$lifecycle, "active")
 
     b2 <- branches[[branch2$branch_id]]
     expect_equal(b2$label, "Second Branch")
     expect_false(b2$has_goal)
+    expect_equal(b2$lifecycle, "active")
+  })
+
+  it("excludes retired branches from active workflow contexts", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(result = list(ok = TRUE))
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Alternative")
+
+    branch_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+    expect_equal(names(branch_context$structural$nodes), branch$root_node_id)
+
+    bayesgrove:::bg_retire_branch(handle, branch$branch_id)
+
+    retired_context <- bg_build_workflow_context(handle, scope = branch$branch_id)
+    expect_length(retired_context$structural$nodes, 0L)
+
+    actions <- bg_next_actions(handle, scope = "project")
+    evaluated_scopes <- actions$metadata$evaluated_scopes %||% character()
+    expect_false(branch$branch_id %in% evaluated_scopes)
   })
 
   it("provides human-readable scope labels via bg_scope_label", {

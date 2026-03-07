@@ -167,6 +167,28 @@ describe("Interactive REPL", {
     expect_true(is.list(actions))
   })
 
+  it("prints guide and actions for branch scopes", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      NULL
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      NULL
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data source")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit", inputs = source_id)
+    branch <- bg_branch(handle, fit_id, label = "Alternative")
+
+    expect_no_error(repl_ns("bg_repl_print_guide")(handle, branch$branch_id))
+    expect_no_error(repl_ns("bg_repl_print_actions")(handle, branch$branch_id))
+  })
+
   it("prints actions when payloads contain vectors and nested lists", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(
@@ -266,6 +288,8 @@ describe("Interactive REPL", {
     expect_true(any(grepl("^goal", help_lines)))
     expect_true(any(grepl("^decisions", help_lines)))
     expect_true(any(grepl("^use", help_lines)))
+    expect_true(any(grepl("^retire\\s", help_lines)))
+    expect_true(any(grepl("^retire-branch", help_lines)))
   })
 
   it("filters nodes by branch scope", {
@@ -642,5 +666,181 @@ describe("Interactive REPL", {
       function(o) identical(o$kind, "set_inferential_goal"),
       logical(1)
     )))
+  })
+
+  it("executes branch-scoped decision actions against the action scope", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "fit")
+    fit_id <- bg_add_node(handle, kind = "fit", label = "Fit")
+    branch <- bg_branch(handle, fit_id, label = "Alternative")
+
+    action <- list(
+      action_id = "test_goal_action",
+      kind = "record_decision",
+      scope = branch$branch_id,
+      title = "Record an inferential goal",
+      payload = list(
+        decision_type = "goal_update",
+        allowed_goal_kinds = c("observable_prediction", "latent_inference")
+      )
+    )
+
+    answers <- c("1", "Revised comparison goal", "Keep this branch in comparison.")
+    answer_idx <- 0L
+
+    testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
+      bg_repl_readline = function(prompt = "") {
+        answer_idx <<- answer_idx + 1L
+        answers[[answer_idx]]
+      },
+      .package = "bayesgrove"
+    )
+
+    goal <- bg_get_goal(handle, branch$branch_id)
+    expect_equal(goal$kind, "observable_prediction")
+    expect_equal(goal$label, "Revised comparison goal")
+    expect_null(bg_get_goal(handle, "project"))
+  })
+
+  it("supports the scripted demo flow through comparison and branch disposition", {
+    local_env <- new.env(parent = globalenv())
+    sys.source(
+      testthat::test_path(
+        "..", "..", "tools", "demo", "repl-workflow", "launch-demo.R"
+      ),
+      envir = local_env
+    )
+
+    demo <- local_env$demo_repl_workflow(start_repl = FALSE)
+    handle <- demo$handle
+
+    initial_actions <- bg_next_actions(handle, scope = "project")
+    expect_equal(
+      unname(vapply(initial_actions$actions, `[[`, character(1), "title")),
+      c(
+        "Record a computation review",
+        "Branch and modify to resolve diagnostics",
+        "Record a fit criticism review"
+      )
+    )
+
+    revised <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(
+        handle,
+        initial_actions$actions[[2]],
+        scope = "project"
+      ),
+      bg_repl_readline = local({
+        answers <- c("Fit Non-Centered Revision", "Y")
+        idx <- 0L
+        function(prompt = "") {
+          idx <<- idx + 1L
+          answers[[idx]]
+        }
+      }),
+      .package = "bayesgrove"
+    )
+
+    revised_root <- revised$branch$root_node_id
+    revised_branch <- revised$branch$branch_id
+
+    run_res <- bg_run(handle, targets = revised_root, mode = "sync")
+    expect_equal(run_res$status, "succeeded")
+
+    stale_node <- repl_ns("bg_repl_find_node")(handle, "Fit Centered Parametrization")
+    bayesgrove:::bg_retire_node(handle, stale_node, recursive = TRUE)
+
+    after_invalidate <- bg_next_actions(handle, scope = "project")
+    expect_equal(
+      unname(vapply(after_invalidate$actions, `[[`, character(1), "title")),
+      "Create comparison node"
+    )
+
+    comparison <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(
+        handle,
+        after_invalidate$actions[[1]],
+        scope = "project"
+      ),
+      bg_repl_readline = function(prompt = "") {
+        "Compare Baseline vs Revision"
+      },
+      .package = "bayesgrove"
+    )
+
+    compare_run <- bg_run(handle, targets = comparison$node_id, mode = "sync")
+    expect_equal(compare_run$status, "succeeded")
+
+    after_compare <- bg_next_actions(handle, scope = "project")
+    expect_equal(
+      unname(vapply(after_compare$actions, `[[`, character(1), "title")),
+      c("Record model comparison decision", "Record branch disposition")
+    )
+
+    expect_no_error(repl_ns("bg_repl_print_guide")(handle, revised_branch))
+    expect_no_error(repl_ns("bg_repl_print_actions")(handle, revised_branch))
+
+    model_comparison <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(
+        handle,
+        after_compare$actions[[1]],
+        scope = "project"
+      ),
+      bg_repl_readline = local({
+        answers <- c(
+          "prefer_revised_branch",
+          "The revised branch resolves the diagnostic warning cleanly."
+        )
+        idx <- 0L
+        function(prompt = "") {
+          idx <<- idx + 1L
+          answers[[idx]]
+        }
+      }),
+      .package = "bayesgrove"
+    )
+    expect_s3_class(model_comparison, "bg_decision_record")
+
+    after_model_comparison <- bg_next_actions(handle, scope = "project")
+    expect_equal(
+      unname(vapply(
+        after_model_comparison$actions,
+        `[[`,
+        character(1),
+        "title"
+      )),
+      "Record branch disposition"
+    )
+
+    branch_disposition <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_action")(
+        handle,
+        after_model_comparison$actions[[1]],
+        scope = "project"
+      ),
+      bg_repl_readline = local({
+        answers <- c(
+          "1",
+          "Promote the revised branch as the accepted analysis path."
+        )
+        idx <- 0L
+        function(prompt = "") {
+          idx <<- idx + 1L
+          answers[[idx]]
+        }
+      }),
+      .package = "bayesgrove"
+    )
+    expect_s3_class(branch_disposition, "bg_decision_record")
+
+    final_actions <- bg_next_actions(handle, scope = "project")
+    expect_length(final_actions$actions, 0L)
+    expect_length(final_actions$obligations, 0L)
   })
 })

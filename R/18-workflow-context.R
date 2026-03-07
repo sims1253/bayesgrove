@@ -184,6 +184,94 @@ bg_update_branch_metadata <- function(project, branch_id, metadata = list()) {
 }
 
 #' @keywords internal
+bg_lifecycle_state <- function(metadata = list()) {
+  metadata$lifecycle %||% "active"
+}
+
+#' @keywords internal
+bg_is_active_lifecycle <- function(state) {
+  identical(state %||% "active", "active")
+}
+
+#' @keywords internal
+bg_node_lifecycle <- function(node) {
+  bg_lifecycle_state(node$metadata %||% list())
+}
+
+#' @keywords internal
+bg_branch_lifecycle <- function(branch) {
+  bg_lifecycle_state(branch$metadata %||% list())
+}
+
+#' @keywords internal
+bg_active_branch_ids <- function(project) {
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  Filter(
+    function(branch_id) bg_is_active_lifecycle(
+      bg_branch_lifecycle(branches[[branch_id]])
+    ),
+    names(branches)
+  )
+}
+
+#' @keywords internal
+bg_inactive_node_ids <- function(project, graph = NULL) {
+  graph <- graph %||% bg_read_graph(project)
+  node_ids <- names(graph$nodes %||% list())
+  if (length(node_ids) == 0) {
+    return(character())
+  }
+
+  active_branch_ids <- bg_active_branch_ids(project)
+  inactive <- character()
+
+  for (node_id in node_ids) {
+    node <- graph$nodes[[node_id]] %||% list()
+    if (!bg_is_active_lifecycle(bg_node_lifecycle(node))) {
+      inactive <- c(inactive, node_id)
+      next
+    }
+
+    node_scope <- bg_resolve_node_scope(project, node_id)
+    if (
+      startsWith(node_scope, "branch:") &&
+        !node_scope %in% active_branch_ids
+    ) {
+      inactive <- c(inactive, node_id)
+    }
+  }
+
+  sort(unique(inactive))
+}
+
+#' @keywords internal
+bg_active_graph <- function(project, graph = NULL) {
+  graph <- graph %||% bg_read_graph(project)
+  inactive_node_ids <- bg_inactive_node_ids(project, graph = graph)
+  active_node_ids <- setdiff(names(graph$nodes %||% list()), inactive_node_ids)
+
+  graph$nodes <- graph$nodes[active_node_ids]
+  graph$edges <- Filter(
+    function(edge) {
+      edge$from %in% active_node_ids && edge$to %in% active_node_ids
+    },
+    graph$edges %||% list()
+  )
+
+  active_edge_ids <- names(graph$edges %||% list())
+  if (!is.null(graph$gates)) {
+    graph$gates <- Filter(
+      function(gate) {
+        (gate$edge_id %||% NULL) %in% active_edge_ids
+      },
+      graph$gates
+    )
+  }
+
+  graph
+}
+
+#' @keywords internal
 bg_new_branch_record <- function(
   project,
   root_node_id,
@@ -689,7 +777,8 @@ bg_list_branches <- function(project) {
       root_node_id = record$root_node_id,
       source_node_id = record$source_node_id,
       created_at = record$created_at,
-      has_goal = !is.null(goals[[record$branch_id]])
+      has_goal = !is.null(goals[[record$branch_id]]),
+      lifecycle = bg_branch_lifecycle(record)
     )
   })
 }
@@ -728,7 +817,7 @@ bg_scope_label <- function(project, scope) {
 }
 
 #' @keywords internal
-bg_scope_node_ids <- function(project, scope) {
+bg_scope_node_ids <- function(project, scope, include_inactive = FALSE) {
   graph <- bg_read_graph(project)
   node_ids <- names(graph$nodes)
   node_scopes <- stats::setNames(
@@ -740,12 +829,21 @@ bg_scope_node_ids <- function(project, scope) {
     node_ids
   )
 
-  node_ids[node_scopes == scope]
+  scope_node_ids <- node_ids[node_scopes == scope]
+  if (isTRUE(include_inactive)) {
+    return(scope_node_ids)
+  }
+
+  setdiff(scope_node_ids, bg_inactive_node_ids(project, graph = graph))
 }
 
 #' @keywords internal
-bg_predicted_fingerprints <- function(project) {
-  bg_plan(project, mode = "sync")$metadata$fingerprints %||% list()
+bg_predicted_fingerprints <- function(project, include_inactive = TRUE) {
+  bg_plan(
+    project,
+    mode = "sync",
+    include_inactive = include_inactive
+  )$metadata$fingerprints %||% list()
 }
 
 #' @keywords internal
@@ -946,6 +1044,7 @@ bg_read_summaries <- function(
   project,
   scope = NULL,
   include_stale = TRUE,
+  include_inactive = TRUE,
   predicted_fingerprints = NULL,
   artifact_index = NULL
 ) {
@@ -960,8 +1059,13 @@ bg_read_summaries <- function(
   }
 
   predicted_fingerprints <- predicted_fingerprints %||%
-    bg_predicted_fingerprints(project)
+    bg_predicted_fingerprints(project, include_inactive = include_inactive)
   artifact_index <- artifact_index %||% bg_read_artifact_index(project)
+  inactive_node_ids <- if (isTRUE(include_inactive)) {
+    character()
+  } else {
+    bg_inactive_node_ids(project)
+  }
 
   summaries <- list()
   for (line in lines) {
@@ -977,6 +1081,10 @@ bg_read_summaries <- function(
       artifact_index = artifact_index
     )
     entry$is_stale <- !entry$is_fresh
+
+    if (entry$node_id %in% inactive_node_ids) {
+      next
+    }
 
     if (
       !is.null(scope) && !bg_summary_scope_matches(project, scope, entry$scope)
@@ -1004,7 +1112,8 @@ bg_read_summaries <- function(
 bg_build_workflow_context <- function(project, scope = "project") {
   S7::check_is_S7(project, bg_handle)
 
-  graph <- bg_read_graph(project)
+  full_graph <- bg_read_graph(project)
+  graph <- bg_active_graph(project, graph = full_graph)
   plan <- bg_plan(project, mode = "sync")
   artifact_index <- bg_read_artifact_index(project)
   predicted_fingerprints <- plan$metadata$fingerprints %||% list()
@@ -1043,6 +1152,7 @@ bg_build_workflow_context <- function(project, scope = "project") {
     project = project,
     scope = scope,
     include_stale = TRUE,
+    include_inactive = FALSE,
     predicted_fingerprints = predicted_fingerprints,
     artifact_index = artifact_index
   )

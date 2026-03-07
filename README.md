@@ -34,9 +34,9 @@ BayesGrove solves this by giving you:
     upstream data step doesn’t change semantically, your costly
     `cmdstanr` or `brms` fits won’t rerun.
 3.  **Workflow Obligations**: The built-in protocol engine automatically
-    flags divergent models or diagnostic warnings (like divergent
-    transitions or high $\hat{R}$), pausing downstream comparisons until
-    they are reviewed.
+    flags diagnostic problems, asks for explicit fit criticism, requires
+    formal comparison between clean candidates, and ends the loop with
+    explicit branch acceptance or rejection.
 4.  **Reproducible Handoffs**: Export your entire decision tree and
     causal graph into a reproducible bundle or markdown report with one
     command.
@@ -103,10 +103,10 @@ Run the workflow. The fit completes but produces warning diagnostics:
 
 ``` r
 bg_run(handle, mode = "sync")
-#> Starting run "run_d16d7bd3" with 1 node to execute.
-#> Running node "node_2bd9c9d1"...
-#> Running node "node_ca6c40c2"...
-#> <bg_run_handle> run_d16d7bd3
+#> Starting run "run_ff5f7c8e" with 1 node to execute.
+#> Running node "node_9ae54b33"...
+#> Running node "node_b45fe58f"...
+#> <bg_run_handle> run_ff5f7c8e
 #> 
 #> • Status: blocked
 #> 
@@ -142,6 +142,54 @@ interface for this workflow:
 
 ``` r
 bg_repl(handle)
+```
+
+## Stronger Default Pack Loop
+
+The built-in `bayesguide.default_bayesian` pack now enforces one narrow
+review loop:
+
+1.  warning or error summaries create a blocking
+    `review_computation_validity` obligation;
+2.  branch-scoped fit warnings also create `review_fit_criticism`;
+3.  once two fits are clean, project scope creates
+    `compare_candidate_branches`;
+4.  after a comparison exists, each candidate branch gets
+    `accept_or_reject_branch` until you record `accept` or `reject`.
+
+A concise end-to-end example looks like this:
+
+``` r
+# After branching, modifying, and rerunning an alternative fit:
+project_guide <- bg_next_actions(handle, scope = "project")
+vapply(project_guide$obligations, `[[`, character(1), "kind")
+#> "compare_candidate_branches"
+
+# Create and run the comparison node, then record the project decision.
+comparison_action <- Filter(
+  function(x) identical(x$kind, "record_decision") &&
+    identical(x$payload$decision_type, "model_comparison"),
+  project_guide$actions
+)[[1]]
+
+bg_record_decision(
+  handle,
+  scope = "project",
+  prompt = "Compare candidate branches",
+  choice = "prefer_non_centered",
+  rationale = "The alternative fit is cleaner and easier to trust.",
+  kind = "model_comparison",
+  metadata = comparison_action$payload[c(
+    "fit_node_ids",
+    "summary_ids",
+    "candidate_signature",
+    "comparison_signature",
+    "comparison_context"
+  )]
+)
+
+# Each candidate branch can then be explicitly accepted or rejected in
+# branch scope with a `branch_disposition` decision.
 ```
 
 ## Interactive REPL

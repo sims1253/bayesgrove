@@ -5,8 +5,11 @@
 #' @param path Directory path where the project should be initialized.
 #' @param project_name Optional. Name of the project. Defaults to the basename of the path.
 #' @param config Optional. Configuration list.
-#' @param workflow_packs Optional list of active workflow packs. In v1 these are
-#'   fixed at project initialization.
+#' @param workflow_packs Optional list of active workflow packs. These are
+#'   normalized and fixed at project initialization. The built-in default is
+#'   `bayesguide.default_bayesian`, which provides computation review,
+#'   branch-scoped fit criticism, candidate-comparison guidance, and explicit
+#'   branch acceptance or rejection decisions.
 #'
 #' @return A `bg_handle` representing the open project.
 #' @export

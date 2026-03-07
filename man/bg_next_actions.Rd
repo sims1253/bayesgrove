@@ -23,3 +23,18 @@ returns obligations, suggested actions, and planner-ready external holds.
 Callers can pass \code{result$metadata$external_holds} into \code{\link[=bg_plan]{bg_plan()}} to keep
 workflow holds distinct from structural blockers.
 }
+\details{
+For the built-in \code{bayesguide.default_bayesian} pack, the returned
+obligations and actions can include:
+\itemize{
+\item \code{review_computation_validity} and matching \code{computation_review} actions
+for fresh warning/error summaries,
+\item \code{review_fit_criticism} plus \code{fit_criticism} and \code{branch_and_modify}
+actions for branch-scoped fit or diagnostic problems,
+\item \code{compare_candidate_branches} plus comparison-node creation or
+\code{model_comparison} decision actions when multiple clean fit candidates
+exist, and
+\item \code{accept_or_reject_branch} plus \code{branch_disposition} actions after a
+current comparison exists for an active candidate set.
+}
+}

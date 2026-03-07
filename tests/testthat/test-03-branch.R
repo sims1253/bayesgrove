@@ -364,12 +364,13 @@ describe("Branch with continuation", {
     # Check that both fits exist and can be compared
     next_actions <- bg_next_actions(handle, scope = "project")
 
-    # Should have no blocking obligations (both fits have clean diagnostics)
+    # The stronger default pack should require an explicit comparison decision
     blocking <- Filter(
       function(o) identical(o$severity, "blocking"),
       next_actions$obligations
     )
-    expect_length(blocking, 0)
+    expect_length(blocking, 1)
+    expect_equal(blocking[[1]]$kind, "compare_candidate_branches")
 
     # Should have comparison action
     compare_actions <- Filter(
@@ -406,6 +407,102 @@ describe("Branch with continuation", {
       ),
       "continuation_depth"
     )
+  })
+
+  it("retires a warning branch so it no longer participates in planning", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      severity <- if (identical(node$params$parametrization %||% "centered", "centered")) {
+        "warning"
+      } else {
+        "ok"
+      }
+      list(
+        result = list(parametrization = node$params$parametrization %||% "centered"),
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          passed = identical(severity, "ok"),
+          severity = severity
+        ))
+      )
+    })
+    bg_register_node_kind(handle, "ppc", executor = function(node, inputs) {
+      list(ppc = TRUE)
+    })
+
+    n_source <- bg_add_node(handle, kind = "source", label = "Data")
+    n_fit <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = n_source)
+    bg_run(handle, targets = n_fit, mode = "sync")
+
+    branch <- bg_branch_with_continuation(
+      project = handle,
+      node_id = n_fit,
+      label = "Problematic branch"
+    )
+    bg_update_node(
+      handle,
+      branch$branch$root_node_id,
+      params = list(parametrization = "centered")
+    )
+    bg_run(handle, targets = branch$branch$root_node_id, mode = "sync")
+
+    before_retire <- bg_next_actions(handle, scope = "project")
+    expect_true(any(vapply(
+      before_retire$obligations,
+      function(o) identical(o$scope, branch$branch$branch_id),
+      logical(1)
+    )))
+
+    expect_no_error(bg_result(handle, branch$branch$root_node_id))
+
+    bayesgrove:::bg_retire_branch(handle, branch$branch$branch_id)
+
+    after_retire <- bg_next_actions(handle, scope = "project")
+    expect_false(any(vapply(
+      after_retire$obligations,
+      function(o) identical(o$scope, branch$branch$branch_id),
+      logical(1)
+    )))
+
+    plan <- bg_plan(handle)
+    expect_false(branch$branch$root_node_id %in% plan$graph_plan$topo_order)
+    expect_no_error(bg_result(handle, branch$branch$root_node_id))
+  })
+
+  it("retire command semantics prevent rerunning retired lineages", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    fit_runs <- 0L
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      fit_runs <<- fit_runs + 1L
+      list(fit_runs = fit_runs)
+    })
+
+    n_source <- bg_add_node(handle, kind = "source", label = "Data")
+    n_fit <- bg_add_node(handle, kind = "fit", label = "Baseline", inputs = n_source)
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, n_fit, label = "Alternative")
+    bayesgrove:::bg_retire_node(handle, branch$root_node_id, recursive = TRUE)
+
+    bg_invalidate(handle, branch$root_node_id, recursive = TRUE)
+    run_res <- bg_run(handle, mode = "sync")
+
+    expect_equal(run_res$summary$total_executed, 0L)
+    expect_equal(fit_runs, 1L)
   })
 })
 

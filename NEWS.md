@@ -1,5 +1,13 @@
+# bayesgrove 0.3.6
+
+* Added explicit retirement semantics with `bg_retire_node()` and `bg_retire_branch()` so stale analysis paths can be removed from planning and workflow guidance without changing `bg_invalidate()`'s recompute-oriented behavior.
+* Updated planning, workflow contexts, pending gates, and REPL workflow commands to exclude retired nodes and branches from runnable work while preserving cached artifacts for inspection.
+* Refreshed the guided REPL demo and regression coverage so the stronger default workflow pack now demonstrates remediation, retirement, comparison, and branch acceptance without rerunning retired warning paths.
+
 # bayesgrove 0.3.5
 
+* Strengthened the built-in `bayesguide.default_bayesian` workflow pack with explicit fit-criticism review, comparison obligations, model-comparison decisions, and branch accept/reject dispositions keyed to current evidence.
+* Added deterministic comparison/disposition basis tracking plus explicit hold targeting so the stronger default workflow blocks downstream work without blocking the comparison step needed to satisfy it.
 * Added a guided, branch-aware REPL workflow with scope switching, action execution, richer graph/status rendering, and helper APIs for branch labels, branch listings, and scope-partitioned protocol results.
 * Added branch-with-continuation support for guided workflow branching and refreshed the REPL demo, README, and reference docs to match the new protocol-driven workflow loop.
 * Tightened workflow scope behavior so branch contexts inherit project summaries, comparison actions only target fit nodes, and branch-local graph views no longer leak cross-scope edges.

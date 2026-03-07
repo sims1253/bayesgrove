@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 1. **The Execution Graph (DAG)**: Built using `dagriculture`, representing the step-by-step transformations and computations (data cleaning, compiling, fitting, diagnosing).
 2. **The Decision Layer**: An annotation overlay that captures the provenance of your choices (why did you change the prior? why did you filter outliers?) via decision gates.
 
-This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process. The current package also includes a lightweight workflow-protocol layer: executors can emit summaries, `bg_next_actions()` can derive obligations and suggested actions from those summaries, and callers can pass the resulting planner holds into `bg_plan()` without conflating them with structural graph blockers.
+This separation ensures that your computations remain reproducible while giving you a rich historical record of your decision-making process. The current package also includes a workflow-protocol layer: executors can emit summaries, `bg_next_actions()` can derive obligations and suggested actions from those summaries, and callers can pass the resulting planner holds into `bg_plan()` without conflating them with structural graph blockers. The built-in `bayesguide.default_bayesian` pack now covers a narrow review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection.
 
 ## 1. Initializing a Project
 
@@ -53,7 +53,7 @@ bg_register_node_kind(handle, "data", executor = function(node, inputs) {
 })
 
 # Register a simple model fitter
-bg_register_node_kind(handle, "model", executor = function(node, inputs) {
+bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
   # Extract the upstream data
   raw_data <- inputs[[1]]
   list(
@@ -76,7 +76,7 @@ Now we build the graph:
 
 ```{r build_graph}
 n_data <- bg_add_node(handle, kind = "data", label = "Simulated Dataset")
-n_model <- bg_add_node(handle, kind = "model", label = "Baseline Fit", inputs = n_data)
+n_model <- bg_add_node(handle, kind = "fit", label = "Baseline Fit", inputs = n_data)
 n_compare <- bg_add_node(
   handle,
   kind = "compare",
@@ -140,6 +140,10 @@ next_steps$obligations[[1]]$kind
 next_steps$actions[[1]]$payload$decision_type
 ```
 
+If the same warning appears on a branch-scoped fit, the stronger default pack
+also emits `review_fit_criticism` and keeps `branch_and_modify` available so
+you can preserve provenance while revising the branch.
+
 Those blocking obligations can be passed back into planning as explicit
 external holds. This keeps workflow guidance distinct from structural graph
 state:
@@ -158,9 +162,179 @@ In this example, the downstream comparison node is not structurally broken. It
 is simply being held until the warning summary is reviewed or replaced by a
 clean rerun.
 
-## Next Steps
+## 6. Comparison And Branch Disposition
+
+The stronger default pack also supports a project-level comparison loop once
+multiple fit candidates are clean. This second example uses a fresh project so
+that the comparison state is easy to inspect.
+
+```{r comparison_setup}
+comparison_root <- file.path(tempdir(), "bg-comparison")
+unlink(comparison_root, recursive = TRUE)
+
+comparison_handle <- bg_init(
+  path = comparison_root,
+  project_name = "Comparison",
+  workflow_packs = list("bayesguide.default_bayesian")
+)
+
+bg_register_node_kind(
+  comparison_handle,
+  "source",
+  executor = function(node, inputs) {
+    list(rows = 100L)
+  }
+)
+bg_register_node_kind(
+  comparison_handle,
+  "fit",
+  executor = function(node, inputs) {
+    variant <- node$params$variant %||% "baseline"
+    list(
+      result = list(ok = TRUE, variant = variant, rows = inputs[[1]]$rows),
+      summaries = list(list(
+        summary_kind = "hmc_diagnostics",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(variant = variant, divergences = 0)
+      ))
+    )
+  }
+)
+bg_register_node_kind(
+  comparison_handle,
+  "compare",
+  executor = function(node, inputs) {
+    list(
+      result = list(compared = names(inputs)),
+      summaries = list(list(
+        summary_kind = "comparison_results",
+        passed = TRUE,
+        severity = "ok"
+      ))
+    )
+  }
+)
+
+n_source2 <- bg_add_node(comparison_handle, kind = "source", label = "Data")
+n_fit_base <- bg_add_node(
+  comparison_handle,
+  kind = "fit",
+  label = "Baseline Fit",
+  inputs = n_source2,
+  params = list(variant = "baseline")
+)
+bg_run(comparison_handle, mode = "sync")
+
+branch <- bg_branch(comparison_handle, n_fit_base, label = "Alternative Fit")
+bg_set_goal(
+  project = comparison_handle,
+  branch_id = branch$branch_id,
+  kind = "observable_prediction",
+  label = "Compare alternatives",
+  rationale = "This branch exists to compare two clean fits."
+)
+bg_update_node(
+  comparison_handle,
+  branch$root_node_id,
+  params = list(variant = "alternative")
+)
+bg_run(comparison_handle, targets = branch$root_node_id, mode = "sync")
+```
+
+With two clean fits, project scope now requires an explicit comparison step:
+
+```{r comparison_obligation}
+comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
+vapply(comparison_guide$obligations, `[[`, character(1), "kind")
+Filter(
+  function(x) identical(x$kind, "create_node_from_template"),
+  comparison_guide$actions
+)[[1]]$payload$template_ref
+```
+
+Create and run the comparison node, then record a `model_comparison` decision
+using the payload fields supplied by the workflow action:
+
+```{r comparison_decision}
+comparison_node_id <- bg_add_node(
+  comparison_handle,
+  kind = "compare",
+  label = "Compare Fits",
+  inputs = c(n_fit_base, branch$root_node_id)
+)
+bg_run(comparison_handle, targets = comparison_node_id, mode = "sync")
+
+comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
+comparison_action <- Filter(
+  function(x) identical(x$kind, "record_decision") &&
+    identical(x$payload$decision_type, "model_comparison"),
+  comparison_guide$actions
+)[[1]]
+
+bg_record_decision(
+  comparison_handle,
+  scope = "project",
+  prompt = "Compare candidate branches",
+  choice = "prefer_alternative",
+  rationale = "The alternative fit is the preferred clean candidate.",
+  kind = "model_comparison",
+  metadata = comparison_action$payload[c(
+    "fit_node_ids",
+    "summary_ids",
+    "candidate_signature",
+    "comparison_signature",
+    "comparison_context"
+  )]
+)
+```
+
+After a current comparison exists, branch scope asks for an explicit accept or
+reject disposition:
+
+```{r branch_disposition}
+branch_guide <- bg_next_actions(
+  comparison_handle,
+  scope = "branch",
+  branch_id = branch$branch_id
+)
+vapply(branch_guide$obligations, `[[`, character(1), "kind")
+
+disposition_action <- Filter(
+  function(x) identical(x$kind, "record_decision") &&
+    identical(x$payload$decision_type, "branch_disposition"),
+  branch_guide$actions
+)[[1]]
+
+bg_record_decision(
+  comparison_handle,
+  scope = branch$branch_id,
+  prompt = "Accept or reject branch",
+  choice = "accept",
+  rationale = "Keep the alternative branch as the accepted analysis path.",
+  kind = "branch_disposition",
+  metadata = list(
+    disposition = "accept",
+    summary_ids = disposition_action$payload$summary_ids,
+    comparison_signature = disposition_action$payload$comparison_signature,
+    comparison_context = disposition_action$payload$comparison_context
+  )
+)
+
+bg_next_actions(
+  comparison_handle,
+  scope = "branch",
+  branch_id = branch$branch_id
+)$obligations
+```
+
+## 7. Next Steps
 
 As you advance, you can use `bg_branch()` to create alternative model paths
 (e.g., trying a different prior without losing your baseline), `bg_invalidate()`
 to supersede outdated results, and `bg_next_actions()` plus `bg_plan(...,
 external_holds = ...)` to keep workflow obligations visible during scheduling.
+For the built-in default pack, that means you can move through the full loop
+without leaving the runtime contract: review the computation, review branch
+criticism when needed, compare clean candidates, and explicitly accept or
+reject the surviving branch.

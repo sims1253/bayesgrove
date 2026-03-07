@@ -1,3 +1,10 @@
+if (!exists("make_workflow_hold_fixture", mode = "function")) {
+  sys.source(
+    testthat::test_path("helper-workflow-fixtures.R"),
+    envir = environment()
+  )
+}
+
 describe("Workflow holds end-to-end", {
   it("derives review obligations, planner holds, and clears them after rerun", {
     fixture <- make_workflow_hold_fixture()

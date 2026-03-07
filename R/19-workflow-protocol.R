@@ -3,15 +3,20 @@ bg_builtin_workflow_registry <- function() {
   list(
     "bayesguide.default_bayesian" = list(
       pack_id = "bayesguide.default_bayesian",
-      version = "0.1.0",
+      version = "0.2.0",
       obligation_providers = list(
         bg_default_bayesian_goal_obligations,
-        bg_default_bayesian_summary_obligations
+        bg_default_bayesian_summary_obligations,
+        bg_default_bayesian_fit_criticism_obligations,
+        bg_default_bayesian_comparison_obligations,
+        bg_default_bayesian_disposition_obligations
       ),
       action_providers = list(
         bg_default_bayesian_goal_actions,
         bg_default_bayesian_summary_actions,
-        bg_default_bayesian_comparison_actions
+        bg_default_bayesian_fit_criticism_actions,
+        bg_default_bayesian_comparison_decision_actions,
+        bg_default_bayesian_disposition_actions
       )
     )
   )
@@ -63,7 +68,15 @@ bg_normalize_workflow_pack_refs <- function(specs) {
 #'
 #' @param project A `bg_handle`.
 #'
-#' @return A list of active workflow-pack descriptors.
+#' @return A list of active workflow-pack descriptors. The built-in default
+#'   pack id is `bayesguide.default_bayesian`.
+#'
+#' @details The built-in default pack is an opinionated Bayesian workflow
+#'   layer. It derives computation-review obligations from fresh warning/error
+#'   summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
+#'   requires project-scoped comparison decisions when multiple fit candidates
+#'   are clean, and asks each candidate branch to be explicitly accepted or
+#'   rejected after a current comparison exists.
 #' @export
 bg_workflow_packs <- function(project) {
   S7::check_is_S7(project, bg_handle)
@@ -279,40 +292,38 @@ bg_merge_protocol_items <- function(items, id_field) {
 
 #' @keywords internal
 bg_collect_workflow_contexts <- function(project, resolved_scope) {
+  graph <- bg_active_graph(project)
+  all_summaries <- bg_read_summaries(
+    project,
+    include_stale = TRUE,
+    include_inactive = FALSE
+  )
+  all_decisions <- bg_read_decisions(project)
+
+  enrich_context <- function(context) {
+    context$metadata$cross_scope_summaries <- all_summaries
+    context$metadata$cross_scope_nodes <- graph$nodes %||% list()
+    context$metadata$cross_scope_edges <- graph$edges %||% list()
+    context$metadata$cross_scope_decisions <- all_decisions
+    context
+  }
+
   if (!identical(resolved_scope, "project")) {
-    return(list(bg_build_workflow_context(project, scope = resolved_scope)))
+    return(list(enrich_context(
+      bg_build_workflow_context(project, scope = resolved_scope)
+    )))
   }
 
   branch_ids <- sort(names(
     bg_read_branch_registry(project)$branches %||% list()
   ))
-  project_context <- bg_build_workflow_context(project, scope = "project")
+  branch_ids <- intersect(branch_ids, bg_active_branch_ids(project))
+  project_context <- enrich_context(
+    bg_build_workflow_context(project, scope = "project")
+  )
   branch_contexts <- lapply(branch_ids, function(branch_id) {
-    bg_build_workflow_context(project, scope = branch_id)
+    enrich_context(bg_build_workflow_context(project, scope = branch_id))
   })
-
-  all_contexts <- c(list(project_context), branch_contexts)
-
-  project_context$metadata$cross_scope_summaries <- list()
-  project_context$metadata$cross_scope_nodes <- list()
-  for (context in all_contexts) {
-    summaries <- context$evidence$summaries %||% list()
-    if (length(summaries) > 0) {
-      for (summary_id in names(summaries)) {
-        project_context$metadata$cross_scope_summaries[[summary_id]] <-
-          summaries[[summary_id]]
-      }
-    }
-
-    nodes <- context$structural$nodes %||% list()
-    if (length(nodes) > 0) {
-      for (node_id in names(nodes)) {
-        project_context$metadata$cross_scope_nodes[[node_id]] <- nodes[[
-          node_id
-        ]]
-      }
-    }
-  }
 
   c(list(project_context), branch_contexts)
 }
@@ -361,7 +372,9 @@ bg_blocking_obligation_holds <- function(project, obligations) {
       next
     }
 
-    node_ids <- obligation$basis$node_ids %||% character()
+    node_ids <- obligation$metadata$hold_node_ids %||%
+      obligation$basis$node_ids %||%
+      character()
     for (node_id in node_ids) {
       descendants <- dagriculture::dagri_descendants(graph, node_id)
       if (length(descendants) == 0) {
@@ -394,6 +407,18 @@ bg_workflow_external_holds <- function(project) {
 #' returns obligations, suggested actions, and planner-ready external holds.
 #' Callers can pass `result$metadata$external_holds` into [bg_plan()] to keep
 #' workflow holds distinct from structural blockers.
+#'
+#' For the built-in `bayesguide.default_bayesian` pack, the returned
+#' obligations and actions can include:
+#' - `review_computation_validity` and matching `computation_review` actions
+#'   for fresh warning/error summaries,
+#' - `review_fit_criticism` plus `fit_criticism` and `branch_and_modify`
+#'   actions for branch-scoped fit or diagnostic problems,
+#' - `compare_candidate_branches` plus comparison-node creation or
+#'   `model_comparison` decision actions when multiple clean fit candidates
+#'   exist, and
+#' - `accept_or_reject_branch` plus `branch_disposition` actions after a
+#'   current comparison exists for an active candidate set.
 #'
 #' @param project A `bg_handle`.
 #' @param scope One of `project` or `branch`.
@@ -554,6 +579,9 @@ bg_default_bayesian_goal_obligations <- function(
 ) {
   if (
     !startsWith(context$scope, "branch:") ||
+      !bg_is_active_lifecycle(
+        bg_lifecycle_state(context$scope_context$branch_metadata %||% list())
+      ) ||
       !is.null(context$inferential_goal) ||
       isTRUE(context$scope_context$branch_metadata$goal_optional)
   ) {

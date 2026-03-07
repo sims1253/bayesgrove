@@ -287,6 +287,153 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
   invisible(TRUE)
 }
 
+#' @keywords internal
+bg_set_node_lifecycle <- function(
+  project,
+  node_ids,
+  lifecycle = c("active", "retired", "disabled"),
+  reason = NULL
+) {
+  lifecycle <- match.arg(lifecycle)
+  node_ids <- sort(unique(as.character(node_ids)))
+  if (length(node_ids) == 0) {
+    return(invisible(character()))
+  }
+
+  graph <- bg_read_graph(project)
+  missing <- setdiff(node_ids, names(graph$nodes %||% list()))
+  if (length(missing) > 0) {
+    cli::cli_abort("Node{?s} not found in graph: {.val {missing}}")
+  }
+
+  for (node_id in node_ids) {
+    node <- graph$nodes[[node_id]]
+    metadata <- node$metadata %||% list()
+    metadata$lifecycle <- lifecycle
+    metadata$lifecycle_updated_at <- bg_now_timestamp()
+    if (!is.null(reason) && nzchar(trimws(reason))) {
+      metadata$lifecycle_reason <- trimws(reason)
+    }
+    graph$nodes[[node_id]]$metadata <- metadata
+  }
+  graph$version <- (graph$version %||% 0L) + 1L
+
+  bg_commit_graph(project, graph)
+  invisible(node_ids)
+}
+
+#' @keywords internal
+bg_set_branch_lifecycle <- function(
+  project,
+  branch_id,
+  lifecycle = c("active", "retired", "disabled"),
+  reason = NULL
+) {
+  lifecycle <- match.arg(lifecycle)
+
+  metadata <- list(
+    lifecycle = lifecycle,
+    lifecycle_updated_at = bg_now_timestamp()
+  )
+  if (!is.null(reason) && nzchar(trimws(reason))) {
+    metadata$lifecycle_reason <- trimws(reason)
+  }
+
+  bg_update_branch_metadata(project, branch_id, metadata)
+}
+
+#' Retire a node and downstream lineage
+#'
+#' Retirement removes a node path from future planning and workflow guidance
+#' while preserving its structural provenance and cached artifacts.
+#'
+#' @param project A `bg_handle`.
+#' @param node_id The ID of the node to retire.
+#' @param recursive Whether to recursively retire downstream nodes (default: TRUE).
+#' @param reason Optional rationale stored in node metadata.
+#'
+#' @return Invisibly returns the retired node ids.
+#' @export
+bg_retire_node <- function(project, node_id, recursive = TRUE, reason = NULL) {
+  S7::check_is_S7(project, bg_handle)
+
+  graph <- bg_read_graph(project)
+  if (!node_id %in% names(graph$nodes)) {
+    cli::cli_abort("Node {.val {node_id}} not found in graph.")
+  }
+
+  node_ids <- c(node_id)
+  if (isTRUE(recursive)) {
+    node_ids <- unique(c(node_ids, dagriculture::dagri_descendants(graph, node_id)))
+  }
+
+  bg_set_node_lifecycle(
+    project = project,
+    node_ids = node_ids,
+    lifecycle = "retired",
+    reason = reason
+  )
+
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  for (branch_id in names(branches)) {
+    if (identical(branches[[branch_id]]$root_node_id %||% NULL, node_id)) {
+      bg_set_branch_lifecycle(
+        project = project,
+        branch_id = branch_id,
+        lifecycle = "retired",
+        reason = reason
+      )
+    }
+  }
+
+  cli::cli_inform(
+    "Retired {length(node_ids)} node{?s} from future planning."
+  )
+
+  invisible(node_ids)
+}
+
+#' Retire an entire branch
+#'
+#' Retirement removes the branch from future planning and workflow guidance
+#' while preserving its provenance and cached artifacts.
+#'
+#' @param project A `bg_handle`.
+#' @param branch_id The branch id to retire.
+#' @param reason Optional rationale stored in branch and node metadata.
+#'
+#' @return Invisibly returns the retired branch node ids.
+#' @export
+bg_retire_branch <- function(project, branch_id, reason = NULL) {
+  S7::check_is_S7(project, bg_handle)
+
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  branch <- branches[[branch_id]] %||% NULL
+  if (is.null(branch)) {
+    cli::cli_abort("Branch {.val {branch_id}} not found in branch registry.")
+  }
+
+  node_ids <- bg_scope_node_ids(project, branch_id, include_inactive = TRUE)
+  bg_set_node_lifecycle(
+    project = project,
+    node_ids = node_ids,
+    lifecycle = "retired",
+    reason = reason
+  )
+  bg_set_branch_lifecycle(
+    project = project,
+    branch_id = branch_id,
+    lifecycle = "retired",
+    reason = reason
+  )
+
+  cli::cli_inform(
+    "Retired branch {.val {branch_id}} with {length(node_ids)} node{?s}."
+  )
+
+  invisible(node_ids)
+}
+
 #' Compute parameter suggestions from a modification hint
 #'
 #' Given a modification hint (e.g., "reparametrize", "adjust_tolerances") and

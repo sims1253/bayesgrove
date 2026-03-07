@@ -134,7 +134,7 @@ bg_status <- function(project, auto_advance = TRUE) {
 bg_result <- function(project, node_id) {
   S7::check_is_S7(project, bg_handle)
 
-  plan <- bg_plan(project)
+  plan <- bg_plan(project, include_inactive = TRUE)
   if (!node_id %in% plan$cache_hits) {
     cli::cli_abort(
       paste0(

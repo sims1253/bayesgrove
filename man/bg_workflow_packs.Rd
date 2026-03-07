@@ -10,8 +10,17 @@ bg_workflow_packs(project)
 \item{project}{A \code{bg_handle}.}
 }
 \value{
-A list of active workflow-pack descriptors.
+A list of active workflow-pack descriptors. The built-in default
+pack id is \code{bayesguide.default_bayesian}.
 }
 \description{
 List active workflow packs
+}
+\details{
+The built-in default pack is an opinionated Bayesian workflow
+layer. It derives computation-review obligations from fresh warning/error
+summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
+requires project-scoped comparison decisions when multiple fit candidates
+are clean, and asks each candidate branch to be explicitly accepted or
+rejected after a current comparison exists.
 }
