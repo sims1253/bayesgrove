@@ -28,7 +28,7 @@ navbar:
         href: articles/guided-review-loop.html
     architecture:
       text: "Architecture"
-      href: dagriculture-boundary.html
+      href: articles/dagriculture-boundary.html
     reference:
       text: "Reference"
       href: reference/index.html
@@ -113,6 +113,7 @@ articles:
   - title: "All Vignettes"
     desc: ~
     contents:
+      - dagriculture-boundary
       - getting-started
       - guided-review-loop
       - simulation-study

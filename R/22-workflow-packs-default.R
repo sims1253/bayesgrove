@@ -3,6 +3,72 @@
 # `bayesguide.default_bayesian` review/comparison/disposition loop.
 
 #' @keywords internal
+bg_parameter_suggestions_from_hint <- function(hint, current_params = list()) {
+  if (is.null(hint) || !nzchar(hint)) {
+    return(list())
+  }
+
+  suggestions <- switch(
+    hint,
+    "reparametrize" = {
+      if ("parametrization" %in% names(current_params)) {
+        current <- current_params$parametrization
+        if (identical(current, "centered")) {
+          list(parametrization = "non-centered")
+        } else if (identical(current, "non-centered")) {
+          list(parametrization = "centered")
+        } else {
+          list(parametrization = "non-centered")
+        }
+      } else {
+        list()
+      }
+    },
+    "adjust_tolerances" = {
+      if ("tolerance" %in% names(current_params)) {
+        current_tol <- current_params$tolerance
+        if (is.numeric(current_tol) && current_tol < 1e-4) {
+          list(tolerance = 1e-4)
+        } else {
+          list(tolerance = 1e-3)
+        }
+      } else if ("adapt_delta" %in% names(current_params)) {
+        current_delta <- current_params$adapt_delta
+        if (is.numeric(current_delta) && current_delta < 0.95) {
+          list(adapt_delta = 0.95)
+        } else {
+          list(adapt_delta = 0.99)
+        }
+      } else {
+        list()
+      }
+    },
+    "increase_iterations" = {
+      if ("iter" %in% names(current_params)) {
+        current_iter <- current_params$iter
+        if (is.numeric(current_iter)) {
+          list(iter = as.integer(current_iter * 2))
+        } else {
+          list()
+        }
+      } else if ("iterations" %in% names(current_params)) {
+        current_iter <- current_params$iterations
+        if (is.numeric(current_iter)) {
+          list(iterations = as.integer(current_iter * 2))
+        } else {
+          list()
+        }
+      } else {
+        list()
+      }
+    },
+    list()
+  )
+
+  suggestions
+}
+
+#' @keywords internal
 bg_default_bayesian_all_nodes <- function(context) {
   context$metadata$cross_scope_nodes %||%
     context$structural$nodes %||%
@@ -186,6 +252,7 @@ bg_default_bayesian_clean_fit_candidates <- function(context) {
       fresh_summary_ids = warning_summary_ids
     )
 
+    criticism_target_ids <- character()
     criticism_summary_ids <- character()
     if (startsWith(node_scope, "branch:")) {
       criticism_target_ids <- sort(unique(vapply(
@@ -213,20 +280,6 @@ bg_default_bayesian_clean_fit_candidates <- function(context) {
 
     unresolved_review <- setdiff(warning_summary_ids, reviewed_summary_ids)
     unresolved_criticism <- if (startsWith(node_scope, "branch:")) {
-      criticism_target_ids <- sort(unique(vapply(
-        Filter(
-          function(summary) {
-            bg_default_bayesian_fit_criticism_summary(
-              summary,
-              node = fit_nodes[[node_id]]
-            )
-          },
-          warning_summaries
-        ),
-        `[[`,
-        character(1),
-        "summary_id"
-      )))
       setdiff(criticism_target_ids, criticism_summary_ids)
     } else {
       character()
@@ -724,7 +777,7 @@ bg_default_bayesian_disposition_obligations <- function(
         use.names = FALSE
       ))),
       decision_ids = character(),
-      comparison_context = comparison_context
+      comparison_signature = comparison_context$comparison_signature %||% NULL
     ),
     explanation = list(
       why = paste0(
@@ -735,7 +788,9 @@ bg_default_bayesian_disposition_obligations <- function(
     ),
     metadata = list(
       comparison_node_id = comparison_evidence$node_id,
-      hold_node_ids = comparison_evidence$node_id %||% character()
+      hold_node_ids = comparison_evidence$node_id %||% character(),
+      comparison_context = comparison_context,
+      comparison_signature = comparison_context$comparison_signature %||% NULL
     )
   ))
 }
@@ -980,6 +1035,44 @@ bg_default_bayesian_disposition_actions <- function(
   }
 
   obligation <- disposition_obligation[[1]]
+  comparison_context <- obligation$metadata$comparison_context %||% NULL
+  if (is.null(comparison_context)) {
+    cli::cli_abort(
+      paste0(
+        "Disposition obligation {.val ",
+        obligation$obligation_id %||% "<unknown>",
+        "} is missing `metadata$comparison_context`."
+      )
+    )
+  }
+
+  comparison_signature <- obligation$metadata$comparison_signature %||%
+    comparison_context$comparison_signature %||%
+    obligation$basis$comparison_signature %||%
+    NULL
+  if (is.null(comparison_signature)) {
+    cli::cli_abort(
+      paste0(
+        "Disposition obligation {.val ",
+        obligation$obligation_id %||% "<unknown>",
+        "} is missing a comparison signature."
+      )
+    )
+  }
+
+  basis_signature <- obligation$basis$comparison_signature %||% NULL
+  if (
+    !is.null(basis_signature) &&
+      !identical(basis_signature, comparison_signature)
+  ) {
+    cli::cli_abort(
+      paste0(
+        "Disposition obligation {.val ",
+        obligation$obligation_id %||% "<unknown>",
+        "} has mismatched comparison signatures in basis and metadata."
+      )
+    )
+  }
 
   list(list(
     kind = "record_decision",
@@ -1000,9 +1093,8 @@ bg_default_bayesian_disposition_actions <- function(
       node_ids = obligation$basis$node_ids %||% character(),
       summary_ids = obligation$basis$summary_ids %||% character(),
       branch_ids = obligation$basis$branch_ids %||% character(),
-      comparison_context = obligation$basis$comparison_context %||% list(),
-      comparison_signature = obligation$basis$comparison_context$comparison_signature %||%
-        NULL
+      comparison_context = comparison_context,
+      comparison_signature = comparison_signature
     ),
     explanation = list(
       why_now = paste0(

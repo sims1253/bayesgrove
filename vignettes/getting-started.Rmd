@@ -280,8 +280,10 @@ bg_run(comparison_handle, targets = comparison_node_id, mode = "sync")
 
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 comparison_action <- Filter(
-  function(x) identical(x$kind, "record_decision") &&
-    identical(x$payload$decision_type, "model_comparison"),
+  function(x) {
+    identical(x$kind, "record_decision") &&
+      identical(x$payload$decision_type, "model_comparison")
+  },
   comparison_guide$actions
 )[[1]]
 
@@ -314,8 +316,10 @@ branch_guide <- bg_next_actions(
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
 
 disposition_action <- Filter(
-  function(x) identical(x$kind, "record_decision") &&
-    identical(x$payload$decision_type, "branch_disposition"),
+  function(x) {
+    identical(x$kind, "record_decision") &&
+      identical(x$payload$decision_type, "branch_disposition")
+  },
   branch_guide$actions
 )[[1]]
 

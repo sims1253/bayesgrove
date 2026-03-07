@@ -1,6 +1,7 @@
 # Internal adapter layer for graph-generic operations that are plausible
 # migration candidates for `dagriculture`.
 
+#' @keywords internal
 bg_dagri_add_node <- function(
   graph,
   id,
@@ -19,12 +20,13 @@ bg_dagri_add_node <- function(
   )
 }
 
+#' @keywords internal
 bg_dagri_add_edge <- function(
   graph,
   from,
   to,
-  type = "data",
   id,
+  type = "data",
   metadata = list()
 ) {
   dagriculture::dagri_add_edge(
@@ -37,6 +39,7 @@ bg_dagri_add_edge <- function(
   )
 }
 
+#' @keywords internal
 bg_dagri_update_node <- function(
   graph,
   node_id,
@@ -53,6 +56,7 @@ bg_dagri_update_node <- function(
   )
 }
 
+#' @keywords internal
 bg_dagri_remove_node <- function(graph, node_id) {
   dagriculture::dagri_remove_node(
     graph = graph,
@@ -60,14 +64,17 @@ bg_dagri_remove_node <- function(graph, node_id) {
   )
 }
 
+#' @keywords internal
 bg_dagri_incoming_edges <- function(graph, node_id) {
   Filter(function(edge) identical(edge$to, node_id), graph$edges %||% list())
 }
 
+#' @keywords internal
 bg_dagri_outgoing_edges <- function(graph, node_id) {
   Filter(function(edge) identical(edge$from, node_id), graph$edges %||% list())
 }
 
+#' @keywords internal
 bg_dagri_order_edges <- function(edges) {
   if (length(edges) <= 1) {
     return(edges)
@@ -81,14 +88,17 @@ bg_dagri_order_edges <- function(edges) {
   edges[order(edge_ids)]
 }
 
+#' @keywords internal
 bg_dagri_descendants <- function(graph, node_id) {
   dagriculture::dagri_descendants(graph, node_id)
 }
 
+#' @keywords internal
 bg_dagri_recompute_state <- function(graph) {
   dagriculture::dagri_recompute_state(graph)
 }
 
+#' @keywords internal
 bg_dagri_plan <- function(graph, targets = NULL, external_holds = list()) {
   dagriculture::dagri_plan(
     graph,
@@ -97,11 +107,40 @@ bg_dagri_plan <- function(graph, targets = NULL, external_holds = list()) {
   )
 }
 
+# Prefer container names because `dagriculture` stores edges keyed by id today,
+# but fall back to the embedded `edge$id` so diffs still work if edges become
+# unnamed lists.
+#' @keywords internal
+bg_dagri_edge_ids <- function(edges) {
+  if (length(edges) == 0) {
+    return(character())
+  }
+
+  edge_names <- names(edges) %||% rep("", length(edges))
+  if (all(nzchar(edge_names))) {
+    return(sort(unique(edge_names)))
+  }
+
+  edge_ids <- vapply(
+    edges,
+    function(edge) edge$id %||% "",
+    character(1)
+  )
+  if (!all(nzchar(edge_ids))) {
+    cli::cli_abort(
+      "Graph edges must be named or carry non-empty `id` fields for diffing."
+    )
+  }
+
+  sort(unique(edge_ids))
+}
+
+#' @keywords internal
 bg_dagri_graph_diff <- function(graph_before, graph_after) {
   before_nodes <- names(graph_before$nodes %||% list())
   after_nodes <- names(graph_after$nodes %||% list())
-  before_edges <- names(graph_before$edges %||% list())
-  after_edges <- names(graph_after$edges %||% list())
+  before_edges <- bg_dagri_edge_ids(graph_before$edges %||% list())
+  after_edges <- bg_dagri_edge_ids(graph_after$edges %||% list())
 
   # Migration candidate: pure structural diff with no workflow semantics.
   list(

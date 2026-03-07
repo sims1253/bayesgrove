@@ -1,4 +1,11 @@
-# Dagriculture Boundary
+---
+title: "Dagriculture Boundary"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Dagriculture Boundary}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[UTF-8]{inputenc}
+---
 
 This page mirrors the contributor-facing architecture note at
 `docs/architecture/dagriculture-boundary.md` so pkgdown can expose it as a
@@ -14,12 +21,12 @@ first-class site page.
 | Branch lineage, workflow scope resolution, and active/inactive branch filtering | BayesGrove | Branch identity and scope semantics are analysis-workflow concepts layered above the raw graph. |
 | Summary freshness, decision coverage, and workflow protocol guidance | BayesGrove | These concerns depend on Bayesian review semantics, artifact freshness, and decision provenance. |
 | Decision logs, gates, and provenance records | BayesGrove | Provenance is domain-specific context on top of the structural graph, not a generic graph primitive. |
-| A cross-repo migration in this phase | Explicitly not in scope | This repository does not carry the `dagriculture` source, so phase 7 stops at boundary documentation, internal adapters, and tests that clarify what is graph-generic. |
+| A cross-repo migration in this phase | Explicitly not in scope | This repository does not carry the `dagriculture` source, so Phase 7 stops at boundary documentation, internal adapters, and tests that clarify what is graph-generic. |
 
 ## Why this split
 
 BayesGrove already uses `dagriculture` as its structural execution engine, but
-phase 7 makes that boundary easier to defend:
+Phase 7 makes that boundary easier to defend:
 
 - graph-generic queries now sit behind a small internal adapter layer;
 - candidate extraction points are visible in one place instead of being

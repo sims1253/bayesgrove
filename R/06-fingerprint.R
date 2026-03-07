@@ -37,7 +37,10 @@ bg_compute_fingerprint <- function(
 
   # 2. Upstream fingerprints
   # Need to ensure they are sorted by the input edge to maintain determinism
-  upstream_edges <- bg_dagri_order_edges(bg_dagri_incoming_edges(graph, node_id))
+  upstream_edges <- bg_dagri_order_edges(bg_dagri_incoming_edges(
+    graph,
+    node_id
+  ))
 
   ordered_upstream_hashes <- character(0)
   for (e in upstream_edges) {

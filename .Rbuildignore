@@ -14,4 +14,4 @@
 ^README\.html$
 ^tools/demo($|/)
 ^ROADMAP\.local\.md
-
+^agent-prompts$

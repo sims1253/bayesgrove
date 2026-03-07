@@ -6,7 +6,10 @@ describe("dagriculture boundary helpers", {
     outgoing_edges = getFromNamespace("bg_dagri_outgoing_edges", "bayesgrove"),
     order_edges = getFromNamespace("bg_dagri_order_edges", "bayesgrove"),
     descendants = getFromNamespace("bg_dagri_descendants", "bayesgrove"),
-    recompute_state = getFromNamespace("bg_dagri_recompute_state", "bayesgrove"),
+    recompute_state = getFromNamespace(
+      "bg_dagri_recompute_state",
+      "bayesgrove"
+    ),
     graph_diff = getFromNamespace("bg_dagri_graph_diff", "bayesgrove")
   )
 
@@ -36,7 +39,10 @@ describe("dagriculture boundary helpers", {
     outgoing_b <- local_helpers$outgoing_edges(graph, "node_b")
     descendants_a <- local_helpers$descendants(graph, "node_a")
 
-    expect_equal(unname(vapply(incoming_b, `[[`, character(1), "from")), "node_a")
+    expect_equal(
+      unname(vapply(incoming_b, `[[`, character(1), "from")),
+      "node_a"
+    )
     expect_equal(unname(vapply(outgoing_b, `[[`, character(1), "to")), "node_c")
     expect_equal(descendants_a, c("node_b", "node_c"))
   })
@@ -58,7 +64,9 @@ describe("dagriculture boundary helpers", {
 
   it("computes structural graph diffs without workflow semantics", {
     graph_before <- dagriculture::dagri_graph(dagriculture::dagri_registry())
-    graph_before$registry$kinds[["source"]] <- dagriculture::dagri_kind("source")
+    graph_before$registry$kinds[["source"]] <- dagriculture::dagri_kind(
+      "source"
+    )
     graph_before$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
 
     graph_before <- local_helpers$add_node(
@@ -104,6 +112,14 @@ describe("dagriculture boundary helpers", {
     expect_equal(reverse_diff$removed_nodes, "node_c")
     expect_equal(reverse_diff$added_edges, character())
     expect_equal(reverse_diff$removed_edges, "edge_bc")
+
+    unnamed_after <- list(
+      nodes = graph_after$nodes,
+      edges = unname(graph_after$edges)
+    )
+    unnamed_diff <- local_helpers$graph_diff(graph_before, unnamed_after)
+    expect_equal(unnamed_diff$added_edges, "edge_bc")
+    expect_equal(unnamed_diff$removed_edges, character())
   })
 
   it("keeps state recomputation graph-generic", {

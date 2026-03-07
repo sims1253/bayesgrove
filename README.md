@@ -114,10 +114,10 @@ Run the workflow. The fit completes but produces warning diagnostics:
 
 ``` r
 bg_run(handle, mode = "sync")
-#> Starting run "run_2fced118" with 1 node to execute.
-#> Running node "node_620f253c"...
-#> Running node "node_1880413b"...
-#> <bg_run_handle> run_2fced118
+#> Starting run "run_8194bdea" with 1 node to execute.
+#> Running node "node_d9d205c6"...
+#> Running node "node_a20338d6"...
+#> <bg_run_handle> run_8194bdea
 #> 
 #> • Status: blocked
 #> 

@@ -59,12 +59,12 @@ find_action <- function(actions, kind, decision_type = NULL, template_ref = NULL
     }
 
     if (!is.null(decision_type) &&
-      !identical(action$payload$decision_type %||% NULL, decision_type)) {
+          !identical(action$payload$decision_type %||% NULL, decision_type)) {
       next
     }
 
     if (!is.null(template_ref) &&
-      !identical(action$payload$template_ref %||% NULL, template_ref)) {
+          !identical(action$payload$template_ref %||% NULL, template_ref)) {
       next
     }
 

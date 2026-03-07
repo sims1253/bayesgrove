@@ -1331,18 +1331,31 @@ describe("Workflow protocol APIs", {
     bg_run(handle, targets = compare_id, mode = "sync")
 
     result <- bg_next_actions(handle, scope = "project")
+    comparison_action <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "model_comparison")
+      },
+      result$actions
+    )[[1]]
 
-    # Should have accept_or_reject_branch obligations for both branches
+    # Only the branch-scoped candidate should emit a disposition obligation.
     disposition_obls <- Filter(
       function(o) identical(o$kind, "accept_or_reject_branch"),
       result$obligations
     )
-    expect_gte(length(disposition_obls), 1)
+    expect_length(disposition_obls, 1)
+    expect_identical(disposition_obls[[1]]$scope, branch$branch_id)
     expect_true(all(vapply(
       disposition_obls,
       function(o) identical(o$severity, "blocking"),
       logical(1)
     )))
+    expect_false(is.null(disposition_obls[[1]]$basis$comparison_signature))
+    expect_identical(
+      disposition_obls[[1]]$basis$comparison_signature,
+      comparison_action$payload$comparison_signature
+    )
   })
 
   it("clears accept_or_reject obligation after branch_disposition decision", {
@@ -1425,7 +1438,8 @@ describe("Workflow protocol APIs", {
       function(o) identical(o$kind, "accept_or_reject_branch"),
       result_before$obligations
     )
-    expect_gte(length(disposition_obls), 1)
+    expect_length(disposition_obls, 1)
+    expect_identical(disposition_obls[[1]]$scope, branch$branch_id)
 
     disposition_action <- Filter(
       function(a) {
@@ -1462,6 +1476,160 @@ describe("Workflow protocol APIs", {
       result_after$obligations
     )
     expect_length(disposition_obls_after, 0)
+  })
+
+  it("re-emits accept_or_reject obligation after comparison evidence changes", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      variant <- node$params$variant %||% "baseline"
+      list(
+        result = list(ok = TRUE, variant = variant),
+        summaries = list(
+          list(
+            summary_kind = "hmc_diagnostics",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variant = variant)
+          )
+        )
+      )
+    })
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      variants <- vapply(
+        inputs,
+        function(input) input$result$variant %||% "baseline",
+        character(1)
+      )
+
+      list(
+        result = list(compared = names(inputs), variants = variants),
+        summaries = list(
+          list(
+            summary_kind = "comparison_results",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(variants = variants)
+          )
+        )
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit1_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Fit 1",
+      inputs = source_id,
+      params = list(variant = "baseline")
+    )
+    bg_run(handle, mode = "sync")
+
+    branch <- bg_branch(handle, fit1_id, label = "Fit 2")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      label = "Comparison goal",
+      rationale = "For comparison"
+    )
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Compare Fits",
+      inputs = c(fit1_id, branch$root_node_id)
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    first_branch_actions <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )
+    first_disposition_action <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "branch_disposition")
+      },
+      first_branch_actions$actions
+    )[[1]]
+    first_signature <- first_disposition_action$payload$comparison_signature
+
+    bg_record_decision(
+      project = handle,
+      scope = branch$branch_id,
+      prompt = "Accept or reject branch",
+      choice = "accept",
+      rationale = "This branch performs better",
+      kind = "branch_disposition",
+      metadata = list(
+        disposition = "accept",
+        summary_ids = first_disposition_action$payload$summary_ids,
+        comparison_signature = first_signature,
+        comparison_context = first_disposition_action$payload$comparison_context
+      )
+    )
+
+    expect_length(
+      Filter(
+        function(o) identical(o$kind, "accept_or_reject_branch"),
+        bg_next_actions(
+          handle,
+          scope = "branch",
+          branch_id = branch$branch_id
+        )$obligations
+      ),
+      0
+    )
+
+    bg_update_node(
+      handle,
+      branch$root_node_id,
+      params = list(variant = "alternative_v2")
+    )
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    refreshed_branch_actions <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )
+    refreshed_obligations <- Filter(
+      function(o) identical(o$kind, "accept_or_reject_branch"),
+      refreshed_branch_actions$obligations
+    )
+    expect_length(refreshed_obligations, 1)
+
+    refreshed_action <- Filter(
+      function(a) {
+        identical(a$kind, "record_decision") &&
+          identical(a$payload$decision_type, "branch_disposition")
+      },
+      refreshed_branch_actions$actions
+    )[[1]]
+    refreshed_signature <- refreshed_action$payload$comparison_signature
+
+    expect_false(is.null(refreshed_signature))
+    expect_false(identical(refreshed_signature, first_signature))
+    expect_identical(
+      refreshed_obligations[[1]]$basis$comparison_signature,
+      refreshed_signature
+    )
   })
 
   it("produces deterministic obligation ids across repeated evaluation", {
