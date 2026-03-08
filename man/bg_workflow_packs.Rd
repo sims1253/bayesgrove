@@ -11,7 +11,10 @@ bg_workflow_packs(project)
 }
 \value{
 A list of active workflow-pack descriptors. The built-in default
-pack id is \code{bayesguide.default_bayesian}.
+pack id is \code{bayesguide.default_bayesian}. Additional built-in pack ids are
+\code{bayesgrove.prior_workflow}, \code{bayesgrove.model_checks},
+\code{bayesgrove.model_selection}, \code{bayesgrove.causal_minimal}, and
+\code{bayesgrove.pad_scaffold}.
 }
 \description{
 List active workflow packs
@@ -22,5 +25,9 @@ layer. It derives computation-review obligations from fresh warning/error
 summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 requires project-scoped comparison decisions when multiple fit candidates
 are clean, and asks each candidate branch to be explicitly accepted or
-rejected after a current comparison exists.
+rejected after a current comparison exists. The optional phase-10 packs
+extend that vocabulary with prior rationale and prior predictive review,
+posterior predictive and SBC review, model-selection evidence including
+stacking weights, minimal causal framing, and PAD annotations with utility
+dimensions.
 }

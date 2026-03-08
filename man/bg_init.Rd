@@ -22,7 +22,13 @@ bg_init(
 normalized and fixed at project initialization. The built-in default is
 \code{bayesguide.default_bayesian}, which provides computation review,
 branch-scoped fit criticism, candidate-comparison guidance, and explicit
-branch acceptance or rejection decisions.}
+branch acceptance or rejection decisions. Optional built-in packs add
+prior rationale and prior predictive review
+(\code{bayesgrove.prior_workflow}), posterior predictive and SBC review
+(\code{bayesgrove.model_checks}), model-selection review with stacking weights
+(\code{bayesgrove.model_selection}), minimal causal framing
+(\code{bayesgrove.causal_minimal}), and PAD annotations
+(\code{bayesgrove.pad_scaffold}).}
 }
 \value{
 A \code{bg_handle} representing the open project.

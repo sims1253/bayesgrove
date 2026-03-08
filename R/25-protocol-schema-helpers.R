@@ -296,7 +296,10 @@ bg_validate_protocol_scalar_type <- function(
 
   if (!type_ok) {
     cli::cli_abort(
-      "Value at {.val {path}} has unexpected type {.val {typeof(object)}} for {.val {expected_type}} in schema {.val {schema_name}}."
+      paste0(
+        "Value at {.val {path}} has unexpected type {.val {typeof(object)}} ",
+        "for {.val {expected_type}} in schema {.val {schema_name}}."
+      )
     )
   }
 }

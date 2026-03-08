@@ -3,7 +3,7 @@ Output tools/demo/repl-workflow/repl-workflow.mp4
 Require R
 
 Set Shell "bash"
-Set FontSize 20
+Set FontSize 18
 Set Width 1200
 Set Height 800
 Set Padding 25
@@ -11,209 +11,160 @@ Set Framerate 15
 Set PlaybackSpeed 1
 Set Theme "GruvboxDark"
 Set WindowBar Colorful
-Set TypingSpeed 50ms
+Set TypingSpeed 25ms
+
+Hide
 
 Type "R --quiet"
 Sleep 1s
 Enter
 Sleep 1s
 
-Type 'source("tools/demo/repl-workflow/launch-demo.R")'
+Type 'options(bg_demo_autostart = FALSE); source("tools/demo/repl-workflow/launch-demo.R"); demo_repl_workflow(start_repl = TRUE)'
 Sleep 1s
 Enter
-
-# Wait for setup (clean baseline fit + warning branch)
 Sleep 3s
 
-Type "# 1. Check workflow state - blocked by protocol"
-Enter
-Sleep 500ms
+Show
+
+Sleep 2s
+
 Type "status"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 3s
 
-Type "# 2. See what the protocol engine requires"
+Type 'result "Alternative: Robust Prior"'
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 4s
+
 Type "guide"
 Sleep 1s
 Enter
-Sleep 3s
+Sleep 4s
 
-Type "# 3. View actionable suggested actions"
-Enter
-Sleep 500ms
-Type "actions"
-Sleep 1s
-Enter
-Sleep 3s
-
-Type "# 4. Inspect the branch fit to understand the warning"
-Enter
-Sleep 500ms
-Type 'result "Fit Centered Parametrization"'
-Sleep 1s
-Enter
-Sleep 3s
-
-Type "# 5. Execute the template-backed remediation action"
-Enter
-Type "#    Action 2 suggests a non-centered revision"
-Enter
-Sleep 500ms
 Type "do 2"
 Sleep 1s
 Enter
 Sleep 1s
 
-# Enter label for the revised branch
-Type "Fit Non-Centered Revision"
-Sleep 500ms
-Enter
-Sleep 500ms
-
-# Apply suggested parameter changes
 Type "Y"
-Sleep 500ms
-Enter
-Sleep 2s
-
-Type "# 6. The revised branch is created with clean params"
-Enter
-Type "#    Now run it to verify the fix"
-Enter
-Sleep 500ms
-Type "run"
 Sleep 1s
 Enter
-Sleep 4s
+Sleep 1s
 
-Type "# 7. Check the revised fit's diagnostics"
+Type "Alternative: Robust Prior (fixed)"
+Sleep 1s
 Enter
-Sleep 500ms
-Type 'result "Fit Non-Centered Revision"'
+Sleep 1s
+
+Type "Y"
 Sleep 1s
 Enter
 Sleep 3s
 
-Type "# 8. Retire the stale warning branch"
-Enter
-Sleep 500ms
-Type 'retire "Fit Centered Parametrization"'
+Type "run"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 3s
 
-Type "# 9. Review the comparison obligation"
+Type 'result "Alternative: Robust Prior (fixed)"'
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 4s
+
+Type 'retire "Alternative: Robust Prior"'
+Sleep 1s
+Enter
+Sleep 3s
+
 Type "guide"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 4s
 
-Type "# 10. With two clean fits, execute the comparison template"
-Enter
-Sleep 500ms
 Type "do 1"
 Sleep 1s
 Enter
 Sleep 1s
 
-# Comparison label
-Type "Compare Baseline vs Revision"
-Sleep 500ms
+Type "Y"
+Sleep 1s
 Enter
-Sleep 2s
+Sleep 1s
 
-Type "# 11. Run the comparison node"
+Type "Compare Baseline vs Revision"
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 3s
+
 Type "run"
 Sleep 1s
 Enter
 Sleep 4s
 
-Type "# 12. Review the template-backed comparison decision action"
+Type 'result "Compare Baseline vs Revision"'
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 4s
+
 Type "guide"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 3s
 
-Type "# 13. Execute the review-decision template"
-Enter
-Sleep 500ms
 Type "do 1"
 Sleep 1s
 Enter
 Sleep 1s
 
-# Model comparison choice
+Type "Y"
+Sleep 1s
+Enter
+Sleep 1s
+
 Type "prefer_revised_branch"
-Sleep 500ms
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 1s
 
-# Model comparison rationale
-Type "The revised branch resolves the diagnostic warning cleanly."
-Sleep 500ms
+Type "The robust prior model has significantly better predictive performance (ELPD diff 14.2, SE 4.5)."
+Sleep 1s
 Enter
-Sleep 2s
+Sleep 3s
 
-Type "# 14. Review the remaining branch obligation"
-Enter
-Sleep 500ms
 Type "guide"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 4s
 
-Type "# 15. Explicitly accept the revised branch"
-Enter
-Sleep 500ms
 Type "do 1"
 Sleep 1s
 Enter
 Sleep 1s
 
-# Accept the branch
-Type "1"
-Sleep 500ms
-Enter
-Sleep 500ms
-
-# Branch disposition rationale
-Type "Promote the revised branch as the accepted analysis path."
-Sleep 500ms
-Enter
-Sleep 2s
-
-Type "# 16. The workflow is now healthy"
-Enter
-Sleep 500ms
-Type "guide"
+Type "Y"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 1s
 
-Type "# 17. Check overall status"
+Type "1"
+Sleep 1s
 Enter
-Sleep 500ms
+Sleep 1s
+
+Type "Promote the revised branch as the accepted analysis path."
+Sleep 1s
+Enter
+Sleep 3s
+
 Type "status"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 4s
 
-Type "# 18. See the final graph with the comparison and accepted branch"
-Enter
-Sleep 500ms
-Type "nodes"
-Sleep 1s
-Enter
-Sleep 3s
+Hide
 
 Type "exit"
 Sleep 1s
@@ -223,3 +174,5 @@ Sleep 1s
 Type 'q("no")'
 Sleep 1s
 Enter
+
+Show

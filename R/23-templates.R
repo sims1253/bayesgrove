@@ -31,6 +31,22 @@ bg_list_templates <- function(template_ref = NULL) {
 }
 
 #' @keywords internal
+bg_review_decision_types <- function() {
+  c(
+    "computation_review",
+    "fit_criticism",
+    "prior_rationale",
+    "prior_check_review",
+    "posterior_check_review",
+    "sbc_review",
+    "model_comparison",
+    "branch_disposition",
+    "causal_question",
+    "pad_annotation_review"
+  )
+}
+
+#' @keywords internal
 bg_builtin_template_registry <- function() {
   list(
     "diagnostic_check" = list(
@@ -93,20 +109,10 @@ bg_builtin_template_registry <- function() {
       default_label = "{decision_type}",
       required_basis = list(
         action_kind = "record_decision",
-        decision_type = c(
-          "computation_review",
-          "fit_criticism",
-          "model_comparison",
-          "branch_disposition"
-        )
+        decision_type = bg_review_decision_types()
       ),
       parameter_suggestions = list(
-        decision_types = c(
-          "computation_review",
-          "fit_criticism",
-          "model_comparison",
-          "branch_disposition"
-        )
+        decision_types = bg_review_decision_types()
       ),
       description = paste0(
         "Record an explicit review-oriented decision tied to current summaries, ",
@@ -147,13 +153,7 @@ bg_action_template_ref <- function(action) {
   decision_type <- payload$decision_type %||% NULL
   if (
     identical(action$kind %||% NULL, "record_decision") &&
-      decision_type %in%
-        c(
-          "computation_review",
-          "fit_criticism",
-          "model_comparison",
-          "branch_disposition"
-        )
+      decision_type %in% bg_review_decision_types()
   ) {
     return("review_decision")
   }
@@ -206,8 +206,14 @@ bg_template_review_prompt <- function(action, decision_type) {
     decision_type,
     "computation_review" = "Is this computation acceptable for downstream use?",
     "fit_criticism" = "What is your fit criticism assessment for these summaries?",
+    "prior_rationale" = "How do the current priors support this branch and inferential goal?",
+    "prior_check_review" = "What is your review of the current prior predictive evidence?",
+    "posterior_check_review" = "What is your review of the current posterior predictive evidence?",
+    "sbc_review" = "What is your assessment of the current SBC evidence?",
     "model_comparison" = "What is your explicit model comparison decision?",
     "branch_disposition" = "Should this branch be accepted or rejected?",
+    "causal_question" = "What causal question, estimand, or DAG review should be recorded for this branch?",
+    "pad_annotation_review" = "How should this branch be described using PAD taxonomy and utility language?",
     action$title %||% "Record review decision"
   )
 }

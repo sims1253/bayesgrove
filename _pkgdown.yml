@@ -26,6 +26,8 @@ navbar:
         href: articles/simulation-study.html
       - text: "Guided Review Loop"
         href: articles/guided-review-loop.html
+      - text: "Extending bayesgrove"
+        href: articles/extensions.html
     architecture:
       text: "Architecture"
       href: articles/dagriculture-boundary.html
@@ -118,6 +120,7 @@ articles:
     desc: ~
     contents:
       - "dagriculture-boundary"
+      - "extensions"
       - "getting-started"
       - "guided-review-loop"
       - "simulation-study"

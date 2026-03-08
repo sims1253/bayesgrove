@@ -67,8 +67,12 @@ bg_demo_repl_register_kinds <- function(handle) {
 
   bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
     list(
-      comparison = "loo_compare",
-      models = names(inputs),
+      loo_comparison = data.frame(
+        model = c("Alternative: Robust Prior (fixed)", "Baseline Fit"),
+        elpd_diff = c(0.0, -14.2),
+        se_diff = c(0.0, 4.5),
+        p_loo = c(5.2, 12.1)
+      ),
       summaries = list(list(
         summary_kind = "comparison_results",
         severity = "ok",
@@ -121,16 +125,16 @@ bg_demo_warn_branch <- function(handle, n_fit) {
   centered_branch <- bg_branch_with_continuation(
     project = handle,
     node_id = n_fit,
-    label = "Fit Centered Parametrization"
+    label = "Alternative: Robust Prior"
   )
 
   bg_update_node(
     handle,
     centered_branch$branch$root_node_id,
-    label = "Fit Centered Parametrization",
+    label = "Alternative: Robust Prior",
     params = list(
       parametrization = "centered",
-      variant = "centered_branch"
+      variant = "robust_prior_centered"
     )
   )
 
@@ -148,8 +152,8 @@ bg_demo_warn_branch <- function(handle, n_fit) {
     project = handle,
     branch_id = centered_branch$branch$branch_id,
     kind = "observable_prediction",
-    label = "Compare parametrizations",
-    rationale = "Compare the branch against the clean baseline fit."
+    label = "Compare priors",
+    rationale = "Compare a robust prior branch against the clean baseline fit."
   )
 
   suppressMessages(
@@ -163,17 +167,17 @@ bg_demo_revision_branch <- function(handle, warning_branch) {
   revised <- bg_branch_with_continuation(
     project = handle,
     node_id = warning_branch$branch$root_node_id,
-    label = "Fit Non-Centered Revision",
+    label = "Alternative: Robust Prior (fixed)",
     continuation_kinds = c("ppc")
   )
 
   bg_update_node(
     handle,
     revised$branch$root_node_id,
-    label = "Fit Non-Centered Revision",
+    label = "Alternative: Robust Prior (fixed)",
     params = list(
       parametrization = "non-centered",
-      variant = "revision_branch"
+      variant = "robust_prior_non_centered"
     )
   )
 
@@ -245,7 +249,7 @@ bg_demo_record_comparison <- function(handle) {
     scope = "project",
     prompt = "Compare candidate branches",
     choice = "prefer_revised_branch",
-    rationale = "The revised branch resolves the diagnostic warning cleanly.",
+    rationale = "The robust prior model has significantly better predictive performance (ELPD diff 14.2, SE 4.5).",
     kind = "model_comparison",
     metadata = comparison_action$payload[c(
       "fit_node_ids",
@@ -286,6 +290,109 @@ bg_demo_record_disposition <- function(handle, branch_id) {
       comparison_context = disposition_action$payload$comparison_context
     )
   )
+}
+
+bg_demo_register_showcase_kinds <- function(handle) {
+  bg_register_node_kind(handle, "load_data", executor = function(node, inputs) {
+    list(
+      rows = 200L,
+      missing_outcome_rows = 10L,
+      note = "Loaded the analysis table."
+    )
+  })
+
+  bg_register_node_kind(
+    handle,
+    "clean_data",
+    executor = function(node, inputs) {
+      raw <- inputs[[1]]
+      rows_before <- raw$rows %||% 200L
+      dropped_rows <- raw$missing_outcome_rows %||% 10L
+      rows_after <- rows_before - dropped_rows
+
+      list(
+        rows_before = rows_before,
+        rows_after = rows_after,
+        dropped_rows = dropped_rows,
+        dropped_pct = sprintf("%.0f%%", 100 * dropped_rows / rows_before),
+        rule = "Removed rows with missing outcome values"
+      )
+    }
+  )
+
+  bg_register_node_kind(
+    handle,
+    "fit_simple",
+    executor = function(node, inputs) {
+      cleaned <- inputs[[1]]
+
+      list(
+        model = "linear_regression",
+        formula = "outcome ~ treatment + age",
+        rows_used = cleaned$rows_after %||% NA_integer_,
+        status = "Fit completed after explicit data review."
+      )
+    }
+  )
+}
+
+bg_demo_build_showcase <- function(project_root) {
+  handle <- bg_init(
+    path = project_root,
+    project_name = "Missing Data Review",
+    workflow_packs = list("bayesguide.default_bayesian")
+  )
+
+  bg_demo_register_showcase_kinds(handle)
+
+  n_load <- bg_add_node(handle, "load_data", label = "Load Data")
+  n_clean <- bg_add_node(
+    handle,
+    "clean_data",
+    label = "Clean Data",
+    inputs = n_load
+  )
+  n_fit <- bg_add_node(
+    handle,
+    "fit_simple",
+    label = "Baseline Fit",
+    inputs = n_clean
+  )
+
+  bg_add_gate(
+    project = handle,
+    from = n_clean,
+    to = n_fit,
+    prompt = "Proceed after dropping 5% of rows with missing outcome values?",
+    options = c("yes", "no")
+  )
+
+  suppressMessages(bg_run(handle, targets = n_clean, mode = "sync"))
+
+  list(
+    handle = handle,
+    n_load = n_load,
+    n_clean = n_clean,
+    n_fit = n_fit
+  )
+}
+
+demo_repl_showcase <- function(start_repl = interactive()) {
+  bg_demo_repl_load_package()
+
+  project_root <- file.path(tempdir(), "bg-vhs-showcase")
+  unlink(project_root, recursive = TRUE, force = TRUE)
+
+  demo <- bg_demo_build_showcase(project_root)
+  demo$project_root <- project_root
+
+  assign("bg_repl_demo", demo, envir = .GlobalEnv)
+
+  if (isTRUE(start_repl)) {
+    bg_repl(demo$handle, initial_scope = "project")
+  }
+
+  invisible(demo)
 }
 
 bg_demo_repl_intro <- function(checkpoint) {

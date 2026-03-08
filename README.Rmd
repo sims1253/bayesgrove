@@ -23,21 +23,46 @@ knitr::opts_chunk$set(
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
-Bayesian analysis is iterative by design. You fit a model, inspect diagnostics, revise your assumptions, branch into alternatives, compare candidates, and eventually commit to one path. The problem is that this process quietly disappears into unstructured scripts. Three months later—or when a collaborator picks up the project—the *why* behind every modeling decision is gone.
+Bayesian work rarely moves in a straight line. You fit a model, check the
+diagnostics, revise a prior, branch into an alternative, compare candidates,
+and decide what to keep. Most of that work still disappears into scripts,
+scratch notes, and memory. Months later, you can often rerun the code, but you
+cannot easily recover why the analysis changed.
 
-**bayesgrove** is a graph-based workflow orchestrator for iterative Bayesian analysis in R. While general-purpose pipelines like `targets` are built to skip up-to-date computations, bayesgrove is built to enforce statistical workflow. It separates the *execution graph* (the DAG of computations that run) from the *decision log* (why you ran them), and enforces a structured review loop: diagnostic warnings block downstream work, model criticism is recorded before repair, clean candidates are formally compared before one is accepted. `targets` doesn't know what a divergent transition is; bayesgrove does, and it will block your posterior predictive checks until you formally record how you plan to fix it.
+**bayesgrove** keeps both parts of the job in one place: what ran and why. It
+stores the execution graph next to the decision record, and it turns executor
+summaries into explicit workflow guidance. Warning diagnostics can block
+downstream work, fit criticism can trigger a repair branch, and clean
+candidates can require a real comparison before one branch is accepted.
 
 ## What you get
 
-- **Decision provenance.** Attach explicit rationales to prior choices, reparametrizations, data exclusions, or any other modeling decision—directly inside the workflow, not in a comment someone might miss.
+- **Decision provenance.** Record why you changed a prior, reparametrized a
+  model, or excluded data, inside the workflow instead of in comments that can
+  drift or disappear.
 
-- **Content-aware caching.** Each node carries a SHA-256 fingerprint of its inputs and parameters. Expensive MCMC fits are skipped when nothing upstream changed semantically. Change a prior and only the affected subtree reruns.
+- **Content-aware caching.** Each node stores a SHA-256 fingerprint of its
+  inputs and parameters. If nothing meaningful changed upstream, bayesgrove can
+  skip an expensive fit. If you change a prior, it reruns only the affected
+  subtree.
 
-- **Enforced review.** The built-in workflow protocol derives obligations from the summaries your executors return. Warning diagnostics create a `review_computation_validity` obligation. Branch-scoped fit warnings also trigger `review_fit_criticism`. Once two candidates are clean, the protocol requires an explicit `compare_candidate_branches` step. Each branch then needs an `accept_or_reject_branch` disposition before the loop closes.
+- **Enforced review.** The built-in workflow protocol reads the summaries your
+  executors return and turns them into obligations. Warning diagnostics create a
+  `review_computation_validity` step. Branch-scoped fit warnings create
+  `review_fit_criticism`. Once two candidates are clean, bayesgrove asks for an
+  explicit comparison and then an accept-or-reject decision for each branch.
 
-- **Branching with full lineage.** Fork from any node without losing the baseline. Branch goals, decisions, and diagnostic history travel with the branch. The lineage of any branch is always recoverable.
+- **Branching with full lineage.** Fork from any node without losing the
+  baseline. Branch goals, decisions, and diagnostics stay attached to the
+  branch, so you can always reconstruct how a result came to be.
 
-- **Reproducible handoffs.** Export the full decision tree and graph topology into a portable bundle or a structured markdown report with a single function call.
+- **Reproducible handoffs.** Export the decision tree and graph topology as a
+  portable bundle or a structured markdown report.
+
+- **Optional Bayesian semantics packs.** Start with a small default review loop,
+  then add prior rationale, prior and posterior predictive checks, SBC review,
+  stacking-aware model selection, minimal causal framing, and PAD annotations
+  when you need them.
 
 ## Installation
 
@@ -48,14 +73,13 @@ pak::pkg_install("sims1253/bayesgrove")
 
 ## API stability
 
-The package surface is intentionally split between stable, experimental, and
-internal-but-exported functions. Use `bg_api_boundary()` to inspect that
-classification directly from R, including which functions are part of the
-smaller remote IPC contract exposed through the experimental `bg_serve()`
-server.
+The package has a stable core, an experimental layer, and a smaller set of
+internal-but-exported helpers. Use `bg_api_boundary()` to inspect that boundary
+from R, including the smaller remote IPC contract exposed through the
+experimental `bg_serve()` server.
 
-Async execution is also intentionally narrow now: synchronous execution is
-always available, and background execution relies on `mirai`.
+Async execution is narrow on purpose. Synchronous execution is always
+available, and background execution relies on `mirai`.
 
 ```{r api-boundary, eval = FALSE}
 boundary <- bg_api_boundary()
@@ -69,10 +93,11 @@ server$stop()
 
 ## Guided terminal client
 
-Use `bg_repl(handle)` when you want to stay inside a guided review loop instead
-of bouncing between low-level package calls. The REPL opens with a dashboard
-that shows workflow state, active obligations, held nodes, recent decisions,
-branch-scoped gates, and branch lineage when you are inside a branch.
+Use `bg_repl(handle)` when you want the package to lead you through the review
+loop instead of juggling low-level calls by hand. The REPL opens with a
+dashboard that shows workflow state, active obligations, held nodes, recent
+decisions, branch-scoped gates, and branch lineage when you are inside a
+branch.
 
 The main guided commands are:
 
@@ -82,13 +107,55 @@ The main guided commands are:
 - `lineage` to inspect the current branch with its ancestors
 - `export md report.md` or `export html report.html` to write a workflow report
 
+## Optional workflow packs
+
+The default `bayesguide.default_bayesian` pack stays intentionally small. If
+you want a richer Bayesian workflow, add the optional packs that match your
+project:
+
+```{r optional-packs, eval = FALSE}
+handle <- bg_init(
+  path = file.path(tempdir(), "bg-advanced"),
+  project_name = "advanced_workflow",
+  workflow_packs = list(
+    "bayesguide.default_bayesian",
+    "bayesgrove.prior_workflow",
+    "bayesgrove.model_checks",
+    "bayesgrove.model_selection",
+    "bayesgrove.causal_minimal",
+    "bayesgrove.pad_scaffold"
+  )
+)
+```
+
+- `bayesgrove.prior_workflow` asks for prior rationale and review of fresh
+  `prior_predictive_check` summaries.
+- `bayesgrove.model_checks` adds posterior predictive review, and on
+  branch-scoped `latent_inference` goals it also asks for SBC.
+- `bayesgrove.model_selection` reviews fresh comparison evidence from
+  `compare` or `comparison` nodes, including `comparison_results` and optional
+  `stacking_weights`.
+- `bayesgrove.causal_minimal` adds an advisory branch-scoped causal-framing
+  prompt for `latent_inference` branches.
+- `bayesgrove.pad_scaffold` adds an advisory PAD annotation prompt once a
+  branch has an inferential goal.
+
+These packs read plain-data summaries returned by your executors, so you can
+adopt them incrementally without changing the graph runtime. See
+`vignette("extensions", package = "bayesgrove")` for a guide to writing node
+sets, domain modules, and backend plugins around that contract.
+
 ## A minimal example
 
-The executor is a plain R function—you write the same `cmdstanr` code you
-always would, and return a `summaries` list alongside the fit. *(Note: Future versions of bayesgrove will include built-in `cmdstanr` and `brms` executors to reduce boilerplate. This example builds one from scratch to show the mechanics).* bayesgrove reads
-those summaries to derive workflow obligations, cache validity, and holds. The
-rest of the machinery (DAG, fingerprinting, branching) is invisible until you
-need it.
+The executor is a plain R function. You write the same `cmdstanr` code you
+already use and return a `summaries` list alongside the fit. *(Future versions
+of bayesgrove will include built-in `cmdstanr` and `brms` executors to reduce
+boilerplate. This example builds one from scratch so the contract stays
+visible.)* bayesgrove reads those summaries to derive workflow obligations,
+cache validity, and holds. The rest of the machinery, DAG management,
+fingerprinting, and branching, stays out of the way until you need it.
+
+You need a working `cmdstanr` installation to run this example as written.
 
 The example uses the eight-schools model in its centered parametrization, which
 reliably produces divergent transitions and is the canonical motivation for
@@ -198,7 +265,8 @@ bg_run(handle, targets = n_fit, mode = "sync")
 
 The funnel geometry of the centered parametrization produces divergent
 transitions. bayesgrove reads the `hmc_diagnostics` summary returned by the
-executor and surfaces a blocking obligation automatically. We can inspect the summaries that triggered the hold:
+executor and surfaces a blocking obligation automatically. We can inspect the
+summaries that triggered the hold:
 
 ```{r diagnostics}
 summaries <- bg_read_summaries(handle)
@@ -310,7 +378,7 @@ comparison, and report export.
 
 ## Conceptual structure
 
-bayesgrove organizes every analysis around three distinct layers:
+In practice, bayesgrove keeps three layers separate:
 
 | Layer | Contents |
 |---|---|
@@ -330,6 +398,7 @@ provenance—are bayesgrove's own layer on top of the graph primitives.
 | `getting-started` | Full project lifecycle: gates, caching, branching, comparison, and disposition |
 | `guided-review-loop` | Complete criticism-and-repair cycle with deterministic mock executors |
 | `simulation-study` | Simulation-based workflow with confounded treatment and explicit gate decisions |
+| `extensions` | How to build node sets, backend plugins, domain modules, and summary-driven extensions |
 | `dagriculture-boundary` | How the graph primitives relate to workflow semantics |
 
 ```r
@@ -338,11 +407,10 @@ vignette("guided-review-loop", package = "bayesgrove")
 
 ## Background
 
-The bayesgrove workflow is shaped by the iterative model-building perspective
-described in Gelman et al. (2020, *Bayesian Workflow*,
+bayesgrove draws on the iterative model-building perspective described in
+Gelman et al. (2020, *Bayesian Workflow*,
 [arXiv:2011.01808](https://arxiv.org/abs/2011.01808)) and the
-simulation-based calibration approach of Talts et al. (2018,
-[arXiv:1804.06788](https://arxiv.org/abs/1804.06788)). The obligation and
-decision layers take direct inspiration from the practical need to record the
-*why* behind each modeling step, not just the *what*—so that analysis lineage
-is an artifact of the workflow, not an afterthought.
+simulation-based calibration work of Talts et al. (2018,
+[arXiv:1804.06788](https://arxiv.org/abs/1804.06788)). The package keeps that
+spirit in the runtime itself: it treats the *why* behind an analysis step as
+part of the workflow, not as something you are expected to remember later.

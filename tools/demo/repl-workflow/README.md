@@ -5,6 +5,7 @@ walkthrough for every use case.
 
 Available tapes:
 
+- `repl-showcase.tape`: the shortest social-share clip; warning, repair, rerun, and comparison-ready payoff
 - `repl-remediation.tape`: starts at a warning-driven branch and shows the
   template-backed remediation loop
 - `repl-comparison.tape`: starts at the comparison-ready checkpoint and focuses
@@ -16,9 +17,17 @@ Available tapes:
 Each focused tape uses the same launcher and checkpoints into a meaningful
 state instead of replaying the full setup story every time.
 
+If you want one asset for Twitter/X or the Stan Forums, start with
+`repl-showcase.mp4`.
+
 These demos are intentionally REPL-first. They exercise the guided terminal
 client surface, not the separate experimental `bg_serve()` WebSocket IPC
 boundary used by external clients.
+
+They also intentionally stay on the narrow `bayesguide.default_bayesian`
+workflow pack so the tapes remain short and deterministic. For examples of the
+new prior-workflow, model-check, model-selection, causal, and PAD extension
+surfaces, see `vignette("extensions", package = "bayesgrove")`.
 
 This matches the package's current strengths and the design notes in
 [`design/system-design.md`](/home/m0hawk/Documents/bayesguide/design/system-design.md)
@@ -55,6 +64,7 @@ Render any tape from the repository root:
 
 ```bash
 vhs tools/demo/repl-workflow/repl-remediation.tape
+vhs tools/demo/repl-workflow/repl-showcase.tape
 vhs tools/demo/repl-workflow/repl-comparison.tape
 vhs tools/demo/repl-workflow/repl-disposition.tape
 vhs tools/demo/repl-workflow/repl-workflow.tape

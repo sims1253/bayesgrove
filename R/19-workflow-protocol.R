@@ -4,6 +4,8 @@ bg_builtin_workflow_registry <- local({
 
   function() {
     if (is.null(registry)) {
+      phase10_version <- "0.1.0"
+
       registry <<- list(
         "bayesguide.default_bayesian" = list(
           pack_id = "bayesguide.default_bayesian",
@@ -21,6 +23,56 @@ bg_builtin_workflow_registry <- local({
             bg_default_bayesian_fit_criticism_actions,
             bg_default_bayesian_comparison_decision_actions,
             bg_default_bayesian_disposition_actions
+          )
+        ),
+        "bayesgrove.prior_workflow" = list(
+          pack_id = "bayesgrove.prior_workflow",
+          version = phase10_version,
+          obligation_providers = list(
+            bg_phase10_prior_workflow_obligations
+          ),
+          action_providers = list(
+            bg_phase10_prior_workflow_actions
+          )
+        ),
+        "bayesgrove.model_checks" = list(
+          pack_id = "bayesgrove.model_checks",
+          version = phase10_version,
+          obligation_providers = list(
+            bg_phase10_model_checks_obligations
+          ),
+          action_providers = list(
+            bg_phase10_model_checks_actions
+          )
+        ),
+        "bayesgrove.model_selection" = list(
+          pack_id = "bayesgrove.model_selection",
+          version = phase10_version,
+          obligation_providers = list(
+            bg_phase10_model_selection_obligations
+          ),
+          action_providers = list(
+            bg_phase10_model_selection_actions
+          )
+        ),
+        "bayesgrove.causal_minimal" = list(
+          pack_id = "bayesgrove.causal_minimal",
+          version = phase10_version,
+          obligation_providers = list(
+            bg_phase10_causal_minimal_obligations
+          ),
+          action_providers = list(
+            bg_phase10_causal_minimal_actions
+          )
+        ),
+        "bayesgrove.pad_scaffold" = list(
+          pack_id = "bayesgrove.pad_scaffold",
+          version = phase10_version,
+          obligation_providers = list(
+            bg_phase10_pad_scaffold_obligations
+          ),
+          action_providers = list(
+            bg_phase10_pad_scaffold_actions
           )
         )
       )
@@ -77,14 +129,21 @@ bg_normalize_workflow_pack_refs <- function(specs) {
 #' @param project A `bg_handle`.
 #'
 #' @return A list of active workflow-pack descriptors. The built-in default
-#'   pack id is `bayesguide.default_bayesian`.
+#'   pack id is `bayesguide.default_bayesian`. Additional built-in pack ids are
+#'   `bayesgrove.prior_workflow`, `bayesgrove.model_checks`,
+#'   `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and
+#'   `bayesgrove.pad_scaffold`.
 #'
 #' @details The built-in default pack is an opinionated Bayesian workflow
 #'   layer. It derives computation-review obligations from fresh warning/error
 #'   summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 #'   requires project-scoped comparison decisions when multiple fit candidates
 #'   are clean, and asks each candidate branch to be explicitly accepted or
-#'   rejected after a current comparison exists.
+#'   rejected after a current comparison exists. The optional phase-10 packs
+#'   extend that vocabulary with prior rationale and prior predictive review,
+#'   posterior predictive and SBC review, model-selection evidence including
+#'   stacking weights, minimal causal framing, and PAD annotations with utility
+#'   dimensions.
 #' @export
 bg_workflow_packs <- function(project) {
   S7::check_is_S7(project, bg_handle)
@@ -443,6 +502,12 @@ bg_workflow_external_holds <- function(project, plan = NULL) {
 #'   exist, and
 #' - `accept_or_reject_branch` plus `branch_disposition` actions after a
 #'   current comparison exists for an active candidate set.
+#'
+#' When the optional phase-10 packs are active, the result can also include
+#' prior-rationale recording, prior and posterior predictive review,
+#' simulation-based calibration review, model-selection review keyed to
+#' `model_comparison` and `stacking_weights` summaries, causal-question
+#' prompts, and PAD annotation review.
 #'
 #' @param project A `bg_handle`.
 #' @param scope One of `project` or `branch`.

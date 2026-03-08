@@ -942,17 +942,28 @@ bg_repl_print_action_preview <- function(action, heading = "Action Preview") {
   }
 
   if (length(preview$payload) > 0) {
-    payload_str <- paste(
-      vapply(
-        names(preview$payload),
-        function(name) {
-          paste0(name, " = ", bg_repl_format_value(preview$payload[[name]]))
-        },
-        character(1)
-      ),
-      collapse = ",\n"
+    # Filter out internal protocol metadata to keep the output readable
+    internal_keys <- c(
+      "summary_ids",
+      "comparison_context",
+      "comparison_signature",
+      "candidate_signature",
+      "fit_node_ids",
+      "branch_ids",
+      "source_node_id"
     )
-    cli::cli_bullets(c(" " = "{cli::col_grey('Payload:')} {payload_str}"))
+    printable_payload <- preview$payload[setdiff(
+      names(preview$payload),
+      internal_keys
+    )]
+
+    if (length(printable_payload) > 0) {
+      cli::cli_bullets(c(" " = "{cli::col_grey('Payload:')}"))
+      for (name in names(printable_payload)) {
+        val <- bg_repl_format_value(printable_payload[[name]])
+        cli::cli_text("     {cli::col_cyan(name)}: {val}")
+      }
+    }
   }
 
   invisible(preview)
@@ -1795,10 +1806,11 @@ bg_repl <- function(project, initial_scope = NULL) {
                     val <- res[[nm]]
                     if (is.atomic(val) && length(val) == 1) {
                       cli::cli_bullets(c("*" = "{.strong {nm}}: {.val {val}}"))
-                    } else if (is.data.frame(val)) {
+                    } else if (is.data.frame(val) || is.matrix(val)) {
                       cli::cli_bullets(c(
-                        "*" = "{.strong {nm}}: data.frame [{nrow(val)} x {ncol(val)}]"
+                        "*" = "{.strong {nm}}:"
                       ))
+                      print(val)
                     } else {
                       cli::cli_bullets(c(
                         "*" = "{.strong {nm}}: {class(val)[1]} [{length(val)}]"

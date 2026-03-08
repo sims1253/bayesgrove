@@ -29,6 +29,11 @@ The loop covers the current package strengths:
 - comparison and final branch disposition,
 - report export after iteration.
 
+It intentionally exercises only the narrow `bayesguide.default_bayesian` pack.
+If you want prior rationale, predictive checks, SBC review, stacking-aware
+model selection, or PAD and causal scaffolds, add the optional phase-10 packs
+described in `vignette("extensions", package = "bayesgrove")`.
+
 # Setup
 
 ```{r setup}

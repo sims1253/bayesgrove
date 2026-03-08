@@ -2,6 +2,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/../../.." && pwd)"
 
 if ! command -v vhs >/dev/null 2>&1; then
   echo "Missing required command: vhs" >&2
@@ -35,6 +36,8 @@ if [ "${#tapes[@]}" -eq 0 ]; then
   echo "No tape files found." >&2
   exit 1
 fi
+
+cd "$repo_root"
 
 for tape in "${tapes[@]}"; do
   if [ ! -f "$tape" ]; then

@@ -9,7 +9,13 @@
 #'   normalized and fixed at project initialization. The built-in default is
 #'   `bayesguide.default_bayesian`, which provides computation review,
 #'   branch-scoped fit criticism, candidate-comparison guidance, and explicit
-#'   branch acceptance or rejection decisions.
+#'   branch acceptance or rejection decisions. Optional built-in packs add
+#'   prior rationale and prior predictive review
+#'   (`bayesgrove.prior_workflow`), posterior predictive and SBC review
+#'   (`bayesgrove.model_checks`), model-selection review with stacking weights
+#'   (`bayesgrove.model_selection`), minimal causal framing
+#'   (`bayesgrove.causal_minimal`), and PAD annotations
+#'   (`bayesgrove.pad_scaffold`).
 #'
 #' @return A `bg_handle` representing the open project.
 #' @export
