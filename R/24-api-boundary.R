@@ -48,25 +48,25 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_add_node",
       classification = "stable",
       note = "Add a node to the graph",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_connect",
       classification = "stable",
       note = "Connect two nodes",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_update_node",
       classification = "stable",
       note = "Update node properties",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_remove_node",
       classification = "stable",
       note = "Remove a node from the graph",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_read_graph",
@@ -98,13 +98,13 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_branch_lineage",
       classification = "stable",
       note = "Get ancestor branch lineage",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_list_branches",
       classification = "stable",
       note = "List all branches",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_retire_node",
@@ -136,7 +136,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_answer_gate",
       classification = "stable",
       note = "Answer a decision gate",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_pending_gates",
@@ -148,7 +148,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_record_decision",
       classification = "stable",
       note = "Record an explicit decision",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
 
     # === Stable: Execution Control ===
@@ -168,7 +168,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_submit",
       classification = "stable",
       note = "Submit workflow asynchronously",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_wait",
@@ -180,7 +180,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_cancel",
       classification = "stable",
       note = "Cancel an async run",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_pause",
@@ -198,7 +198,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_status",
       classification = "stable",
       note = "Get workflow status",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_result",
@@ -280,7 +280,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_snapshot",
       classification = "stable",
       note = "Get project snapshot",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_bundle",
@@ -338,7 +338,7 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_next_actions",
       classification = "experimental",
       note = "Compute next workflow actions",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
       fn = "bg_partition_protocol_by_scope",
@@ -439,6 +439,12 @@ bg_build_api_boundary_registry <- function() {
       classification = "stable",
       note = "Query API classification registry",
       remote_accessible = FALSE
+    ),
+    list(
+      fn = "bg_serve",
+      classification = "experimental",
+      note = "Serve the local experimental IPC protocol",
+      remote_accessible = FALSE
     )
   )
 
@@ -494,9 +500,9 @@ bg_build_api_boundary_registry <- function() {
 #'
 #' The `remote_accessible` column indicates whether a function is part of the
 #' IPC contract exposed via remote protocol (e.g., WebSocket). Functions marked
-#' `TRUE` form a deliberate public contract for external clients. Currently all
-#' functions have `remote_accessible = FALSE` since no `bg_serve()` remote
-#' protocol layer exists yet.
+#' `TRUE` form a deliberate public contract for external clients. The
+#' remote-accessible set is intentionally smaller than the full in-process R API
+#' and backs the experimental `bg_serve()` protocol boundary.
 #'
 #' @export
 #' @examples

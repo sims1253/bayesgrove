@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "bg_command.json",
+  "title": "bg_command",
+  "description": "Command message accepted by bg_serve(). Each command declares an explicit argument shape; unexpected args are rejected.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_snapshot"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_status"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_next_actions"] },
+        "args": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": ["project", "branch"]
+            },
+            "branch_id": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_list_branches"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_branch_lineage"] },
+        "args": {
+          "type": "object",
+          "required": ["branch_id"],
+          "properties": {
+            "branch_id": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_add_node"] },
+        "args": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "type": "string" },
+            "label": { "type": "string" },
+            "params": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "inputs": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_connect"] },
+        "args": {
+          "type": "object",
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" },
+            "edge_type": { "type": "string" },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_update_node"] },
+        "args": {
+          "type": "object",
+          "required": ["node_id"],
+          "properties": {
+            "node_id": { "type": "string" },
+            "label": { "type": "string" },
+            "params": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_remove_node"] },
+        "args": {
+          "type": "object",
+          "required": ["node_id"],
+          "properties": {
+            "node_id": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_answer_gate"] },
+        "args": {
+          "type": "object",
+          "required": ["id", "choice", "rationale"],
+          "properties": {
+            "id": { "type": "string" },
+            "choice": { "type": "string" },
+            "rationale": { "type": "string" },
+            "refs": {
+              "type": "array"
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_record_decision"] },
+        "args": {
+          "type": "object",
+          "required": ["scope", "prompt", "choice", "rationale"],
+          "properties": {
+            "scope": { "type": "string" },
+            "prompt": { "type": "string" },
+            "choice": { "type": "string" },
+            "alternatives": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "rationale": { "type": "string" },
+            "refs": {
+              "type": "array"
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "kind": { "type": "string" },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_submit"] },
+        "args": {
+          "type": "object",
+          "properties": {
+            "targets": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
+        "command": { "type": "string", "enum": ["bg_cancel"] },
+        "args": {
+          "type": "object",
+          "required": ["run_id"],
+          "properties": {
+            "run_id": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

@@ -8,7 +8,7 @@ bg_submit(
   project,
   targets = NULL,
   mode = c("async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 )
 }
 \arguments{
@@ -18,7 +18,8 @@ bg_submit(
 
 \item{mode}{Execution mode: 'async'.}
 
-\item{backend}{The async backend to use ("mirai" or "callr"). Default is "callr" for MVP.}
+\item{backend}{The async backend to use (\code{"mirai"}). \code{"auto"} resolves to
+\code{"mirai"} and errors if the package is not installed.}
 }
 \value{
 A \code{bg_run_handle} list.

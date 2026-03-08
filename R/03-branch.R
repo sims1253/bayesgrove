@@ -271,7 +271,7 @@ bg_invalidate <- function(project, node_id, recursive = TRUE) {
     }
   })
 
-  cli::cli_inform(
+  bg_cli_inform(
     "Invalidated {length(nodes_to_invalidate)} node{?s}; superseded {superseded_count} cache binding{?s}."
   )
 
@@ -380,7 +380,7 @@ bg_retire_node <- function(project, node_id, recursive = TRUE, reason = NULL) {
     }
   }
 
-  cli::cli_inform(
+  bg_cli_inform(
     "Retired {length(node_ids)} node{?s} from future planning."
   )
 
@@ -421,7 +421,7 @@ bg_retire_branch <- function(project, branch_id, reason = NULL) {
     reason = reason
   )
 
-  cli::cli_inform(
+  bg_cli_inform(
     "Retired branch {.val {branch_id}} with {length(node_ids)} node{?s}."
   )
 

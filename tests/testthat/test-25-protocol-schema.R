@@ -23,7 +23,11 @@ describe("Protocol schema files exist", {
       "bg_obligation_item",
       "bg_action_item",
       "bg_partitioned_result",
-      "bg_template_descriptor"
+      "bg_template_descriptor",
+      "bg_graph_snapshot",
+      "bg_protocol_event",
+      "bg_command",
+      "bg_command_result"
     )
 
     available <- bg_list_protocol_schemas()
@@ -72,7 +76,11 @@ describe("Protocol schema index structure", {
       "bg_obligation_item",
       "bg_action_item",
       "bg_partitioned_result",
-      "bg_template_descriptor"
+      "bg_template_descriptor",
+      "bg_graph_snapshot",
+      "bg_protocol_event",
+      "bg_command",
+      "bg_command_result"
     )
 
     for (schema_name in expected_schemas) {
@@ -151,20 +159,20 @@ describe("Protocol schema validation against live objects", {
     bg_init(project_dir)
 
     project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
 
     # Get next_actions result
     result <- bg_next_actions(project)
 
     # Validate against schema
     expect_true(bg_validate_protocol_object(result, "bg_next_actions_result"))
-
-    bg_close(project)
   })
 
   it("validates obligation item structure", {
     project_dir <- withr::local_tempdir()
     bg_init(project_dir)
     project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
 
     result <- bg_next_actions(project)
 
@@ -175,14 +183,13 @@ describe("Protocol schema validation against live objects", {
       # No obligations to validate, but structure is valid
       expect_true(TRUE)
     }
-
-    bg_close(project)
   })
 
   it("validates action item structure", {
     project_dir <- withr::local_tempdir()
     bg_init(project_dir)
     project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
 
     result <- bg_next_actions(project)
 
@@ -193,14 +200,13 @@ describe("Protocol schema validation against live objects", {
       # No actions to validate, but structure is valid
       expect_true(TRUE)
     }
-
-    bg_close(project)
   })
 
   it("validates partitioned protocol result structure", {
     project_dir <- withr::local_tempdir()
     bg_init(project_dir)
     project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
 
     result <- bg_next_actions(project)
     partitioned <- bg_partition_protocol_by_scope(result, project)
@@ -209,8 +215,6 @@ describe("Protocol schema validation against live objects", {
       partitioned,
       "bg_partitioned_result"
     ))
-
-    bg_close(project)
   })
 
   it("validates template descriptor from bg_list_templates()", {
@@ -224,6 +228,169 @@ describe("Protocol schema validation against live objects", {
         bg_validate_protocol_object(template, "bg_template_descriptor")
       )
     }
+  })
+
+  it("validates a live graph snapshot message", {
+    snapshot_builder <- getFromNamespace(
+      "bg_build_graph_snapshot_message",
+      "bayesgrove"
+    )
+
+    project_dir <- withr::local_tempdir()
+    bg_init(project_dir)
+    project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
+
+    message <- snapshot_builder(project)
+
+    expect_true(bg_validate_protocol_object(message, "bg_graph_snapshot"))
+  })
+
+  it("validates a live protocol event message", {
+    event_builder <- getFromNamespace(
+      "bg_build_protocol_event_message",
+      "bayesgrove"
+    )
+
+    project_dir <- withr::local_tempdir()
+    bg_init(project_dir)
+    project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
+
+    message <- event_builder(project)
+
+    expect_true(bg_validate_protocol_object(message, "bg_protocol_event"))
+  })
+
+  it("validates a command message shape", {
+    command <- list(
+      protocol_version = "0.1.0",
+      message_type = "Command",
+      command_id = "cmd_123",
+      command = "bg_status",
+      args = stats::setNames(list(), character())
+    )
+
+    expect_true(bg_validate_protocol_object(command, "bg_command"))
+  })
+
+  it("rejects command messages with undeclared arguments", {
+    command <- list(
+      protocol_version = "0.1.0",
+      message_type = "Command",
+      command_id = "cmd_124",
+      command = "bg_status",
+      args = list(auto_advance = TRUE)
+    )
+
+    expect_error(
+      bg_validate_protocol_object(command, "bg_command"),
+      "allowed schema variant"
+    )
+  })
+
+  it("rejects malformed command protocol versions", {
+    command <- list(
+      protocol_version = "v0.1",
+      message_type = "Command",
+      command_id = "cmd_125",
+      command = "bg_status",
+      args = stats::setNames(list(), character())
+    )
+
+    expect_error(
+      bg_validate_protocol_object(command, "bg_command"),
+      "allowed schema variant"
+    )
+  })
+
+  it("rejects malformed command identifiers", {
+    command <- list(
+      protocol_version = "0.1.0",
+      message_type = "Command",
+      command_id = "cmd bad id",
+      command = "bg_status",
+      args = stats::setNames(list(), character())
+    )
+
+    expect_error(
+      bg_validate_protocol_object(command, "bg_command"),
+      "allowed schema variant"
+    )
+  })
+
+  it("validates a command result message shape", {
+    result_builder <- getFromNamespace(
+      "bg_build_command_result_message",
+      "bayesgrove"
+    )
+
+    message <- result_builder(
+      command_id = "cmd_123",
+      ok = TRUE,
+      result = list(workflow_state = "idle")
+    )
+
+    expect_true(bg_validate_protocol_object(message, "bg_command_result"))
+  })
+
+  it("rejects malformed command result timestamps", {
+    result_builder <- getFromNamespace(
+      "bg_build_command_result_message",
+      "bayesgrove"
+    )
+
+    message <- result_builder(
+      command_id = "cmd_124",
+      ok = TRUE,
+      result = list(workflow_state = "idle")
+    )
+    message$emitted_at <- "not-a-timestamp"
+
+    expect_error(
+      bg_validate_protocol_object(message, "bg_command_result"),
+      "must match format"
+    )
+  })
+
+  it("rejects protocol events with unknown health states", {
+    event_builder <- getFromNamespace(
+      "bg_build_protocol_event_message",
+      "bayesgrove"
+    )
+
+    project_dir <- withr::local_tempdir()
+    bg_init(project_dir)
+    project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
+
+    message <- event_builder(project)
+    message$status$health <- "healthy"
+
+    expect_error(
+      bg_validate_protocol_object(message, "bg_protocol_event"),
+      "must be one of"
+    )
+  })
+
+  it("rejects protocol events with malformed generated event IDs", {
+    event_builder <- getFromNamespace(
+      "bg_build_protocol_event_message",
+      "bayesgrove"
+    )
+
+    project_dir <- withr::local_tempdir()
+    bg_init(project_dir)
+    project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
+
+    message <- event_builder(project)
+    message$event_id <- "event-123"
+
+    expect_error(
+      bg_validate_protocol_object(message, "bg_protocol_event"),
+      "must match pattern"
+    )
   })
 })
 
@@ -242,6 +409,7 @@ describe("Schema helper functions", {
     project_dir <- withr::local_tempdir()
     bg_init(project_dir)
     project <- bg_open(project_dir)
+    withr::defer(bg_close(project), envir = parent.frame())
 
     result <- bg_next_actions(project)
     partitioned <- bg_partition_protocol_by_scope(result, project)
@@ -251,7 +419,5 @@ describe("Schema helper functions", {
     expect_equal(names(result$metadata$external_holds), character())
     expect_equal(names(partitioned$project$obligations), character())
     expect_equal(names(partitioned$project$actions), character())
-
-    bg_close(project)
   })
 })

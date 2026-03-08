@@ -10,6 +10,6 @@ bg_reconcile_daemon_jobs(project)
 \item{project}{A \code{bg_handle}.}
 }
 \description{
-This checks the status of background jobs (e.g. from callr or mirai)
+This checks the status of background jobs coordinated via \code{mirai}
 and updates the job logs if they have finished or failed unexpectedly.
 }

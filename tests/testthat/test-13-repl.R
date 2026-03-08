@@ -284,6 +284,39 @@ describe("Interactive REPL", {
     expect_no_error(repl_ns("bg_repl_print_decisions")(handle, "project"))
   })
 
+  it("builds decision rows in reverse chronological order", {
+    handle <- structure(list(), class = "mock_handle")
+
+    rows <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_decision_rows")(handle, "project"),
+      bg_read_decisions = function(project) {
+        list(
+          dec_first = list(
+            decision_id = "dec_first",
+            kind = "note",
+            scope = "project",
+            choice = "one",
+            created_at = "2026-03-08T00:00:00Z",
+            rationale = "Initial rationale."
+          ),
+          dec_second = list(
+            decision_id = "dec_second",
+            kind = "note",
+            scope = "project",
+            choice = "two",
+            created_at = "2026-03-08T00:00:01Z",
+            rationale = paste(rep("long rationale", 12), collapse = " ")
+          )
+        )
+      },
+      .package = "bayesgrove"
+    )
+
+    expect_equal(rows[[1]]$choice, "two")
+    expect_equal(rows[[2]]$choice, "one")
+    expect_gt(nchar(rows[[1]]$rationale), 100)
+  })
+
   it("provides updated help lines with new commands", {
     help_lines <- repl_ns("bg_repl_help_lines")()
 
@@ -359,6 +392,108 @@ describe("Interactive REPL", {
     expect_true(length(hints) > 0)
   })
 
+  it("builds dashboard state with holds and recent decisions", {
+    fixture <- make_workflow_hold_fixture()
+    handle <- fixture$handle
+    bg_run(handle, targets = fixture$fit_id, mode = "sync")
+    bg_record_decision(
+      project = handle,
+      scope = "project",
+      prompt = "Checkpoint",
+      choice = "keep going",
+      rationale = "Need a visible dashboard decision row."
+    )
+
+    dashboard <- repl_ns("bg_repl_dashboard_state")(handle, "project")
+
+    expect_equal(dashboard$status$workflow_state, "blocked")
+    expect_true(any(vapply(
+      dashboard$held_nodes,
+      function(row) identical(row$id, fixture$compare_id),
+      logical(1)
+    )))
+    expect_equal(dashboard$decisions[[1]]$choice, "keep going")
+  })
+
+  it("filters dashboard gates to the active branch scope", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      NULL
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) NULL)
+    bg_register_node_kind(handle, "ppc", executor = function(node, inputs) NULL)
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data source")
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline fit",
+      inputs = source_id
+    )
+    ppc_id <- bg_add_node(
+      handle,
+      kind = "ppc",
+      label = "Posterior check",
+      inputs = fit_id
+    )
+    branch <- bg_branch(handle, fit_id, label = "Alternative fit")
+
+    bg_add_gate(
+      handle,
+      from = source_id,
+      to = fit_id,
+      prompt = "Project gate",
+      options = c("yes", "no")
+    )
+    bg_add_gate(
+      handle,
+      from = fit_id,
+      to = ppc_id,
+      prompt = "Project downstream gate",
+      options = c("yes", "no")
+    )
+    bg_add_gate(
+      handle,
+      from = source_id,
+      to = branch$root_node_id,
+      prompt = "Branch gate",
+      options = c("yes", "no")
+    )
+
+    dashboard <- repl_ns("bg_repl_dashboard_state")(handle, branch$branch_id)
+    prompts <- unname(vapply(
+      dashboard$pending_gates,
+      `[[`,
+      character(1),
+      "prompt"
+    ))
+
+    expect_equal(prompts, "Branch gate")
+  })
+
+  it("builds lineage rows including the current branch", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      NULL
+    })
+    source_id <- bg_add_node(handle, kind = "source", label = "Data source")
+    parent <- bg_branch(handle, source_id, label = "Parent branch")
+    child <- bg_branch(handle, parent$root_node_id, label = "Child branch")
+
+    rows <- repl_ns("bg_repl_lineage_rows")(handle, child$branch_id)
+
+    expect_equal(rows[[1]]$branch_id, parent$branch_id)
+    expect_false(rows[[1]]$current)
+    expect_equal(rows[[1]]$depth, 0L)
+    expect_equal(rows[[2]]$branch_id, child$branch_id)
+    expect_true(rows[[2]]$current)
+    expect_equal(rows[[2]]$depth, 1L)
+  })
+
   it("returns post-action hints without raw cli markup", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(
@@ -380,6 +515,124 @@ describe("Interactive REPL", {
 
     expect_false(any(grepl("\\{\\.code", hints)))
     expect_false(any(grepl("\\{cli::", hints)))
+  })
+
+  it("executes the selected suggested action through the confirmation seam", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    executed <- NULL
+
+    action <- list(
+      action_id = "act_test",
+      kind = "record_decision",
+      scope = "branch:test",
+      title = "Record an inferential goal",
+      explanation = list(why_now = "Branch guidance is blocked."),
+      basis = list(node_ids = "node_123"),
+      payload = list(decision_type = "goal_update")
+    )
+
+    result <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_suggested_action")(
+        handle,
+        scope = "project",
+        idx = 1L,
+        heading = "Next Action"
+      ),
+      bg_next_actions = function(...) {
+        list(actions = list(action), obligations = list())
+      },
+      bg_partition_protocol_by_scope = function(...) {
+        list(summary = list(scopes = "project"))
+      },
+      bg_scope_label = function(project, scope) scope,
+      bg_repl_readline = function(prompt = "") "y",
+      bg_repl_execute_action = function(project, action, scope = "project") {
+        executed <<- list(action_id = action$action_id, scope = scope)
+        "executed"
+      },
+      .package = "bayesgrove"
+    )
+
+    expect_true(result$executed)
+    expect_equal(result$action$action_id, "act_test")
+    expect_equal(executed$scope, "project")
+  })
+
+  it("returns without executing when action preview is declined", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    executed <- FALSE
+
+    action <- list(
+      action_id = "act_test",
+      kind = "record_decision",
+      scope = "project",
+      title = "Record something"
+    )
+
+    result <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_execute_suggested_action")(handle, scope = "project"),
+      bg_next_actions = function(...) {
+        list(actions = list(action), obligations = list())
+      },
+      bg_partition_protocol_by_scope = function(...) {
+        list(summary = list(scopes = "project"))
+      },
+      bg_scope_label = function(project, scope) scope,
+      bg_repl_readline = function(prompt = "") "n",
+      bg_repl_execute_action = function(project, action, scope = "project") {
+        executed <<- TRUE
+      },
+      .package = "bayesgrove"
+    )
+
+    expect_false(result$executed)
+    expect_false(executed)
+  })
+
+  it("parses export arguments for format and path", {
+    default_export <- repl_ns("bg_repl_parse_export_args")("")
+    markdown_export <- repl_ns("bg_repl_parse_export_args")(
+      "md reports/workflow.md"
+    )
+    inferred_export <- repl_ns("bg_repl_parse_export_args")(
+      "reports/workflow.html"
+    )
+
+    expect_equal(default_export$format, "html")
+    expect_null(default_export$path)
+    expect_equal(markdown_export$format, "md")
+    expect_equal(markdown_export$path, "reports/workflow.md")
+    expect_equal(inferred_export$format, "html")
+    expect_equal(inferred_export$path, "reports/workflow.html")
+  })
+
+  it("passes parsed export arguments through to bg_export_report", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    captured <- NULL
+
+    path <- testthat::with_mocked_bindings(
+      repl_ns("bg_repl_export_report_command")(
+        handle,
+        "md reports/workflow.md"
+      ),
+      bg_export_report = function(
+        project,
+        path = NULL,
+        format = c("html", "md"),
+        out_file = NULL
+      ) {
+        captured <<- list(path = path, format = format[[1]])
+        file.path(project@path, path)
+      },
+      .package = "bayesgrove"
+    )
+
+    expect_equal(captured$format, "md")
+    expect_equal(captured$path, "reports/workflow.md")
+    expect_match(path, "reports/workflow\\.md$")
   })
 
   it("shows goal status in branches list", {
@@ -1082,5 +1335,85 @@ describe("Interactive REPL", {
     final_actions <- bg_next_actions(handle, scope = "project")
     expect_length(final_actions$actions, 0L)
     expect_length(final_actions$obligations, 0L)
+  })
+
+  it("prints dashboard without error", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    expect_no_error(repl_ns("bg_repl_print_dashboard")(handle, "project"))
+  })
+
+  it("renders a dashboard from precomputed state without refetching rows", {
+    handle <- structure(list(), class = "mock_handle")
+    dashboard <- list(
+      scope = "branch:test",
+      status = list(
+        workflow_state = "blocked",
+        runnable_nodes = 0L,
+        cached_nodes = 1L,
+        blocked_nodes = 1L,
+        pending_gates = 1L,
+        active_jobs = 0L,
+        total_nodes = 2L,
+        messages = character()
+      ),
+      guide = list(
+        scope = "branch:test",
+        scope_label = "Test branch",
+        actions = list(obligations = list(), actions = list()),
+        partitioned = list(summary = list(scopes = "branch:test"))
+      ),
+      held_nodes = list(),
+      decisions = list(),
+      pending_gates = list(),
+      lineage = list(
+        list(
+          branch_id = "branch:test",
+          label = "Test branch",
+          depth = 0L,
+          current = TRUE
+        )
+      )
+    )
+
+    expect_no_error(testthat::with_mocked_bindings(
+      repl_ns("bg_repl_print_dashboard_state")(dashboard, handle),
+      bg_repl_guide_state = function(...) cli::cli_abort("guide recomputed"),
+      bg_repl_held_node_rows = function(...) cli::cli_abort("holds recomputed"),
+      bg_repl_decision_rows = function(...) {
+        cli::cli_abort("decisions recomputed")
+      },
+      bg_repl_pending_gates = function(...) cli::cli_abort("gates recomputed"),
+      bg_repl_lineage_rows = function(...) cli::cli_abort("lineage recomputed"),
+      .package = "bayesgrove"
+    ))
+  })
+
+  it("prints lineage without error", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      NULL
+    })
+    source_id <- bg_add_node(handle, kind = "source", label = "Data source")
+    branch <- bg_branch(handle, source_id, label = "Test branch")
+
+    # In project scope it returns NULL
+    expect_null(repl_ns("bg_repl_print_lineage")(handle, "project"))
+
+    # In branch scope it prints lineage
+    expect_no_error(repl_ns("bg_repl_print_lineage")(handle, branch$branch_id))
+  })
+
+  it("includes new commands in help lines", {
+    help_lines <- repl_ns("bg_repl_help_lines")()
+    expect_true(any(grepl("^dashboard\\s+", help_lines)))
+    expect_true(any(grepl("^next\\s+", help_lines)))
+    expect_true(any(grepl("^lineage\\s+", help_lines)))
+    expect_true(any(grepl("^export\\s+", help_lines)))
   })
 })

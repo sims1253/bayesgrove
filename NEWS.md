@@ -1,3 +1,16 @@
+# bayesgrove 0.4.0
+
+* Added a richer, dashboard-style TUI workflow to `bg_repl()` featuring a new `dashboard` command and a default initialization view showing workflow health, obligations, and pending gates.
+* Added a `next` command to the guided client that automatically previews and prompts to execute the top recommended workflow action without manual ID lookup.
+* Improved post-action clarity and safety inside the REPL by rendering detailed action previews before execution and adding inline workflow-branch scope navigation.
+* Added `lineage` and `export` REPL commands so users can view structural branch history and generate full workflow reports directly from the interactive operator console.
+* Extended interactive REPL tests to cover new guided-client rendering helpers, preserving decoupled CLI state modeling for future GUI consumption.
+
+* Added an experimental `bg_serve()` websocket IPC layer with versioned `GraphSnapshot`, `ProtocolEvent`, `Command`, and `CommandResult` schemas under `inst/protocol/`.
+* Marked the bounded remote command/query surface directly in `bg_api_boundary()` via `remote_accessible`, and added validation that keeps the server dispatch registry aligned with that API boundary.
+* Added protocol-schema coverage for the new IPC messages plus websocket integration tests that exercise connect, command dispatch, reconnect, and async responsiveness when local sockets are available.
+* Simplified async execution support to rely on `mirai` only, removing the parallel `callr` backend branch from submission, cancellation, reconciliation, package metadata, and tests.
+
 # bayesgrove 0.3.13
 
 * Added `bg_api_boundary()` plus a machine-readable registry covering every exported `bg_*` function with explicit `stable`, `experimental`, or `internal_exported` classifications and `remote_accessible` flags.

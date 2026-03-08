@@ -55,6 +55,12 @@ bg_repl_readline <- function(prompt = "") {
 }
 
 #' @keywords internal
+bg_repl_confirm <- function(prompt = "Continue? [Y/n]: ") {
+  response <- trimws(bg_repl_readline(prompt))
+  identical(response, "") || identical(tolower(response), "y")
+}
+
+#' @keywords internal
 bg_repl_format_value <- function(x) {
   if (is.null(x)) {
     return("NULL")
@@ -101,6 +107,35 @@ bg_repl_format_value <- function(x) {
   }
 
   sprintf("<%s>", class(x)[[1]])
+}
+
+#' @keywords internal
+bg_repl_parse_export_args <- function(args = "") {
+  input <- trimws(paste(args, collapse = " "))
+  if (!nzchar(input)) {
+    return(list(format = "html", path = NULL))
+  }
+
+  parts <- strsplit(input, "\\s+")[[1]]
+  first <- tolower(parts[[1]])
+
+  if (first %in% c("html", "md")) {
+    path <- if (length(parts) > 1) paste(parts[-1], collapse = " ") else NULL
+    if (!is.null(path) && !nzchar(trimws(path))) {
+      path <- NULL
+    }
+    return(list(format = first, path = path))
+  }
+
+  inferred_format <- if (grepl("\\.md$", input, ignore.case = TRUE)) {
+    "md"
+  } else if (grepl("\\.html?$", input, ignore.case = TRUE)) {
+    "html"
+  } else {
+    "html"
+  }
+
+  list(format = inferred_format, path = input)
 }
 
 #' @keywords internal
@@ -456,20 +491,24 @@ bg_repl_gate_rows <- function(gates) {
   lapply(gates, function(gate) {
     list(
       id = gate$id,
+      from_node_id = gate$from_node_id %||% NULL,
+      to_node_id = gate$to_node_id %||% NULL,
+      from_label = gate$from_label %||% gate$from_node_id %||% "?",
+      to_label = gate$to_label %||% gate$to_node_id %||% "?",
       prompt = gate$prompt,
       route = sprintf(
         "%s -> %s",
         gate$from_label %||% gate$from_node_id %||% "?",
         gate$to_label %||% gate$to_node_id %||% "?"
       ),
-      options = paste(gate$options %||% character(0), collapse = ", ")
+      options = paste(gate$options %||% character(0), collapse = ", "),
+      option_values = gate$options %||% character(0)
     )
   })
 }
 
 #' @keywords internal
-bg_repl_print_gates <- function(gates) {
-  rows <- bg_repl_gate_rows(gates)
+bg_repl_print_gate_rows <- function(rows) {
   if (length(rows) == 0) {
     cli::cli_inform("No pending gates.")
     return(invisible(NULL))
@@ -486,6 +525,11 @@ bg_repl_print_gates <- function(gates) {
   }
 
   invisible(rows)
+}
+
+#' @keywords internal
+bg_repl_print_gates <- function(gates) {
+  bg_repl_print_gate_rows(bg_repl_gate_rows(gates))
 }
 
 #' @keywords internal
@@ -530,16 +574,138 @@ bg_repl_print_jobs <- function(project) {
 }
 
 #' @keywords internal
-bg_repl_print_guide <- function(project, scope = "project") {
+bg_repl_guide_state <- function(project, scope = "project") {
   query <- bg_repl_protocol_query(scope)
   actions <- bg_next_actions(
     project,
     scope = query$scope,
     branch_id = query$branch_id
   )
-  partitioned <- bg_partition_protocol_by_scope(actions, project = project)
 
-  scope_label <- bg_scope_label(project, scope)
+  list(
+    scope = scope,
+    scope_label = bg_scope_label(project, scope),
+    actions = actions,
+    partitioned = bg_partition_protocol_by_scope(actions, project = project)
+  )
+}
+
+#' @keywords internal
+bg_repl_held_node_rows <- function(project, scope = "project", limit = 5L) {
+  rows <- Filter(
+    function(row) identical(row$state, "held"),
+    bg_repl_node_rows(project)
+  )
+
+  if (startsWith(scope, "branch:")) {
+    scope_node_ids <- bg_scope_node_ids(project, scope)
+    rows <- Filter(function(row) row$id %in% scope_node_ids, rows)
+  }
+
+  if (!is.null(limit) && length(rows) > limit) {
+    rows <- rows[seq_len(limit)]
+  }
+
+  rows
+}
+
+#' @keywords internal
+bg_repl_decision_rows <- function(project, scope = "project", limit = 10L) {
+  decisions <- if (startsWith(scope, "branch:")) {
+    bg_scope_decisions(project, scope)
+  } else {
+    bg_read_decisions(project)
+  }
+
+  if (length(decisions) == 0) {
+    return(list())
+  }
+
+  rows <- unname(decisions)
+  rows <- rows[order(
+    vapply(rows, function(decision) decision$created_at %||% "", character(1)),
+    decreasing = TRUE
+  )]
+
+  if (!is.null(limit) && length(rows) > limit) {
+    rows <- rows[seq_len(limit)]
+  }
+
+  lapply(rows, function(decision) {
+    list(
+      decision_id = decision$decision_id,
+      kind = decision$kind %||% "note",
+      scope = decision$scope %||% "project",
+      prompt = decision$prompt %||% NULL,
+      choice = decision$choice %||% "(no choice)",
+      created_at = decision$created_at %||% "(unknown)",
+      rationale = decision$rationale %||% ""
+    )
+  })
+}
+
+#' @keywords internal
+bg_repl_lineage_rows <- function(project, scope) {
+  if (!startsWith(scope, "branch:")) {
+    return(list())
+  }
+
+  branch_ids <- rev(c(scope, bg_branch_lineage(project, scope)))
+  lapply(seq_along(branch_ids), function(i) {
+    branch_id <- branch_ids[[i]]
+    list(
+      branch_id = branch_id,
+      label = bg_scope_label(project, branch_id),
+      depth = i - 1L,
+      current = identical(branch_id, scope)
+    )
+  })
+}
+
+#' @keywords internal
+bg_repl_pending_gates <- function(project, scope = "project") {
+  gates <- bg_pending_gates(project)
+  if (!startsWith(scope, "branch:")) {
+    return(gates)
+  }
+
+  scope_node_ids <- bg_scope_node_ids(project, scope)
+  Filter(
+    function(gate) {
+      from_node_id <- gate$from_node_id %||% NULL
+      to_node_id <- gate$to_node_id %||% NULL
+      from_node_id %in% scope_node_ids || to_node_id %in% scope_node_ids
+    },
+    gates
+  )
+}
+
+#' @keywords internal
+bg_repl_dashboard_state <- function(
+  project,
+  scope = "project",
+  held_limit = 5L,
+  decision_limit = 5L
+) {
+  pending_gates <- bg_repl_pending_gates(project, scope)
+  list(
+    scope = scope,
+    scope_label = bg_scope_label(project, scope),
+    status = bg_status(project, auto_advance = FALSE),
+    guide = bg_repl_guide_state(project, scope),
+    held_nodes = bg_repl_held_node_rows(project, scope, limit = held_limit),
+    pending_gates = bg_repl_gate_rows(pending_gates),
+    decisions = bg_repl_decision_rows(project, scope, limit = decision_limit),
+    lineage = bg_repl_lineage_rows(project, scope)
+  )
+}
+
+#' @keywords internal
+bg_repl_print_guide_state <- function(guide_state, project) {
+  scope <- guide_state$scope
+  actions <- guide_state$actions
+  partitioned <- guide_state$partitioned
+  scope_label <- guide_state$scope_label
   cli::cli_h2("Workflow Guide")
   cli::cli_text("{cli::col_grey('Scope:')} {cli::col_cyan(scope_label)}")
   cli::cli_text("")
@@ -607,6 +773,11 @@ bg_repl_print_guide <- function(project, scope = "project") {
 }
 
 #' @keywords internal
+bg_repl_print_guide <- function(project, scope = "project") {
+  bg_repl_print_guide_state(bg_repl_guide_state(project, scope), project)
+}
+
+#' @keywords internal
 bg_repl_print_scope <- function(project, current_scope) {
   cli::cli_h2("Current Scope")
   cli::cli_text("{cli::col_grey('Scope:')} {cli::col_cyan(current_scope)}")
@@ -636,12 +807,8 @@ bg_repl_print_scope <- function(project, current_scope) {
 
 #' @keywords internal
 bg_repl_print_actions <- function(project, scope = "project") {
-  query <- bg_repl_protocol_query(scope)
-  actions <- bg_next_actions(
-    project,
-    scope = query$scope,
-    branch_id = query$branch_id
-  )
+  guide_state <- bg_repl_guide_state(project, scope)
+  actions <- guide_state$actions
 
   if (length(actions$actions) == 0) {
     cli::cli_h2("Actions")
@@ -650,7 +817,9 @@ bg_repl_print_actions <- function(project, scope = "project") {
   }
 
   cli::cli_h2("Actions")
-  cli::cli_text("{cli::col_grey('Scope:')} {cli::col_cyan(scope)}")
+  cli::cli_text(
+    "{cli::col_grey('Scope:')} {cli::col_cyan(guide_state$scope_label)}"
+  )
   cli::cli_text("")
 
   for (i in seq_along(actions$actions)) {
@@ -692,13 +861,7 @@ bg_repl_print_actions <- function(project, scope = "project") {
 
 #' @keywords internal
 bg_repl_post_action_hint <- function(project, scope, action) {
-  # Get fresh state after action
-  query <- bg_repl_protocol_query(scope)
-  actions <- bg_next_actions(
-    project,
-    scope = query$scope,
-    branch_id = query$branch_id
-  )
+  actions <- bg_repl_guide_state(project, scope)$actions
 
   n_blocking <- sum(vapply(
     actions$obligations,
@@ -743,6 +906,90 @@ bg_repl_post_action_hint <- function(project, scope, action) {
   cli::cli_text("")
   cli::cli_text("{cli::col_grey('Next:')} {paste(hints, collapse = ' | ')}")
   invisible(hints)
+}
+
+#' @keywords internal
+bg_repl_action_preview_rows <- function(action) {
+  list(
+    title = action$title %||% action$kind %||% "Workflow action",
+    kind = action$kind %||% "(unknown)",
+    scope = action$scope %||% "project",
+    why_now = action$explanation$why_now %||% NULL,
+    node_ids = action$basis$node_ids %||% character(),
+    payload = action$payload %||% list()
+  )
+}
+
+#' @keywords internal
+bg_repl_print_action_preview <- function(action, heading = "Action Preview") {
+  preview <- bg_repl_action_preview_rows(action)
+  cli::cli_h2(heading)
+  cli::cli_bullets(c("*" = "{cli::col_cyan(preview$title)}"))
+  cli::cli_bullets(c(" " = "{cli::col_grey('Kind:')} {preview$kind}"))
+
+  if (startsWith(preview$scope, "branch:")) {
+    cli::cli_bullets(c(" " = "{cli::col_grey('Scope:')} {preview$scope}"))
+  }
+
+  if (!is.null(preview$why_now)) {
+    cli::cli_bullets(c(" " = "{cli::col_grey(preview$why_now)}"))
+  }
+
+  if (length(preview$node_ids) > 0) {
+    cli::cli_bullets(c(
+      " " = "{cli::col_grey('Nodes:')} {paste(preview$node_ids, collapse = ', ')}"
+    ))
+  }
+
+  if (length(preview$payload) > 0) {
+    payload_str <- paste(
+      vapply(
+        names(preview$payload),
+        function(name) {
+          paste0(name, " = ", bg_repl_format_value(preview$payload[[name]]))
+        },
+        character(1)
+      ),
+      collapse = ",\n"
+    )
+    cli::cli_bullets(c(" " = "{cli::col_grey('Payload:')} {payload_str}"))
+  }
+
+  invisible(preview)
+}
+
+#' @keywords internal
+bg_repl_execute_suggested_action <- function(
+  project,
+  scope = "project",
+  idx = 1L,
+  heading = "Action Preview"
+) {
+  guide_state <- bg_repl_guide_state(project, scope)
+  actions <- guide_state$actions$actions
+
+  if (length(actions) == 0) {
+    cli::cli_inform("No suggested actions at this time.")
+    return(invisible(list(executed = FALSE, action = NULL)))
+  }
+
+  if (is.na(idx) || idx < 1 || idx > length(actions)) {
+    cli::cli_abort(
+      "Action {idx} not found. Only {length(actions)} actions available."
+    )
+  }
+
+  action <- actions[[idx]]
+  bg_repl_print_action_preview(action, heading = heading)
+  cli::cli_text("")
+
+  if (bg_repl_confirm("Execute this action? [Y/n]: ")) {
+    result <- bg_repl_execute_action(project, action, scope)
+    return(invisible(list(executed = TRUE, action = action, result = result)))
+  }
+
+  cli::cli_inform("Action cancelled.")
+  invisible(list(executed = FALSE, action = action, result = NULL))
 }
 
 #' @keywords internal
@@ -973,35 +1220,57 @@ bg_repl_set_goal_interactive <- function(project, scope) {
 }
 
 #' @keywords internal
-bg_repl_print_decisions <- function(project, scope = "project", limit = 10L) {
-  cli::cli_h2("Recent Decisions")
+bg_repl_print_held_nodes <- function(project, scope = "project", limit = 5L) {
+  rows <- bg_repl_held_node_rows(project, scope, limit = limit)
+  bg_repl_print_held_node_rows(rows)
+}
 
-  decisions <- if (startsWith(scope, "branch:")) {
-    bg_scope_decisions(project, scope)
-  } else {
-    bg_read_decisions(project)
+#' @keywords internal
+bg_repl_print_held_node_rows <- function(rows) {
+  if (length(rows) == 0) {
+    return(invisible(list()))
   }
 
-  if (length(decisions) == 0) {
+  cli::cli_h2("Held Nodes")
+  for (row in rows) {
+    cli::cli_bullets(c(
+      "*" = "{cli::col_yellow(row$label)} [{row$kind}]",
+      " " = "{cli::col_grey('Node:')} {row$id}",
+      " " = "{cli::col_grey('Reason:')} {row$detail}"
+    ))
+  }
+
+  invisible(rows)
+}
+
+#' @keywords internal
+bg_repl_print_decisions <- function(project, scope = "project", limit = 10L) {
+  decision_rows <- bg_repl_decision_rows(project, scope, limit = limit)
+  bg_repl_print_decision_rows(decision_rows)
+}
+
+#' @keywords internal
+bg_repl_truncate_text <- function(text, width = 100L) {
+  if (is.null(text) || !nzchar(text)) {
+    return("")
+  }
+
+  if (nchar(text) <= width) {
+    return(text)
+  }
+
+  paste0(substr(text, 1, width - 3L), "...")
+}
+
+#' @keywords internal
+bg_repl_print_decision_rows <- function(decision_rows) {
+  cli::cli_h2("Recent Decisions")
+  if (length(decision_rows) == 0) {
     cli::cli_text("{cli::col_grey('No decisions recorded.')}")
     return(invisible(list()))
   }
 
-  # Sort by created_at descending
-  decisions_list <- unname(decisions)
-  decisions_list <- decisions_list[order(
-    vapply(decisions_list, function(d) d$created_at %||% "", character(1)),
-    decreasing = TRUE
-  )]
-
-  # Limit
-  if (length(decisions_list) > limit) {
-    decisions_list <- decisions_list[seq_len(limit)]
-    cli::cli_text("{cli::col_grey('Showing most recent {limit} decisions.')}")
-    cli::cli_text("")
-  }
-
-  for (decision in decisions_list) {
+  for (decision in decision_rows) {
     kind_color <- switch(
       decision$kind %||% "note",
       "gate_answer" = cli::col_cyan,
@@ -1019,33 +1288,101 @@ bg_repl_print_decisions <- function(project, scope = "project", limit = 10L) {
       " " = "{cli::col_grey('Created:')} {decision$created_at %||% '(unknown)'}"
     ))
 
-    if (!is.null(decision$rationale) && nzchar(decision$rationale)) {
-      # Truncate long rationales
-      rationale <- decision$rationale
-      if (nchar(rationale) > 100) {
-        rationale <- paste0(substr(rationale, 1, 97), "...")
-      }
-      cli::cli_bullets(c(" " = "{cli::col_grey('Rationale:')} {rationale}"))
+    if (nzchar(decision$rationale %||% "")) {
+      cli::cli_bullets(c(
+        " " = "{cli::col_grey('Rationale:')} {bg_repl_truncate_text(decision$rationale)}"
+      ))
     }
 
     cli::cli_text("")
   }
 
-  invisible(decisions_list)
+  invisible(decision_rows)
+}
+
+#' @keywords internal
+bg_repl_print_dashboard <- function(project, scope = "project") {
+  dashboard <- bg_repl_dashboard_state(project, scope)
+  bg_repl_print_dashboard_state(dashboard, project)
+}
+
+#' @keywords internal
+bg_repl_print_dashboard_state <- function(dashboard, project) {
+  bg_repl_print_status(dashboard$status, project = project)
+  cli::cli_text("")
+  bg_repl_print_guide_state(dashboard$guide, project)
+
+  if (startsWith(dashboard$scope, "branch:")) {
+    cli::cli_text("")
+    bg_repl_print_lineage_rows(dashboard$lineage)
+  }
+
+  if (length(dashboard$held_nodes) > 0) {
+    cli::cli_text("")
+    bg_repl_print_held_node_rows(dashboard$held_nodes)
+  }
+
+  if (length(dashboard$decisions) > 0) {
+    cli::cli_text("")
+    bg_repl_print_decision_rows(dashboard$decisions)
+  }
+
+  if (length(dashboard$pending_gates) > 0) {
+    cli::cli_text("")
+    bg_repl_print_gate_rows(dashboard$pending_gates)
+  }
+
+  invisible(NULL)
+}
+
+#' @keywords internal
+bg_repl_print_lineage <- function(project, scope) {
+  if (!startsWith(scope, "branch:")) {
+    cli::cli_text(
+      "{cli::col_grey('Lineage is only available in branch scope.')}"
+    )
+    return(invisible(NULL))
+  }
+  rows <- bg_repl_lineage_rows(project, scope)
+  bg_repl_print_lineage_rows(rows)
+}
+
+#' @keywords internal
+bg_repl_print_lineage_rows <- function(rows) {
+  if (length(rows) == 0) {
+    cli::cli_text("{cli::col_grey('No branch lineage available.')}")
+    return(invisible(list()))
+  }
+
+  cli::cli_h2("Branch Lineage")
+
+  for (row in rows) {
+    prefix <- strrep("  ", row$depth)
+    marker <- if (isTRUE(row$current)) " (current)" else ""
+    cli::cli_bullets(c(
+      "*" = "{prefix}{cli::col_cyan(row$label)}{cli::col_grey(marker)}",
+      " " = "{prefix}{cli::col_grey('ID:')} {row$branch_id}"
+    ))
+  }
+
+  invisible(rows)
 }
 
 #' @keywords internal
 bg_repl_help_lines <- function() {
   c(
+    "dashboard   Show full workflow dashboard (status, guide, holds, decisions, gates)",
     "status      Show workflow state and key counts",
     "guide       Show active obligations and suggested actions",
     "actions     List suggested actions with details",
+    "next        Preview and execute the top recommended action",
     "do <n>      Execute action by number",
     "scope       Show or set current scope (project or branch)",
     "use <n>     Quick switch to branch by number (see `branches`)",
     "goal        Show or set the inferential goal for current scope",
     "decisions   Show recent decisions for current scope",
     "branches    List all branches with their status",
+    "lineage     Show the current branch and its ancestors",
     "nodes       List nodes (scope-filtered in branch mode)",
     "gates       List pending decision gates with edge context",
     "result      Inspect the cached result of a node (requires node_id or label)",
@@ -1059,8 +1396,22 @@ bg_repl_help_lines <- function() {
     "submit      Submit eligible nodes asynchronously",
     "jobs        List active background jobs",
     "cancel      Cancel an active run (requires run_id)",
+    "export      Export workflow report [html|md] [path]",
     "exit        Leave REPL"
   )
+}
+
+#' @keywords internal
+bg_repl_export_report_command <- function(project, args = "") {
+  export_request <- bg_repl_parse_export_args(args)
+  cli::cli_inform("Exporting workflow report...")
+  report_path <- bg_export_report(
+    project,
+    path = export_request$path,
+    format = export_request$format
+  )
+  cli::cli_alert_success("Report exported to: {.val {report_path}}")
+  invisible(report_path)
 }
 
 #' @keywords internal
@@ -1113,14 +1464,17 @@ bg_repl_find_node <- function(project, ref) {
 #' Supported commands include:
 #' \itemize{
 #'   \item `help`: show the command list
+#'   \item `dashboard`: show the guided operator dashboard
 #'   \item `status`: print workflow state and health
 #'   \item `guide`: show active obligations and suggested actions
 #'   \item `actions`: list actionable protocol suggestions with payload details
+#'   \item `next`: preview and optionally execute the top suggested action
 #'   \item `do <n>`: execute the nth suggested action
 #'   \item `scope` / `scope <scope>`: inspect or change the current scope
 #'   \item `branches` and `use <n>`: inspect branches and switch by index
 #'   \item `goal` / `goal set`: inspect or set a branch-scoped inferential goal
 #'   \item `decisions`: show recent decisions for the current scope
+#'   \item `lineage`: show the current branch and its ancestors
 #'   \item `nodes`: print the scoped execution graph
 #'   \item `result <node>`: inspect a cached result and fresh summaries
 #'   \item `branch <node>`: create a new branch from a node and switch to it
@@ -1131,6 +1485,7 @@ bg_repl_find_node <- function(project, ref) {
 #'   \item `gates` / `answer`: inspect and answer pending structural gates
 #'   \item `run` / `submit`: execute or enqueue ready work in the current scope
 #'   \item `jobs` and `cancel <run_id>`: inspect or cancel background work
+#'   \item `export [html|md] [path]`: export a workflow report from the REPL
 #'   \item `exit`, `quit`, `q`: leave the REPL
 #' }
 #'
@@ -1149,6 +1504,9 @@ bg_repl <- function(project, initial_scope = NULL) {
 
   cli::cli_h1("bayesgrove Interactive REPL")
   cli::cli_text("Type 'help' for commands, 'exit' to leave.")
+  cli::cli_text("")
+
+  bg_repl_print_dashboard(project, current_scope)
 
   repeat {
     bg_reconcile_daemon_jobs(project)
@@ -1176,7 +1534,7 @@ bg_repl <- function(project, initial_scope = NULL) {
       sprintf("bg [%s]> ", scope_short)
     )
 
-    input <- readline(prompt = prompt_str)
+    input <- bg_repl_readline(prompt = prompt_str)
 
     if (input %in% c("exit", "quit", "q")) {
       cli::cli_inform("Exiting REPL.")
@@ -1206,6 +1564,9 @@ bg_repl <- function(project, initial_scope = NULL) {
               cli::cli_bullets(c("*" = line))
             }
           },
+          "dashboard" = {
+            bg_repl_print_dashboard(project, current_scope)
+          },
           "status" = {
             bg_repl_print_status(st, project = project)
           },
@@ -1229,6 +1590,8 @@ bg_repl <- function(project, initial_scope = NULL) {
               cli::cli_alert_success(
                 "Switched to scope: {.val {current_scope}}"
               )
+              cli::cli_text("")
+              bg_repl_print_dashboard(project, current_scope)
             }
           },
           "use" = {
@@ -1262,13 +1625,21 @@ bg_repl <- function(project, initial_scope = NULL) {
               "Switched to branch: {.val {bg_scope_label(project, branch_id)}}"
             )
             cli::cli_text("")
-            bg_repl_print_guide(project, current_scope)
+            bg_repl_print_dashboard(project, current_scope)
           },
           "guide" = {
             bg_repl_print_guide(project, current_scope)
           },
           "actions" = {
             bg_repl_print_actions(project, current_scope)
+          },
+          "next" = {
+            bg_repl_execute_suggested_action(
+              project,
+              current_scope,
+              idx = 1L,
+              heading = "Next Action"
+            )
           },
           "do" = {
             if (length(args) == 0 || trimws(args) == "") {
@@ -1282,21 +1653,7 @@ bg_repl <- function(project, initial_scope = NULL) {
               cli::cli_abort("Invalid action number.")
             }
 
-            query <- bg_repl_protocol_query(current_scope)
-            actions_result <- bg_next_actions(
-              project,
-              scope = query$scope,
-              branch_id = query$branch_id
-            )
-
-            if (length(actions_result$actions) < idx) {
-              cli::cli_abort(
-                "Action {idx} not found. Only {length(actions_result$actions)} actions available."
-              )
-            }
-
-            action <- actions_result$actions[[idx]]
-            bg_repl_execute_action(project, action, current_scope)
+            bg_repl_execute_suggested_action(project, current_scope, idx = idx)
           },
           "goal" = {
             if (length(args) == 0 || trimws(args) == "") {
@@ -1311,6 +1668,12 @@ bg_repl <- function(project, initial_scope = NULL) {
                 )
               }
             }
+          },
+          "lineage" = {
+            bg_repl_print_lineage(project, current_scope)
+          },
+          "export" = {
+            bg_repl_export_report_command(project, args)
           },
           "decisions" = {
             bg_repl_print_decisions(project, current_scope)
@@ -1336,6 +1699,8 @@ bg_repl <- function(project, initial_scope = NULL) {
             # Auto-switch to the new branch scope
             current_scope <<- branch$branch_id
             cli::cli_alert_info("Switched to new branch scope.")
+            cli::cli_text("")
+            bg_repl_print_dashboard(project, current_scope)
           },
           "set" = {
             parts_split <- strsplit(trimws(arg_str), " ")[[1]]

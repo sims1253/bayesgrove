@@ -412,7 +412,7 @@ bg_refresh_run_plan <- function(
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
 #' @param mode Execution mode: 'sync' or 'async'.
-#' @param backend For async mode, the backend to use ('auto', 'callr', 'mirai').
+#' @param backend For async mode, the backend to use (`"auto"` or `"mirai"`).
 #'
 #' @return A `bg_run_handle` list.
 #' @export
@@ -420,7 +420,7 @@ bg_run <- function(
   project,
   targets = NULL,
   mode = c("sync", "async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 ) {
   mode <- match.arg(mode)
   backend <- match.arg(backend)
@@ -466,7 +466,7 @@ bg_run <- function(
   num_executed <- 0L
   run_started_at <- bg_now_timestamp()
 
-  cli::cli_inform(
+  bg_cli_inform(
     "Starting run {.val {run_id}} with {length(plan$to_execute)} node{?s} to execute."
   )
 
@@ -476,7 +476,7 @@ bg_run <- function(
       next
     }
 
-    cli::cli_inform("Running node {.val {node_id}}...")
+    bg_cli_inform("Running node {.val {node_id}}...")
     num_executed <- num_executed + 1L
     job <- bg_create_job(project, run_id, node_id, backend = "sync")
     job_ids <- c(job_ids, job$job_id)

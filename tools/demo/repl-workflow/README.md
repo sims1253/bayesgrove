@@ -16,6 +16,10 @@ Available tapes:
 Each focused tape uses the same launcher and checkpoints into a meaningful
 state instead of replaying the full setup story every time.
 
+These demos are intentionally REPL-first. They exercise the guided terminal
+client surface, not the separate experimental `bg_serve()` WebSocket IPC
+boundary used by external clients.
+
 This matches the package's current strengths and the design notes in
 [`design/system-design.md`](/home/m0hawk/Documents/bayesguide/design/system-design.md)
 and
@@ -30,6 +34,13 @@ Run the full launcher manually from the repository root:
 R --quiet
 source("tools/demo/repl-workflow/launch-demo.R")
 ```
+
+Once the REPL opens, the guided operator flow is:
+
+- `dashboard` to refresh the full status, obligations, holds, and decisions view
+- `next` to preview the top recommended action before execution
+- `lineage` to inspect the current branch and its ancestors
+- `export md workflow_report.md` to write a markdown report from the same session
 
 Run a focused checkpoint manually:
 

@@ -185,6 +185,23 @@ bg_validate_protocol_value <- function(object, schema, schema_name, path) {
         "String at {.val {path}} is shorter than {.val {min_length}} for schema {.val {schema_name}}."
       )
     }
+
+    pattern <- schema$pattern %||% NULL
+    if (!is.null(pattern) && !grepl(pattern, object, perl = TRUE)) {
+      cli::cli_abort(
+        "String at {.val {path}} must match pattern {.val {pattern}} for schema {.val {schema_name}}."
+      )
+    }
+
+    string_format <- schema$format %||% NULL
+    if (!is.null(string_format)) {
+      bg_validate_protocol_string_format(
+        object = object,
+        string_format = string_format,
+        path = path,
+        schema_name = schema_name
+      )
+    }
   }
 
   if (identical(expected_type, "integer")) {
@@ -223,6 +240,32 @@ bg_validate_protocol_value <- function(object, schema, schema_name, path) {
       items = items,
       schema_name = schema_name,
       path = path
+    )
+  }
+
+  invisible(TRUE)
+}
+
+#' @keywords internal
+bg_validate_protocol_string_format <- function(
+  object,
+  string_format,
+  path,
+  schema_name
+) {
+  valid <- switch(
+    string_format,
+    "date-time" = grepl(
+      "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+      object,
+      perl = TRUE
+    ),
+    TRUE
+  )
+
+  if (!valid) {
+    cli::cli_abort(
+      "String at {.val {path}} must match format {.val {string_format}} for schema {.val {schema_name}}."
     )
   }
 
@@ -274,7 +317,7 @@ bg_validate_protocol_object_value <- function(
   }
 
   object_names <- names(object)
-  if (is.null(object_names)) {
+  if (is.null(object_names) && length(object) > 0) {
     cli::cli_abort(
       "Value at {.val {path}} must be a named list for schema {.val {schema_name}}."
     )

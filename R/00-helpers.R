@@ -40,3 +40,18 @@ bg_find_obligation <- function(obligations, kind, scope = NULL) {
 
   matches[[1]]
 }
+
+#' @keywords internal
+bg_cli_quiet <- function() {
+  isTRUE(getOption("bayesgrove.quiet_inform")) ||
+    tolower(Sys.getenv("TESTTHAT")) %in% c("true", "yes", "1")
+}
+
+#' @keywords internal
+bg_cli_inform <- function(..., .envir = parent.frame()) {
+  if (!bg_cli_quiet()) {
+    cli::cli_inform(..., .envir = .envir)
+  }
+
+  invisible(TRUE)
+}

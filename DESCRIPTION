@@ -1,6 +1,6 @@
 Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
-Version: 0.3.13
+Version: 0.4.0
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
 Description: Implements the bayesgrove workflow runtime with typed graph
     construction, deterministic fingerprinting, synchronous execution, content-
@@ -18,7 +18,9 @@ Imports:
     cli,
     digest,
     dagriculture,
+    httpuv,
     jsonlite,
+    later,
     rlang,
     S7
 Remotes: 
@@ -26,7 +28,6 @@ Remotes:
     stan-dev/cmdstanr
 Suggests:
     brms,
-    callr,
     cmdstanr,
     hedgehog,
     knitr,
@@ -37,6 +38,7 @@ Suggests:
     rmarkdown,
     rstan,
     testthat (>= 3.0.0),
+    websocket,
     withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr

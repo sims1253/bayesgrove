@@ -3,7 +3,8 @@
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
 #' @param mode Execution mode: 'async'.
-#' @param backend The async backend to use ("mirai" or "callr"). Default is "callr" for MVP.
+#' @param backend The async backend to use (`"mirai"`). `"auto"` resolves to
+#'   `"mirai"` and errors if the package is not installed.
 #'
 #' @return A `bg_run_handle` list.
 #' @export
@@ -11,7 +12,7 @@ bg_submit <- function(
   project,
   targets = NULL,
   mode = c("async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 ) {
   mode <- match.arg(mode)
   backend <- match.arg(backend)
@@ -21,55 +22,6 @@ bg_submit <- function(
     cli::cli_abort(
       "Workflow is paused. Call {.fn bg_resume} before dispatching new work."
     )
-  }
-
-  if (backend == "auto") {
-    backend <- if (requireNamespace("mirai", quietly = TRUE)) {
-      "mirai"
-    } else {
-      "callr"
-    }
-  }
-
-  if (backend == "callr" && !requireNamespace("callr", quietly = TRUE)) {
-    cli::cli_abort("The {.pkg callr} package is required for async execution.")
-  }
-
-  if (backend == "mirai" && !requireNamespace("mirai", quietly = TRUE)) {
-    cli::cli_abort("The {.pkg mirai} package is required for async execution.")
-  }
-
-  if (backend == "mirai") {
-    mirai_ready <- tryCatch(
-      {
-        if (mirai::status(.compute = project@project_id)$daemons == 0) {
-          mirai::daemons(1, .compute = project@project_id)
-        }
-        TRUE
-      },
-      error = function(e) {
-        e
-      }
-    )
-
-    if (inherits(mirai_ready, "error")) {
-      if (requireNamespace("callr", quietly = TRUE)) {
-        cli::cli_inform(
-          paste0(
-            "Unable to start the {.pkg mirai} daemon pool in this environment ",
-            "({mirai_ready$message}). Falling back to {.pkg callr}."
-          )
-        )
-        backend <- "callr"
-      } else {
-        cli::cli_abort(
-          paste0(
-            "Unable to start the {.pkg mirai} daemon pool in this environment: ",
-            mirai_ready$message
-          )
-        )
-      }
-    }
   }
 
   external_holds <- bg_workflow_external_holds(project)
@@ -83,7 +35,7 @@ bg_submit <- function(
   run_id <- bg_new_id("run")
 
   if (length(plan$to_execute) == 0) {
-    cli::cli_inform("No nodes require execution.")
+    bg_cli_inform("No nodes require execution.")
     res <- list(
       run_id = run_id,
       status = "succeeded",
@@ -101,7 +53,36 @@ bg_submit <- function(
     return(res)
   }
 
-  cli::cli_inform(
+  if (backend == "auto") {
+    backend <- "mirai"
+  }
+
+  if (!requireNamespace("mirai", quietly = TRUE)) {
+    cli::cli_abort("The {.pkg mirai} package is required for async execution.")
+  }
+
+  mirai_ready <- tryCatch(
+    {
+      if (mirai::status(.compute = project@project_id)$daemons == 0) {
+        mirai::daemons(1, .compute = project@project_id)
+      }
+      TRUE
+    },
+    error = function(e) {
+      e
+    }
+  )
+
+  if (inherits(mirai_ready, "error")) {
+    cli::cli_abort(
+      paste0(
+        "Unable to start the {.pkg mirai} daemon pool in this environment: ",
+        mirai_ready$message
+      )
+    )
+  }
+
+  bg_cli_inform(
     "Starting async run {.val {run_id}} with {length(plan$to_execute)} node{?s}."
   )
 
@@ -130,55 +111,23 @@ bg_submit <- function(
       registries = project@registries
     )
 
-    if (backend == "callr") {
-      p <- callr::r_bg(
-        func = function(args) {
-          if (!is.null(args$lib_paths)) {
-            .libPaths(args$lib_paths)
-          }
-          library(bayesgrove)
-          fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
-          fn(args)
-        },
-        args = list(args = worker_args),
-        stdout = file.path(
-          project@path,
-          ".bayesgrove",
-          "runs",
-          paste0(job$job_id, "_stdout.log")
-        ),
-        stderr = file.path(
-          project@path,
-          ".bayesgrove",
-          "runs",
-          paste0(job$job_id, "_stderr.log")
-        ),
-        supervise = TRUE
-      )
+    m <- mirai::mirai(
+      {
+        if (!is.null(args$lib_paths)) {
+          .libPaths(args$lib_paths)
+        }
+        library(bayesgrove)
+        fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
+        fn(args)
+      },
+      args = worker_args,
+      .compute = project@project_id
+    )
 
-      if (is.null(project@metadata$callr_procs)) {
-        project@metadata$callr_procs <- list()
-      }
-      project@metadata$callr_procs[[job$job_id]] <- p
-    } else if (backend == "mirai") {
-      m <- mirai::mirai(
-        {
-          if (!is.null(args$lib_paths)) {
-            .libPaths(args$lib_paths)
-          }
-          library(bayesgrove)
-          fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
-          fn(args)
-        },
-        args = worker_args,
-        .compute = project@project_id
-      )
-
-      if (is.null(project@metadata$mirai_procs)) {
-        project@metadata$mirai_procs <- list()
-      }
-      project@metadata$mirai_procs[[job$job_id]] <- m
+    if (is.null(project@metadata$mirai_procs)) {
+      project@metadata$mirai_procs <- list()
     }
+    project@metadata$mirai_procs[[job$job_id]] <- m
   }
 
   res <- list(
@@ -214,20 +163,11 @@ bg_cancel <- function(project, run_id) {
   )
 
   if (length(run_jobs) == 0) {
-    cli::cli_inform("No active jobs found for run {.val {run_id}}.")
+    bg_cli_inform("No active jobs found for run {.val {run_id}}.")
     return(invisible(TRUE))
   }
 
   for (job in run_jobs) {
-    # 1. Kill the process if we hold the handle
-    if (!is.null(project@metadata$callr_procs[[job$job_id]])) {
-      p <- project@metadata$callr_procs[[job$job_id]]
-      if (p$is_alive()) {
-        p$kill()
-      }
-      project@metadata$callr_procs[[job$job_id]] <- NULL
-    }
-
     if (!is.null(project@metadata$mirai_procs[[job$job_id]])) {
       m <- project@metadata$mirai_procs[[job$job_id]]
       mirai::stop_mirai(m)
@@ -243,7 +183,7 @@ bg_cancel <- function(project, run_id) {
     )
   }
 
-  cli::cli_inform(
+  bg_cli_inform(
     "Cancelled {length(run_jobs)} job{?s} for run {.val {run_id}}."
   )
   invisible(TRUE)

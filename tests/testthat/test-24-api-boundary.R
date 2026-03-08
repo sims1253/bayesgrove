@@ -139,9 +139,42 @@ describe("API boundary classification distribution", {
     expect_gte(counts[["internal_exported"]], 5)
   })
 
-  it("marks no functions as remote_accessible without bg_serve()", {
+  it("marks the bounded IPC command surface as remote_accessible", {
     registry <- bg_api_boundary()
-    # Since no bg_serve() exists yet, all should be FALSE
-    expect_equal(sum(registry$remote_accessible), 0)
+    remote <- sort(registry$fn[registry$remote_accessible])
+
+    expect_equal(
+      remote,
+      sort(c(
+        "bg_add_node",
+        "bg_answer_gate",
+        "bg_branch_lineage",
+        "bg_cancel",
+        "bg_connect",
+        "bg_list_branches",
+        "bg_next_actions",
+        "bg_record_decision",
+        "bg_remove_node",
+        "bg_snapshot",
+        "bg_status",
+        "bg_submit",
+        "bg_update_node"
+      ))
+    )
+  })
+
+  it("keeps the server registry aligned with remote_accessible flags", {
+    expect_true(
+      exists(
+        "bg_validate_remote_command_boundary",
+        envir = asNamespace("bayesgrove")
+      ),
+      info = "Internal validator function bg_validate_remote_command_boundary must exist"
+    )
+    validator <- getFromNamespace(
+      "bg_validate_remote_command_boundary",
+      "bayesgrove"
+    )
+    expect_true(validator())
   })
 })

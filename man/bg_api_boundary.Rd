@@ -44,9 +44,9 @@ job primitives, backend registration, and daemon reconciliation.
 
 The \code{remote_accessible} column indicates whether a function is part of the
 IPC contract exposed via remote protocol (e.g., WebSocket). Functions marked
-\code{TRUE} form a deliberate public contract for external clients. Currently all
-functions have \code{remote_accessible = FALSE} since no \code{bg_serve()} remote
-protocol layer exists yet.
+\code{TRUE} form a deliberate public contract for external clients. The
+remote-accessible set is intentionally smaller than the full in-process R API
+and backs the experimental \code{bg_serve()} protocol boundary.
 }
 }
 \examples{

@@ -29,14 +29,17 @@ branch and its branch-local graph view.
 Supported commands include:
 \itemize{
 \item \code{help}: show the command list
+\item \code{dashboard}: show the guided operator dashboard
 \item \code{status}: print workflow state and health
 \item \code{guide}: show active obligations and suggested actions
 \item \code{actions}: list actionable protocol suggestions with payload details
+\item \code{next}: preview and optionally execute the top suggested action
 \item \verb{do <n>}: execute the nth suggested action
 \item \code{scope} / \verb{scope <scope>}: inspect or change the current scope
 \item \code{branches} and \verb{use <n>}: inspect branches and switch by index
 \item \code{goal} / \verb{goal set}: inspect or set a branch-scoped inferential goal
 \item \code{decisions}: show recent decisions for the current scope
+\item \code{lineage}: show the current branch and its ancestors
 \item \code{nodes}: print the scoped execution graph
 \item \verb{result <node>}: inspect a cached result and fresh summaries
 \item \verb{branch <node>}: create a new branch from a node and switch to it
@@ -47,6 +50,7 @@ Supported commands include:
 \item \code{gates} / \code{answer}: inspect and answer pending structural gates
 \item \code{run} / \code{submit}: execute or enqueue ready work in the current scope
 \item \code{jobs} and \verb{cancel <run_id>}: inspect or cancel background work
+\item \code{export [html|md] [path]}: export a workflow report from the REPL
 \item \code{exit}, \code{quit}, \code{q}: leave the REPL
 }
 

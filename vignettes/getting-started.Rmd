@@ -33,6 +33,34 @@ names(bg_list_templates())
 bg_list_templates("branch_comparison")$operation_type
 ```
 
+The package also makes its public boundary explicit. `bg_api_boundary()`
+distinguishes stable, experimental, and internal-but-exported functions, and
+marks the smaller remote IPC contract exposed by the experimental `bg_serve()`
+server. In-process execution is always available; background execution uses
+`mirai`.
+
+```{r boundary}
+boundary <- bg_api_boundary()
+subset(boundary, remote_accessible)[, c("fn", "classification")]
+```
+
+The same workflow protocol also powers the built-in interactive terminal
+client. `bg_repl()` opens with a dashboard-oriented view so you can inspect the
+current workflow state, active obligations, held nodes, branch-scoped gates,
+recent decisions, and branch lineage without dropping into low-level calls.
+
+```{r repl-client, eval = FALSE}
+bg_repl(handle)
+```
+
+The main guided REPL commands are:
+
+- `dashboard` to refresh the full operator view
+- `next` to preview and optionally execute the top recommended action
+- `do <n>` to execute a specific suggested action
+- `lineage` to inspect the current branch and its ancestors
+- `export md workflow_report.md` to write a report from the same session
+
 ## 1. Initializing a Project
 
 Every bayesgrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.

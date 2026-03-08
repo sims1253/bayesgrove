@@ -8,111 +8,38 @@ describe("Async Execution Layer", {
     }
   }
 
-  it("can submit jobs via callr and wait for completion", {
-    skip_if_not_installed("callr")
-    skip_if_async_package_unavailable()
-
-    tmp <- withr::local_tempdir()
-    handle <- bg_init(path = tmp)
-
-    bg_register_node_kind(
-      handle,
-      "slow_data",
-      executor = function(node, inputs) {
-        42
-      }
-    )
-
-    n1 <- bg_add_node(handle, "slow_data", label = "A")
-
-    # Submit async
-    run_res <- bg_submit(handle, backend = "callr")
-    expect_equal(run_res$status, "running")
-    expect_length(run_res$job_ids, 1)
-
-    # Wait for completion
-    tryCatch(
+  skip_if_mirai_daemon_unavailable <- function(compute = "bayesgrove-test") {
+    started_daemon <- FALSE
+    ready <- tryCatch(
       {
-        bg_wait(handle, run_res$run_id, timeout = 10)
+        if (mirai::status(.compute = compute)$daemons == 0) {
+          mirai::daemons(1, .compute = compute)
+          started_daemon <- TRUE
+        }
+        TRUE
       },
-      error = function(e) {
-        cat("JOB STATUS AT TIMEOUT:\n")
-        print(bg_jobs(handle))
-        cat(
-          "STDOUT:\n",
-          readLines(file.path(
-            tmp,
-            ".bayesgrove",
-            "runs",
-            paste0(run_res$job_ids[1], "_stdout.log")
-          )),
-          "\n"
-        )
-        cat(
-          "STDERR:\n",
-          readLines(file.path(
-            tmp,
-            ".bayesgrove",
-            "runs",
-            paste0(run_res$job_ids[1], "_stderr.log")
-          )),
-          "\n"
-        )
-        cat(
-          "DEBUG:\n",
-          readLines(file.path(
-            tmp,
-            ".bayesgrove",
-            "runs",
-            paste0(run_res$job_ids[1], "_debug.txt")
-          )),
-          "\n"
-        )
-        stop(e)
-      }
+      error = function(e) e
     )
 
-    # Verify job status
-    jobs <- bg_jobs(handle)
-    expect_equal(jobs[[run_res$job_ids[1]]]$status, "succeeded")
+    if (inherits(ready, "error")) {
+      skip(paste(
+        "mirai daemon unavailable in this environment:",
+        ready$message
+      ))
+    }
 
-    # Verify result can be fetched
-    res <- bg_result(handle, n1)
-    expect_equal(res, 42)
-  })
-
-  it("handles failed async jobs gracefully", {
-    skip_if_not_installed("callr")
-    skip_if_async_package_unavailable()
-
-    tmp <- withr::local_tempdir()
-    handle <- bg_init(path = tmp)
-
-    bg_register_node_kind(
-      handle,
-      "fail_node",
-      executor = function(node, inputs) {
-        Sys.sleep(0.5)
-        stop("Intentional failure")
-      }
-    )
-
-    n1 <- bg_add_node(handle, "fail_node", label = "A")
-
-    run_res <- bg_submit(handle, backend = "callr")
-    bg_wait(handle, run_res$run_id, timeout = 10)
-
-    jobs <- bg_jobs(handle)
-    expect_equal(jobs[[run_res$job_ids[1]]]$status, "failed")
-    expect_equal(
-      jobs[[run_res$job_ids[1]]]$error$message,
-      "Intentional failure"
-    )
-  })
+    if (started_daemon) {
+      withr::defer(
+        mirai::daemons(0, .compute = compute),
+        envir = parent.frame()
+      )
+    }
+  }
 
   it("can submit jobs via mirai and wait for completion", {
     skip_if_not_installed("mirai")
     skip_if_async_package_unavailable()
+    skip_if_mirai_daemon_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -146,8 +73,9 @@ describe("Async Execution Layer", {
   })
 
   it("can cancel jobs", {
-    skip_if_not_installed("callr")
+    skip_if_not_installed("mirai")
     skip_if_async_package_unavailable()
+    skip_if_mirai_daemon_unavailable()
 
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -163,7 +91,7 @@ describe("Async Execution Layer", {
 
     n1 <- bg_add_node(handle, "very_slow", label = "A")
 
-    run_res <- bg_submit(handle, backend = "callr")
+    run_res <- bg_submit(handle, backend = "mirai")
 
     # Wait a tiny bit for it to start
     Sys.sleep(0.5)
@@ -176,7 +104,7 @@ describe("Async Execution Layer", {
   })
 
   it("returns a consistent handle when nothing needs execution", {
-    skip_if_not_installed("callr")
+    skip_if_not_installed("mirai")
     skip_if_async_package_unavailable()
 
     tmp <- withr::local_tempdir()
@@ -193,7 +121,7 @@ describe("Async Execution Layer", {
     node_id <- bg_add_node(handle, "source", label = "A")
     bg_run(handle, mode = "sync")
 
-    run_res <- bg_submit(handle, backend = "callr")
+    run_res <- bg_submit(handle, backend = "mirai")
 
     expect_s3_class(run_res, "bg_run_handle")
     expect_equal(run_res$status, "succeeded")
@@ -205,5 +133,35 @@ describe("Async Execution Layer", {
     expect_null(run_res$finished_at)
     expect_equal(run_res$summary$total_jobs, 0L)
     expect_equal(run_res$metadata, list())
+  })
+
+  it("handles failed async jobs gracefully", {
+    skip_if_not_installed("mirai")
+    skip_if_async_package_unavailable()
+    skip_if_mirai_daemon_unavailable()
+
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(
+      handle,
+      "fail_node",
+      executor = function(node, inputs) {
+        Sys.sleep(0.5)
+        stop("Intentional failure")
+      }
+    )
+
+    bg_add_node(handle, "fail_node", label = "A")
+
+    run_res <- bg_submit(handle, backend = "mirai")
+    bg_wait(handle, run_res$run_id, timeout = 10)
+
+    jobs <- bg_jobs(handle)
+    expect_equal(jobs[[run_res$job_ids[1]]]$status, "failed")
+    expect_equal(
+      jobs[[run_res$job_ids[1]]]$error$message,
+      "Intentional failure"
+    )
   })
 })

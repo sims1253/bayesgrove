@@ -8,7 +8,7 @@ bg_run(
   project,
   targets = NULL,
   mode = c("sync", "async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 )
 }
 \arguments{
@@ -18,7 +18,7 @@ bg_run(
 
 \item{mode}{Execution mode: 'sync' or 'async'.}
 
-\item{backend}{For async mode, the backend to use ('auto', 'callr', 'mirai').}
+\item{backend}{For async mode, the backend to use (\code{"auto"} or \code{"mirai"}).}
 }
 \value{
 A \code{bg_run_handle} list.
