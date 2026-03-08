@@ -3,29 +3,29 @@
 ## Project Lifecycle
 
 - [`bg_handle()`](https://sims1253.github.io/bayesgrove/reference/bg_handle.md)
-  : BayesGrove Project Handle
+  : bayesgrove Project Handle
 - [`bg_init()`](https://sims1253.github.io/bayesgrove/reference/bg_init.md)
-  : Initialize a BayesGrove Project
+  : Initialize a bayesgrove Project
 - [`bg_open()`](https://sims1253.github.io/bayesgrove/reference/bg_open.md)
-  : Open a BayesGrove Project
+  : Open a bayesgrove Project
 - [`bg_close()`](https://sims1253.github.io/bayesgrove/reference/bg_close.md)
-  : Close a BayesGrove Project
+  : Close a bayesgrove Project
 
 ## Graph Construction
 
 - [`bg_add_node()`](https://sims1253.github.io/bayesgrove/reference/bg_add_node.md)
-  : Add a node to the BayesGrove project graph
+  : Add a node to the bayesgrove project graph
 - [`bg_connect()`](https://sims1253.github.io/bayesgrove/reference/bg_connect.md)
-  : Connect two nodes in the BayesGrove project graph
+  : Connect two nodes in the bayesgrove project graph
 - [`bg_update_node()`](https://sims1253.github.io/bayesgrove/reference/bg_update_node.md)
-  : Update a node in the BayesGrove project graph
+  : Update a node in the bayesgrove project graph
 - [`bg_remove_node()`](https://sims1253.github.io/bayesgrove/reference/bg_remove_node.md)
-  : Remove a node from the BayesGrove project graph
+  : Remove a node from the bayesgrove project graph
 
 ## Execution & Orchestration
 
 - [`bg_repl()`](https://sims1253.github.io/bayesgrove/reference/bg_repl.md)
-  : Interactive REPL for BayesGrove
+  : Interactive REPL for bayesgrove
 - [`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
   : Create an execution plan
 - [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
@@ -53,7 +53,7 @@
 - [`bg_snapshot()`](https://sims1253.github.io/bayesgrove/reference/bg_snapshot.md)
   : Retrieve a complete snapshot of the project state
 - [`bg_bundle()`](https://sims1253.github.io/bayesgrove/reference/bg_bundle.md)
-  : Bundle a BayesGrove project for reproducible handoff
+  : Bundle a bayesgrove project for reproducible handoff
 - [`bg_export_report()`](https://sims1253.github.io/bayesgrove/reference/bg_export_report.md)
   : Generate a reproducible markdown report of the workflow
 
@@ -100,7 +100,7 @@
 ## Branching & Invalidation
 
 - [`bg_branch()`](https://sims1253.github.io/bayesgrove/reference/bg_branch.md)
-  : Branch a node in the BayesGrove project graph
+  : Branch a node in the bayesgrove project graph
 - [`bg_branch_with_continuation()`](https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.md)
   : Branch a node with downstream continuation
 - [`bg_retire_node()`](https://sims1253.github.io/bayesgrove/reference/bg_retire_node.md)
@@ -126,7 +126,7 @@
 - [`bg_register_backend()`](https://sims1253.github.io/bayesgrove/reference/bg_register_backend.md)
   : Register a backend plugin
 - [`bg_register_node_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.md)
-  : Register a node kind in the BayesGrove runtime registry
+  : Register a node kind in the bayesgrove runtime registry
 - [`bg_cmdstanr_plugin()`](https://sims1253.github.io/bayesgrove/reference/bg_cmdstanr_plugin.md)
   : Baseline cmdstanr backend plugin
 - [`bg_brms_plugin()`](https://sims1253.github.io/bayesgrove/reference/bg_brms_plugin.md)

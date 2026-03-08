@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.12</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,7 +47,13 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_resolve_node_scope</span><span class="op">(</span><span class="va">project</span>, <span class="va">node_id</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_resolve_node_scope</span><span class="op">(</span></span>
+<span>  <span class="va">project</span>,</span>
+<span>  <span class="va">node_id</span>,</span>
+<span>  graph <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  branches <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  scope_resolution <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -60,6 +66,19 @@
 
 <dt id="arg-node-id">node_id<a class="anchor" aria-label="anchor" href="#arg-node-id"></a></dt>
 <dd><p>Node id.</p></dd>
+
+
+<dt id="arg-graph">graph<a class="anchor" aria-label="anchor" href="#arg-graph"></a></dt>
+<dd><p>Optional pre-read graph.</p></dd>
+
+
+<dt id="arg-branches">branches<a class="anchor" aria-label="anchor" href="#arg-branches"></a></dt>
+<dd><p>Optional pre-read branch registry entries.</p></dd>
+
+
+<dt id="arg-scope-resolution">scope_resolution<a class="anchor" aria-label="anchor" href="#arg-scope-resolution"></a></dt>
+<dd><p>Optional scope-resolution cache created by
+<code>bg_node_scope_resolution()</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

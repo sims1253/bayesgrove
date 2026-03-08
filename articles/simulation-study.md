@@ -2,7 +2,7 @@
 
 ## Motivation
 
-This vignette shows how the current BayesGrove MVP can support a small
+This vignette shows how the current bayesgrove MVP can support a small
 simulation study with explicit workflow state, branching, cached
 execution, and decision logging.
 
@@ -415,7 +415,7 @@ bg_result(handle, confounded$compare)$ranking
 
 In a typical run, the randomized scenario keeps the two models close,
 while the confounded scenario penalizes the naive model more strongly.
-That is the kind of structured depth-first search BayesGrove is well
+That is the kind of structured depth-first search bayesgrove is well
 positioned to support: each branch is explicit, caches are reused
 automatically, and the rationale for the next step is stored alongside
 the computational state.
@@ -425,9 +425,9 @@ the computational state.
 ``` r
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpH1mTxo/bg-simulation-study/simulation-study-report.md
+#> /tmp/RtmpbeUYeX/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpH1mTxo/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/RtmpbeUYeX/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,

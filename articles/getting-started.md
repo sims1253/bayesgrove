@@ -1,8 +1,8 @@
-# Getting Started with BayesGrove
+# Getting Started with bayesgrove
 
 ## Introduction
 
-**BayesGrove** is a graph-based Bayesian workflow orchestrator designed
+**bayesgrove** is a graph-based Bayesian workflow orchestrator designed
 to track the iterative nature of model building. It separates your
 analysis into two distinct layers: 1. **The Execution Graph (DAG)**:
 Built using `dagriculture`, representing the step-by-step
@@ -40,7 +40,7 @@ bg_list_templates("branch_comparison")$operation_type
 
 ### 1. Initializing a Project
 
-Every BayesGrove analysis lives inside an explicitly initialized project
+Every bayesgrove analysis lives inside an explicitly initialized project
 handle. This handle manages state, cache, and decision logs inside a
 `.bayesgrove/` directory.
 
@@ -56,9 +56,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x562075d59ba8> 
+#>  @ .state              :<environment: 0x55c232826f88> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/RtmpHzNDNu/bg-quickstart"
+#>  @ path                : chr "/tmp/Rtmpb34sQp/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -69,7 +69,7 @@ print(handle)
 
 ### 2. Defining the Workflow Structure
 
-In BayesGrove, everything is a node. For this demo, let’s register some
+In bayesgrove, everything is a node. For this demo, let’s register some
 mock executors to simulate the workflow.
 
 ``` r
@@ -162,7 +162,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-07T21:49:51Z"
+#> [1] "2026-03-08T00:18:57Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -361,7 +361,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_ef4a582d 
+#>                 obl_798734de 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -435,7 +435,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_44445ef5 
+#>              obl_c239b167 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(

@@ -1,6 +1,6 @@
-# Close a BayesGrove Project
+# Close a bayesgrove Project
 
-Close a BayesGrove Project
+Close a bayesgrove Project
 
 ## Usage
 

@@ -9,7 +9,8 @@ bg_compute_fingerprint(
   project,
   node_id,
   upstream_fingerprints = list(),
-  environment_manifest = list()
+  environment_manifest = list(),
+  graph = NULL
 )
 ```
 
@@ -30,6 +31,10 @@ bg_compute_fingerprint(
 - environment_manifest:
 
   Optional list of package versions.
+
+- graph:
+
+  Optional pre-read graph. If `NULL` the graph is read from disk.
 
 ## Value
 

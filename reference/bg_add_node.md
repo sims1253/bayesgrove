@@ -1,6 +1,6 @@
-# Add a node to the BayesGrove project graph
+# Add a node to the bayesgrove project graph
 
-Add a node to the BayesGrove project graph
+Add a node to the bayesgrove project graph
 
 ## Usage
 

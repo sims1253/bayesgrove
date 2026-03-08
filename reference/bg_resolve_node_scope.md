@@ -5,7 +5,13 @@ Resolve the workflow scope for a node
 ## Usage
 
 ``` r
-bg_resolve_node_scope(project, node_id)
+bg_resolve_node_scope(
+  project,
+  node_id,
+  graph = NULL,
+  branches = NULL,
+  scope_resolution = NULL
+)
 ```
 
 ## Arguments
@@ -17,6 +23,19 @@ bg_resolve_node_scope(project, node_id)
 - node_id:
 
   Node id.
+
+- graph:
+
+  Optional pre-read graph.
+
+- branches:
+
+  Optional pre-read branch registry entries.
+
+- scope_resolution:
+
+  Optional scope-resolution cache created by
+  `bg_node_scope_resolution()`.
 
 ## Value
 

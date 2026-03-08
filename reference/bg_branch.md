@@ -1,4 +1,4 @@
-# Branch a node in the BayesGrove project graph
+# Branch a node in the bayesgrove project graph
 
 Clones an existing node and its upstream dependencies (edges) to create
 a new branch.

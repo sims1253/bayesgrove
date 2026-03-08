@@ -1,6 +1,6 @@
-# Open a BayesGrove Project
+# Open a bayesgrove Project
 
-Open a BayesGrove Project
+Open a bayesgrove Project
 
 ## Usage
 

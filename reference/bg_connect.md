@@ -1,6 +1,6 @@
-# Connect two nodes in the BayesGrove project graph
+# Connect two nodes in the bayesgrove project graph
 
-Connect two nodes in the BayesGrove project graph
+Connect two nodes in the bayesgrove project graph
 
 ## Usage
 

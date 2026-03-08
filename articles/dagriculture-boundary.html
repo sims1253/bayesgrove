@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.12</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -94,10 +94,10 @@ workflow policy semantics.</td>
 <tr class="even">
 <td>Internal adapter helpers in <code>R/22-dagri-adapters.R</code>
 </td>
-<td>BayesGrove, with extraction candidates called out
+<td>bayesgrove, with extraction candidates called out
 helper-by-helper</td>
 <td>The adapter layer keeps the current dependency explicit while
-concentrating the graph-generic surface BayesGrove actually relies
+concentrating the graph-generic surface bayesgrove actually relies
 on.</td>
 </tr>
 <tr class="odd">
@@ -112,34 +112,34 @@ do not mention branches, goals, decisions, or summaries.</td>
 <td>Public graph editing verbs such as <code><a href="../reference/bg_add_node.html">bg_add_node()</a></code> and
 <code><a href="../reference/bg_connect.html">bg_connect()</a></code>
 </td>
-<td>BayesGrove</td>
+<td>bayesgrove</td>
 <td>User-facing API shape, ID generation, persistence, and project
 commit semantics belong to this package even when they delegate
 structural mutations.</td>
 </tr>
 <tr class="odd">
 <td>Policy-hold aware planning and external hold propagation</td>
-<td>BayesGrove</td>
+<td>bayesgrove</td>
 <td>Holds come from workflow obligations and protocol severity, so they
-depend on BayesGrove semantics rather than pure graph structure.</td>
+depend on bayesgrove semantics rather than pure graph structure.</td>
 </tr>
 <tr class="even">
 <td>Branch lineage, workflow scope resolution, and active/inactive
 branch filtering</td>
-<td>BayesGrove</td>
+<td>bayesgrove</td>
 <td>Branch identity and scope semantics are analysis-workflow concepts
 layered above the raw graph.</td>
 </tr>
 <tr class="odd">
 <td>Summary freshness, decision coverage, and workflow protocol
 guidance</td>
-<td>BayesGrove</td>
+<td>bayesgrove</td>
 <td>These concerns depend on Bayesian review semantics, artifact
 freshness, and decision provenance.</td>
 </tr>
 <tr class="even">
 <td>Decision logs, gates, and provenance records</td>
-<td>BayesGrove</td>
+<td>bayesgrove</td>
 <td>Provenance is domain-specific context on top of the structural
 graph, not a generic graph primitive.</td>
 </tr>
@@ -155,7 +155,7 @@ that clarify what is graph-generic.</td>
 <div class="section level2">
 <h2 id="why-this-split">Why this split<a class="anchor" aria-label="anchor" href="#why-this-split"></a>
 </h2>
-<p>BayesGrove already uses <code>dagriculture</code> as its structural
+<p>bayesgrove already uses <code>dagriculture</code> as its structural
 execution engine, but Phase 7 makes that boundary easier to defend:</p>
 <ul>
 <li>graph-generic queries now sit behind a small internal adapter

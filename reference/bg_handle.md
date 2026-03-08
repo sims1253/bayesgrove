@@ -1,6 +1,6 @@
-# BayesGrove Project Handle
+# bayesgrove Project Handle
 
-A reference-semantic handle for an open BayesGrove project.
+A reference-semantic handle for an open bayesgrove project.
 
 ## Usage
 

@@ -1,6 +1,6 @@
-# Interactive REPL for BayesGrove
+# Interactive REPL for bayesgrove
 
-Interactive REPL for BayesGrove
+Interactive REPL for bayesgrove
 
 ## Usage
 

@@ -1,4 +1,4 @@
-# Bundle a BayesGrove project for reproducible handoff
+# Bundle a bayesgrove project for reproducible handoff
 
 Creates a portable `.tar.gz` archive of the project, including the
 structural graph, decision log, job history, configuration, and

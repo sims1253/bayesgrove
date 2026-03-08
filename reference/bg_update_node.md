@@ -1,6 +1,6 @@
-# Update a node in the BayesGrove project graph
+# Update a node in the bayesgrove project graph
 
-Update a node in the BayesGrove project graph
+Update a node in the bayesgrove project graph
 
 ## Usage
 

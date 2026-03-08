@@ -1,5 +1,27 @@
 # Changelog
 
+## bayesgrove 0.3.12
+
+- Reworked sync run planning to reuse predicted fingerprints and
+  artifact-index state across a run, rebuild downstream input bindings
+  incrementally after each successful node, and refresh workflow holds
+  without a full
+  [`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
+  after every execution.
+- Added shared internal helpers for ID generation, rationale validation,
+  revised labels, obligation lookup, and cached scope resolution, then
+  threaded them through project, graph, decision, job, workflow, REPL,
+  template, and handoff paths for more consistent behavior.
+- Tightened the default workflow pack around shared comparison-state
+  helpers, consistent hold-node targeting, and comparison/disposition
+  signature handling, with matching regression coverage and demo/REPL
+  updates.
+- Cleaned package build and site metadata by restoring self-contained
+  vignette sources for `R CMD check`, quoting pkgdown article ids,
+  excluding repo-only `architecture/` and `demo/` trees from package
+  builds, and normalizing the package name to `bayesgrove` throughout
+  source and generated docs.
+
 ## bayesgrove 0.3.11
 
 - Moved the contributor-facing `dagriculture` boundary note out of
@@ -26,14 +48,14 @@
 
 - Added an explicit Phase 7 architecture note at
   `architecture/dagriculture-boundary.md` plus a small internal adapter
-  layer that isolates BayesGrove’s graph-generic dependency on
+  layer that isolates bayesgrove’s graph-generic dependency on
   `dagriculture`.
 - Refactored repeated inline structural graph queries into focused
   `bg_dagri_*` helpers for edge selection, descendant lookup,
   deterministic edge ordering, state recomputation, and structural graph
-  diffs without moving workflow semantics out of BayesGrove.
+  diffs without moving workflow semantics out of bayesgrove.
 - Added regression coverage that distinguishes graph-generic helper
-  behavior from BayesGrove-specific workflow, branch, and provenance
+  behavior from bayesgrove-specific workflow, branch, and provenance
   logic.
 - Synced the README and pkgdown-facing site sources for the phase-7
   boundary work, including a dedicated architecture page that pkgdown

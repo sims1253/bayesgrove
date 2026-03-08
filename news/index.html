@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.11</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.12</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,13 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.12" id="bayesgrove-0312">bayesgrove 0.3.12<a class="anchor" aria-label="anchor" href="#bayesgrove-0312"></a></h2>
+<ul><li>Reworked sync run planning to reuse predicted fingerprints and artifact-index state across a run, rebuild downstream input bindings incrementally after each successful node, and refresh workflow holds without a full <code><a href="../reference/bg_plan.html">bg_plan()</a></code> after every execution.</li>
+<li>Added shared internal helpers for ID generation, rationale validation, revised labels, obligation lookup, and cached scope resolution, then threaded them through project, graph, decision, job, workflow, REPL, template, and handoff paths for more consistent behavior.</li>
+<li>Tightened the default workflow pack around shared comparison-state helpers, consistent hold-node targeting, and comparison/disposition signature handling, with matching regression coverage and demo/REPL updates.</li>
+<li>Cleaned package build and site metadata by restoring self-contained vignette sources for <code>R CMD check</code>, quoting pkgdown article ids, excluding repo-only <code>architecture/</code> and <code>demo/</code> trees from package builds, and normalizing the package name to <code>bayesgrove</code> throughout source and generated docs.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.11" id="bayesgrove-0311">bayesgrove 0.3.11<a class="anchor" aria-label="anchor" href="#bayesgrove-0311"></a></h2>
 <ul><li>Moved the contributor-facing <code>dagriculture</code> boundary note out of <code>docs/</code> so pkgdown can clean and rebuild the GitHub Pages output directory in CI.</li>
 <li>Disabled <code>indentation_linter</code> in <code>.lintr</code> so formatting remains enforced by <code>air format</code> without a conflicting lint failure.</li>
@@ -53,9 +60,9 @@
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.9" id="bayesgrove-039">bayesgrove 0.3.9<a class="anchor" aria-label="anchor" href="#bayesgrove-039"></a></h2>
-<ul><li>Added an explicit Phase 7 architecture note at <code>architecture/dagriculture-boundary.md</code> plus a small internal adapter layer that isolates BayesGrove’s graph-generic dependency on <code>dagriculture</code>.</li>
-<li>Refactored repeated inline structural graph queries into focused <code>bg_dagri_*</code> helpers for edge selection, descendant lookup, deterministic edge ordering, state recomputation, and structural graph diffs without moving workflow semantics out of BayesGrove.</li>
-<li>Added regression coverage that distinguishes graph-generic helper behavior from BayesGrove-specific workflow, branch, and provenance logic.</li>
+<ul><li>Added an explicit Phase 7 architecture note at <code>architecture/dagriculture-boundary.md</code> plus a small internal adapter layer that isolates bayesgrove’s graph-generic dependency on <code>dagriculture</code>.</li>
+<li>Refactored repeated inline structural graph queries into focused <code>bg_dagri_*</code> helpers for edge selection, descendant lookup, deterministic edge ordering, state recomputation, and structural graph diffs without moving workflow semantics out of bayesgrove.</li>
+<li>Added regression coverage that distinguishes graph-generic helper behavior from bayesgrove-specific workflow, branch, and provenance logic.</li>
 <li>Synced the README and pkgdown-facing site sources for the phase-7 boundary work, including a dedicated architecture page that pkgdown can render without a broken navbar link.</li>
 </ul></div>
     <div class="section level2">

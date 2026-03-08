@@ -1,6 +1,6 @@
-# Initialize a BayesGrove Project
+# Initialize a bayesgrove Project
 
-Creates the directory structure and initial state for a new BayesGrove
+Creates the directory structure and initial state for a new bayesgrove
 project.
 
 ## Usage

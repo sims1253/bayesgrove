@@ -1,6 +1,6 @@
-# Remove a node from the BayesGrove project graph
+# Remove a node from the bayesgrove project graph
 
-Remove a node from the BayesGrove project graph
+Remove a node from the bayesgrove project graph
 
 ## Usage
 
