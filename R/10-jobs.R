@@ -93,7 +93,7 @@ bg_jobs <- function(project, status = NULL, detailed = FALSE) {
 #' @keywords internal
 #' @export
 bg_create_job <- function(project, run_id, node_id, backend = "local") {
-  job_id <- sprintf("job_%s", digest::digest(runif(1), algo = "xxhash32"))
+  job_id <- bg_new_id("job")
 
   record <- list(
     job_id = job_id,

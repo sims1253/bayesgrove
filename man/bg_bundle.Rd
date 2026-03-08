@@ -2,7 +2,7 @@
 % Please edit documentation in R/17-handoff.R
 \name{bg_bundle}
 \alias{bg_bundle}
-\title{Bundle a BayesGrove project for reproducible handoff}
+\title{Bundle a bayesgrove project for reproducible handoff}
 \usage{
 bg_bundle(
   project,

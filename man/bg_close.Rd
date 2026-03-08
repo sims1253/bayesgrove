@@ -2,7 +2,7 @@
 % Please edit documentation in R/01-project.R
 \name{bg_close}
 \alias{bg_close}
-\title{Close a BayesGrove Project}
+\title{Close a bayesgrove Project}
 \usage{
 bg_close(project)
 }
@@ -10,5 +10,5 @@ bg_close(project)
 \item{project}{A \code{bg_handle}.}
 }
 \description{
-Close a BayesGrove Project
+Close a bayesgrove Project
 }

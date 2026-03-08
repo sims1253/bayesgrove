@@ -2,7 +2,7 @@
 % Please edit documentation in R/00-handle.R
 \name{bg_handle}
 \alias{bg_handle}
-\title{BayesGrove Project Handle}
+\title{bayesgrove Project Handle}
 \usage{
 bg_handle(
   project_id,
@@ -33,5 +33,5 @@ bg_handle(
 \item{metadata}{List of project metadata.}
 }
 \description{
-A reference-semantic handle for an open BayesGrove project.
+A reference-semantic handle for an open bayesgrove project.
 }

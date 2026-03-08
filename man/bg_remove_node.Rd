@@ -2,7 +2,7 @@
 % Please edit documentation in R/02-graph.R
 \name{bg_remove_node}
 \alias{bg_remove_node}
-\title{Remove a node from the BayesGrove project graph}
+\title{Remove a node from the bayesgrove project graph}
 \usage{
 bg_remove_node(project, node_id)
 }
@@ -15,5 +15,5 @@ bg_remove_node(project, node_id)
 Invisible TRUE.
 }
 \description{
-Remove a node from the BayesGrove project graph
+Remove a node from the bayesgrove project graph
 }

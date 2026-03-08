@@ -450,7 +450,7 @@ bg_execute_template_branch_and_modify_fit <- function(
   parameter_suggestions <- payload$parameter_suggestions %||% list()
   continuation_kinds <- payload$continuation_kinds %||% c("check", "ppc")
   default_label <- payload$default_label %||%
-    paste0(source_node$label %||% source_node$kind, " (revised)")
+    bg_revised_label(source_node)
 
   cli::cli_h2(template$title)
   cli::cli_text("{cli::col_cyan(action$title %||% template$title)}")
@@ -625,9 +625,7 @@ bg_execute_template_review_decision <- function(
 
   choice <- bg_template_review_choice(decision_type)
   rationale <- bg_repl_readline("Rationale for this decision: ")
-  if (!nzchar(trimws(rationale))) {
-    cli::cli_abort("Rationale is required.")
-  }
+  bg_require_rationale(rationale)
 
   decision_metadata <- bg_template_review_metadata(action)
   if (identical(decision_type, "branch_disposition")) {

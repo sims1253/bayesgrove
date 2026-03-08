@@ -292,7 +292,7 @@ bg_demo_repl_intro <- function(checkpoint) {
   switch(
     checkpoint,
     "warning_branch" = list(
-      heading = "BayesGrove: Remediation Workflow Demo",
+      heading = "bayesgrove: Remediation Workflow Demo",
       lines = c(
         "You are jumping into an analysis with a clean baseline fit and one problematic branch.",
         "The centered branch has divergent transitions and branch-scoped review obligations.",
@@ -307,7 +307,7 @@ bg_demo_repl_intro <- function(checkpoint) {
       )
     ),
     "comparison_ready" = list(
-      heading = "BayesGrove: Comparison Template Demo",
+      heading = "bayesgrove: Comparison Template Demo",
       lines = c(
         "You are resuming after remediation.",
         "The stale warning branch is retired and two clean fits remain.",
@@ -321,7 +321,7 @@ bg_demo_repl_intro <- function(checkpoint) {
       )
     ),
     "disposition_ready" = list(
-      heading = "BayesGrove: Branch Disposition Demo",
+      heading = "bayesgrove: Branch Disposition Demo",
       lines = c(
         "A comparison node already exists and the project-level comparison decision has been recorded.",
         "The current branch scope now needs an explicit accept or reject disposition.",
@@ -335,7 +335,7 @@ bg_demo_repl_intro <- function(checkpoint) {
       )
     ),
     "healthy" = list(
-      heading = "BayesGrove: Healthy Workflow Demo",
+      heading = "bayesgrove: Healthy Workflow Demo",
       lines = c(
         "All remediation, comparison, and disposition decisions are already recorded.",
         "Use this checkpoint for inspection rather than action execution."

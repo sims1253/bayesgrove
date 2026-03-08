@@ -1,4 +1,4 @@
-#' Branch a node in the BayesGrove project graph
+#' Branch a node in the bayesgrove project graph
 #'
 #' Clones an existing node and its upstream dependencies (edges) to create a new branch.
 #'
@@ -19,7 +19,7 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   }
 
   old_node <- graph$nodes[[node_id]]
-  new_id <- sprintf("node_%s", digest::digest(runif(1), algo = "xxhash32"))
+  new_id <- bg_new_id("node")
 
   new_label <- label %||% paste0(old_node$label %||% old_node$kind, " (branch)")
   new_params <- if (copy_params) old_node$params else list()
@@ -38,10 +38,7 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
   upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
 
   for (e in upstream_edges) {
-    new_edge_id <- sprintf(
-      "edge_%s",
-      digest::digest(runif(1), algo = "xxhash32")
-    )
+    new_edge_id <- bg_new_id("edge")
     graph <- bg_dagri_add_edge(
       graph = graph,
       from = e$from,
@@ -155,10 +152,7 @@ bg_branch_with_continuation <- function(
       next
     }
 
-    new_target_id <- sprintf(
-      "node_%s",
-      digest::digest(runif(1), algo = "xxhash32")
-    )
+    new_target_id <- bg_new_id("node")
 
     # Find all edges into this target and remap inputs
     incoming_edges <- bg_dagri_incoming_edges(graph, target_id)
@@ -198,10 +192,7 @@ bg_branch_with_continuation <- function(
 
     # Add edges from the remapped inputs
     for (i in seq_along(new_inputs)) {
-      new_edge_id <- sprintf(
-        "edge_%s",
-        digest::digest(runif(1), algo = "xxhash32")
-      )
+      new_edge_id <- bg_new_id("edge")
       graph <- bg_dagri_add_edge(
         graph = graph,
         from = new_inputs[[i]],

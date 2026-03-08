@@ -2,7 +2,7 @@
 % Please edit documentation in R/05-registry.R
 \name{bg_register_node_kind}
 \alias{bg_register_node_kind}
-\title{Register a node kind in the BayesGrove runtime registry}
+\title{Register a node kind in the bayesgrove runtime registry}
 \usage{
 bg_register_node_kind(
   project,

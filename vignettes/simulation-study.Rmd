@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 # Motivation
 
-This vignette shows how the current BayesGrove MVP can support a small
+This vignette shows how the current bayesgrove MVP can support a small
 simulation study with explicit workflow state, branching, cached execution, and
 decision logging.
 
@@ -330,7 +330,7 @@ bg_result(handle, confounded$compare)$ranking
 
 In a typical run, the randomized scenario keeps the two models close, while the
 confounded scenario penalizes the naive model more strongly. That is the kind of
-structured depth-first search BayesGrove is well positioned to support: each
+structured depth-first search bayesgrove is well positioned to support: each
 branch is explicit, caches are reused automatically, and the rationale for the
 next step is stored alongside the computational state.
 

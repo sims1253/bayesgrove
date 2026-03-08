@@ -1,26 +1,34 @@
 #' @keywords internal
-bg_builtin_workflow_registry <- function() {
-  list(
-    "bayesguide.default_bayesian" = list(
-      pack_id = "bayesguide.default_bayesian",
-      version = "0.2.0",
-      obligation_providers = list(
-        bg_default_bayesian_goal_obligations,
-        bg_default_bayesian_summary_obligations,
-        bg_default_bayesian_fit_criticism_obligations,
-        bg_default_bayesian_comparison_obligations,
-        bg_default_bayesian_disposition_obligations
-      ),
-      action_providers = list(
-        bg_default_bayesian_goal_actions,
-        bg_default_bayesian_summary_actions,
-        bg_default_bayesian_fit_criticism_actions,
-        bg_default_bayesian_comparison_decision_actions,
-        bg_default_bayesian_disposition_actions
+bg_builtin_workflow_registry <- local({
+  registry <- NULL
+
+  function() {
+    if (is.null(registry)) {
+      registry <<- list(
+        "bayesguide.default_bayesian" = list(
+          pack_id = "bayesguide.default_bayesian",
+          version = "0.2.0",
+          obligation_providers = list(
+            bg_default_bayesian_goal_obligations,
+            bg_default_bayesian_summary_obligations,
+            bg_default_bayesian_fit_criticism_obligations,
+            bg_default_bayesian_comparison_obligations,
+            bg_default_bayesian_disposition_obligations
+          ),
+          action_providers = list(
+            bg_default_bayesian_goal_actions,
+            bg_default_bayesian_summary_actions,
+            bg_default_bayesian_fit_criticism_actions,
+            bg_default_bayesian_comparison_decision_actions,
+            bg_default_bayesian_disposition_actions
+          )
+        )
       )
-    )
-  )
-}
+    }
+
+    registry
+  }
+})
 
 #' @keywords internal
 bg_default_workflow_pack_refs <- function() {
@@ -291,12 +299,16 @@ bg_merge_protocol_items <- function(items, id_field) {
 }
 
 #' @keywords internal
-bg_collect_workflow_contexts <- function(project, resolved_scope) {
+bg_collect_workflow_contexts <- function(project, resolved_scope, plan = NULL) {
   graph <- bg_active_graph(project)
+  predicted_fingerprints <- plan$metadata$fingerprints %||% NULL
+  artifact_index <- plan$metadata$artifact_index %||% NULL
   all_summaries <- bg_read_summaries(
     project,
     include_stale = TRUE,
-    include_inactive = FALSE
+    include_inactive = FALSE,
+    predicted_fingerprints = predicted_fingerprints,
+    artifact_index = artifact_index
   )
   all_decisions <- bg_read_decisions(project)
 
@@ -310,7 +322,11 @@ bg_collect_workflow_contexts <- function(project, resolved_scope) {
 
   if (!identical(resolved_scope, "project")) {
     return(list(enrich_context(
-      bg_build_workflow_context(project, scope = resolved_scope)
+      bg_build_workflow_context_impl(
+        project,
+        scope = resolved_scope,
+        plan = plan
+      )
     )))
   }
 
@@ -319,10 +335,14 @@ bg_collect_workflow_contexts <- function(project, resolved_scope) {
   ))
   branch_ids <- intersect(branch_ids, bg_active_branch_ids(project))
   project_context <- enrich_context(
-    bg_build_workflow_context(project, scope = "project")
+    bg_build_workflow_context_impl(project, scope = "project", plan = plan)
   )
   branch_contexts <- lapply(branch_ids, function(branch_id) {
-    enrich_context(bg_build_workflow_context(project, scope = branch_id))
+    enrich_context(bg_build_workflow_context_impl(
+      project,
+      scope = branch_id,
+      plan = plan
+    ))
   })
 
   c(list(project_context), branch_contexts)
@@ -392,13 +412,16 @@ bg_blocking_obligation_holds <- function(project, obligations) {
 }
 
 #' @keywords internal
-bg_workflow_external_holds <- function(project) {
+bg_workflow_external_holds <- function(project, plan = NULL) {
   if (length(bg_workflow_packs(project)) == 0) {
     return(list())
   }
 
-  bg_next_actions(project, scope = "project")$metadata$external_holds %||%
-    list()
+  bg_next_actions_impl(
+    project,
+    resolved_scope = "project",
+    plan = plan
+  )$metadata$external_holds %||% list()
 }
 
 #' Compute deterministic next workflow actions
@@ -435,8 +458,13 @@ bg_next_actions <- function(
   S7::check_is_S7(project, bg_handle)
 
   resolved_scope <- bg_resolve_workflow_scope(project, scope, branch_id)
+  bg_next_actions_impl(project, resolved_scope, plan = NULL)
+}
+
+#' @keywords internal
+bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
   active_packs <- bg_workflow_packs(project)
-  contexts <- bg_collect_workflow_contexts(project, resolved_scope)
+  contexts <- bg_collect_workflow_contexts(project, resolved_scope, plan = plan)
 
   obligation_items <- list()
   for (context in contexts) {
@@ -554,25 +582,6 @@ bg_partition_protocol_by_scope <- function(result, project = NULL) {
 }
 
 #' @keywords internal
-bg_default_bayesian_reviewed_summary_ids <- function(decisions) {
-  reviewed <- character()
-
-  for (decision in decisions) {
-    if (!identical(decision$kind, "computation_review")) {
-      next
-    }
-
-    reviewed <- c(
-      reviewed,
-      decision$metadata$summary_ids %||% character(),
-      decision$metadata$summary_id %||% character()
-    )
-  }
-
-  unique(reviewed)
-}
-
-#' @keywords internal
 bg_default_bayesian_goal_obligations <- function(
   context,
   pack_config = list()
@@ -621,8 +630,17 @@ bg_default_bayesian_summary_obligations <- function(
     return(list())
   }
 
-  reviewed_ids <- bg_default_bayesian_reviewed_summary_ids(
-    context$evidence$decisions %||% list()
+  summary_ids <- sort(unique(vapply(
+    summaries,
+    `[[`,
+    character(1),
+    "summary_id"
+  )))
+  reviewed_ids <- bg_default_bayesian_current_decision_summary_ids(
+    decisions = context$evidence$decisions %||% list(),
+    scope = context$scope,
+    kind = "computation_review",
+    fresh_summary_ids = summary_ids
   )
   pending <- Filter(
     function(summary) {
@@ -665,13 +683,8 @@ bg_default_bayesian_goal_actions <- function(
   obligations,
   pack_config = list()
 ) {
-  goal_obligation <- Filter(
-    function(obligation) {
-      identical(obligation$kind, "set_inferential_goal")
-    },
-    obligations
-  )
-  if (length(goal_obligation) == 0) {
+  goal_obligation <- bg_find_obligation(obligations, "set_inferential_goal")
+  if (is.null(goal_obligation)) {
     return(list())
   }
 
@@ -708,17 +721,10 @@ bg_default_bayesian_summary_actions <- function(
   obligations,
   pack_config = list()
 ) {
-  review_obligation <- Filter(
-    function(obligation) {
-      identical(obligation$kind, "review_computation_validity")
-    },
-    obligations
-  )
-  if (length(review_obligation) == 0) {
+  obligation <- bg_find_obligation(obligations, "review_computation_validity")
+  if (is.null(obligation)) {
     return(list())
   }
-
-  obligation <- review_obligation[[1]]
   node_ids <- obligation$basis$node_ids %||% character()
   summary_ids <- obligation$basis$summary_ids %||% character()
 
@@ -787,7 +793,7 @@ bg_default_bayesian_summary_actions <- function(
           source_node_id = source_node_id,
           modification_hint = modification_hint,
           default_label = if (!is.null(source_node)) {
-            paste0(source_node$label %||% source_node$kind, " (revised)")
+            bg_revised_label(source_node)
           } else {
             NULL
           },

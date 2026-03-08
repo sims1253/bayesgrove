@@ -1,23 +1,23 @@
 # `dagriculture` Boundary
 
-This note records which concerns are intentionally owned by BayesGrove and
+This note records which concerns are intentionally owned by bayesgrove and
 which ones are plausible future extraction candidates for `dagriculture`.
 
 | Concern | Package owner | Reason |
 | --- | --- | --- |
 | Graph node and edge storage, state recomputation, and structural planning primitives | `dagriculture` | These are graph-generic execution concerns with no Bayesian or workflow policy semantics. |
-| Internal adapter helpers in [`R/22-dagri-adapters.R`](../R/22-dagri-adapters.R) | BayesGrove, with extraction candidates called out helper-by-helper | The adapter layer keeps the current dependency explicit while concentrating the graph-generic surface BayesGrove actually relies on. |
+| Internal adapter helpers in [`R/22-dagri-adapters.R`](../R/22-dagri-adapters.R) | bayesgrove, with extraction candidates called out helper-by-helper | The adapter layer keeps the current dependency explicit while concentrating the graph-generic surface bayesgrove actually relies on. |
 | Descendant, incoming-edge, outgoing-edge, ordered-edge, and structural graph-diff helpers | Candidate to move to `dagriculture` | These helpers express pure topology queries over graph snapshots and do not mention branches, goals, decisions, or summaries. |
-| Public graph editing verbs such as [`bg_add_node()`](../R/02-graph.R) and [`bg_connect()`](../R/02-graph.R) | BayesGrove | User-facing API shape, ID generation, persistence, and project commit semantics belong to this package even when they delegate structural mutations. |
-| Policy-hold aware planning and external hold propagation | BayesGrove | Holds come from workflow obligations and protocol severity, so they depend on BayesGrove semantics rather than pure graph structure. |
-| Branch lineage, workflow scope resolution, and active/inactive branch filtering | BayesGrove | Branch identity and scope semantics are analysis-workflow concepts layered above the raw graph. |
-| Summary freshness, decision coverage, and workflow protocol guidance | BayesGrove | These concerns depend on Bayesian review semantics, artifact freshness, and decision provenance. |
-| Decision logs, gates, and provenance records | BayesGrove | Provenance is domain-specific context on top of the structural graph, not a generic graph primitive. |
+| Public graph editing verbs such as [`bg_add_node()`](../R/02-graph.R) and [`bg_connect()`](../R/02-graph.R) | bayesgrove | User-facing API shape, ID generation, persistence, and project commit semantics belong to this package even when they delegate structural mutations. |
+| Policy-hold aware planning and external hold propagation | bayesgrove | Holds come from workflow obligations and protocol severity, so they depend on bayesgrove semantics rather than pure graph structure. |
+| Branch lineage, workflow scope resolution, and active/inactive branch filtering | bayesgrove | Branch identity and scope semantics are analysis-workflow concepts layered above the raw graph. |
+| Summary freshness, decision coverage, and workflow protocol guidance | bayesgrove | These concerns depend on Bayesian review semantics, artifact freshness, and decision provenance. |
+| Decision logs, gates, and provenance records | bayesgrove | Provenance is domain-specific context on top of the structural graph, not a generic graph primitive. |
 | A cross-repo migration in this phase | Explicitly not in scope | This repository does not carry the `dagriculture` source, so phase 7 stops at boundary documentation, internal adapters, and tests that clarify what is graph-generic. |
 
 ## Why this split
 
-BayesGrove already uses `dagriculture` as its structural execution engine, but
+bayesgrove already uses `dagriculture` as its structural execution engine, but
 phase 7 makes that boundary easier to defend:
 
 - graph-generic queries now sit behind a small internal adapter layer;

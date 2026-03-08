@@ -2,7 +2,7 @@
 % Please edit documentation in R/01-project.R
 \name{bg_open}
 \alias{bg_open}
-\title{Open a BayesGrove Project}
+\title{Open a bayesgrove Project}
 \usage{
 bg_open(path = ".", readonly = FALSE)
 }
@@ -15,5 +15,5 @@ bg_open(path = ".", readonly = FALSE)
 A \code{bg_handle}.
 }
 \description{
-Open a BayesGrove Project
+Open a bayesgrove Project
 }

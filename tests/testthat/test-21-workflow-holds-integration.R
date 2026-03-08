@@ -6,6 +6,42 @@ if (!exists("make_workflow_hold_fixture", mode = "function")) {
 }
 
 describe("Workflow holds end-to-end", {
+  it("refreshes workflow holds mid-run without replanning after each success", {
+    fixture <- make_workflow_hold_fixture()
+    handle <- fixture$handle
+    original_bg_plan <- bg_plan
+    plan_calls <- 0L
+
+    run_res <- testthat::with_mocked_bindings(
+      bg_plan = function(...) {
+        plan_calls <<- plan_calls + 1L
+        original_bg_plan(...)
+      },
+      bg_run(handle, targets = fixture$compare_id, mode = "sync"),
+      .package = "bayesgrove"
+    )
+
+    expect_equal(
+      run_res$status,
+      "blocked",
+      info = "A fresh warning summary should hold the downstream comparison before it executes."
+    )
+    expect_equal(
+      run_res$summary$total_executed,
+      2,
+      info = "The source and fit nodes should finish before the new policy hold blocks the comparison."
+    )
+    expect_equal(
+      plan_calls,
+      2L,
+      info = "Sync runs should keep the initial planning passes but avoid a full `bg_plan()` after each successful node."
+    )
+    expect_equal(
+      run_res$metadata$held_by_policy[[fixture$compare_id]],
+      "Review computation validity"
+    )
+  })
+
   it("derives review obligations, planner holds, and clears them after rerun", {
     fixture <- make_workflow_hold_fixture()
     handle <- fixture$handle

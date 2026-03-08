@@ -104,6 +104,6 @@ describe("Handoff and Export Layer", {
 
     content <- paste(readLines(report_path), collapse = "\n")
     expect_true(grepl("<html>", content, fixed = TRUE))
-    expect_true(grepl("BayesGrove Workflow Report", content, fixed = TRUE))
+    expect_true(grepl("bayesgrove Workflow Report", content, fixed = TRUE))
   })
 })

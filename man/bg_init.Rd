@@ -2,7 +2,7 @@
 % Please edit documentation in R/01-project.R
 \name{bg_init}
 \alias{bg_init}
-\title{Initialize a BayesGrove Project}
+\title{Initialize a bayesgrove Project}
 \usage{
 bg_init(
   path = ".",
@@ -28,5 +28,5 @@ branch acceptance or rejection decisions.}
 A \code{bg_handle} representing the open project.
 }
 \description{
-Creates the directory structure and initial state for a new BayesGrove project.
+Creates the directory structure and initial state for a new bayesgrove project.
 }

@@ -8,7 +8,8 @@ bg_compute_fingerprint(
   project,
   node_id,
   upstream_fingerprints = list(),
-  environment_manifest = list()
+  environment_manifest = list(),
+  graph = NULL
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ bg_compute_fingerprint(
 \item{upstream_fingerprints}{A named list mapping upstream node IDs to their computed fingerprints.}
 
 \item{environment_manifest}{Optional list of package versions.}
+
+\item{graph}{Optional pre-read graph. If \code{NULL} the graph is read from disk.}
 }
 \value{
 A SHA-256 fingerprint string.

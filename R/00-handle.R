@@ -1,5 +1,5 @@
-#' @title BayesGrove Project Handle
-#' @description A reference-semantic handle for an open BayesGrove project.
+#' @title bayesgrove Project Handle
+#' @description A reference-semantic handle for an open bayesgrove project.
 #' @param project_id Unique project identifier.
 #' @param path File path to the project root.
 #' @param readonly Logical, whether the handle is readonly.

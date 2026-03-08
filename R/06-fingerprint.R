@@ -4,6 +4,7 @@
 #' @param node_id The ID of the node to fingerprint.
 #' @param upstream_fingerprints A named list mapping upstream node IDs to their computed fingerprints.
 #' @param environment_manifest Optional list of package versions.
+#' @param graph Optional pre-read graph. If `NULL` the graph is read from disk.
 #'
 #' @return A SHA-256 fingerprint string.
 #' @export
@@ -11,11 +12,14 @@ bg_compute_fingerprint <- function(
   project,
   node_id,
   upstream_fingerprints = list(),
-  environment_manifest = list()
+  environment_manifest = list(),
+  graph = NULL
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  graph <- bg_read_graph(project)
+  if (is.null(graph)) {
+    graph <- bg_read_graph(project)
+  }
   if (!node_id %in% names(graph$nodes)) {
     cli::cli_abort("Node {.val {node_id}} not found in graph.")
   }

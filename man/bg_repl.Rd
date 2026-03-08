@@ -2,7 +2,7 @@
 % Please edit documentation in R/13-repl.R
 \name{bg_repl}
 \alias{bg_repl}
-\title{Interactive REPL for BayesGrove}
+\title{Interactive REPL for bayesgrove}
 \usage{
 bg_repl(project, initial_scope = NULL)
 }
@@ -15,7 +15,7 @@ bg_repl(project, initial_scope = NULL)
 Invisibly returns \code{NULL} when the session exits.
 }
 \description{
-Interactive REPL for BayesGrove
+Interactive REPL for bayesgrove
 }
 \details{
 \code{bg_repl()} provides an interactive loop for navigating workflow state,

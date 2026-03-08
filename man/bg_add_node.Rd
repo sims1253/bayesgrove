@@ -2,7 +2,7 @@
 % Please edit documentation in R/02-graph.R
 \name{bg_add_node}
 \alias{bg_add_node}
-\title{Add a node to the BayesGrove project graph}
+\title{Add a node to the bayesgrove project graph}
 \usage{
 bg_add_node(
   project,
@@ -30,5 +30,5 @@ bg_add_node(
 The generated node ID.
 }
 \description{
-Add a node to the BayesGrove project graph
+Add a node to the bayesgrove project graph
 }

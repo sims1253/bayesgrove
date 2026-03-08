@@ -436,7 +436,7 @@ bg_repl_print_nodes <- function(project, scope = "project") {
 
   # Filter nodes by scope if in branch mode
   if (startsWith(scope, "branch:")) {
-    scope_node_ids <- bg_scope_node_ids(project, scope)
+    scope_node_ids <- bg_scope_node_ids(project, scope, graph = graph)
     graph$nodes <- graph$nodes[scope_node_ids]
     # Keep only edges fully contained within the branch view.
     graph$edges <- Filter(
@@ -691,7 +691,7 @@ bg_repl_print_actions <- function(project, scope = "project") {
 }
 
 #' @keywords internal
-bg_repl_post_action_hint <- function(project, scope, action_kind) {
+bg_repl_post_action_hint <- function(project, scope, action) {
   # Get fresh state after action
   query <- bg_repl_protocol_query(scope)
   actions <- bg_next_actions(
@@ -717,12 +717,8 @@ bg_repl_post_action_hint <- function(project, scope, action_kind) {
     hints <- c(hints, "actions - see next suggested actions")
   }
 
-  template_ref <- if (is.list(action_kind)) {
-    bg_action_template_ref(action_kind)
-  } else {
-    NULL
-  }
-  kind <- if (is.list(action_kind)) action_kind$kind %||% NULL else action_kind
+  template_ref <- if (is.list(action)) bg_action_template_ref(action) else NULL
+  kind <- if (is.list(action)) action$kind %||% NULL else action
 
   if (identical(template_ref, "diagnostic_check")) {
     hints <- c(hints, "run - execute the diagnostic check")
@@ -805,15 +801,11 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
   cli::cli_text("{cli::col_cyan(action$title)}")
   cli::cli_text("")
 
-  prompt <- switch(
-    decision_type,
-    "computation_review" = "Is this computation acceptable for downstream use?",
-    "fit_criticism" = "What is your fit criticism assessment for these summaries?",
-    "model_comparison" = "What is your explicit model comparison decision?",
-    "branch_disposition" = "Should this branch be accepted or rejected?",
-    "goal_update" = "Describe the inferential goal for this branch:",
-    action$title
-  )
+  prompt <- if (identical(decision_type, "goal_update")) {
+    "Describe the inferential goal for this branch:"
+  } else {
+    payload$prompt %||% action$title %||% "Describe the decision:"
+  }
 
   cli::cli_text("{cli::col_yellow('Prompt:')} {prompt}")
   cli::cli_text("")
@@ -853,9 +845,7 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
   }
 
   rationale <- bg_repl_readline("Rationale for this decision: ")
-  if (trimws(rationale) == "") {
-    cli::cli_abort("Rationale is required.")
-  }
+  bg_require_rationale(rationale)
 
   if (decision_type == "goal_update" && startsWith(scope, "branch:")) {
     decision <- bg_set_goal(
@@ -968,9 +958,7 @@ bg_repl_set_goal_interactive <- function(project, scope) {
   label <- if (nzchar(trimws(label_input))) trimws(label_input) else kind
 
   rationale <- bg_repl_readline("Rationale for this goal: ")
-  if (trimws(rationale) == "") {
-    cli::cli_abort("Rationale is required.")
-  }
+  bg_require_rationale(rationale)
 
   decision <- bg_set_goal(
     project = project,
@@ -1106,7 +1094,7 @@ bg_repl_find_node <- function(project, ref) {
   cli::cli_abort("Node '{ref}' not found.")
 }
 
-#' Interactive REPL for BayesGrove
+#' Interactive REPL for bayesgrove
 #'
 #' @param project A `bg_handle`.
 #' @param initial_scope Optional initial scope (e.g., "project" or "branch:xxx").
@@ -1159,7 +1147,7 @@ bg_repl <- function(project, initial_scope = NULL) {
   # Initialize current scope
   current_scope <- initial_scope %||% "project"
 
-  cli::cli_h1("BayesGrove Interactive REPL")
+  cli::cli_h1("bayesgrove Interactive REPL")
   cli::cli_text("Type 'help' for commands, 'exit' to leave.")
 
   repeat {
@@ -1531,10 +1519,7 @@ bg_repl <- function(project, initial_scope = NULL) {
 
               choice <- g$options[idx]
               rationale <- bg_repl_readline("Rationale for this decision: ")
-
-              if (trimws(rationale) == "") {
-                cli::cli_abort("Rationale is required.")
-              }
+              bg_require_rationale(rationale)
 
               bg_answer_gate(project, g$id, choice, rationale)
               cli::cli_alert_success("Gate answered and logged.")

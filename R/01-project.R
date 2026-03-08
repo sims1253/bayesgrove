@@ -1,6 +1,6 @@
-#' Initialize a BayesGrove Project
+#' Initialize a bayesgrove Project
 #'
-#' Creates the directory structure and initial state for a new BayesGrove project.
+#' Creates the directory structure and initial state for a new bayesgrove project.
 #'
 #' @param path Directory path where the project should be initialized.
 #' @param project_name Optional. Name of the project. Defaults to the basename of the path.
@@ -60,7 +60,7 @@ bg_init <- function(
     force = TRUE
   )
 
-  project_id <- sprintf("proj_%s", digest::digest(runif(1), algo = "xxhash32"))
+  project_id <- bg_new_id("proj")
 
   # Save config
   config_path <- file.path(bg_dir, "config.json")
@@ -122,7 +122,7 @@ bg_init <- function(
   )
 }
 
-#' Open a BayesGrove Project
+#' Open a bayesgrove Project
 #'
 #' @param path Path to the project directory.
 #' @param readonly Whether to open the project in read-only mode.
@@ -134,7 +134,7 @@ bg_open <- function(path = ".", readonly = FALSE) {
   bg_dir <- file.path(path, ".bayesgrove")
 
   if (!dir.exists(bg_dir)) {
-    cli::cli_abort("No BayesGrove project found at {.path {path}}")
+    cli::cli_abort("No bayesgrove project found at {.path {path}}")
   }
 
   config_path <- file.path(bg_dir, "config.json")
@@ -169,7 +169,7 @@ bg_open <- function(path = ".", readonly = FALSE) {
   )
 }
 
-#' Close a BayesGrove Project
+#' Close a bayesgrove Project
 #'
 #' @param project A `bg_handle`.
 #'

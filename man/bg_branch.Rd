@@ -2,7 +2,7 @@
 % Please edit documentation in R/03-branch.R
 \name{bg_branch}
 \alias{bg_branch}
-\title{Branch a node in the BayesGrove project graph}
+\title{Branch a node in the bayesgrove project graph}
 \usage{
 bg_branch(project, node_id, label = NULL, copy_params = TRUE)
 }

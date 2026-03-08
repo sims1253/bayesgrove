@@ -15,3 +15,6 @@
 ^tools/demo($|/)
 ^ROADMAP\.local\.md
 ^agent-prompts$
+^demo$
+^\.claude$
+^architecture$

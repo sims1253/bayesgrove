@@ -80,7 +80,7 @@ bg_submit <- function(
     mode = "async"
   )
 
-  run_id <- sprintf("run_%s", digest::digest(runif(1), algo = "xxhash32"))
+  run_id <- bg_new_id("run")
 
   if (length(plan$to_execute) == 0) {
     cli::cli_inform("No nodes require execution.")

@@ -1,8 +1,8 @@
 Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
-Version: 0.3.11
+Version: 0.3.12
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
-Description: Implements the BayesGrove workflow runtime with typed graph
+Description: Implements the bayesgrove workflow runtime with typed graph
     construction, deterministic fingerprinting, synchronous execution, content-
     addressed artifact storage, local async execution, decision logging, a
     baseline cmdstanr backend with separate compile and fit stages, and an

@@ -1,8 +1,13 @@
 #' Check if an artifact exists in cache
 #' @keywords internal
 #' @export
-bg_check_artifact <- function(project, fingerprint, node_id = NULL) {
-  idx <- bg_read_artifact_index(project)
+bg_check_artifact <- function(
+  project,
+  fingerprint,
+  node_id = NULL,
+  artifact_index = NULL
+) {
+  idx <- artifact_index %||% bg_read_artifact_index(project)
   entry <- idx[[fingerprint]] %||% NULL
   if (is.null(entry) || !identical(entry$status, "active")) {
     return(NULL)
@@ -192,6 +197,7 @@ bg_plan <- function(
   # Forward propagate fingerprints to determine cache hits
   fingerprints <- list()
   artifact_refs <- list()
+  artifact_index <- bg_read_artifact_index(project)
   cache_hits <- character(0)
   missing_results <- character(0)
   input_bindings <- list()
@@ -216,17 +222,59 @@ bg_plan <- function(
     fingerprints[[node_id]] <- bg_compute_fingerprint(
       project,
       node_id,
-      upstream_fingerprints = up_fps
+      upstream_fingerprints = up_fps,
+      graph = graph
     )
   }
 
-  for (node_id in graph_plan$topo_order) {
+  bg_derive_run_plan_state(
+    project,
+    list(
+      graph_plan = graph_plan,
+      targets = targets %||% graph_plan$targets,
+      eligible = graph_plan$eligible,
+      blocked = graph_plan$blocked,
+      external_blocked = graph_plan$external_blocked,
+      held_by_policy = graph_plan$external_blocked,
+      cache_hits = cache_hits,
+      missing_results = missing_results,
+      to_execute = character(),
+      input_bindings = input_bindings,
+      mode = mode,
+      metadata = list(
+        fingerprints = fingerprints,
+        artifact_refs = artifact_refs,
+        artifact_index = artifact_index
+      )
+    ),
+    graph,
+    external_holds = graph_plan$external_blocked
+  )
+}
+
+#' @keywords internal
+bg_derive_run_plan_state <- function(
+  project,
+  plan,
+  graph,
+  external_holds = plan$external_blocked %||% list()
+) {
+  artifact_index <- plan$metadata$artifact_index %||% list()
+  fingerprints <- plan$metadata$fingerprints %||% list()
+  eligible <- plan$graph_plan$eligible %||% character()
+  artifact_refs <- list()
+  cache_hits <- character()
+  missing_results <- character()
+  input_bindings <- list()
+
+  for (node_id in plan$graph_plan$topo_order %||% character()) {
     upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
     node_bindings <- list()
     can_plan <- TRUE
 
     for (e in upstream_edges) {
-      if (is.null(artifact_refs[[e$from]])) {
+      upstream_ref <- artifact_refs[[e$from]] %||% NULL
+      if (is.null(upstream_ref)) {
         can_plan <- FALSE
         break
       }
@@ -235,7 +283,7 @@ bg_plan <- function(
         edge_id = e$id,
         from_node_id = e$from,
         edge_type = e$type,
-        artifact_ref = artifact_refs[[e$from]]
+        artifact_ref = upstream_ref
       )
     }
 
@@ -243,49 +291,116 @@ bg_plan <- function(
       next
     }
 
-    fp <- fingerprints[[node_id]] %||% NULL
-    if (is.null(fp)) {
+    fingerprint <- fingerprints[[node_id]] %||% NULL
+    if (is.null(fingerprint)) {
       next
     }
-    fingerprints[[node_id]] <- fp
 
     input_bindings[[node_id]] <- node_bindings
 
-    cached_ref <- bg_check_artifact(project, fp, node_id = node_id)
+    cached_ref <- bg_check_artifact(
+      project,
+      fingerprint,
+      node_id = node_id,
+      artifact_index = artifact_index
+    )
 
     if (!is.null(cached_ref)) {
       cache_hits <- c(cache_hits, node_id)
       artifact_refs[[node_id]] <- cached_ref
-    } else {
-      if (node_id %in% graph_plan$eligible) {
-        missing_results <- c(missing_results, node_id)
-      }
-      # If it's missing, downstream cannot be fully planned yet.
-      # They will just not have an artifact_ref.
+    } else if (node_id %in% eligible) {
+      missing_results <- c(missing_results, node_id)
     }
   }
 
-  held_nodes <- names(graph_plan$external_blocked %||% list())
-  to_execute <- setdiff(
-    intersect(missing_results, graph_plan$eligible),
-    held_nodes
-  )
+  external_blocked <- bg_run_plan_external_holds(plan, external_holds)
+  held_nodes <- names(external_blocked %||% list())
 
-  list(
-    graph_plan = graph_plan,
-    targets = targets %||% graph_plan$targets,
-    eligible = graph_plan$eligible,
-    blocked = graph_plan$blocked,
-    external_blocked = graph_plan$external_blocked,
-    held_by_policy = graph_plan$external_blocked,
+  utils::modifyList(plan, list(
+    graph_plan = utils::modifyList(
+      plan$graph_plan,
+      list(external_blocked = external_blocked)
+    ),
+    targets = plan$targets %||% plan$graph_plan$targets,
+    eligible = eligible,
+    blocked = plan$graph_plan$blocked,
+    external_blocked = external_blocked,
+    held_by_policy = external_blocked,
     cache_hits = cache_hits,
     missing_results = missing_results,
-    to_execute = to_execute,
+    to_execute = setdiff(intersect(missing_results, eligible), held_nodes),
     input_bindings = input_bindings,
-    mode = mode,
     metadata = list(
-      fingerprints = fingerprints
+      artifact_refs = artifact_refs,
+      artifact_index = artifact_index
     )
+  ))
+}
+
+#' @keywords internal
+bg_run_plan_external_holds <- function(plan, external_holds = list()) {
+  external_holds <- external_holds %||% list()
+  topo_order <- plan$graph_plan$topo_order %||% character()
+  hold_ids <- intersect(topo_order, names(external_holds))
+
+  if (length(hold_ids) == 0) {
+    return(list())
+  }
+
+  stats::setNames(
+    lapply(hold_ids, function(node_id) external_holds[[node_id]]),
+    hold_ids
+  )
+}
+
+#' @keywords internal
+bg_run_plan_record_artifact <- function(plan, node_id, artifact_ref) {
+  fingerprint <- plan$metadata$fingerprints[[node_id]] %||% NULL
+  if (is.null(fingerprint)) {
+    cli::cli_abort(
+      "Cannot refresh the run plan for node {.val {node_id}} without a fingerprint."
+    )
+  }
+
+  artifact_index <- plan$metadata$artifact_index %||% list()
+  superseded <- bg_supersede_artifacts_for_node(
+    artifact_index,
+    node_id,
+    except_fingerprint = fingerprint
+  )
+  artifact_index <- superseded$index
+
+  entry <- bg_normalize_artifact_entry(
+    fingerprint,
+    artifact_index[[fingerprint]] %||% list()
+  )
+  created_at <- entry$created_at %||% bg_now_timestamp()
+  entry$artifact_ref <- artifact_ref
+  entry$created_at <- created_at
+  entry$bindings[[node_id]] <- list(
+    node_id = node_id,
+    status = "active",
+    updated_at = bg_now_timestamp()
+  )
+  entry <- bg_refresh_artifact_entry(entry)
+  artifact_index[[fingerprint]] <- entry
+
+  plan$metadata$artifact_index <- artifact_index
+  plan
+}
+
+#' @keywords internal
+bg_refresh_run_plan <- function(
+  project,
+  plan,
+  graph,
+  external_holds = plan$external_blocked %||% list()
+) {
+  bg_derive_run_plan_state(
+    project,
+    plan,
+    graph,
+    external_holds = external_holds
   )
 }
 
@@ -322,19 +437,31 @@ bg_run <- function(
       backend = backend
     ))
   }
-  external_holds <- bg_workflow_external_holds(project)
-  plan <- bg_plan(
-    project,
-    targets,
-    external_holds = external_holds,
-    mode = "sync"
+  graph <- bg_dagri_recompute_state(
+    bg_active_graph(project, graph = bg_read_graph(project))
   )
-  graph <- bg_read_graph(project)
+  workflow_plan <- bg_plan(project, mode = "sync")
+  external_holds <- bg_workflow_external_holds(project, plan = workflow_plan)
+  plan <- if (is.null(targets) || length(targets) == 0) {
+    bg_refresh_run_plan(
+      project,
+      workflow_plan,
+      graph,
+      external_holds = external_holds
+    )
+  } else {
+    bg_plan(
+      project,
+      targets,
+      external_holds = external_holds,
+      mode = "sync"
+    )
+  }
 
-  run_id <- sprintf("run_%s", digest::digest(runif(1), algo = "xxhash32"))
+  run_id <- bg_new_id("run")
   job_ids <- character(0)
   num_executed <- 0L
-  run_started_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  run_started_at <- bg_now_timestamp()
 
   cli::cli_inform(
     "Starting run {.val {run_id}} with {length(plan$to_execute)} node{?s} to execute."
@@ -354,7 +481,7 @@ bg_run <- function(
       project,
       job$job_id,
       status = "running",
-      started_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+      started_at = bg_now_timestamp()
     )
 
     node <- graph$nodes[[node_id]]
@@ -371,7 +498,7 @@ bg_run <- function(
             node$kind
           )
         ),
-        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+        finished_at = bg_now_timestamp()
       )
       res <- list(
         run_id = run_id,
@@ -381,7 +508,7 @@ bg_run <- function(
         job_ids = job_ids,
         submitted_at = run_started_at,
         started_at = run_started_at,
-        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        finished_at = bg_now_timestamp(),
         summary = list(total_executed = num_executed - 1L),
         error = list(
           message = sprintf(
@@ -428,7 +555,7 @@ bg_run <- function(
           job$job_id,
           status = "succeeded",
           result_ref = ref,
-          finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+          finished_at = bg_now_timestamp()
         )
 
         list(ok = TRUE, ref = ref)
@@ -439,7 +566,7 @@ bg_run <- function(
           job$job_id,
           status = "failed",
           error = list(message = e$message),
-          finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+          finished_at = bg_now_timestamp()
         )
         list(ok = FALSE, error = e)
       }
@@ -454,7 +581,7 @@ bg_run <- function(
         job_ids = job_ids,
         submitted_at = run_started_at,
         started_at = run_started_at,
-        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        finished_at = bg_now_timestamp(),
         summary = list(total_executed = num_executed - 1L),
         error = list(message = execution_result$error$message),
         metadata = list(
@@ -465,12 +592,13 @@ bg_run <- function(
       return(res)
     }
 
-    external_holds <- bg_workflow_external_holds(project)
-    plan <- bg_plan(
+    plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
+    external_holds <- bg_workflow_external_holds(project, plan = plan)
+    plan <- bg_refresh_run_plan(
       project,
-      targets,
-      external_holds = external_holds,
-      mode = "sync"
+      plan,
+      graph,
+      external_holds = external_holds
     )
   }
 
@@ -492,7 +620,7 @@ bg_run <- function(
     job_ids = job_ids,
     submitted_at = run_started_at,
     started_at = run_started_at,
-    finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    finished_at = bg_now_timestamp(),
     summary = list(total_executed = num_executed),
     error = NULL,
     metadata = list(

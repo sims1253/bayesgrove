@@ -170,6 +170,96 @@ bg_default_bayesian_current_decision_summary_ids <- function(
 }
 
 #' @keywords internal
+bg_default_bayesian_comparison_state <- function(context) {
+  candidate_basis <- bg_default_bayesian_candidate_basis(
+    bg_default_bayesian_clean_fit_candidates(context)
+  )
+  if (is.null(candidate_basis)) {
+    return(NULL)
+  }
+
+  comparison_evidence <- bg_default_bayesian_comparison_evidence(
+    context,
+    candidate_basis
+  )
+  comparison_context <- bg_default_bayesian_comparison_context(
+    candidate_basis,
+    comparison_evidence
+  )
+
+  list(
+    candidate_basis = candidate_basis,
+    comparison_evidence = comparison_evidence,
+    comparison_context = comparison_context
+  )
+}
+
+#' @keywords internal
+bg_default_bayesian_hold_node_ids <- function(comparison_evidence) {
+  sort(unique(as.character(
+    comparison_evidence$node_ids %||%
+      comparison_evidence$node_id %||%
+      character()
+  )))
+}
+
+#' @keywords internal
+bg_default_bayesian_obligation_candidate_basis <- function(obligation) {
+  node_ids <- sort(unique(obligation$basis$node_ids %||% character()))
+  branch_ids <- sort(unique(obligation$basis$branch_ids %||% character()))
+  summary_ids <- sort(unique(obligation$basis$summary_ids %||% character()))
+
+  list(
+    node_ids = node_ids,
+    branch_ids = branch_ids,
+    summary_ids = summary_ids,
+    candidate_signature = obligation$metadata$candidate_signature %||%
+      bg_protocol_identity_string(list(
+        node_ids = node_ids,
+        branch_ids = branch_ids,
+        summary_ids = summary_ids
+      ))
+  )
+}
+
+#' @keywords internal
+bg_default_bayesian_obligation_comparison_signature <- function(
+  obligation,
+  comparison_context = NULL
+) {
+  known_signatures <- unique(Filter(
+    Negate(is.null),
+    list(
+      obligation$metadata$comparison_signature %||% NULL,
+      obligation$basis$comparison_signature %||% NULL,
+      comparison_context$comparison_signature %||% NULL
+    )
+  ))
+
+  if (length(known_signatures) == 0) {
+    cli::cli_abort(
+      paste0(
+        "Disposition obligation {.val ",
+        obligation$obligation_id %||% "<unknown>",
+        "} is missing a comparison signature."
+      )
+    )
+  }
+
+  if (length(known_signatures) > 1) {
+    cli::cli_abort(
+      paste0(
+        "Disposition obligation {.val ",
+        obligation$obligation_id %||% "<unknown>",
+        "} has mismatched comparison signatures."
+      )
+    )
+  }
+
+  known_signatures[[1]]
+}
+
+#' @keywords internal
 bg_default_bayesian_node_has_active_artifact <- function(context, node_id) {
   fingerprint <- context$metadata$predicted_fingerprints[[node_id]] %||% NULL
   if (is.null(fingerprint)) {
@@ -649,21 +739,14 @@ bg_default_bayesian_comparison_obligations <- function(
     return(list())
   }
 
-  candidate_basis <- bg_default_bayesian_candidate_basis(
-    bg_default_bayesian_clean_fit_candidates(context)
-  )
+  comparison_state <- bg_default_bayesian_comparison_state(context)
+  candidate_basis <- comparison_state$candidate_basis %||% NULL
   if (is.null(candidate_basis) || length(candidate_basis$node_ids) < 2) {
     return(list())
   }
 
-  comparison_evidence <- bg_default_bayesian_comparison_evidence(
-    context,
-    candidate_basis
-  )
-  comparison_context <- bg_default_bayesian_comparison_context(
-    candidate_basis,
-    comparison_evidence
-  )
+  comparison_evidence <- comparison_state$comparison_evidence
+  comparison_context <- comparison_state$comparison_context
 
   has_decision <- any(vapply(
     bg_default_bayesian_all_decisions(context),
@@ -695,7 +778,7 @@ bg_default_bayesian_comparison_obligations <- function(
     ),
     metadata = list(
       candidate_signature = candidate_basis$candidate_signature,
-      hold_node_ids = comparison_evidence$node_id %||% character()
+      hold_node_ids = bg_default_bayesian_hold_node_ids(comparison_evidence)
     )
   ))
 }
@@ -709,9 +792,8 @@ bg_default_bayesian_disposition_obligations <- function(
     return(list())
   }
 
-  candidate_basis <- bg_default_bayesian_candidate_basis(
-    bg_default_bayesian_clean_fit_candidates(context)
-  )
+  comparison_state <- bg_default_bayesian_comparison_state(context)
+  candidate_basis <- comparison_state$candidate_basis %||% NULL
   if (is.null(candidate_basis) || length(candidate_basis$node_ids) < 2) {
     return(list())
   }
@@ -726,18 +808,12 @@ bg_default_bayesian_disposition_obligations <- function(
     return(list())
   }
 
-  comparison_evidence <- bg_default_bayesian_comparison_evidence(
-    context,
-    candidate_basis
-  )
+  comparison_evidence <- comparison_state$comparison_evidence
   if (is.null(comparison_evidence)) {
     return(list())
   }
 
-  comparison_context <- bg_default_bayesian_comparison_context(
-    candidate_basis,
-    comparison_evidence
-  )
+  comparison_context <- comparison_state$comparison_context
   decisions <- bg_default_bayesian_all_decisions(context)
 
   has_disposition <- any(vapply(
@@ -788,7 +864,7 @@ bg_default_bayesian_disposition_obligations <- function(
     ),
     metadata = list(
       comparison_node_id = comparison_evidence$node_id,
-      hold_node_ids = comparison_evidence$node_id %||% character(),
+      hold_node_ids = bg_default_bayesian_hold_node_ids(comparison_evidence),
       comparison_context = comparison_context,
       comparison_signature = comparison_context$comparison_signature %||% NULL
     )
@@ -801,17 +877,10 @@ bg_default_bayesian_fit_criticism_actions <- function(
   obligations,
   pack_config = list()
 ) {
-  criticism_obligation <- Filter(
-    function(obligation) {
-      identical(obligation$kind %||% NULL, "review_fit_criticism")
-    },
-    obligations
-  )
-  if (length(criticism_obligation) == 0) {
+  obligation <- bg_find_obligation(obligations, "review_fit_criticism")
+  if (is.null(obligation)) {
     return(list())
   }
-
-  obligation <- criticism_obligation[[1]]
   node_ids <- obligation$basis$node_ids %||% character()
   summary_ids <- obligation$basis$summary_ids %||% character()
 
@@ -880,7 +949,7 @@ bg_default_bayesian_fit_criticism_actions <- function(
         source_node_id = source_node_id,
         modification_hint = modification_hint,
         default_label = if (!is.null(source_node)) {
-          paste0(source_node$label %||% source_node$kind, " (revised)")
+          bg_revised_label(source_node)
         } else {
           NULL
         },
@@ -912,28 +981,11 @@ bg_default_bayesian_comparison_decision_actions <- function(
     return(list())
   }
 
-  comparison_obligation <- Filter(
-    function(obligation) {
-      identical(obligation$kind %||% NULL, "compare_candidate_branches")
-    },
-    obligations
-  )
-  if (length(comparison_obligation) == 0) {
+  obligation <- bg_find_obligation(obligations, "compare_candidate_branches")
+  if (is.null(obligation)) {
     return(list())
   }
-
-  obligation <- comparison_obligation[[1]]
-  candidate_basis <- list(
-    node_ids = sort(unique(obligation$basis$node_ids %||% character())),
-    branch_ids = sort(unique(obligation$basis$branch_ids %||% character())),
-    summary_ids = sort(unique(obligation$basis$summary_ids %||% character())),
-    candidate_signature = obligation$metadata$candidate_signature %||%
-      bg_protocol_identity_string(list(
-        node_ids = obligation$basis$node_ids %||% character(),
-        branch_ids = obligation$basis$branch_ids %||% character(),
-        summary_ids = obligation$basis$summary_ids %||% character()
-      ))
-  )
+  candidate_basis <- bg_default_bayesian_obligation_candidate_basis(obligation)
 
   comparison_evidence <- bg_default_bayesian_comparison_evidence(
     context,
@@ -1023,18 +1075,14 @@ bg_default_bayesian_disposition_actions <- function(
   obligations,
   pack_config = list()
 ) {
-  disposition_obligation <- Filter(
-    function(obligation) {
-      identical(obligation$kind %||% NULL, "accept_or_reject_branch") &&
-        identical(obligation$scope %||% NULL, context$scope)
-    },
-    obligations
+  obligation <- bg_find_obligation(
+    obligations,
+    "accept_or_reject_branch",
+    scope = context$scope
   )
-  if (length(disposition_obligation) == 0) {
+  if (is.null(obligation)) {
     return(list())
   }
-
-  obligation <- disposition_obligation[[1]]
   comparison_context <- obligation$metadata$comparison_context %||% NULL
   if (is.null(comparison_context)) {
     cli::cli_abort(
@@ -1046,33 +1094,10 @@ bg_default_bayesian_disposition_actions <- function(
     )
   }
 
-  comparison_signature <- obligation$metadata$comparison_signature %||%
-    comparison_context$comparison_signature %||%
-    obligation$basis$comparison_signature %||%
-    NULL
-  if (is.null(comparison_signature)) {
-    cli::cli_abort(
-      paste0(
-        "Disposition obligation {.val ",
-        obligation$obligation_id %||% "<unknown>",
-        "} is missing a comparison signature."
-      )
-    )
-  }
-
-  basis_signature <- obligation$basis$comparison_signature %||% NULL
-  if (
-    !is.null(basis_signature) &&
-      !identical(basis_signature, comparison_signature)
-  ) {
-    cli::cli_abort(
-      paste0(
-        "Disposition obligation {.val ",
-        obligation$obligation_id %||% "<unknown>",
-        "} has mismatched comparison signatures in basis and metadata."
-      )
-    )
-  }
+  comparison_signature <- bg_default_bayesian_obligation_comparison_signature(
+    obligation,
+    comparison_context = comparison_context
+  )
 
   list(list(
     kind = "record_decision",

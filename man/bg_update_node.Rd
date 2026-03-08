@@ -2,7 +2,7 @@
 % Please edit documentation in R/02-graph.R
 \name{bg_update_node}
 \alias{bg_update_node}
-\title{Update a node in the BayesGrove project graph}
+\title{Update a node in the bayesgrove project graph}
 \usage{
 bg_update_node(project, node_id, label = NULL, params = NULL, metadata = NULL)
 }
@@ -21,5 +21,5 @@ bg_update_node(project, node_id, label = NULL, params = NULL, metadata = NULL)
 The node ID.
 }
 \description{
-Update a node in the BayesGrove project graph
+Update a node in the bayesgrove project graph
 }

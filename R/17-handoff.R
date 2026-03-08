@@ -1,4 +1,4 @@
-#' Bundle a BayesGrove project for reproducible handoff
+#' Bundle a bayesgrove project for reproducible handoff
 #'
 #' Creates a portable `.tar.gz` archive of the project, including the structural
 #' graph, decision log, job history, configuration, and optionally cached artifacts
@@ -130,12 +130,9 @@ bg_bundle <- function(
   manifest <- list(
     schema_name = "bg_bundle_manifest",
     schema_version = 1,
-    bundle_id = sprintf(
-      "bundle_%s",
-      digest::digest(runif(1), algo = "xxhash32")
-    ),
+    bundle_id = bg_new_id("bundle"),
     project_id = project@project_id,
-    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    created_at = bg_now_timestamp(),
     data_policy = include_data,
     include_fits = include_fits
   )
@@ -206,7 +203,7 @@ bg_export_report <- function(
 
   # Build a simple markdown document
   lines <- c(
-    sprintf("# BayesGrove Workflow Report: %s", snap$name),
+    sprintf("# bayesgrove Workflow Report: %s", snap$name),
     sprintf("**Project ID:** `%s`", snap$project_id),
     sprintf("**Generated:** %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
     sprintf("**Workflow state:** `%s`", snap$status$workflow_state),
@@ -315,7 +312,7 @@ bg_export_report <- function(
   if (identical(format, "html")) {
     html_lines <- c(
       "<!DOCTYPE html>",
-      "<html><head><meta charset=\"utf-8\"><title>BayesGrove Workflow Report</title></head><body><pre>",
+      "<html><head><meta charset=\"utf-8\"><title>bayesgrove Workflow Report</title></head><body><pre>",
       bg_escape_html(paste(lines, collapse = "\n")),
       "</pre></body></html>"
     )

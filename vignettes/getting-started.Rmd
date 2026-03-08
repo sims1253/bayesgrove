@@ -1,8 +1,8 @@
 ---
-title: "Getting Started with BayesGrove"
+title: "Getting Started with bayesgrove"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting Started with BayesGrove}
+  %\VignetteIndexEntry{Getting Started with bayesgrove}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-**BayesGrove** is a graph-based Bayesian workflow orchestrator designed to track the iterative nature of model building. It separates your analysis into two distinct layers:
+**bayesgrove** is a graph-based Bayesian workflow orchestrator designed to track the iterative nature of model building. It separates your analysis into two distinct layers:
 1. **The Execution Graph (DAG)**: Built using `dagriculture`, representing the step-by-step transformations and computations (data cleaning, compiling, fitting, diagnosing).
 2. **The Decision Layer**: An annotation overlay that captures the provenance of your choices (why did you change the prior? why did you filter outliers?) via decision gates.
 
@@ -35,7 +35,7 @@ bg_list_templates("branch_comparison")$operation_type
 
 ## 1. Initializing a Project
 
-Every BayesGrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.
+Every bayesgrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.
 
 ```{r setup}
 # Use a temporary directory for this vignette
@@ -52,7 +52,7 @@ print(handle)
 
 ## 2. Defining the Workflow Structure
 
-In BayesGrove, everything is a node. For this demo, let's register some mock executors to simulate the workflow.
+In bayesgrove, everything is a node. For this demo, let's register some mock executors to simulate the workflow.
 
 ```{r register}
 # Register a simple data provider

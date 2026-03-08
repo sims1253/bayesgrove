@@ -2,7 +2,7 @@
 % Please edit documentation in R/02-graph.R
 \name{bg_connect}
 \alias{bg_connect}
-\title{Connect two nodes in the BayesGrove project graph}
+\title{Connect two nodes in the bayesgrove project graph}
 \usage{
 bg_connect(project, from, to, edge_type = "data", metadata = list())
 }
@@ -21,5 +21,5 @@ bg_connect(project, from, to, edge_type = "data", metadata = list())
 The generated edge ID.
 }
 \description{
-Connect two nodes in the BayesGrove project graph
+Connect two nodes in the bayesgrove project graph
 }

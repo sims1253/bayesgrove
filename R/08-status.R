@@ -145,7 +145,12 @@ bg_result <- function(project, node_id) {
   }
 
   fp <- plan$metadata$fingerprints[[node_id]]
-  ref <- bg_check_artifact(project, fp, node_id = node_id)
+  ref <- bg_check_artifact(
+    project,
+    fp,
+    node_id = node_id,
+    artifact_index = plan$metadata$artifact_index %||% NULL
+  )
 
   bg_fetch_artifact(project, ref)
 }

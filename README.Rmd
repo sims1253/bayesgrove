@@ -13,188 +13,300 @@ knitr::opts_chunk$set(
 )
 ```
 
-# BayesGrove
+# bayesgrove
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/sims1253/bayesgrove/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/sims1253/bayesgrove/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/sims1253/bayesgrove/graph/badge.svg)](https://app.codecov.io/gh/sims1253/bayesgrove)
+[![lint](https://github.com/sims1253/bayesgrove/actions/workflows/lint.yaml/badge.svg)](https://github.com/sims1253/bayesgrove/actions/workflows/lint.yaml)
+[![format-check](https://github.com/sims1253/bayesgrove/actions/workflows/format-check.yaml/badge.svg)](https://github.com/sims1253/bayesgrove/actions/workflows/format-check.yaml)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
-**BayesGrove** is a graph-based Bayesian workflow engine for R. It helps you design, track, and document your statistical analyses by completely separating the *execution graph* (the code that runs) from the *decision provenance* (why you ran it).
+Bayesian analysis is iterative by design. You fit a model, inspect diagnostics, revise your assumptions, branch into alternatives, compare candidates, and eventually commit to one path. The problem is that this process quietly disappears into unstructured scripts. Three months later—or when a collaborator picks up the project—the *why* behind every modeling decision is gone.
 
-Built on the purely functional `dagriculture` graph library, BayesGrove allows you to explicitly encode modeling decisions, enforce workflow checks, seamlessly cache intermediate computations like MCMC fits, and branch models asynchronously—all without losing the rationale behind your choices.
+**bayesgrove** is a graph-based workflow orchestrator for iterative Bayesian analysis in R. While general-purpose pipelines like `targets` are built to skip up-to-date computations, bayesgrove is built to enforce statistical workflow. It separates the *execution graph* (the DAG of computations that run) from the *decision log* (why you ran them), and enforces a structured review loop: diagnostic warnings block downstream work, model criticism is recorded before repair, clean candidates are formally compared before one is accepted. `targets` doesn't know what a divergent transition is; bayesgrove does, and it will block your posterior predictive checks until you formally record how you plan to fix it.
 
-Contributor note: graph-generic `dagriculture` boundary helpers now live in `R/22-dagri-adapters.R`, while workflow semantics such as policy holds, branch scope, summaries, and decision provenance remain in BayesGrove.
+## What you get
 
-## Why BayesGrove?
+- **Decision provenance.** Attach explicit rationales to prior choices, reparametrizatons, data exclusions, or any other modeling decision—directly inside the workflow, not in a comment someone might miss.
 
-Modern Bayesian analysis requires iterative model building, checking, and revision. Typically, this process gets lost in unstructured scripts or implicit notebook states. 
+- **Content-aware caching.** Each node carries a SHA-256 fingerprint of its inputs and parameters. Expensive MCMC fits are skipped when nothing upstream changed semantically. Change a prior and only the affected subtree reruns.
 
-BayesGrove solves this by giving you:
+- **Enforced review.** The built-in workflow protocol derives obligations from the summaries your executors return. Warning diagnostics create a `review_computation_validity` obligation. Branch-scoped fit warnings also trigger `review_fit_criticism`. Once two candidates are clean, the protocol requires an explicit `compare_candidate_branches` step. Each branch then needs an `accept_or_reject_branch` disposition before the loop closes.
 
-1. **Explicit Provenance**: Record qualitative rationales (e.g., "Why did we use a heavy-tailed prior?") directly into the workflow using structural gates.
-2. **Intent-Based Caching**: Skip redundant computations. If an upstream data step doesn't change semantically, your costly `cmdstanr` or `brms` fits won't rerun.
-3. **Workflow Obligations**: The built-in protocol engine automatically flags diagnostic problems, asks for explicit fit criticism, requires formal comparison between clean candidates, and ends the loop with explicit branch acceptance or rejection.
-4. **Reproducible Handoffs**: Export your entire decision tree and causal graph into a reproducible bundle or markdown report with one command.
+- **Branching with full lineage.** Fork from any node without losing the baseline. Branch goals, decisions, and diagnostic history travel with the branch. The lineage of any branch is always recoverable.
 
-For one deterministic end-to-end product loop, see the
-`guided-review-loop` vignette. It walks through branch lineage, held
-downstream work, explicit criticism and comparison decisions, branch
-accept/reject dispositions, and report export without depending on a
-heavyweight model fit.
+- **Reproducible handoffs.** Export the full decision tree and graph topology into a portable bundle or a structured markdown report with a single function call.
 
 ## Installation
-
-You can install the development version of BayesGrove (which includes its `dagriculture` foundation) via [`pak`](https://pak.r-lib.org/):
 
 ```r
 # install.packages("pak")
 pak::pkg_install("sims1253/bayesgrove")
 ```
 
-## Example: Protocol-Driven Workflow
+## A minimal example
 
-BayesGrove separates the execution graph from decision provenance. When computations produce diagnostic warnings, the protocol engine automatically creates blocking obligations and holds downstream work until you resolve them.
+The executor is a plain R function—you write the same `cmdstanr` code you
+always would, and return a `summaries` list alongside the fit. *(Note: Future versions of bayesgrove will include built-in `cmdstanr` and `brms` executors to reduce boilerplate. This example builds one from scratch to show the mechanics).* bayesgrove reads
+those summaries to derive workflow obligations, cache validity, and holds. The
+rest of the machinery (DAG, fingerprinting, branching) is invisible until you
+need it.
 
-```{r example, message=FALSE, warning=FALSE}
+The example uses the eight-schools model in its centered parametrization, which
+reliably produces divergent transitions and is the canonical motivation for
+non-centered reparametrization.
+
+```{r write-stan, include = FALSE}
+stan_file <- tempfile(fileext = ".stan")
+writeLines("
+data {
+  int<lower=1> J;
+  vector[J] y;
+  vector<lower=0>[J] sigma;
+}
+parameters {
+  real mu;
+  real<lower=0> tau;
+  vector[J] theta;
+}
+model {
+  mu    ~ normal(0, 5);
+  tau   ~ normal(0, 1);
+  theta ~ normal(mu, tau);
+  y     ~ normal(theta, sigma);
+}
+", stan_file)
+```
+
+```stan
+// eight_schools_centered.stan (saved as `stan_file` path)
+data {
+  int<lower=1> J;
+  vector[J] y;
+  vector<lower=0>[J] sigma;
+}
+parameters {
+  real mu;
+  real<lower=0> tau;
+  vector[J] theta;     // centered — causes funnel geometry
+}
+model {
+  mu    ~ normal(0, 5);
+  tau   ~ normal(0, 1);
+  theta ~ normal(mu, tau);
+  y     ~ normal(theta, sigma);
+}
+```
+
+```{r example, message = FALSE, warning = FALSE}
 library(bayesgrove)
 
-# 1. Initialize a workflow workspace
-project_path <- file.path(tempdir(), "bayesgrove-intro")
 handle <- bg_init(
-  path = project_path,
-  project_name = "hierarchical_analysis",
+  path           = file.path(tempdir(), "bg-readme"),
+  project_name   = "eight_schools",
   workflow_packs = list("bayesguide.default_bayesian")
 )
 
-# 2. Register executors that return diagnostic summaries
-bg_register_node_kind(handle, "data_prep", executor = function(node, inputs) {
-  data.frame(group = rep(1:5, each = 10), y = rnorm(50))
+bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+  list(
+    J     = 8L,
+    y     = c(28, 8, -3, 7, -1, 1, 18, 12),
+    sigma = c(15, 10, 16, 11,  9, 11, 10, 18)
+  )
 })
 
 bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-  # Mock fit that returns warning diagnostics (e.g., divergent transitions)
+  mod <- cmdstanr::cmdstan_model(node$params$stan_file, quiet = TRUE)
+  fit <- mod$sample(
+    data            = inputs[[1]],
+    chains          = 2,
+    parallel_chains = 2,
+    iter_warmup     = 500,
+    iter_sampling   = 500,
+    seed            = 42L,
+    refresh         = 0
+  )
+
+  diag     <- fit$diagnostic_summary(quiet = TRUE)
+  rhat_max <- max(fit$summary()$rhat, na.rm = TRUE)
+  n_div    <- sum(diag$num_divergent)
+  passed   <- n_div == 0 && rhat_max < 1.01
+
   list(
-    status = "fit_completed",
-    summaries = list(
-      list(
-        summary_kind = "hmc_diagnostics",
-        severity = "warning",
-        passed = FALSE,
-        metrics = list(divergences = 15, rhat_max = 1.02)
-      )
-    )
+    result    = fit,   # stored in the content-addressed cache
+    summaries = list(list(
+      summary_kind = "hmc_diagnostics",
+      passed       = passed,
+      severity     = if (passed) "ok" else "warning",
+      metrics      = list(divergences = n_div, rhat_max = rhat_max)
+    ))
   )
 })
 
 bg_register_node_kind(handle, "ppc", executor = function(node, inputs) {
-  list(plot = "ppc_density_plot")
+  list(plot = "posterior_predictive_check")
 })
 
-# 3. Construct the graph
-n_data <- bg_add_node(handle, "data_prep", label = "Load Data")
-n_fit <- bg_add_node(handle, "fit", label = "Hierarchical Fit", inputs = n_data)
-n_ppc <- bg_add_node(handle, "ppc", label = "Posterior Check", inputs = n_fit)
+n_data <- bg_add_node(handle, "data", label = "Eight schools data")
+n_fit  <- bg_add_node(handle, "fit",  label = "Centered fit",
+                       inputs = n_data,
+                       params = list(stan_file = stan_file))
+n_ppc  <- bg_add_node(handle, "ppc",  label = "Posterior check", inputs = n_fit)
 ```
 
-Run the workflow. The fit completes but produces warning diagnostics:
-
-```{r run}
-bg_run(handle, mode = "sync")
+```{r run, message = FALSE, warning = FALSE, results = "hide"}
+bg_run(handle, targets = n_fit, mode = "sync")
 ```
 
-The protocol engine detects the warning and creates a blocking obligation. Downstream work (the PPC) is held:
+The funnel geometry of the centered parametrization produces divergent
+transitions. bayesgrove reads the `hmc_diagnostics` summary returned by the
+executor and surfaces a blocking obligation automatically. We can inspect the summaries that triggered the hold:
 
-```{r status}
-status <- bg_status(handle)
-cat(sprintf("Workflow State: %s\n", status$workflow_state))
+```{r diagnostics}
+summaries <- bg_read_summaries(handle)
+summaries[[1]]$metrics
 ```
 
-Inspect active obligations and suggested actions:
+The posterior check is held from executing:
 
-```{r guide}
-actions <- bg_next_actions(handle)
-cat(sprintf("Blocking obligations: %d\n", length(actions$obligations)))
-if (length(actions$actions) > 0) {
-  cat(sprintf("First suggested action: %s\n", actions$actions[[1]]$title))
+```{r protocol}
+guide <- bg_next_actions(handle, scope = "project")
+
+vapply(guide$obligations, `[[`, character(1), "kind")
+
+held <- bg_plan(handle, external_holds = guide$metadata$external_holds)
+length(held$external_blocked)
+```
+
+To resolve this, you record the criticism decision, branch from the problematic
+fit, point the branch at a non-centered Stan file, and rerun. bayesgrove tracks
+the lineage and keeps the original fit and its diagnostic history intact:
+
+```{r write-ncp, include = FALSE}
+ncp_stan_file <- tempfile(fileext = ".stan")
+writeLines("
+data {
+  int<lower=1> J;
+  vector[J] y;
+  vector<lower=0>[J] sigma;
 }
+parameters {
+  real mu;
+  real<lower=0> tau;
+  vector[J] theta_raw;
+}
+transformed parameters {
+  vector[J] theta = mu + tau * theta_raw;
+}
+model {
+  mu        ~ normal(0, 5);
+  tau       ~ normal(0, 1);
+  theta_raw ~ std_normal();
+  y         ~ normal(theta, sigma);
+}
+", ncp_stan_file)
 ```
 
-To resolve the issue, you can branch and modify the fit with a non-centered parametrization. The interactive REPL provides a guided interface for this workflow:
-
 ```r
-bg_repl(handle)
-```
-
-## Stronger Default Pack Loop
-
-The built-in `bayesguide.default_bayesian` pack now enforces one narrow review loop:
-
-1. warning or error summaries create a blocking `review_computation_validity` obligation;
-2. branch-scoped fit warnings also create `review_fit_criticism`;
-3. once two fits are clean, project scope creates `compare_candidate_branches`;
-4. after a comparison exists, each candidate branch gets `accept_or_reject_branch` until you record `accept` or `reject`.
-
-A concise end-to-end example looks like this:
-
-```r
-# After branching, modifying, and rerunning an alternative fit:
-project_guide <- bg_next_actions(handle, scope = "project")
-vapply(project_guide$obligations, `[[`, character(1), "kind")
-#> "compare_candidate_branches"
-
-# Create and run the comparison node, then record the project decision.
-comparison_action <- Filter(
-  function(x) identical(x$kind, "record_decision") &&
-    identical(x$payload$decision_type, "model_comparison"),
-  project_guide$actions
-)[[1]]
-
+# The protocol surfaced an obligation on the project because this is the main branch
 bg_record_decision(
   handle,
-  scope = "project",
-  prompt = "Compare candidate branches",
-  choice = "prefer_non_centered",
-  rationale = "The alternative fit is cleaner and easier to trust.",
-  kind = "model_comparison",
-  metadata = comparison_action$payload[c(
-    "fit_node_ids",
-    "summary_ids",
-    "candidate_signature",
-    "comparison_signature",
-    "comparison_context"
-  )]
+  scope     = "project",
+  prompt    = "How should the centered fit be handled?",
+  choice    = "reparametrize_to_non_centered",
+  rationale = "Divergences indicate the funnel geometry is poorly explored. Switch to non-centered.",
+  kind      = "fit_criticism"
 )
 
-# Each candidate branch can then be explicitly accepted or rejected in
-# branch scope with a `branch_disposition` decision.
+branch <- bg_branch_with_continuation(
+  project            = handle,
+  node_id            = n_fit,
+  label              = "Non-centered reparametrization",
+  continuation_kinds = "ppc"
+)
+
+# `ncp_stan_file` is the path to your non-centered Stan model
+bg_update_node(handle, branch$branch$root_node_id,
+               params = list(stan_file = ncp_stan_file))
+bg_run(handle, targets = branch$branch$root_node_id, mode = "sync")
 ```
 
-## Built-in Templates
-
-Common guided next steps are now exposed as first-class built-in templates:
-
-- `diagnostic_check` creates a downstream `check` node from a fit
-- `branch_comparison` creates a `compare` node across fit candidates
-- `branch_and_modify_fit` wraps `bg_branch_with_continuation()`
-- `review_decision` records explicit review decisions such as computation review, fit criticism, model comparison, and branch disposition
-
-You can inspect the registry directly:
+Once two clean candidates exist, the protocol requires an explicit comparison
+and an accept/reject disposition for each branch before the loop closes:
 
 ```r
-bg_list_templates()
-bg_list_templates("branch_comparison")
+# We can now view the full lineage of both branches in the execution graph:
+print(bg_read_graph(handle))
+#> ── Execution Graph ──
+#> 
+#> └── Eight schools data <data> [new]
+#>     ├── Centered fit <fit> [new]
+#>     │   └── Posterior check <ppc> [new]
+#>     └── Non-centered reparametrization <fit> [new]
+#>         └── Posterior check (from branch) <ppc> [new]
+
+# The protocol surfaces an explicit comparison step
+bg_record_decision(
+  handle,
+  scope     = "project",
+  prompt    = "Which branch should anchor the final report?",
+  choice    = "prefer_non_centered_branch",
+  rationale = "The non-centered branch resolves the divergences.",
+  kind      = "model_comparison"
+)
+
+# Accept the non-centered branch
+bg_record_decision(
+  handle,
+  scope     = branch$branch$branch_id,
+  prompt    = "Should this branch be accepted?",
+  choice    = "accept",
+  rationale = "This is the clean branch preferred by the comparison step.",
+  kind      = "branch_disposition"
+)
 ```
 
-The interactive REPL uses the same registry when it executes template-backed actions.
+The `guided-review-loop` vignette walks this full cycle end-to-end with
+deterministic executors, covering branch lineage, stale evidence tracking,
+comparison, and report export.
 
-## Interactive REPL
+## Conceptual structure
 
-The REPL provides a guided loop for working through obligations:
+bayesgrove organizes every analysis around three distinct layers:
 
-- `status` - Show workflow state (blocked, idle, etc.)
-- `guide` - See active obligations and suggested actions
-- `actions` - List detailed actions with payloads
-- `do <n>` - Execute action #n (branch and modify, record decision, etc.)
-- `run` - Execute ready nodes
-- `nodes` - View the execution graph with states
-- `result <label>` - Inspect cached results and diagnostics
+| Layer | Contents |
+|---|---|
+| **Execution DAG** | Nodes (data, fit, check, compare), edges, cached results, content fingerprints |
+| **Decision log** | Gates, explicit rationales, choices, timestamps, branch lineage |
+| **Workflow protocol** | Obligations derived from executor summaries; external holds passed to the planner |
+
+The execution DAG is built on
+[`dagriculture`](https://github.com/sims1253/dagriculture), a purely functional
+graph library. All workflow semantics—holds, branch scope, obligations, decision
+provenance—are bayesgrove's own layer on top of the graph primitives.
+
+## Vignettes
+
+| Vignette | What it covers |
+|---|---|
+| `getting-started` | Full project lifecycle: gates, caching, branching, comparison, and disposition |
+| `guided-review-loop` | Complete criticism-and-repair cycle with deterministic mock executors |
+| `simulation-study` | Simulation-based workflow with confounded treatment and explicit gate decisions |
+| `dagriculture-boundary` | How the graph primitives relate to workflow semantics |
+
+```r
+vignette("guided-review-loop", package = "bayesgrove")
+```
+
+## Background
+
+The bayesgrove workflow is shaped by the iterative model-building perspective
+described in Gelman et al. (2020, *Bayesian Workflow*,
+[arXiv:2011.01808](https://arxiv.org/abs/2011.01808)) and the
+simulation-based calibration approach of Talts et al. (2018,
+[arXiv:1804.06788](https://arxiv.org/abs/1804.06788)). The obligation and
+decision layers take direct inspiration from the practical need to record the
+*why* behind each modeling step, not just the *what*—so that analysis lineage
+is an artifact of the workflow, not an afterthought.

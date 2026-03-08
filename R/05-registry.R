@@ -1,4 +1,4 @@
-#' Register a node kind in the BayesGrove runtime registry
+#' Register a node kind in the bayesgrove runtime registry
 #'
 #' Node kinds have a structural component (stored in the graph) and a runtime
 #' component (the executor, stored in the handle).

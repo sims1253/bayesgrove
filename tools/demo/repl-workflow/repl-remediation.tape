@@ -41,7 +41,15 @@ Sleep 1s
 Enter
 Sleep 2s
 
-Type "# 2. Inspect the remediation action"
+Type "# 2. Inspect the problematic fit's diagnostics"
+Enter
+Sleep 500ms
+Type 'result "Fit Centered Parametrization"'
+Sleep 1s
+Enter
+Sleep 3s
+
+Type "# 3. Inspect the remediation action"
 Enter
 Sleep 500ms
 Type "guide"
@@ -49,7 +57,7 @@ Sleep 1s
 Enter
 Sleep 3s
 
-Type "# 3. Execute the template-backed remediation step"
+Type "# 4. Execute the template-backed remediation step"
 Enter
 Sleep 500ms
 Type "do 2"
@@ -67,7 +75,7 @@ Sleep 500ms
 Enter
 Sleep 2s
 
-Type "# 4. Run the revised branch"
+Type "# 5. Run the revised branch"
 Enter
 Sleep 500ms
 Type "run"
@@ -75,7 +83,7 @@ Sleep 1s
 Enter
 Sleep 4s
 
-Type "# 5. Retire the stale warning branch"
+Type "# 6. Retire the stale warning branch"
 Enter
 Sleep 500ms
 Type 'retire "Fit Centered Parametrization"'
@@ -83,7 +91,7 @@ Sleep 1s
 Enter
 Sleep 2s
 
-Type "# 6. The project is now ready for comparison"
+Type "# 7. The project is now ready for comparison"
 Enter
 Sleep 500ms
 Type "guide"

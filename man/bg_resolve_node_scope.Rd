@@ -4,12 +4,25 @@
 \alias{bg_resolve_node_scope}
 \title{Resolve the workflow scope for a node}
 \usage{
-bg_resolve_node_scope(project, node_id)
+bg_resolve_node_scope(
+  project,
+  node_id,
+  graph = NULL,
+  branches = NULL,
+  scope_resolution = NULL
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
 
 \item{node_id}{Node id.}
+
+\item{graph}{Optional pre-read graph.}
+
+\item{branches}{Optional pre-read branch registry entries.}
+
+\item{scope_resolution}{Optional scope-resolution cache created by
+\code{bg_node_scope_resolution()}.}
 }
 \value{
 A scope string, either \code{project} or a branch id.

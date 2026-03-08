@@ -36,7 +36,7 @@ bg_add_gate <- function(
     cli::cli_abort("No edge found from {.val {from}} to {.val {to}}.")
   }
 
-  gate_id <- sprintf("gate_%s", digest::digest(runif(1), algo = "xxhash32"))
+  gate_id <- bg_new_id("gate")
 
   # 1. Add structural gate to the graph
   graph <- dagriculture::dagri_add_gate(
@@ -54,7 +54,7 @@ bg_add_gate <- function(
     prompt = prompt,
     options = as.character(options),
     refs = refs %||% list(),
-    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    created_at = bg_now_timestamp(),
     metadata = metadata
   )
 
@@ -87,9 +87,10 @@ bg_answer_gate <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  if (is.null(rationale) || trimws(rationale) == "") {
-    cli::cli_abort("Rationale is required for reproducibility.")
-  }
+  bg_require_rationale(
+    rationale,
+    message = "Rationale is required for reproducibility."
+  )
 
   specs <- bg_read_gate_specs(project)
   if (!id %in% names(specs)) {
@@ -257,9 +258,10 @@ bg_record_decision <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  if (is.null(rationale) || trimws(rationale) == "") {
-    cli::cli_abort("Rationale is required for reproducibility.")
-  }
+  bg_require_rationale(
+    rationale,
+    message = "Rationale is required for reproducibility."
+  )
 
   record <- bg_new_decision_record(
     project = project,
@@ -291,7 +293,7 @@ bg_new_decision_record <- function(
   kind = "note",
   metadata = list()
 ) {
-  decision_id <- sprintf("dec_%s", digest::digest(runif(1), algo = "xxhash32"))
+  decision_id <- bg_new_id("dec")
 
   res <- list(
     schema_name = "bg_decision_entry",
@@ -307,7 +309,7 @@ bg_new_decision_record <- function(
     refs = refs %||% list(),
     evidence = evidence %||% character(),
     status = "active",
-    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    created_at = bg_now_timestamp(),
     supersedes = NULL,
     metadata = metadata %||% list()
   )

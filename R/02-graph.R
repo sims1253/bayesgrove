@@ -1,4 +1,4 @@
-#' Add a node to the BayesGrove project graph
+#' Add a node to the bayesgrove project graph
 #'
 #' @param project A `bg_handle`.
 #' @param kind The node kind string.
@@ -19,7 +19,7 @@ bg_add_node <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  node_id <- sprintf("node_%s", digest::digest(runif(1), algo = "xxhash32"))
+  node_id <- bg_new_id("node")
 
   graph <- bg_read_graph(project)
 
@@ -36,7 +36,7 @@ bg_add_node <- function(
   # Connect inputs if provided
   if (!is.null(inputs)) {
     for (input in inputs) {
-      edge_id <- sprintf("edge_%s", digest::digest(runif(1), algo = "xxhash32"))
+      edge_id <- bg_new_id("edge")
       graph <- bg_dagri_add_edge(
         graph = graph,
         from = input,
@@ -53,7 +53,7 @@ bg_add_node <- function(
   node_id
 }
 
-#' Connect two nodes in the BayesGrove project graph
+#' Connect two nodes in the bayesgrove project graph
 #'
 #' @param project A `bg_handle`.
 #' @param from The upstream node ID.
@@ -72,7 +72,7 @@ bg_connect <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  edge_id <- sprintf("edge_%s", digest::digest(runif(1), algo = "xxhash32"))
+  edge_id <- bg_new_id("edge")
 
   graph <- bg_read_graph(project)
 
@@ -90,7 +90,7 @@ bg_connect <- function(
   edge_id
 }
 
-#' Update a node in the BayesGrove project graph
+#' Update a node in the bayesgrove project graph
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The node ID to update.
@@ -124,7 +124,7 @@ bg_update_node <- function(
   node_id
 }
 
-#' Remove a node from the BayesGrove project graph
+#' Remove a node from the bayesgrove project graph
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The node ID to remove.
