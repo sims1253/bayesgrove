@@ -12,3 +12,5 @@ tools/demo/repl-workflow/*.gif
 tools/demo/repl-workflow/*.mp4
 ROADMAP.local.md
 agent-prompts/
+/demo/
+/vignettes/*.html

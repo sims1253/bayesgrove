@@ -99,9 +99,13 @@ describe("Planning and Orchestration", {
     bg_register_node_kind(handle, "source", executor = function(node, inputs) {
       "source_data"
     })
-    bg_register_node_kind(handle, "transform", executor = function(node, inputs) {
-      paste0("transform_", inputs[[1]])
-    })
+    bg_register_node_kind(
+      handle,
+      "transform",
+      executor = function(node, inputs) {
+        paste0("transform_", inputs[[1]])
+      }
+    )
     bg_register_node_kind(handle, "sink", executor = function(node, inputs) {
       paste0("sink_", inputs[[1]])
     })

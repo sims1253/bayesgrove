@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "bg_action_item.json",
+  "title": "bg_action_item",
+  "description": "Suggested workflow action derived from workflow packs",
+  "type": "object",
+  "required": ["action_id", "kind", "scope", "title", "basis"],
+  "properties": {
+    "action_id": {
+      "type": "string",
+      "pattern": "^act_[a-z0-9]+$",
+      "description": "Unique identifier for the action"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Category of action (e.g., record_decision, branch_and_modify, create_node_from_template)"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Scope this action applies to (project or branch:xxx)"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title for the action"
+    },
+    "basis": {
+      "type": "object",
+      "description": "Basis data supporting this action",
+      "properties": {
+        "node_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "decision_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "branch_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "obligation_refs": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "payload": {
+      "type": "object",
+      "description": "Action-specific payload data",
+      "properties": {
+        "template_ref": {
+          "type": "string",
+          "description": "Reference to built-in template"
+        },
+        "decision_type": {
+          "type": "string",
+          "description": "Type of decision for record_decision actions"
+        },
+        "source_node_id": {
+          "type": "string",
+          "description": "Source node for branch operations"
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Input node IDs for node creation"
+        },
+        "node_kind": {
+          "type": "string",
+          "description": "Kind of node to create"
+        },
+        "default_label": {
+          "type": "string",
+          "description": "Suggested label for new nodes"
+        },
+        "modification_hint": {
+          "type": "string",
+          "description": "Hint for parameter modifications"
+        },
+        "parameter_suggestions": {
+          "type": "object",
+          "description": "Suggested parameter changes"
+        },
+        "continuation_kinds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node kinds to clone as continuation"
+        },
+        "summary_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Summary IDs for review actions"
+        },
+        "allowed_goal_kinds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed goal kinds for goal-setting actions"
+        }
+      },
+      "additionalProperties": true
+    },
+    "explanation": {
+      "type": "object",
+      "description": "Explanation of why this action is suggested",
+      "properties": {
+        "why_now": {
+          "type": "string",
+          "description": "Reason this action is timely"
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata from the workflow pack"
+    }
+  }
+}

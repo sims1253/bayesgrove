@@ -659,7 +659,9 @@ bg_reverse_edge_map <- function(graph) {
 #' @keywords internal
 bg_node_scope_resolution <- function(project, graph = NULL, branches = NULL) {
   graph <- graph %||% bg_read_graph(project)
-  branches <- branches %||% bg_read_branch_registry(project)$branches %||% list()
+  branches <- branches %||%
+    bg_read_branch_registry(project)$branches %||%
+    list()
   branch_ids <- names(branches) %||% character(length(branches))
   roots <- if (length(branches) == 0) {
     character()
@@ -1194,9 +1196,10 @@ bg_build_workflow_context_impl <- function(
   full_graph <- bg_read_graph(project)
   graph <- bg_active_graph(project, graph = full_graph)
   plan <- plan %||% bg_plan(project, mode = "sync")
-  artifact_index <- plan$metadata$artifact_index %||% bg_read_artifact_index(
-    project
-  )
+  artifact_index <- plan$metadata$artifact_index %||%
+    bg_read_artifact_index(
+      project
+    )
   predicted_fingerprints <- plan$metadata$fingerprints %||% list()
   scope_node_ids <- bg_scope_node_ids(project, scope, graph = full_graph)
 

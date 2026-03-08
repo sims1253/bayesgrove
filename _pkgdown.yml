@@ -37,6 +37,9 @@ navbar:
       href: articles/index.html
 
 reference:
+  - title: API Boundary
+    contents:
+      - bg_api_boundary
   - title: Project Lifecycle
     contents:
       - bg_handle

@@ -295,7 +295,7 @@ bg_merge_protocol_items <- function(items, id_field) {
     merged[[item_id]] <- existing
   }
 
-  merged
+  bg_protocol_named_list(merged)
 }
 
 #' @keywords internal
@@ -408,20 +408,21 @@ bg_blocking_obligation_holds <- function(project, obligations) {
     }
   }
 
-  holds
+  bg_protocol_named_list(holds)
 }
 
 #' @keywords internal
 bg_workflow_external_holds <- function(project, plan = NULL) {
   if (length(bg_workflow_packs(project)) == 0) {
-    return(list())
+    return(bg_protocol_named_list())
   }
 
   bg_next_actions_impl(
     project,
     resolved_scope = "project",
     plan = plan
-  )$metadata$external_holds %||% list()
+  )$metadata$external_holds %||%
+    bg_protocol_named_list()
 }
 
 #' Compute deterministic next workflow actions
@@ -494,11 +495,13 @@ bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
 
   list(
     context = contexts[[1]],
-    obligations = obligations,
-    actions = actions,
+    obligations = bg_protocol_named_list(obligations),
+    actions = bg_protocol_named_list(actions),
     metadata = list(
       evaluated_scopes = vapply(contexts, `[[`, character(1), "scope"),
-      external_holds = bg_blocking_obligation_holds(project, obligations)
+      external_holds = bg_protocol_named_list(
+        bg_blocking_obligation_holds(project, obligations)
+      )
     )
   )
 }
@@ -560,8 +563,8 @@ bg_partition_protocol_by_scope <- function(result, project = NULL) {
     partitioned[[scope]] <- list(
       scope = scope,
       scope_label = scope_label,
-      obligations = scope_obligations,
-      actions = scope_actions
+      obligations = bg_protocol_named_list(scope_obligations),
+      actions = bg_protocol_named_list(scope_actions)
     )
   }
 

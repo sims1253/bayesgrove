@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "bg_next_actions_result.json",
+  "title": "bg_next_actions_result",
+  "description": "Result object from bg_next_actions()",
+  "type": "object",
+  "required": ["context", "obligations", "actions", "metadata"],
+  "properties": {
+    "context": {
+      "type": "object",
+      "description": "Workflow context for the evaluated scope"
+    },
+    "obligations": {
+      "type": "object",
+      "additionalProperties": { "$ref": "bg_obligation_item.json" },
+      "description": "Named map of obligation items keyed by obligation_id"
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": { "$ref": "bg_action_item.json" },
+      "description": "Named map of action items keyed by action_id"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["evaluated_scopes", "external_holds"],
+      "properties": {
+        "evaluated_scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Scopes evaluated during protocol computation"
+        },
+        "external_holds": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Node IDs mapped to hold reasons for workflow blocking"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

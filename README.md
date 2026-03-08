@@ -184,7 +184,7 @@ The posterior check is held from executing:
 guide <- bg_next_actions(handle, scope = "project")
 
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_653dbd1b 
+#>                  obl_f5e7f2ad 
 #> "review_computation_validity"
 
 held <- bg_plan(handle, external_holds = guide$metadata$external_holds)

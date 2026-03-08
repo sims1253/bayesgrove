@@ -316,25 +316,28 @@ bg_derive_run_plan_state <- function(
   external_blocked <- bg_run_plan_external_holds(plan, external_holds)
   held_nodes <- names(external_blocked %||% list())
 
-  utils::modifyList(plan, list(
-    graph_plan = utils::modifyList(
-      plan$graph_plan,
-      list(external_blocked = external_blocked)
-    ),
-    targets = plan$targets %||% plan$graph_plan$targets,
-    eligible = eligible,
-    blocked = plan$graph_plan$blocked,
-    external_blocked = external_blocked,
-    held_by_policy = external_blocked,
-    cache_hits = cache_hits,
-    missing_results = missing_results,
-    to_execute = setdiff(intersect(missing_results, eligible), held_nodes),
-    input_bindings = input_bindings,
-    metadata = list(
-      artifact_refs = artifact_refs,
-      artifact_index = artifact_index
+  utils::modifyList(
+    plan,
+    list(
+      graph_plan = utils::modifyList(
+        plan$graph_plan,
+        list(external_blocked = external_blocked)
+      ),
+      targets = plan$targets %||% plan$graph_plan$targets,
+      eligible = eligible,
+      blocked = plan$graph_plan$blocked,
+      external_blocked = external_blocked,
+      held_by_policy = external_blocked,
+      cache_hits = cache_hits,
+      missing_results = missing_results,
+      to_execute = setdiff(intersect(missing_results, eligible), held_nodes),
+      input_bindings = input_bindings,
+      metadata = list(
+        artifact_refs = artifact_refs,
+        artifact_index = artifact_index
+      )
     )
-  ))
+  )
 }
 
 #' @keywords internal

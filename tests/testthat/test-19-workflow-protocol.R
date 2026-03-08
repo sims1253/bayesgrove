@@ -27,8 +27,9 @@ describe("Workflow protocol APIs", {
     expect_equal(bg_workflow_packs(handle), list())
 
     result <- bg_next_actions(handle)
-    expect_equal(result$obligations, list())
-    expect_equal(result$actions, list())
+    expect_equal(names(result$obligations), character())
+    expect_equal(names(result$actions), character())
+    expect_equal(names(result$metadata$external_holds), character())
     expect_equal(result$context$active_packs, list())
   })
 

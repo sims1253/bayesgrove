@@ -34,7 +34,10 @@ describe("Workflow holds end-to-end", {
     expect_equal(
       plan_calls,
       2L,
-      info = "Sync runs should keep the initial planning passes but avoid a full `bg_plan()` after each successful node."
+      info = paste(
+        "Sync runs should keep the initial planning passes but avoid",
+        "a full `bg_plan()` after each successful node."
+      )
     )
     expect_equal(
       run_res$metadata$held_by_policy[[fixture$compare_id]],
@@ -192,18 +195,18 @@ describe("Workflow holds end-to-end", {
 
     cleared_actions <- bg_next_actions(handle)
     expect_equal(
-      cleared_actions$obligations,
-      list(),
+      names(cleared_actions$obligations),
+      character(),
       info = "Once the problematic result is replaced, no computation-review obligation should remain."
     )
     expect_equal(
-      cleared_actions$actions,
-      list(),
+      names(cleared_actions$actions),
+      character(),
       info = "Clearing the blocking summary should also remove the matching review action."
     )
     expect_equal(
-      cleared_actions$metadata$external_holds,
-      list(),
+      names(cleared_actions$metadata$external_holds),
+      character(),
       info = "Planner holds should clear when no blocking obligation remains."
     )
 

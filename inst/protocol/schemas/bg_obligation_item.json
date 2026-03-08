@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "bg_obligation_item.json",
+  "title": "bg_obligation_item",
+  "description": "Workflow obligation derived from workflow packs",
+  "type": "object",
+  "required": ["obligation_id", "kind", "scope", "severity", "title", "basis"],
+  "properties": {
+    "obligation_id": {
+      "type": "string",
+      "pattern": "^obl_[a-z0-9]+$",
+      "description": "Unique identifier for the obligation"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Category of obligation (e.g., review_computation_validity, set_inferential_goal)"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Scope this obligation applies to (project or branch:xxx)"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["advisory", "warning", "blocking"],
+      "description": "Severity level of the obligation"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title for the obligation"
+    },
+    "basis": {
+      "type": "object",
+      "description": "Basis data supporting this obligation",
+      "properties": {
+        "node_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "decision_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "branch_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "obligation_refs": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "explanation": {
+      "type": "object",
+      "description": "Explanation of why this obligation exists",
+      "properties": {
+        "why": {
+          "type": "string",
+          "description": "Reason for the obligation"
+        },
+        "why_now": {
+          "type": "string",
+          "description": "Reason this is urgent now"
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata from the workflow pack"
+    }
+  }
+}
