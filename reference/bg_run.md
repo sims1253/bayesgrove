@@ -9,7 +9,7 @@ bg_run(
   project,
   targets = NULL,
   mode = c("sync", "async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 )
 ```
 
@@ -29,7 +29,7 @@ bg_run(
 
 - backend:
 
-  For async mode, the backend to use ('auto', 'callr', 'mirai').
+  For async mode, the backend to use (`"auto"` or `"mirai"`).
 
 ## Value
 

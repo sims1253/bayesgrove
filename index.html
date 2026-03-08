@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.13</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,7 +67,7 @@
 <h2 id="what-you-get">What you get<a class="anchor" aria-label="anchor" href="#what-you-get"></a>
 </h2>
 <ul>
-<li><p><strong>Decision provenance.</strong> Attach explicit rationales to prior choices, reparametrizatons, data exclusions, or any other modeling decision—directly inside the workflow, not in a comment someone might miss.</p></li>
+<li><p><strong>Decision provenance.</strong> Attach explicit rationales to prior choices, reparametrizations, data exclusions, or any other modeling decision—directly inside the workflow, not in a comment someone might miss.</p></li>
 <li><p><strong>Content-aware caching.</strong> Each node carries a SHA-256 fingerprint of its inputs and parameters. Expensive MCMC fits are skipped when nothing upstream changed semantically. Change a prior and only the affected subtree reruns.</p></li>
 <li><p><strong>Enforced review.</strong> The built-in workflow protocol derives obligations from the summaries your executors return. Warning diagnostics create a <code>review_computation_validity</code> obligation. Branch-scoped fit warnings also trigger <code>review_fit_criticism</code>. Once two candidates are clean, the protocol requires an explicit <code>compare_candidate_branches</code> step. Each branch then needs an <code>accept_or_reject_branch</code> disposition before the loop closes.</p></li>
 <li><p><strong>Branching with full lineage.</strong> Fork from any node without losing the baseline. Branch goals, decisions, and diagnostic history travel with the branch. The lineage of any branch is always recoverable.</p></li>
@@ -82,28 +82,60 @@
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pkg_install.html" class="external-link">pkg_install</a></span><span class="op">(</span><span class="st">"sims1253/bayesgrove"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="api-stability">API stability<a class="anchor" aria-label="anchor" href="#api-stability"></a>
+</h2>
+<p>The package surface is intentionally split between stable, experimental, and internal-but-exported functions. Use <code><a href="reference/bg_api_boundary.html">bg_api_boundary()</a></code> to inspect that classification directly from R, including which functions are part of the smaller remote IPC contract exposed through the experimental <code><a href="reference/bg_serve.html">bg_serve()</a></code> server.</p>
+<p>Async execution is also intentionally narrow now: synchronous execution is always available, and background execution relies on <code>mirai</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">boundary</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_api_boundary.html">bg_api_boundary</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">boundary</span>, <span class="va">remote_accessible</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">server</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_serve.html">bg_serve</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
+<span><span class="va">server</span><span class="op">$</span><span class="va">protocol_version</span></span>
+<span><span class="va">server</span><span class="op">$</span><span class="va">url</span></span>
+<span><span class="va">server</span><span class="op">$</span><span class="kw">stop</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="guided-terminal-client">Guided terminal client<a class="anchor" aria-label="anchor" href="#guided-terminal-client"></a>
+</h2>
+<p>Use <code>bg_repl(handle)</code> when you want to stay inside a guided review loop instead of bouncing between low-level package calls. The REPL opens with a dashboard that shows workflow state, active obligations, held nodes, recent decisions, branch-scoped gates, and branch lineage when you are inside a branch.</p>
+<p>The main guided commands are:</p>
+<ul>
+<li>
+<code>dashboard</code> to refresh the operator view</li>
+<li>
+<code><a href="https://rdrr.io/r/base/Control.html" class="external-link">next</a></code> to preview and optionally execute the top recommended action</li>
+<li>
+<code>do &lt;n&gt;</code> to execute a specific suggested action by number</li>
+<li>
+<code>lineage</code> to inspect the current branch with its ancestors</li>
+<li>
+<code>export md report.md</code> or <code>export html report.html</code> to write a workflow report</li>
+</ul>
+</div>
+<div class="section level2">
 <h2 id="a-minimal-example">A minimal example<a class="anchor" aria-label="anchor" href="#a-minimal-example"></a>
 </h2>
 <p>The executor is a plain R function—you write the same <code>cmdstanr</code> code you always would, and return a <code>summaries</code> list alongside the fit. <em>(Note: Future versions of bayesgrove will include built-in <code>cmdstanr</code> and <code>brms</code> executors to reduce boilerplate. This example builds one from scratch to show the mechanics).</em> bayesgrove reads those summaries to derive workflow obligations, cache validity, and holds. The rest of the machinery (DAG, fingerprinting, branching) is invisible until you need it.</p>
 <p>The example uses the eight-schools model in its centered parametrization, which reliably produces divergent transitions and is the canonical motivation for non-centered reparametrization.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode stan"><code class="sourceCode stan"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co">// eight_schools_centered.stan (saved as `stan_file` path)</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="kw">data</span> {</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; J;</span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="dt">vector</span>[J] y;</span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="dt">vector</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt;[J] sigma;</span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>}</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="kw">parameters</span> {</span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="dt">real</span> mu;</span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; tau;</span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="dt">vector</span>[J] theta;     <span class="co">// centered — causes funnel geometry</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>}</span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="kw">model</span> {</span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  mu    ~ normal(<span class="dv">0</span>, <span class="dv">5</span>);</span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  tau   ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  theta ~ normal(mu, tau);</span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  y     ~ normal(theta, sigma);</span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>}</span></code></pre></div>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="sourceCode stan"><code class="sourceCode stan"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co">// eight_schools_centered.stan (saved as `stan_file` path)</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; J;</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="dt">vector</span>[J] y;</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="dt">vector</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt;[J] sigma;</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>}</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="kw">parameters</span> {</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="dt">real</span> mu;</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; tau;</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="dt">vector</span>[J] theta;     <span class="co">// centered — causes funnel geometry</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>}</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  mu    ~ normal(<span class="dv">0</span>, <span class="dv">5</span>);</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  tau   ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  theta ~ normal(mu, tau);</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>  y     ~ normal(theta, sigma);</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/sims1253/bayesgrove" class="external-link">bayesgrove</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
@@ -157,10 +189,10 @@
 <span>                       inputs <span class="op">=</span> <span class="va">n_data</span>,</span>
 <span>                       params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>stan_file <span class="op">=</span> <span class="va">stan_file</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">n_ppc</span>  <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"ppc"</span>,  label <span class="op">=</span> <span class="st">"Posterior check"</span>, inputs <span class="op">=</span> <span class="va">n_fit</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_fit</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span></code></pre></div>
 <p>The funnel geometry of the centered parametrization produces divergent transitions. bayesgrove reads the <code>hmc_diagnostics</code> summary returned by the executor and surfaces a blocking obligation automatically. We can inspect the summaries that triggered the hold:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="va">summaries</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">metrics</span></span>
 <span><span class="co">#&gt; $divergences</span></span>
@@ -169,18 +201,18 @@
 <span><span class="co">#&gt; $rhat_max</span></span>
 <span><span class="co">#&gt; [1] 1.3927</span></span></code></pre></div>
 <p>The posterior check is held from executing:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                  obl_f5e7f2ad </span></span>
+<span><span class="co">#&gt;                  obl_68450580 </span></span>
 <span><span class="co">#&gt; "review_computation_validity"</span></span>
 <span></span>
 <span><span class="va">held</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span>, external_holds <span class="op">=</span> <span class="va">guide</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">external_holds</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">held</span><span class="op">$</span><span class="va">external_blocked</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1</span></span></code></pre></div>
 <p>To resolve this, you record the criticism decision, branch from the problematic fit, point the branch at a non-centered Stan file, and rerun. bayesgrove tracks the lineage and keeps the original fit and its diagnostic history intact:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The protocol surfaced an obligation on the project because this is the main branch</span></span>
 <span><span class="fu"><a href="reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -203,7 +235,7 @@
 <span>               params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>stan_file <span class="op">=</span> <span class="va">ncp_stan_file</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span></code></pre></div>
 <p>Once two clean candidates exist, the protocol requires an explicit comparison and an accept/reject disposition for each branch before the loop closes:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># We can now view the full lineage of both branches in the execution graph:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── Execution Graph ──</span></span>
@@ -296,7 +328,7 @@
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/vignette.html" class="external-link">vignette</a></span><span class="op">(</span><span class="st">"guided-review-loop"</span>, package <span class="op">=</span> <span class="st">"bayesgrove"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">

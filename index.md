@@ -22,7 +22,7 @@ how you plan to fix it.
 ## What you get
 
 - **Decision provenance.** Attach explicit rationales to prior choices,
-  reparametrizatons, data exclusions, or any other modeling
+  reparametrizations, data exclusions, or any other modeling
   decision—directly inside the workflow, not in a comment someone might
   miss.
 
@@ -53,6 +53,48 @@ how you plan to fix it.
 # install.packages("pak")
 pak::pkg_install("sims1253/bayesgrove")
 ```
+
+## API stability
+
+The package surface is intentionally split between stable, experimental,
+and internal-but-exported functions. Use
+[`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+to inspect that classification directly from R, including which
+functions are part of the smaller remote IPC contract exposed through
+the experimental
+[`bg_serve()`](https://sims1253.github.io/bayesgrove/reference/bg_serve.md)
+server.
+
+Async execution is also intentionally narrow now: synchronous execution
+is always available, and background execution relies on `mirai`.
+
+``` r
+boundary <- bg_api_boundary()
+subset(boundary, remote_accessible)
+
+server <- bg_serve(handle)
+server$protocol_version
+server$url
+server$stop()
+```
+
+## Guided terminal client
+
+Use `bg_repl(handle)` when you want to stay inside a guided review loop
+instead of bouncing between low-level package calls. The REPL opens with
+a dashboard that shows workflow state, active obligations, held nodes,
+recent decisions, branch-scoped gates, and branch lineage when you are
+inside a branch.
+
+The main guided commands are:
+
+- `dashboard` to refresh the operator view
+- [`next`](https://rdrr.io/r/base/Control.html) to preview and
+  optionally execute the top recommended action
+- `do <n>` to execute a specific suggested action by number
+- `lineage` to inspect the current branch with its ancestors
+- `export md report.md` or `export html report.html` to write a workflow
+  report
 
 ## A minimal example
 
@@ -170,7 +212,7 @@ The posterior check is held from executing:
 guide <- bg_next_actions(handle, scope = "project")
 
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_f5e7f2ad 
+#>                  obl_68450580 
 #> "review_computation_validity"
 
 held <- bg_plan(handle, external_holds = guide$metadata$external_holds)

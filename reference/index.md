@@ -4,6 +4,8 @@
 
 - [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
   : Query the bayesgrove API boundary
+- [`bg_serve()`](https://sims1253.github.io/bayesgrove/reference/bg_serve.md)
+  : Start the experimental local IPC server
 
 ## Project Lifecycle
 

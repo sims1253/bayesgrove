@@ -1,6 +1,6 @@
 # Reconcile background daemon jobs
 
-This checks the status of background jobs (e.g. from callr or mirai) and
+This checks the status of background jobs coordinated via `mirai` and
 updates the job logs if they have finished or failed unexpectedly.
 
 ## Usage

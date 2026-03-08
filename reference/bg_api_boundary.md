@@ -60,8 +60,10 @@ A data.frame with columns:
 The `remote_accessible` column indicates whether a function is part of
 the IPC contract exposed via remote protocol (e.g., WebSocket).
 Functions marked `TRUE` form a deliberate public contract for external
-clients. Currently all functions have `remote_accessible = FALSE` since
-no `bg_serve()` remote protocol layer exists yet.
+clients. The remote-accessible set is intentionally smaller than the
+full in-process R API and backs the experimental
+[`bg_serve()`](https://sims1253.github.io/bayesgrove/reference/bg_serve.md)
+protocol boundary.
 
 ## Examples
 
@@ -121,6 +123,7 @@ bg_api_boundary()
 #> 15                 bg_retire_node            stable
 #> 23                         bg_run            stable
 #> 40                 bg_scope_label            stable
+#> 66                       bg_serve      experimental
 #> 37                    bg_set_goal            stable
 #> 42                    bg_snapshot            stable
 #> 29                      bg_status            stable
@@ -136,22 +139,22 @@ bg_api_boundary()
 #> 35             bg_write_summaries            stable
 #>                                           note remote_accessible
 #> 18                         Add a decision gate             FALSE
-#> 5                      Add a node to the graph             FALSE
-#> 19                      Answer a decision gate             FALSE
+#> 5                      Add a node to the graph              TRUE
+#> 19                      Answer a decision gate              TRUE
 #> 65           Query API classification registry             FALSE
 #> 11                 Create a branch from a node             FALSE
-#> 13                 Get ancestor branch lineage             FALSE
+#> 13                 Get ancestor branch lineage              TRUE
 #> 12 Branch with downstream continuation (newer)             FALSE
 #> 46                         brms backend plugin             FALSE
 #> 50        Build workflow context (lower-level)             FALSE
 #> 43                  Bundle project for handoff             FALSE
-#> 26                         Cancel an async run             FALSE
+#> 26                         Cancel an async run              TRUE
 #> 55        Check artifact cache (worker-facing)             FALSE
 #> 4                       Close a project handle             FALSE
 #> 45                     cmdstanr backend plugin             FALSE
 #> 10           Internal graph persistence helper             FALSE
 #> 41                   Compute cache fingerprint             FALSE
-#> 6                            Connect two nodes             FALSE
+#> 6                            Connect two nodes              TRUE
 #> 59           Create job record (worker-facing)             FALSE
 #> 47                          Diagnostics plugin             FALSE
 #> 44                      Export workflow report             FALSE
@@ -161,10 +164,10 @@ bg_api_boundary()
 #> 2                     Initialize a new project             FALSE
 #> 17                   Invalidate cached results             FALSE
 #> 31                            List job records             FALSE
-#> 14                           List all branches             FALSE
+#> 14                           List all branches              TRUE
 #> 53                     List built-in templates             FALSE
 #> 58               Log job entry (worker-facing)             FALSE
-#> 51               Compute next workflow actions             FALSE
+#> 51               Compute next workflow actions              TRUE
 #> 3                     Open an existing project             FALSE
 #> 52         Partition protocol results by scope             FALSE
 #> 27                    Pause workflow execution             FALSE
@@ -175,10 +178,10 @@ bg_api_boundary()
 #> 9                       Read the project graph             FALSE
 #> 34                    Read persisted summaries             FALSE
 #> 63            Reconcile background daemon jobs             FALSE
-#> 21                 Record an explicit decision             FALSE
+#> 21                 Record an explicit decision              TRUE
 #> 61             Register backend implementation             FALSE
 #> 62                 Register node kind executor             FALSE
-#> 8                 Remove a node from the graph             FALSE
+#> 8                 Remove a node from the graph              TRUE
 #> 54                            Interactive REPL             FALSE
 #> 39                 Resolve node workflow scope             FALSE
 #> 30                      Retrieve a node result             FALSE
@@ -187,14 +190,15 @@ bg_api_boundary()
 #> 15                 Retire a node from planning             FALSE
 #> 23                  Run workflow synchronously             FALSE
 #> 40                 Get display label for scope             FALSE
+#> 66   Serve the local experimental IPC protocol             FALSE
 #> 37                 Set branch inferential goal             FALSE
-#> 42                        Get project snapshot             FALSE
-#> 29                         Get workflow status             FALSE
+#> 42                        Get project snapshot              TRUE
+#> 29                         Get workflow status              TRUE
 #> 56     Store artifact in cache (worker-facing)             FALSE
-#> 24              Submit workflow asynchronously             FALSE
+#> 24              Submit workflow asynchronously              TRUE
 #> 36                     Check summary freshness             FALSE
 #> 60           Update job record (worker-facing)             FALSE
-#> 7                       Update node properties             FALSE
+#> 7                       Update node properties              TRUE
 #> 25                         Wait for async jobs             FALSE
 #> 64  Worker process entry point (cross-process)             FALSE
 #> 49         Build workflow context for protocol             FALSE
@@ -215,15 +219,17 @@ subset(bg_api_boundary(), classification == "experimental")
 #> 51                bg_next_actions   experimental
 #> 52 bg_partition_protocol_by_scope   experimental
 #> 54                        bg_repl   experimental
+#> 66                       bg_serve   experimental
 #> 49            bg_workflow_context   experimental
 #> 48              bg_workflow_packs   experimental
 #>                                           note remote_accessible
 #> 12 Branch with downstream continuation (newer)             FALSE
 #> 50        Build workflow context (lower-level)             FALSE
 #> 53                     List built-in templates             FALSE
-#> 51               Compute next workflow actions             FALSE
+#> 51               Compute next workflow actions              TRUE
 #> 52         Partition protocol results by scope             FALSE
 #> 54                            Interactive REPL             FALSE
+#> 66   Serve the local experimental IPC protocol             FALSE
 #> 49         Build workflow context for protocol             FALSE
 #> 48                  List active workflow packs             FALSE
 ```

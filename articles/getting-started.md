@@ -38,6 +38,54 @@ bg_list_templates("branch_comparison")$operation_type
 #> [1] "create_node"
 ```
 
+The package also makes its public boundary explicit.
+[`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+distinguishes stable, experimental, and internal-but-exported functions,
+and marks the smaller remote IPC contract exposed by the experimental
+[`bg_serve()`](https://sims1253.github.io/bayesgrove/reference/bg_serve.md)
+server. In-process execution is always available; background execution
+uses `mirai`.
+
+``` r
+boundary <- bg_api_boundary()
+subset(boundary, remote_accessible)[, c("fn", "classification")]
+#>                    fn classification
+#> 5         bg_add_node         stable
+#> 19     bg_answer_gate         stable
+#> 13  bg_branch_lineage         stable
+#> 26          bg_cancel         stable
+#> 6          bg_connect         stable
+#> 14   bg_list_branches         stable
+#> 51    bg_next_actions   experimental
+#> 21 bg_record_decision         stable
+#> 8      bg_remove_node         stable
+#> 42        bg_snapshot         stable
+#> 29          bg_status         stable
+#> 24          bg_submit         stable
+#> 7      bg_update_node         stable
+```
+
+The same workflow protocol also powers the built-in interactive terminal
+client.
+[`bg_repl()`](https://sims1253.github.io/bayesgrove/reference/bg_repl.md)
+opens with a dashboard-oriented view so you can inspect the current
+workflow state, active obligations, held nodes, branch-scoped gates,
+recent decisions, and branch lineage without dropping into low-level
+calls.
+
+``` r
+bg_repl(handle)
+```
+
+The main guided REPL commands are:
+
+- `dashboard` to refresh the full operator view
+- [`next`](https://rdrr.io/r/base/Control.html) to preview and
+  optionally execute the top recommended action
+- `do <n>` to execute a specific suggested action
+- `lineage` to inspect the current branch and its ancestors
+- `export md workflow_report.md` to write a report from the same session
+
 ### 1. Initializing a Project
 
 Every bayesgrove analysis lives inside an explicitly initialized project
@@ -56,9 +104,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x557f0e70fe98> 
+#>  @ .state              :<environment: 0x561a28a79198> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/Rtmp97Afl5/bg-quickstart"
+#>  @ path                : chr "/tmp/Rtmp2Gur8d/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -162,7 +210,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-08T01:25:59Z"
+#> [1] "2026-03-08T02:43:26Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -361,7 +409,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_99ad2ab5 
+#>                 obl_65f0ae8b 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -435,7 +483,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_23a6b9a0 
+#>              obl_c5bd240d 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(

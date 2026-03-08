@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.13</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,6 +40,18 @@
       <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.0" id="bayesgrove-040">bayesgrove 0.4.0<a class="anchor" aria-label="anchor" href="#bayesgrove-040"></a></h2>
+<ul><li><p>Added a richer, dashboard-style TUI workflow to <code><a href="../reference/bg_repl.html">bg_repl()</a></code> featuring a new <code>dashboard</code> command and a default initialization view showing workflow health, obligations, and pending gates.</p></li>
+<li><p>Added a <code><a href="https://rdrr.io/r/base/Control.html" class="external-link">next</a></code> command to the guided client that automatically previews and prompts to execute the top recommended workflow action without manual ID lookup.</p></li>
+<li><p>Improved post-action clarity and safety inside the REPL by rendering detailed action previews before execution and adding inline workflow-branch scope navigation.</p></li>
+<li><p>Added <code>lineage</code> and <code>export</code> REPL commands so users can view structural branch history and generate full workflow reports directly from the interactive operator console.</p></li>
+<li><p>Extended interactive REPL tests to cover new guided-client rendering helpers, preserving decoupled CLI state modeling for future GUI consumption.</p></li>
+<li><p>Added an experimental <code><a href="../reference/bg_serve.html">bg_serve()</a></code> websocket IPC layer with versioned <code>GraphSnapshot</code>, <code>ProtocolEvent</code>, <code>Command</code>, and <code>CommandResult</code> schemas under <code>inst/protocol/</code>.</p></li>
+<li><p>Marked the bounded remote command/query surface directly in <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code> via <code>remote_accessible</code>, and added validation that keeps the server dispatch registry aligned with that API boundary.</p></li>
+<li><p>Added protocol-schema coverage for the new IPC messages plus websocket integration tests that exercise connect, command dispatch, reconnect, and async responsiveness when local sockets are available.</p></li>
+<li><p>Simplified async execution support to rely on <code>mirai</code> only, removing the parallel <code>callr</code> backend branch from submission, cancellation, reconciliation, package metadata, and tests.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.13" id="bayesgrove-0313">bayesgrove 0.3.13<a class="anchor" aria-label="anchor" href="#bayesgrove-0313"></a></h2>
 <ul><li>Added <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code> plus a machine-readable registry covering every exported <code>bg_*</code> function with explicit <code>stable</code>, <code>experimental</code>, or <code>internal_exported</code> classifications and <code>remote_accessible</code> flags.</li>

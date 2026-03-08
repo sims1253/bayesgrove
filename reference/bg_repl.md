@@ -36,11 +36,16 @@ Supported commands include:
 
 - `help`: show the command list
 
+- `dashboard`: show the guided operator dashboard
+
 - `status`: print workflow state and health
 
 - `guide`: show active obligations and suggested actions
 
 - `actions`: list actionable protocol suggestions with payload details
+
+- [`next`](https://rdrr.io/r/base/Control.html): preview and optionally
+  execute the top suggested action
 
 - `do <n>`: execute the nth suggested action
 
@@ -51,6 +56,8 @@ Supported commands include:
 - `goal` / `goal set`: inspect or set a branch-scoped inferential goal
 
 - `decisions`: show recent decisions for the current scope
+
+- `lineage`: show the current branch and its ancestors
 
 - `nodes`: print the scoped execution graph
 
@@ -71,6 +78,8 @@ Supported commands include:
 - `run` / `submit`: execute or enqueue ready work in the current scope
 
 - `jobs` and `cancel <run_id>`: inspect or cancel background work
+
+- `export [html|md] [path]`: export a workflow report from the REPL
 
 - `exit`, `quit`, `q`: leave the REPL
 

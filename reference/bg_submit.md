@@ -9,7 +9,7 @@ bg_submit(
   project,
   targets = NULL,
   mode = c("async"),
-  backend = c("auto", "callr", "mirai")
+  backend = c("auto", "mirai")
 )
 ```
 
@@ -29,8 +29,8 @@ bg_submit(
 
 - backend:
 
-  The async backend to use ("mirai" or "callr"). Default is "callr" for
-  MVP.
+  The async backend to use (`"mirai"`). `"auto"` resolves to `"mirai"`
+  and errors if the package is not installed.
 
 ## Value
 

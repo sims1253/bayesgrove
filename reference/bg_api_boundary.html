@@ -13,7 +13,7 @@ remote protocol contract."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.13</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,9 +107,9 @@ job primitives, backend registration, and daemon reconciliation.</p></li>
 
 <p>The <code>remote_accessible</code> column indicates whether a function is part of the
 IPC contract exposed via remote protocol (e.g., WebSocket). Functions marked
-<code>TRUE</code> form a deliberate public contract for external clients. Currently all
-functions have <code>remote_accessible = FALSE</code> since no <code>bg_serve()</code> remote
-protocol layer exists yet.</p>
+<code>TRUE</code> form a deliberate public contract for external clients. The
+remote-accessible set is intentionally smaller than the full in-process R API
+and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> protocol boundary.</p>
 </div>
 
     </div>
@@ -171,6 +171,7 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 15                 bg_retire_node            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 23                         bg_run            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 40                 bg_scope_label            stable</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 66                       bg_serve      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 37                    bg_set_goal            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 42                    bg_snapshot            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 29                      bg_status            stable</span>
@@ -186,22 +187,22 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 35             bg_write_summaries            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                           note remote_accessible</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 18                         Add a decision gate             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                      Add a node to the graph             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 19                      Answer a decision gate             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                      Add a node to the graph              TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 19                      Answer a decision gate              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 65           Query API classification registry             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11                 Create a branch from a node             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 13                 Get ancestor branch lineage             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 13                 Get ancestor branch lineage              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12 Branch with downstream continuation (newer)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 46                         brms backend plugin             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 50        Build workflow context (lower-level)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 43                  Bundle project for handoff             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 26                         Cancel an async run             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 26                         Cancel an async run              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 55        Check artifact cache (worker-facing)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4                       Close a project handle             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 45                     cmdstanr backend plugin             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10           Internal graph persistence helper             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 41                   Compute cache fingerprint             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                            Connect two nodes             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                            Connect two nodes              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 59           Create job record (worker-facing)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 47                          Diagnostics plugin             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 44                      Export workflow report             FALSE</span>
@@ -211,10 +212,10 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2                     Initialize a new project             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 17                   Invalidate cached results             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 31                            List job records             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 14                           List all branches             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 14                           List all branches              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 53                     List built-in templates             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 58               Log job entry (worker-facing)             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 51               Compute next workflow actions             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 51               Compute next workflow actions              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3                     Open an existing project             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 52         Partition protocol results by scope             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 27                    Pause workflow execution             FALSE</span>
@@ -225,10 +226,10 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9                       Read the project graph             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 34                    Read persisted summaries             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 63            Reconcile background daemon jobs             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 21                 Record an explicit decision             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 21                 Record an explicit decision              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 61             Register backend implementation             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 62                 Register node kind executor             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                 Remove a node from the graph             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                 Remove a node from the graph              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 54                            Interactive REPL             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 39                 Resolve node workflow scope             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 30                      Retrieve a node result             FALSE</span>
@@ -237,14 +238,15 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 15                 Retire a node from planning             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 23                  Run workflow synchronously             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 40                 Get display label for scope             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 66   Serve the local experimental IPC protocol             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 37                 Set branch inferential goal             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 42                        Get project snapshot             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 29                         Get workflow status             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 42                        Get project snapshot              TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 29                         Get workflow status              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 56     Store artifact in cache (worker-facing)             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 24              Submit workflow asynchronously             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 24              Submit workflow asynchronously              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 36                     Check summary freshness             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 60           Update job record (worker-facing)             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                       Update node properties             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                       Update node properties              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 25                         Wait for async jobs             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 64  Worker process entry point (cross-process)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 49         Build workflow context for protocol             FALSE</span>
@@ -265,15 +267,17 @@ protocol layer exists yet.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 51                bg_next_actions   experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 52 bg_partition_protocol_by_scope   experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 54                        bg_repl   experimental</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 66                       bg_serve   experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 49            bg_workflow_context   experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 48              bg_workflow_packs   experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                           note remote_accessible</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12 Branch with downstream continuation (newer)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 50        Build workflow context (lower-level)             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 53                     List built-in templates             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 51               Compute next workflow actions             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 51               Compute next workflow actions              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 52         Partition protocol results by scope             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 54                            Interactive REPL             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 66   Serve the local experimental IPC protocol             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 49         Build workflow context for protocol             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 48                  List active workflow packs             FALSE</span>
 </code></pre></div>
