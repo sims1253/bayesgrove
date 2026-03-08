@@ -13,7 +13,7 @@ workflow holds distinct from structural blockers."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -27,6 +27,7 @@ workflow holds distinct from structural blockers."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -92,7 +93,12 @@ actions for branch-scoped fit or diagnostic problems,</p></li>
 exist, and</p></li>
 <li><p><code>accept_or_reject_branch</code> plus <code>branch_disposition</code> actions after a
 current comparison exists for an active candidate set.</p></li>
-</ul></div>
+</ul><p>When the optional phase-10 packs are active, the result can also include
+prior-rationale recording, prior and posterior predictive review,
+simulation-based calibration review, model-selection review keyed to
+<code>model_comparison</code> and <code>stacking_weights</code> summaries, causal-question
+prompts, and PAD annotation review.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

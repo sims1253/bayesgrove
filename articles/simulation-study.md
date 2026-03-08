@@ -10,8 +10,10 @@ It focuses on structural branching and explicit gate decisions.
 Summary-driven workflow guidance is also available in the current
 package through
 [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
-and `bg_plan(..., external_holds = ...)`, but that layer is kept out of
-this vignette so the simulation example stays focused.
+and `bg_plan(..., external_holds = ...)`, including the optional
+phase-10 packs for prior workflow, model checks, model selection, causal
+framing, and PAD annotations, but that layer is kept out of this
+vignette so the simulation example stays focused.
 
 It is intentionally modest relative to the full vision for the package.
 The workflow is inspired by the simulation-oriented perspective of
@@ -425,27 +427,35 @@ the computational state.
 ``` r
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpnYKRub/bg-simulation-study/simulation-study-report.md
+#> /tmp/Rtmprn4aOS/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpnYKRub/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/Rtmprn4aOS/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,
 gate context, evidence nodes, and the artifact index for the current
 run.
 
-## Where this still falls short
+## How the richer workflow packs fit on top
 
-This vignette demonstrates the shape of a guided workflow, but not yet
-the full Bayesian system you ultimately want. In particular, the current
-package still lacks first-class support for:
+This vignette stays intentionally lightweight, but the package can now
+layer a richer Bayesian review vocabulary on top of the same graph and
+decision infrastructure. The optional built-in packs add:
 
-- prior elicitation and prior objects,
-- prior and posterior predictive checks as built-in node semantics,
-- SBC-specific helpers,
-- model weighting and stacking,
-- PAD and utility-language abstractions,
-- causal DAG objects and graph-aware suggestions.
+- `bayesgrove.prior_workflow` for prior rationale and prior predictive
+  review,
+- `bayesgrove.model_checks` for posterior predictive checks and, on
+  `latent_inference` branches, SBC review,
+- `bayesgrove.model_selection` for fresh comparison evidence, including
+  `comparison_results` and stacking weights,
+- `bayesgrove.causal_minimal` for explicit branch-scoped causal framing
+  prompts, and
+- `bayesgrove.pad_scaffold` for branch-scoped PAD annotations and
+  utility-dimension labels.
 
-Those pieces need a richer domain layer on top of the current execution
-and decision infrastructure.
+What still remains domain-specific is the layer above those semantics:
+rich prior object systems, causal DAG classes, graph-aware suggestion
+engines, and package-specific executors for particular model families.
+bayesgrove now has the review vocabulary for those workflows, but you
+still supply the node kinds and summaries that make the workflow
+concrete.

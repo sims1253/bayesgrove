@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
@@ -72,25 +73,31 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p><strong>bayesgrove</strong> is a graph-based Bayesian workflow
-orchestrator designed to track the iterative nature of model building.
-It separates your analysis into two distinct layers: 1. <strong>The
-Execution Graph (DAG)</strong>: Built using <code>dagriculture</code>,
-representing the step-by-step transformations and computations (data
-cleaning, compiling, fitting, diagnosing). 2. <strong>The Decision
-Layer</strong>: An annotation overlay that captures the provenance of
-your choices (why did you change the prior? why did you filter
-outliers?) via decision gates.</p>
-<p>This separation ensures that your computations remain reproducible
-while giving you a rich historical record of your decision-making
-process. The current package also includes a workflow-protocol layer:
-executors can emit summaries, <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> can derive
-obligations and suggested actions from those summaries, and callers can
-pass the resulting planner holds into <code><a href="../reference/bg_plan.html">bg_plan()</a></code> without
-conflating them with structural graph blockers. The built-in
-<code>bayesguide.default_bayesian</code> pack now covers a narrow review
+<p><strong>bayesgrove</strong> is built for the part of Bayesian work
+that usually gets lost: the path between an initial fit and the final
+analysis. It keeps two layers separate without splitting them apart in
+practice:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>The execution graph</strong>. <code>dagriculture</code>
+tracks the computations you run: data preparation, fitting, diagnostics,
+comparison, and export.</li>
+<li>
+<strong>The decision layer</strong>. Gates and decisions record why
+the workflow changed: a revised prior, a rejected branch, an accepted
+comparison, or a data exclusion.</li>
+</ol>
+<p>That split keeps computations reproducible while preserving the
+reasons behind them. The workflow-protocol layer sits on top of the
+graph: executors emit summaries, <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> turns
+those summaries into obligations and suggested actions, and callers can
+pass the resulting holds back into <code><a href="../reference/bg_plan.html">bg_plan()</a></code> without
+confusing review state with structural graph blockers. The built-in
+<code>bayesguide.default_bayesian</code> pack covers a narrow default
 loop: computation review, branch-scoped fit criticism, candidate
-comparison, and explicit branch acceptance or rejection.</p>
+comparison, and explicit branch acceptance or rejection. Optional packs
+extend that loop with prior rationale, predictive checks, SBC,
+model-selection review, minimal causal framing, and PAD annotations.</p>
 <p>That review loop is exposed through a small built-in template
 registry. The registry keeps common next steps explicit instead of
 hardcoding one-off REPL behaviors:</p>
@@ -167,22 +174,46 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x561a28a79198&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x5563c2447ce0&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/Rtmp2Gur8d/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpkLiKFd/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ loaded_graph_version: int 0</span></span>
 <span><span class="co">#&gt;  @ lock_token          : chr NA</span></span>
 <span><span class="co">#&gt;  @ registries          : list()</span></span>
 <span><span class="co">#&gt;  @ metadata            : list()</span></span></code></pre></div>
+<p>If you want the richer phase-10 review vocabulary, add the optional
+packs at initialization time:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
+<span>  path <span class="op">=</span> <span class="va">project_root</span>,</span>
+<span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span>,</span>
+<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>    <span class="st">"bayesgrove.prior_workflow"</span>,</span>
+<span>    <span class="st">"bayesgrove.model_checks"</span>,</span>
+<span>    <span class="st">"bayesgrove.model_selection"</span>,</span>
+<span>    <span class="st">"bayesgrove.causal_minimal"</span>,</span>
+<span>    <span class="st">"bayesgrove.pad_scaffold"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Those packs stay summary-driven: your node executors keep returning
+plain-data summaries, and the protocol layer decides whether that
+evidence creates prior review, posterior-check, SBC, stacking, causal,
+or PAD obligations. A few of those triggers are scope-sensitive. SBC
+only appears on branches whose inferential goal is
+<code>latent_inference</code>, <code>bayesgrove.causal_minimal</code> is
+an advisory branch-scoped scaffold for those same branches, and
+<code>bayesgrove.pad_scaffold</code> starts asking for annotations once
+a branch has any inferential goal at all.</p>
 </div>
 <div class="section level3">
 <h3 id="defining-the-workflow-structure">2. Defining the Workflow Structure<a class="anchor" aria-label="anchor" href="#defining-the-workflow-structure"></a>
 </h3>
 <p>In bayesgrove, everything is a node. For this demo, let’s register
 some mock executors to simulate the workflow.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Register a simple data provider</span></span>
 <span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"data"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="co"># In a real workflow, this would read from disk or a database</span></span>
@@ -208,7 +239,7 @@ some mock executors to simulate the workflow.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Compared downstream artifact: %s"</span>, <span class="va">inputs</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <p>Now we build the graph:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, kind <span class="op">=</span> <span class="st">"data"</span>, label <span class="op">=</span> <span class="st">"Simulated Dataset"</span><span class="op">)</span></span>
 <span><span class="va">n_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, kind <span class="op">=</span> <span class="st">"fit"</span>, label <span class="op">=</span> <span class="st">"Baseline Fit"</span>, inputs <span class="op">=</span> <span class="va">n_data</span><span class="op">)</span></span>
 <span><span class="va">n_compare</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
@@ -224,7 +255,7 @@ some mock executors to simulate the workflow.</p>
 <p>Instead of just running the model directly, let’s add a “Decision
 Gate” to force us to explicitly approve the data before moving on. This
 captures provenance.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gate</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_gate.html">bg_add_gate</a></span><span class="op">(</span></span>
 <span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
 <span>  from <span class="op">=</span> <span class="va">n_data</span>,</span>
@@ -234,7 +265,7 @@ captures provenance.</p>
 <span><span class="op">)</span></span></code></pre></div>
 <p>If we try to plan the workflow now, the runner will see that the
 graph is blocked by an unresolved gate:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">plan</span><span class="op">$</span><span class="va">blocked</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $node_7ecd6878</span></span>
@@ -265,7 +296,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-03-08T02:43:26Z"</span></span>
+<span><span class="co">#&gt; [1] "2026-03-08T12:58:34Z"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
@@ -283,7 +314,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; [1] "Baseline Fit"</span></span></code></pre></div>
 <p>We must explicitly answer the gate and provide a rationale. This
 rationale is logged permanently.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_answer_gate.html">bg_answer_gate</a></span><span class="op">(</span></span>
 <span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
 <span>  id <span class="op">=</span> <span class="va">gate</span><span class="op">$</span><span class="va">id</span>,</span>
@@ -301,7 +332,7 @@ rationale is logged permanently.</p>
 <p>With the gate resolved, the path is unblocked. We now run only
 through the fit node so that we can inspect the workflow protocol before
 scheduling downstream comparison work.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">run_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_model</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_8d060132"</span> with 1 node to execute.</span></span>
 <span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8cfeb1ca"</span>...</span></span>
@@ -316,7 +347,7 @@ scheduling downstream comparison work.</p>
 <p>The fit executor emitted a lightweight warning summary.
 <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> turns that evidence into an obligation
 plus a matching next action:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">next_steps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="va">next_steps</span><span class="op">$</span><span class="va">obligations</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">kind</span></span>
 <span><span class="co">#&gt; [1] "review_computation_validity"</span></span>
@@ -329,7 +360,7 @@ while revising the branch.</p>
 <p>Those blocking obligations can be passed back into planning as
 explicit external holds. This keeps workflow guidance distinct from
 structural graph state:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">held_plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_plan.html">bg_plan</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  external_holds <span class="op">=</span> <span class="va">next_steps</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">external_holds</span></span>
@@ -350,7 +381,7 @@ replaced by a clean rerun.</p>
 <p>The stronger default pack also supports a project-level comparison
 loop once multiple fit candidates are clean. This second example uses a
 fresh project so that the comparison state is easy to inspect.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_root</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"bg-comparison"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">comparison_root</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
@@ -448,10 +479,10 @@ fresh project so that the comparison state is easy to inspect.</p>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span></code></pre></div>
 <p>With two clean fits, project scope now requires an explicit
 comparison step:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_65f0ae8b </span></span>
+<span><span class="co">#&gt;                 obl_00ee370e </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -466,7 +497,7 @@ interactively.</p>
 <p>Create and run the comparison node, then record a
 <code>model_comparison</code> decision using the payload fields supplied
 by the workflow action:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_node_id</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
 <span>  <span class="va">comparison_handle</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"compare"</span>,</span>
@@ -514,14 +545,14 @@ by the workflow action:</p>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> The alternative fit is the preferred clean candidate.</span></span></code></pre></div>
 <p>After a current comparison exists, branch scope asks for an explicit
 accept or reject disposition:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">branch_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>  <span class="va">comparison_handle</span>,</span>
 <span>  scope <span class="op">=</span> <span class="st">"branch"</span>,</span>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_c5bd240d </span></span>
+<span><span class="co">#&gt;              obl_eec1e3a2 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -570,7 +601,15 @@ obligations visible during scheduling. For the built-in default pack,
 that means you can move through the full loop without leaving the
 runtime contract: review the computation, review branch criticism when
 needed, compare clean candidates, and explicitly accept or reject the
-surviving branch.</p>
+surviving branch. When you are ready to grow beyond that loop, emit the
+richer phase-10 summary kinds (<code>prior_spec</code>,
+<code>prior_predictive_check</code>,
+<code>posterior_predictive_check</code>, <code>sbc_result</code>,
+<code>comparison_results</code>, <code>model_comparison</code>,
+<code>stacking_weights</code>, <code>causal_framing</code>, and
+<code>pad_annotation</code>) and see
+<code><a href="../articles/extensions.html">vignette("extensions", package = "bayesgrove")</a></code> for
+extension patterns.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

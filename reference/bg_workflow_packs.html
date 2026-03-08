@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,6 +21,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -61,7 +62,10 @@
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of active workflow-pack descriptors. The built-in default
-pack id is <code>bayesguide.default_bayesian</code>.</p>
+pack id is <code>bayesguide.default_bayesian</code>. Additional built-in pack ids are
+<code>bayesgrove.prior_workflow</code>, <code>bayesgrove.model_checks</code>,
+<code>bayesgrove.model_selection</code>, <code>bayesgrove.causal_minimal</code>, and
+<code>bayesgrove.pad_scaffold</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -70,7 +74,11 @@ layer. It derives computation-review obligations from fresh warning/error
 summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 requires project-scoped comparison decisions when multiple fit candidates
 are clean, and asks each candidate branch to be explicitly accepted or
-rejected after a current comparison exists.</p>
+rejected after a current comparison exists. The optional phase-10 packs
+extend that vocabulary with prior rationale and prior predictive review,
+posterior predictive and SBC review, model-selection evidence including
+stacking weights, minimal causal framing, and PAD annotations with utility
+dimensions.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

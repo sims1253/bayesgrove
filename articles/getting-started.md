@@ -2,27 +2,29 @@
 
 ## Introduction
 
-**bayesgrove** is a graph-based Bayesian workflow orchestrator designed
-to track the iterative nature of model building. It separates your
-analysis into two distinct layers: 1. **The Execution Graph (DAG)**:
-Built using `dagriculture`, representing the step-by-step
-transformations and computations (data cleaning, compiling, fitting,
-diagnosing). 2. **The Decision Layer**: An annotation overlay that
-captures the provenance of your choices (why did you change the prior?
-why did you filter outliers?) via decision gates.
+**bayesgrove** is built for the part of Bayesian work that usually gets
+lost: the path between an initial fit and the final analysis. It keeps
+two layers separate without splitting them apart in practice:
 
-This separation ensures that your computations remain reproducible while
-giving you a rich historical record of your decision-making process. The
-current package also includes a workflow-protocol layer: executors can
-emit summaries,
+1.  **The execution graph**. `dagriculture` tracks the computations you
+    run: data preparation, fitting, diagnostics, comparison, and export.
+2.  **The decision layer**. Gates and decisions record why the workflow
+    changed: a revised prior, a rejected branch, an accepted comparison,
+    or a data exclusion.
+
+That split keeps computations reproducible while preserving the reasons
+behind them. The workflow-protocol layer sits on top of the graph:
+executors emit summaries,
 [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
-can derive obligations and suggested actions from those summaries, and
-callers can pass the resulting planner holds into
+turns those summaries into obligations and suggested actions, and
+callers can pass the resulting holds back into
 [`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
-without conflating them with structural graph blockers. The built-in
-`bayesguide.default_bayesian` pack now covers a narrow review loop:
-computation review, branch-scoped fit criticism, candidate comparison,
-and explicit branch acceptance or rejection.
+without confusing review state with structural graph blockers. The
+built-in `bayesguide.default_bayesian` pack covers a narrow default
+loop: computation review, branch-scoped fit criticism, candidate
+comparison, and explicit branch acceptance or rejection. Optional packs
+extend that loop with prior rationale, predictive checks, SBC,
+model-selection review, minimal causal framing, and PAD annotations.
 
 That review loop is exposed through a small built-in template registry.
 The registry keeps common next steps explicit instead of hardcoding
@@ -104,9 +106,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x561a28a79198> 
+#>  @ .state              :<environment: 0x5563c2447ce0> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/Rtmp2Gur8d/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpkLiKFd/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -114,6 +116,33 @@ print(handle)
 #>  @ registries          : list()
 #>  @ metadata            : list()
 ```
+
+If you want the richer phase-10 review vocabulary, add the optional
+packs at initialization time:
+
+``` r
+handle <- bg_init(
+  path = project_root,
+  project_name = "Quickstart",
+  workflow_packs = list(
+    "bayesguide.default_bayesian",
+    "bayesgrove.prior_workflow",
+    "bayesgrove.model_checks",
+    "bayesgrove.model_selection",
+    "bayesgrove.causal_minimal",
+    "bayesgrove.pad_scaffold"
+  )
+)
+```
+
+Those packs stay summary-driven: your node executors keep returning
+plain-data summaries, and the protocol layer decides whether that
+evidence creates prior review, posterior-check, SBC, stacking, causal,
+or PAD obligations. A few of those triggers are scope-sensitive. SBC
+only appears on branches whose inferential goal is `latent_inference`,
+`bayesgrove.causal_minimal` is an advisory branch-scoped scaffold for
+those same branches, and `bayesgrove.pad_scaffold` starts asking for
+annotations once a branch has any inferential goal at all.
 
 ### 2. Defining the Workflow Structure
 
@@ -210,7 +239,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-08T02:43:26Z"
+#> [1] "2026-03-08T12:58:34Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -409,7 +438,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_65f0ae8b 
+#>                 obl_00ee370e 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -483,7 +512,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_c5bd240d 
+#>              obl_eec1e3a2 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(
@@ -535,3 +564,10 @@ visible during scheduling. For the built-in default pack, that means you
 can move through the full loop without leaving the runtime contract:
 review the computation, review branch criticism when needed, compare
 clean candidates, and explicitly accept or reject the surviving branch.
+When you are ready to grow beyond that loop, emit the richer phase-10
+summary kinds (`prior_spec`, `prior_predictive_check`,
+`posterior_predictive_check`, `sbc_result`, `comparison_results`,
+`model_comparison`, `stacking_weights`, `causal_framing`, and
+`pad_annotation`) and see
+[`vignette("extensions", package = "bayesgrove")`](https://sims1253.github.io/bayesgrove/articles/extensions.md)
+for extension patterns.

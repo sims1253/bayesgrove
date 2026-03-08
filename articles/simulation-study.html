@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
@@ -78,8 +79,10 @@ execution, and decision logging.</p>
 <p>It focuses on structural branching and explicit gate decisions.
 Summary-driven workflow guidance is also available in the current
 package through <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> and
-<code>bg_plan(..., external_holds = ...)</code>, but that layer is kept
-out of this vignette so the simulation example stays focused.</p>
+<code>bg_plan(..., external_holds = ...)</code>, including the optional
+phase-10 packs for prior workflow, model checks, model selection, causal
+framing, and PAD annotations, but that layer is kept out of this
+vignette so the simulation example stays focused.</p>
 <p>It is intentionally modest relative to the full vision for the
 package. The workflow is inspired by the simulation-oriented perspective
 of <a href="https://arxiv.org/abs/2408.06504" class="external-link uri">https://arxiv.org/abs/2408.06504</a> and <a href="https://arxiv.org/abs/2210.06927" class="external-link uri">https://arxiv.org/abs/2210.06927</a>, but it stays inside
@@ -485,30 +488,43 @@ the computational state.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, path <span class="op">=</span> <span class="st">"simulation-study-report.md"</span>, format <span class="op">=</span> <span class="st">"md"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpnYKRub/bg-simulation-study/simulation-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/Rtmprn4aOS/bg-simulation-study/simulation-study-report.md</span></span></span>
 <span><span class="va">report_path</span></span>
-<span><span class="co">#&gt; [1] "/tmp/RtmpnYKRub/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "/tmp/Rtmprn4aOS/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
 <p>The generated report now includes graph topology, decision
 provenance, gate context, evidence nodes, and the artifact index for the
 current run.</p>
 </div>
 <div class="section level2">
-<h2 id="where-this-still-falls-short">Where this still falls short<a class="anchor" aria-label="anchor" href="#where-this-still-falls-short"></a>
+<h2 id="how-the-richer-workflow-packs-fit-on-top">How the richer workflow packs fit on top<a class="anchor" aria-label="anchor" href="#how-the-richer-workflow-packs-fit-on-top"></a>
 </h2>
-<p>This vignette demonstrates the shape of a guided workflow, but not
-yet the full Bayesian system you ultimately want. In particular, the
-current package still lacks first-class support for:</p>
+<p>This vignette stays intentionally lightweight, but the package can
+now layer a richer Bayesian review vocabulary on top of the same graph
+and decision infrastructure. The optional built-in packs add:</p>
 <ul>
-<li>prior elicitation and prior objects,</li>
-<li>prior and posterior predictive checks as built-in node
-semantics,</li>
-<li>SBC-specific helpers,</li>
-<li>model weighting and stacking,</li>
-<li>PAD and utility-language abstractions,</li>
-<li>causal DAG objects and graph-aware suggestions.</li>
+<li>
+<code>bayesgrove.prior_workflow</code> for prior rationale and prior
+predictive review,</li>
+<li>
+<code>bayesgrove.model_checks</code> for posterior predictive checks
+and, on <code>latent_inference</code> branches, SBC review,</li>
+<li>
+<code>bayesgrove.model_selection</code> for fresh comparison
+evidence, including <code>comparison_results</code> and stacking
+weights,</li>
+<li>
+<code>bayesgrove.causal_minimal</code> for explicit branch-scoped
+causal framing prompts, and</li>
+<li>
+<code>bayesgrove.pad_scaffold</code> for branch-scoped PAD
+annotations and utility-dimension labels.</li>
 </ul>
-<p>Those pieces need a richer domain layer on top of the current
-execution and decision infrastructure.</p>
+<p>What still remains domain-specific is the layer above those
+semantics: rich prior object systems, causal DAG classes, graph-aware
+suggestion engines, and package-specific executors for particular model
+families. bayesgrove now has the review vocabulary for those workflows,
+but you still supply the node kinds and summaries that make the workflow
+concrete.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -48,3 +48,9 @@ obligations and actions can include:
 
 - `accept_or_reject_branch` plus `branch_disposition` actions after a
   current comparison exists for an active candidate set.
+
+When the optional phase-10 packs are active, the result can also include
+prior-rationale recording, prior and posterior predictive review,
+simulation-based calibration review, model-selection review keyed to
+`model_comparison` and `stacking_weights` summaries, causal-question
+prompts, and PAD annotation review.

@@ -4,6 +4,8 @@
 
 - [Dagriculture
   Boundary](https://sims1253.github.io/bayesgrove/articles/dagriculture-boundary.md):
+- [Extending
+  bayesgrove](https://sims1253.github.io/bayesgrove/articles/extensions.md):
 - [Getting Started with
   bayesgrove](https://sims1253.github.io/bayesgrove/articles/getting-started.md):
 - [Guided Review

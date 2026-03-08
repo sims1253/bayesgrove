@@ -1,5 +1,22 @@
 # Changelog
 
+## bayesgrove 0.4.1
+
+- Added five optional built-in workflow packs:
+  `bayesgrove.prior_workflow`, `bayesgrove.model_checks`,
+  `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and
+  `bayesgrove.pad_scaffold`.
+- Extended the review-decision template and workflow registry so those
+  packs can emit prior rationale, prior and posterior predictive review,
+  SBC review, model-selection review, causal framing prompts, and PAD
+  annotation prompts.
+- Added an `extensions` vignette covering node sets, backend plugins,
+  domain modules, summary emission, and the current status of
+  workflow-pack extension.
+- Refreshed the README, getting-started, guided-review-loop,
+  simulation-study, and demo documentation so the optional workflow-pack
+  surface matches the current code.
+
 ## bayesgrove 0.4.0
 
 - Added a richer, dashboard-style TUI workflow to

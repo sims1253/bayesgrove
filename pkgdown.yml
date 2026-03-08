@@ -3,10 +3,11 @@ pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   dagriculture-boundary: dagriculture-boundary.html
+  extensions: extensions.html
   getting-started: getting-started.html
   guided-review-loop: guided-review-loop.html
   simulation-study: simulation-study.html
-last_built: 2026-03-08T02:43Z
+last_built: 2026-03-08T12:58Z
 urls:
   reference: https://sims1253.github.io/bayesgrove/reference
   article: https://sims1253.github.io/bayesgrove/articles

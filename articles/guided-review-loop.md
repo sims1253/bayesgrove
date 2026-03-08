@@ -15,6 +15,12 @@ The loop covers the current package strengths:
 - comparison and final branch disposition,
 - report export after iteration.
 
+It intentionally exercises only the narrow `bayesguide.default_bayesian`
+pack. If you want prior rationale, predictive checks, SBC review,
+stacking-aware model selection, or PAD and causal scaffolds, add the
+optional phase-10 packs described in
+[`vignette("extensions", package = "bayesgrove")`](https://sims1253.github.io/bayesgrove/articles/extensions.md).
+
 ## Setup
 
 ``` r
@@ -335,12 +341,12 @@ warning_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(warning_protocol)
 #>             scope                                       obligations
 #> 1         Project                                              none
-#> 2 Centered branch review_computation_validity, review_fit_criticism
-#> 3   Robust branch                                              none
+#> 2   Robust branch                                              none
+#> 3 Centered branch review_computation_validity, review_fit_criticism
 #>                                               actions
 #> 1                                                none
-#> 2 record_decision, branch_and_modify, record_decision
-#> 3                                                none
+#> 2                                                none
+#> 3 record_decision, branch_and_modify, record_decision
 ```
 
 The downstream PPC is structurally ready, but it should not run yet:
@@ -525,14 +531,14 @@ project_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(project_protocol)
 #>             scope                 obligations
 #> 1         Project  compare_candidate_branches
-#> 2 Centered branch review_computation_validity
-#> 3 Repaired branch review_computation_validity
-#> 4   Robust branch                        none
+#> 2 Repaired branch review_computation_validity
+#> 3   Robust branch                        none
+#> 4 Centered branch review_computation_validity
 #>                              actions
 #> 1          create_node_from_template
 #> 2 record_decision, branch_and_modify
-#> 3 record_decision, branch_and_modify
-#> 4                               none
+#> 3                               none
+#> 4 record_decision, branch_and_modify
 ```
 
 We create the comparison node from the surfaced template payload, run
@@ -706,7 +712,7 @@ report_path <- bg_export_report(
   format = "md"
 )
 #> Report exported to
-#> /tmp/RtmpHk61rV/bg-guided-review-loop/case-study-report.md
+#> /tmp/RtmpsRyuZQ/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -719,7 +725,7 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # bayesgrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-08 02:43:33
+#> **Generated:** 2026-03-08 12:58:41
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology
