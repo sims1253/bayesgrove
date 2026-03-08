@@ -1,5 +1,10 @@
 # Package index
 
+## API Boundary
+
+- [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+  : Query the bayesgrove API boundary
+
 ## Project Lifecycle
 
 - [`bg_handle()`](https://sims1253.github.io/bayesgrove/reference/bg_handle.md)

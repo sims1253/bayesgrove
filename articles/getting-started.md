@@ -56,9 +56,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x55c232826f88> 
+#>  @ .state              :<environment: 0x557f0e70fe98> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/Rtmpb34sQp/bg-quickstart"
+#>  @ path                : chr "/tmp/Rtmp97Afl5/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -162,7 +162,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-08T00:18:57Z"
+#> [1] "2026-03-08T01:25:59Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -361,7 +361,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_798734de 
+#>                 obl_99ad2ab5 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -435,7 +435,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_c239b167 
+#>              obl_23a6b9a0 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(
@@ -470,7 +470,7 @@ bg_next_actions(
   scope = "branch",
   branch_id = branch$branch_id
 )$obligations
-#> list()
+#> named list()
 ```
 
 ### 7. Next Steps

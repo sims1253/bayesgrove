@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.12</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.13</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,11 +41,11 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.3.12" id="bayesgrove-0312">bayesgrove 0.3.12<a class="anchor" aria-label="anchor" href="#bayesgrove-0312"></a></h2>
-<ul><li>Reworked sync run planning to reuse predicted fingerprints and artifact-index state across a run, rebuild downstream input bindings incrementally after each successful node, and refresh workflow holds without a full <code><a href="../reference/bg_plan.html">bg_plan()</a></code> after every execution.</li>
-<li>Added shared internal helpers for ID generation, rationale validation, revised labels, obligation lookup, and cached scope resolution, then threaded them through project, graph, decision, job, workflow, REPL, template, and handoff paths for more consistent behavior.</li>
-<li>Tightened the default workflow pack around shared comparison-state helpers, consistent hold-node targeting, and comparison/disposition signature handling, with matching regression coverage and demo/REPL updates.</li>
-<li>Cleaned package build and site metadata by restoring self-contained vignette sources for <code>R CMD check</code>, quoting pkgdown article ids, excluding repo-only <code>architecture/</code> and <code>demo/</code> trees from package builds, and normalizing the package name to <code>bayesgrove</code> throughout source and generated docs.</li>
+<h2 class="pkg-version" data-toc-text="0.3.13" id="bayesgrove-0313">bayesgrove 0.3.13<a class="anchor" aria-label="anchor" href="#bayesgrove-0313"></a></h2>
+<ul><li>Added <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code> plus a machine-readable registry covering every exported <code>bg_*</code> function with explicit <code>stable</code>, <code>experimental</code>, or <code>internal_exported</code> classifications and <code>remote_accessible</code> flags.</li>
+<li>Added regression tests that enforce exact set equality between the API boundary registry and the exported namespace so the public surface cannot drift silently.</li>
+<li>Added <code>inst/protocol/</code> schema metadata for <code>bg_next_actions_result</code>, <code>bg_obligation_item</code>, <code>bg_action_item</code>, <code>bg_partitioned_result</code>, and <code>bg_template_descriptor</code>, then tightened the validation helpers to check nested fields, object maps, and local schema references.</li>
+<li>Aligned the live workflow-protocol return shapes with the checked-in schema so empty protocol maps serialize as JSON objects instead of arrays, and surfaced <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code> in the pkgdown reference.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.11" id="bayesgrove-0311">bayesgrove 0.3.11<a class="anchor" aria-label="anchor" href="#bayesgrove-0311"></a></h2>

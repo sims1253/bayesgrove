@@ -1,26 +1,24 @@
 # Changelog
 
-## bayesgrove 0.3.12
+## bayesgrove 0.3.13
 
-- Reworked sync run planning to reuse predicted fingerprints and
-  artifact-index state across a run, rebuild downstream input bindings
-  incrementally after each successful node, and refresh workflow holds
-  without a full
-  [`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
-  after every execution.
-- Added shared internal helpers for ID generation, rationale validation,
-  revised labels, obligation lookup, and cached scope resolution, then
-  threaded them through project, graph, decision, job, workflow, REPL,
-  template, and handoff paths for more consistent behavior.
-- Tightened the default workflow pack around shared comparison-state
-  helpers, consistent hold-node targeting, and comparison/disposition
-  signature handling, with matching regression coverage and demo/REPL
-  updates.
-- Cleaned package build and site metadata by restoring self-contained
-  vignette sources for `R CMD check`, quoting pkgdown article ids,
-  excluding repo-only `architecture/` and `demo/` trees from package
-  builds, and normalizing the package name to `bayesgrove` throughout
-  source and generated docs.
+- Added
+  [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+  plus a machine-readable registry covering every exported `bg_*`
+  function with explicit `stable`, `experimental`, or
+  `internal_exported` classifications and `remote_accessible` flags.
+- Added regression tests that enforce exact set equality between the API
+  boundary registry and the exported namespace so the public surface
+  cannot drift silently.
+- Added `inst/protocol/` schema metadata for `bg_next_actions_result`,
+  `bg_obligation_item`, `bg_action_item`, `bg_partitioned_result`, and
+  `bg_template_descriptor`, then tightened the validation helpers to
+  check nested fields, object maps, and local schema references.
+- Aligned the live workflow-protocol return shapes with the checked-in
+  schema so empty protocol maps serialize as JSON objects instead of
+  arrays, and surfaced
+  [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+  in the pkgdown reference.
 
 ## bayesgrove 0.3.11
 

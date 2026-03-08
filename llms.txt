@@ -170,7 +170,7 @@ The posterior check is held from executing:
 guide <- bg_next_actions(handle, scope = "project")
 
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_653dbd1b 
+#>                  obl_f5e7f2ad 
 #> "review_computation_validity"
 
 held <- bg_plan(handle, external_holds = guide$metadata$external_holds)
@@ -288,6 +288,11 @@ record the *why* behind each modeling step, not just the *what*—so that
 analysis lineage is an artifact of the workflow, not an afterthought.
 
 # Package index
+
+## API Boundary
+
+- [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
+  : Query the bayesgrove API boundary
 
 ## Project Lifecycle
 

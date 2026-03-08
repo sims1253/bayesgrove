@@ -10,13 +10,16 @@
 <url><loc>https://sims1253.github.io/bayesgrove/authors.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/index.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/news/index.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/api_boundary_registry_block.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_add_gate.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_add_node.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_answer_gate.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_branch.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_branch_lineage.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_brms_plugin.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_build_api_boundary_registry.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_build_workflow_context.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_bundle.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_cancel.html</loc></url>
@@ -36,7 +39,10 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_invalidate.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_jobs.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_list_branches.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_list_protocol_schemas.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_list_templates.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_load_protocol_schema.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_load_protocol_schema_index.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_log_job.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_next_actions.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_open.html</loc></url>
@@ -69,6 +75,9 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_summary_is_fresh.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_update_job.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_update_node.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_valid_classifications.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_validate_api_boundary_registry.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_validate_protocol_object.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_wait.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_worker_process.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_workflow_context.html</loc></url>
