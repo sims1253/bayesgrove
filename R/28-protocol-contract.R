@@ -13,7 +13,9 @@
 bg_execute_action <- function(project, action_id, overrides = list()) {
   S7::check_is_S7(project, bg_handle)
 
-  if (!is.character(action_id) || length(action_id) != 1 || !nzchar(action_id)) {
+  if (
+    !is.character(action_id) || length(action_id) != 1 || !nzchar(action_id)
+  ) {
     cli::cli_abort("`action_id` must be a single non-empty string.")
   }
 
@@ -85,7 +87,9 @@ bg_extension_registry <- function(project) {
         backend <- backends[[name]]
         list(
           backend_id = name,
-          runtime_signature = if (is.function(backend$backend_runtime_signature)) {
+          runtime_signature = if (
+            is.function(backend$backend_runtime_signature)
+          ) {
             backend$backend_runtime_signature(list())
           } else {
             list()
@@ -266,7 +270,11 @@ bg_action_choice_spec <- function(action) {
 }
 
 #' @keywords internal
-bg_action_resolve_choice_label <- function(choice, choice_label = NULL, choice_spec = NULL) {
+bg_action_resolve_choice_label <- function(
+  choice,
+  choice_label = NULL,
+  choice_spec = NULL
+) {
   normalized_choice <- trimws(choice)
 
   if (is.null(choice_spec)) {
@@ -306,7 +314,11 @@ bg_protocol_command_surface <- function() {
 
       bg_drop_null_fields(list(
         command = command_name,
-        classification = if (nrow(api_row) == 1) api_row$classification[[1]] else NULL,
+        classification = if (nrow(api_row) == 1) {
+          api_row$classification[[1]]
+        } else {
+          NULL
+        },
         description = if (identical(command_name, "bg_snapshot")) {
           "Return the canonical GraphSnapshot message."
         } else if (nrow(api_row) == 1) {
@@ -407,7 +419,11 @@ bg_protocol_operator_context <- function(project, item) {
     payload$branch_ids %||% character(),
     if (startsWith(scope, "branch:")) scope else character()
   )))
-  primary_node_id <- if (length(focus_node_ids) > 0) focus_node_ids[[1]] else NULL
+  primary_node_id <- if (length(focus_node_ids) > 0) {
+    focus_node_ids[[1]]
+  } else {
+    NULL
+  }
   primary_branch_id <- if (length(focus_branch_ids) > 0) {
     focus_branch_ids[[1]]
   } else {
@@ -428,7 +444,10 @@ bg_protocol_operator_context <- function(project, item) {
 bg_enrich_protocol_obligation <- function(project, obligation) {
   obligation$scope_label <- bg_scope_label(project, obligation$scope)
   obligation$scope_kind <- bg_scope_kind(obligation$scope)
-  obligation$operator_context <- bg_protocol_operator_context(project, obligation)
+  obligation$operator_context <- bg_protocol_operator_context(
+    project,
+    obligation
+  )
   obligation
 }
 

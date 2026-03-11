@@ -116,7 +116,11 @@ describe("Workflow protocol APIs", {
     seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
     branch <- bg_branch(handle, seed_id, label = "Alternative")
 
-    result <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    result <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )
     action <- result$actions[[1]]
 
     exec <- bg_execute_action(
@@ -130,7 +134,10 @@ describe("Workflow protocol APIs", {
     )
 
     expect_equal(exec$action_id, action$action_id)
-    expect_equal(bg_get_goal(handle, branch$branch_id)$kind, "observable_prediction")
+    expect_equal(
+      bg_get_goal(handle, branch$branch_id)$kind,
+      "observable_prediction"
+    )
   })
 
   it("deduplicates identical obligations and actions at runtime", {
@@ -295,11 +302,20 @@ describe("Workflow protocol APIs", {
     seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
     branch <- bg_branch(handle, seed_id, label = "Alternative")
 
-    partitioned <- bg_partition_protocol_by_scope(bg_next_actions(handle), handle)
+    partitioned <- bg_partition_protocol_by_scope(
+      bg_next_actions(handle),
+      handle
+    )
 
     expect_equal(partitioned[[branch$branch_id]]$scope_kind, "branch")
-    expect_equal(partitioned[[branch$branch_id]]$branch_context$branch_id, branch$branch_id)
-    expect_equal(partitioned[[branch$branch_id]]$branch_context$label, "Alternative")
+    expect_equal(
+      partitioned[[branch$branch_id]]$branch_context$branch_id,
+      branch$branch_id
+    )
+    expect_equal(
+      partitioned[[branch$branch_id]]$branch_context$label,
+      "Alternative"
+    )
   })
 
   it("includes parameter_suggestions and continuation_kinds in branch_and_modify payload", {

@@ -301,7 +301,9 @@ bg_template_review_choice <- function(
 
     if (identical(decision_type, "branch_disposition")) {
       if (!choice_key %in% c("accept", "reject")) {
-        cli::cli_abort("Decision choice must be one of {.val {c('accept', 'reject')}}.")
+        cli::cli_abort(
+          "Decision choice must be one of {.val {c('accept', 'reject')}}."
+        )
       }
 
       return(list(
@@ -317,7 +319,9 @@ bg_template_review_choice <- function(
   }
 
   if (!isTRUE(interactive)) {
-    cli::cli_abort("`choice` override is required for non-interactive review decisions.")
+    cli::cli_abort(
+      "`choice` override is required for non-interactive review decisions."
+    )
   }
 
   if (identical(decision_type, "computation_review")) {

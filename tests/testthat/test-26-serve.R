@@ -384,7 +384,7 @@ describe("bg_serve()", {
 
     expect_true(result$ok)
     expect_equal(result$result$policy$registry_mode, "descriptive")
-    expect_true(isTRUE(result$result$policy$gui_extension_api == FALSE))
+    expect_false(result$result$policy$gui_extension_api)
   })
 
   it("does not emit a duplicate ProtocolEvent for one mutating command", {
@@ -678,7 +678,11 @@ describe("bg_serve()", {
     seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
     branch <- bg_branch(handle, seed_id, label = "Alternative")
 
-    action_id <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)$actions[[1]]$action_id
+    action_id <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = branch$branch_id
+    )$actions[[1]]$action_id
 
     server <- bg_serve(handle, poll_interval = 0.05)
     withr::defer(server$stop())
@@ -728,6 +732,9 @@ describe("bg_serve()", {
 
     expect_true(result$ok)
     expect_equal(result$result$kind, "record_decision")
-    expect_equal(bg_get_goal(handle, branch$branch_id)$kind, "observable_prediction")
+    expect_equal(
+      bg_get_goal(handle, branch$branch_id)$kind,
+      "observable_prediction"
+    )
   })
 })

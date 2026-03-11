@@ -1,3 +1,8 @@
+# bayesgrove 0.4.2
+
+* Added `bg_execute_action()` and `bg_extension_registry()` to the pkgdown reference so the site builds cleanly in CI.
+* Reworked the affected protocol and test files to satisfy `air format` and updated the jarl-facing assertions to avoid redundant logical equality checks.
+
 # bayesgrove 0.4.1
 
 * Added five optional built-in workflow packs: `bayesgrove.prior_workflow`, `bayesgrove.model_checks`, `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and `bayesgrove.pad_scaffold`.

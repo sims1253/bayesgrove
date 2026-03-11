@@ -79,6 +79,8 @@ reference:
       - bg_workflow_packs
       - bg_workflow_context
       - bg_next_actions
+      - bg_execute_action
+      - bg_extension_registry
       - bg_partition_protocol_by_scope
       - bg_build_workflow_context
   - title: Workflow State
