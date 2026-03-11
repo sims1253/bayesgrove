@@ -712,7 +712,7 @@ report_path <- bg_export_report(
   format = "md"
 )
 #> Report exported to
-#> /tmp/RtmpzkEDhn/bg-guided-review-loop/case-study-report.md
+#> /tmp/Rtmpjg0WOb/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -725,7 +725,7 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # bayesgrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-11 14:50:29
+#> **Generated:** 2026-03-11 15:10:20
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology

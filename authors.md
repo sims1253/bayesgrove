@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/sims1253/bayesgrove/blob/v0.4.2/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/sims1253/bayesgrove/blob/master/DESCRIPTION)
 
 Scholz M (2026). *bayesgrove: Graph-Based Bayesian Workflow
 Scaffolding*. R package version 0.4.2,

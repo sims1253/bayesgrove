@@ -427,9 +427,9 @@ the computational state.
 ``` r
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpPvoZXf/bg-simulation-study/simulation-study-report.md
+#> /tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpPvoZXf/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,
