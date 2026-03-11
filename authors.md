@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/sims1253/bayesgrove/blob/master/DESCRIPTION)
 
 Scholz M (2026). *bayesgrove: Graph-Based Bayesian Workflow
-Scaffolding*. R package version 0.4.1,
+Scaffolding*. R package version 0.4.2,
 <https://github.com/sims1253/bayesgrove>.
 
     @Manual{,
       title = {bayesgrove: Graph-Based Bayesian Workflow Scaffolding},
       author = {Maximilian Scholz},
       year = {2026},
-      note = {R package version 0.4.1},
+      note = {R package version 0.4.2},
       url = {https://github.com/sims1253/bayesgrove},
     }

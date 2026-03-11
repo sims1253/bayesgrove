@@ -1,5 +1,16 @@
 # Changelog
 
+## bayesgrove 0.4.2
+
+- Added
+  [`bg_execute_action()`](https://sims1253.github.io/bayesgrove/reference/bg_execute_action.md)
+  and
+  [`bg_extension_registry()`](https://sims1253.github.io/bayesgrove/reference/bg_extension_registry.md)
+  to the pkgdown reference so the site builds cleanly in CI.
+- Reworked the affected protocol and test files to satisfy `air format`
+  and updated the jarl-facing assertions to avoid redundant logical
+  equality checks.
+
 ## bayesgrove 0.4.1
 
 - Added five optional built-in workflow packs:

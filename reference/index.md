@@ -74,6 +74,10 @@
   : Build a workflow context for protocol evaluation
 - [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
   : Compute deterministic next workflow actions
+- [`bg_execute_action()`](https://sims1253.github.io/bayesgrove/reference/bg_execute_action.md)
+  : Execute a workflow action from the protocol surface
+- [`bg_extension_registry()`](https://sims1253.github.io/bayesgrove/reference/bg_extension_registry.md)
+  : Return the descriptive extension registry for a project
 - [`bg_partition_protocol_by_scope()`](https://sims1253.github.io/bayesgrove/reference/bg_partition_protocol_by_scope.md)
   : Partition protocol results by scope
 - [`bg_build_workflow_context()`](https://sims1253.github.io/bayesgrove/reference/bg_build_workflow_context.md)

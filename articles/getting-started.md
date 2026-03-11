@@ -51,20 +51,22 @@ uses `mirai`.
 ``` r
 boundary <- bg_api_boundary()
 subset(boundary, remote_accessible)[, c("fn", "classification")]
-#>                    fn classification
-#> 5         bg_add_node         stable
-#> 19     bg_answer_gate         stable
-#> 13  bg_branch_lineage         stable
-#> 26          bg_cancel         stable
-#> 6          bg_connect         stable
-#> 14   bg_list_branches         stable
-#> 51    bg_next_actions   experimental
-#> 21 bg_record_decision         stable
-#> 8      bg_remove_node         stable
-#> 42        bg_snapshot         stable
-#> 29          bg_status         stable
-#> 24          bg_submit         stable
-#> 7      bg_update_node         stable
+#>                       fn classification
+#> 5            bg_add_node         stable
+#> 19        bg_answer_gate         stable
+#> 13     bg_branch_lineage         stable
+#> 28             bg_cancel         stable
+#> 6             bg_connect         stable
+#> 23     bg_execute_action   experimental
+#> 22 bg_extension_registry   experimental
+#> 14      bg_list_branches         stable
+#> 53       bg_next_actions   experimental
+#> 21    bg_record_decision         stable
+#> 8         bg_remove_node         stable
+#> 44           bg_snapshot         stable
+#> 31             bg_status         stable
+#> 26             bg_submit         stable
+#> 7         bg_update_node         stable
 ```
 
 The same workflow protocol also powers the built-in interactive terminal
@@ -106,9 +108,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x5563c2447ce0> 
+#>  @ .state              :<environment: 0x559a7b719838> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/RtmpkLiKFd/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpFqVL76/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -239,7 +241,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-08T12:58:34Z"
+#> [1] "2026-03-11T08:15:20Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -438,7 +440,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_00ee370e 
+#>                 obl_2815fbee 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -512,7 +514,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_eec1e3a2 
+#>              obl_8a630f15 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(
