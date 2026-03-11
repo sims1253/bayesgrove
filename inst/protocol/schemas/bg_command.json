@@ -119,6 +119,24 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9._:-]{1,128}$"
         },
+        "command": { "type": "string", "enum": ["bg_extension_registry"] },
+        "args": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["protocol_version", "message_type", "command_id", "command", "args"],
+      "properties": {
+        "protocol_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "message_type": { "type": "string", "enum": ["Command"] },
+        "command_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        },
         "command": { "type": "string", "enum": ["bg_branch_lineage"] },
         "args": {
           "type": "object",

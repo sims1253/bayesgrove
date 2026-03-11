@@ -46,4 +46,32 @@ describe("Registry Layer", {
     bg_register_backend(handle, "good", good_backend)
     expect_true("good" %in% names(handle@registries$backends))
   })
+
+  it("returns a descriptive read-only extension registry", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "custom_fit", executor = function(node, inputs) {
+      list(result = TRUE)
+    })
+    bg_register_backend(handle, "good", list(
+      backend_compile = function() {},
+      backend_fit = function() {},
+      backend_source_hash = function() {},
+      backend_runtime_signature = function(args) list(runtime = "local")
+    ))
+
+    registry <- bg_extension_registry(handle)
+
+    expect_true("custom_fit" %in% names(registry$node_kinds))
+    expect_true("good" %in% names(registry$backends))
+    expect_true("bayesguide.default_bayesian" %in% names(registry$workflow_packs))
+    expect_true("review_decision" %in% names(registry$templates))
+    expect_true(isTRUE(registry$policy$gui_extension_api == FALSE))
+    expect_equal(registry$policy$registry_mode, "descriptive")
+    expect_true(isTRUE(registry$node_kinds$custom_fit$read_only))
+  })
 })

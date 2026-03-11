@@ -93,7 +93,16 @@ describe("Workflow protocol APIs", {
     expect_equal(result$actions[[1]]$kind, "record_decision")
     expect_equal(result$actions[[1]]$payload$decision_type, "goal_update")
     expect_equal(result$actions[[1]]$scope_label, "Alternative")
+    expect_equal(result$actions[[1]]$scope_kind, "branch")
     expect_equal(result$actions[[1]]$invocation$command, "bg_execute_action")
+    expect_equal(
+      result$actions[[1]]$invocation$prompt,
+      "Describe the inferential goal for this branch:"
+    )
+    expect_equal(
+      result$actions[[1]]$operator_context$primary_branch_id,
+      branch_id
+    )
   })
 
   it("executes a goal-setting action through bg_execute_action()", {
@@ -257,6 +266,11 @@ describe("Workflow protocol APIs", {
     expect_equal(record_action$payload$decision_type, "computation_review")
     expect_equal(record_action$template$template_ref, "review_decision")
     expect_equal(record_action$invocation$command, "bg_execute_action")
+    expect_equal(
+      record_action$invocation$prompt,
+      "Is this computation acceptable for downstream use?"
+    )
+    expect_equal(record_action$operator_context$primary_node_id, node_id)
 
     branch_action <- Filter(
       function(a) identical(a$kind, "branch_and_modify"),
@@ -267,6 +281,25 @@ describe("Workflow protocol APIs", {
     expect_equal(branch_action$payload$modification_hint, "reparametrize")
     expect_match(branch_action$payload$default_label, "revised")
     expect_match(branch_action$title, "Branch and modify")
+    expect_equal(branch_action$operator_context$primary_node_id, node_id)
+  })
+
+  it("adds branch context to partitioned protocol output", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "fit")
+    seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
+    branch <- bg_branch(handle, seed_id, label = "Alternative")
+
+    partitioned <- bg_partition_protocol_by_scope(bg_next_actions(handle), handle)
+
+    expect_equal(partitioned[[branch$branch_id]]$scope_kind, "branch")
+    expect_equal(partitioned[[branch$branch_id]]$branch_context$branch_id, branch$branch_id)
+    expect_equal(partitioned[[branch$branch_id]]$branch_context$label, "Alternative")
   })
 
   it("includes parameter_suggestions and continuation_kinds in branch_and_modify payload", {

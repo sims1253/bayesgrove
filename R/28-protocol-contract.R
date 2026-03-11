@@ -45,6 +45,77 @@ bg_execute_action <- function(project, action_id, overrides = list()) {
   ))
 }
 
+#' Return the descriptive extension registry for a project
+#'
+#' Exposes Bayesgrove-owned runtime extension descriptors as a read-only,
+#' protocol-facing registry for GUI consumers.
+#'
+#' @param project A `bg_handle`.
+#'
+#' @return A plain-data extension registry.
+#' @export
+bg_extension_registry <- function(project) {
+  S7::check_is_S7(project, bg_handle)
+
+  graph <- bg_read_graph(project)
+  node_kinds <- graph$registry$kinds %||% list()
+  backends <- project@registries$backends %||% list()
+  workflow_packs <- bg_workflow_packs(project)
+  templates <- bg_list_templates()
+
+  bg_drop_null_fields(list(
+    node_kinds = bg_protocol_named_list(stats::setNames(
+      lapply(names(node_kinds), function(kind) {
+        spec <- node_kinds[[kind]]
+        list(
+          kind = kind,
+          input_contract = spec$input_contract %||% NULL,
+          output_type = spec$output_type %||% NULL,
+          param_schema = spec$param_schema %||% NULL,
+          executor_registered = !is.null(project@registries$node_kinds[[kind]]),
+          stability = "project_runtime",
+          owner = "bayesgrove",
+          read_only = TRUE
+        )
+      }),
+      names(node_kinds)
+    )),
+    backends = bg_protocol_named_list(stats::setNames(
+      lapply(names(backends), function(name) {
+        backend <- backends[[name]]
+        list(
+          backend_id = name,
+          runtime_signature = if (is.function(backend$backend_runtime_signature)) {
+            backend$backend_runtime_signature(list())
+          } else {
+            list()
+          },
+          capabilities = c("compile", "fit"),
+          owner = "bayesgrove",
+          read_only = TRUE
+        )
+      }),
+      names(backends)
+    )),
+    workflow_packs = bg_protocol_named_list(stats::setNames(
+      lapply(workflow_packs, bg_workflow_pack_public_descriptor),
+      vapply(workflow_packs, `[[`, character(1), "pack_id")
+    )),
+    templates = bg_protocol_named_list(stats::setNames(
+      lapply(templates, function(template) {
+        utils::modifyList(template, list(read_only = TRUE))
+      }),
+      names(templates)
+    )),
+    policy = list(
+      execution_owner = "bayesgrove",
+      gui_role = "presentation_only",
+      registry_mode = "descriptive",
+      gui_extension_api = FALSE
+    )
+  ))
+}
+
 #' @keywords internal
 bg_execute_resolved_action <- function(project, action, overrides = list()) {
   scope <- action$scope %||% "project"
@@ -258,56 +329,6 @@ bg_protocol_command_surface <- function() {
 }
 
 #' @keywords internal
-bg_protocol_extension_registry <- function(project) {
-  graph <- bg_read_graph(project)
-  node_kinds <- graph$registry$kinds %||% list()
-  backends <- project@registries$backends %||% list()
-  workflow_packs <- bg_workflow_packs(project)
-  templates <- bg_list_templates()
-
-  bg_drop_null_fields(list(
-    node_kinds = bg_protocol_named_list(stats::setNames(
-      lapply(names(node_kinds), function(kind) {
-        spec <- node_kinds[[kind]]
-        list(
-          kind = kind,
-          input_contract = spec$input_contract %||% NULL,
-          output_type = spec$output_type %||% NULL,
-          param_schema = spec$param_schema %||% NULL,
-          executor_registered = !is.null(project@registries$node_kinds[[kind]]),
-          owner = "bayesgrove"
-        )
-      }),
-      names(node_kinds)
-    )),
-    backends = bg_protocol_named_list(stats::setNames(
-      lapply(names(backends), function(name) {
-        backend <- backends[[name]]
-        list(
-          backend_id = name,
-          runtime_signature = if (is.function(backend$backend_runtime_signature)) {
-            backend$backend_runtime_signature(list())
-          } else {
-            list()
-          },
-          owner = "bayesgrove"
-        )
-      }),
-      names(backends)
-    )),
-    workflow_packs = bg_protocol_named_list(stats::setNames(
-      lapply(workflow_packs, bg_workflow_pack_public_descriptor),
-      vapply(workflow_packs, `[[`, character(1), "pack_id")
-    )),
-    templates = bg_protocol_named_list(templates),
-    policy = list(
-      execution_owner = "bayesgrove",
-      gui_role = "presentation_only"
-    )
-  ))
-}
-
-#' @keywords internal
 bg_workflow_pack_public_descriptor <- function(pack_ref) {
   pack <- bg_lookup_workflow_pack(pack_ref$pack_id)
 
@@ -317,19 +338,105 @@ bg_workflow_pack_public_descriptor <- function(pack_ref) {
     title = pack$title %||% pack_ref$pack_id,
     description = pack$description %||% NULL,
     stability = pack$stability %||% "experimental",
-    owner = "bayesgrove"
+    owner = "bayesgrove",
+    read_only = TRUE
+  ))
+}
+
+#' @keywords internal
+bg_scope_kind <- function(scope) {
+  if (identical(scope, "project")) {
+    return("project")
+  }
+
+  if (startsWith(scope, "branch:")) {
+    return("branch")
+  }
+
+  "other"
+}
+
+#' @keywords internal
+bg_protocol_scope_descriptor <- function(project, scope) {
+  scope_kind <- bg_scope_kind(scope)
+
+  descriptor <- list(
+    scope = scope,
+    scope_kind = scope_kind,
+    scope_label = bg_scope_label(project, scope)
+  )
+
+  if (!identical(scope_kind, "branch")) {
+    return(descriptor)
+  }
+
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  branch <- branches[[scope]] %||% list()
+  descriptor$branch_context <- bg_drop_null_fields(list(
+    branch_id = scope,
+    label = branch$label %||% bg_scope_label(project, scope),
+    root_node_id = branch$root_node_id %||% NULL,
+    source_node_id = branch$source_node_id %||% NULL,
+    lifecycle = bg_lifecycle_state(branch$metadata %||% list()),
+    has_goal = !is.null(bg_get_goal(project, scope)),
+    goal = bg_get_goal(project, scope)
+  ))
+
+  descriptor
+}
+
+#' @keywords internal
+bg_protocol_operator_context <- function(project, item) {
+  payload <- item$payload %||% list()
+  basis <- item$basis %||% list()
+  scope <- item$scope %||% "project"
+
+  focus_node_ids <- sort(unique(c(
+    basis$node_ids %||% character(),
+    payload$node_ids %||% character(),
+    payload$fit_node_ids %||% character(),
+    payload$source_node_id %||% character(),
+    payload$inputs %||% character()
+  )))
+  focus_summary_ids <- sort(unique(c(
+    basis$summary_ids %||% character(),
+    payload$summary_ids %||% character()
+  )))
+  focus_branch_ids <- sort(unique(c(
+    basis$branch_ids %||% character(),
+    payload$branch_ids %||% character(),
+    if (startsWith(scope, "branch:")) scope else character()
+  )))
+  primary_node_id <- if (length(focus_node_ids) > 0) focus_node_ids[[1]] else NULL
+  primary_branch_id <- if (length(focus_branch_ids) > 0) {
+    focus_branch_ids[[1]]
+  } else {
+    NULL
+  }
+
+  bg_drop_null_fields(list(
+    scope_kind = bg_scope_kind(scope),
+    primary_node_id = primary_node_id,
+    primary_branch_id = primary_branch_id,
+    focus_node_ids = focus_node_ids,
+    focus_summary_ids = focus_summary_ids,
+    focus_branch_ids = focus_branch_ids
   ))
 }
 
 #' @keywords internal
 bg_enrich_protocol_obligation <- function(project, obligation) {
   obligation$scope_label <- bg_scope_label(project, obligation$scope)
+  obligation$scope_kind <- bg_scope_kind(obligation$scope)
+  obligation$operator_context <- bg_protocol_operator_context(project, obligation)
   obligation
 }
 
 #' @keywords internal
 bg_enrich_protocol_action <- function(project, action) {
   action$scope_label <- bg_scope_label(project, action$scope)
+  action$scope_kind <- bg_scope_kind(action$scope)
+  action$operator_context <- bg_protocol_operator_context(project, action)
 
   template_ref <- bg_action_template_ref(action)
   if (!is.null(template_ref)) {
@@ -339,10 +446,28 @@ bg_enrich_protocol_action <- function(project, action) {
   action$invocation <- list(
     command = "bg_execute_action",
     args = list(action_id = action$action_id),
+    prompt = bg_action_invocation_prompt(action),
     input = bg_action_input_descriptor(action)
   )
 
   action
+}
+
+#' @keywords internal
+bg_action_invocation_prompt <- function(action) {
+  payload <- action$payload %||% list()
+  decision_type <- payload$decision_type %||% NULL
+
+  if (identical(decision_type, "goal_update")) {
+    return("Describe the inferential goal for this branch:")
+  }
+
+  template_ref <- bg_action_template_ref(action)
+  if (identical(template_ref, "review_decision")) {
+    return(bg_template_review_prompt(action, decision_type))
+  }
+
+  action$title %||% NULL
 }
 
 #' @keywords internal

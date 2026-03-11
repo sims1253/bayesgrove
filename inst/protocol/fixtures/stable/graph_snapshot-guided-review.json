@@ -53,6 +53,7 @@
   "protocol": {
     "project": {
       "scope": "project",
+      "scope_kind": "project",
       "scope_label": "Project",
       "obligations": {
         "obl_review1234": {
@@ -60,6 +61,7 @@
           "kind": "review_computation_validity",
           "scope": "project",
           "scope_label": "Project",
+          "scope_kind": "project",
           "severity": "blocking",
           "title": "Review computation validity",
           "basis": {
@@ -73,6 +75,13 @@
           },
           "metadata": {
             "pack_id": "bayesguide.default_bayesian"
+          },
+          "operator_context": {
+            "scope_kind": "project",
+            "primary_node_id": "node_fit",
+            "focus_node_ids": ["node_fit"],
+            "focus_summary_ids": ["sum_warn_1"],
+            "focus_branch_ids": []
           }
         }
       },
@@ -82,6 +91,7 @@
           "kind": "record_decision",
           "scope": "project",
           "scope_label": "Project",
+          "scope_kind": "project",
           "title": "Record a computation review",
           "basis": {
             "obligation_refs": [
@@ -143,6 +153,7 @@
             "args": {
               "action_id": "act_review1234"
             },
+            "prompt": "Is this computation acceptable for downstream use?",
             "input": {
               "mode": "non_interactive",
               "fields": {
@@ -164,6 +175,13 @@
                 }
               }
             }
+          },
+          "operator_context": {
+            "scope_kind": "project",
+            "primary_node_id": "node_fit",
+            "focus_node_ids": ["node_fit"],
+            "focus_summary_ids": ["sum_warn_1"],
+            "focus_branch_ids": []
           },
           "metadata": {
             "pack_id": "bayesguide.default_bayesian"
@@ -196,6 +214,14 @@
       "mutates_state": true,
       "allowed_args": ["action_id", "overrides"],
       "required_args": ["action_id"]
+    },
+    "bg_extension_registry": {
+      "command": "bg_extension_registry",
+      "classification": "experimental",
+      "description": "Return the descriptive extension registry",
+      "mutates_state": false,
+      "allowed_args": [],
+      "required_args": []
     }
   },
   "extension_registry": {
@@ -203,7 +229,9 @@
       "fit": {
         "kind": "fit",
         "executor_registered": true,
-        "owner": "bayesgrove"
+        "stability": "project_runtime",
+        "owner": "bayesgrove",
+        "read_only": true
       }
     },
     "backends": {},
@@ -214,7 +242,8 @@
         "title": "Default Bayesian workflow",
         "description": "Core guided Bayesian workflow semantics covering inferential goals, computation review, fit criticism, candidate comparison, and branch disposition.",
         "stability": "stable",
-        "owner": "bayesgrove"
+        "owner": "bayesgrove",
+        "read_only": true
       }
     },
     "templates": {
@@ -252,12 +281,15 @@
             "pad_annotation_review"
           ]
         },
-        "description": "Record an explicit review-oriented decision tied to current summaries, candidate fits, or branch disposition context."
+        "description": "Record an explicit review-oriented decision tied to current summaries, candidate fits, or branch disposition context.",
+        "read_only": true
       }
     },
     "policy": {
       "execution_owner": "bayesgrove",
-      "gui_role": "presentation_only"
+      "gui_role": "presentation_only",
+      "registry_mode": "descriptive",
+      "gui_extension_api": false
     }
   }
 }

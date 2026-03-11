@@ -61,6 +61,10 @@
       "type": "string",
       "minLength": 1,
       "description": "Detailed description of what this template does"
+    },
+    "read_only": {
+      "type": "boolean",
+      "description": "Indicates that the descriptor is descriptive-only for clients"
     }
   },
   "additionalProperties": false

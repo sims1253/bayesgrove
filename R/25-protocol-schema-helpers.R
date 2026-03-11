@@ -95,6 +95,7 @@ bg_list_protocol_schemas <- function() {
 #'
 #' @return Parsed fixture index as a list, or NULL if not found.
 #' @keywords internal
+#' @noRd
 bg_load_protocol_fixture_index <- function() {
   index_path <- bg_protocol_asset_path(
     "protocol",
@@ -115,6 +116,7 @@ bg_load_protocol_fixture_index <- function() {
 #'
 #' @return Character vector of fixture names.
 #' @keywords internal
+#' @noRd
 bg_list_protocol_fixtures <- function(stability = NULL) {
   index <- bg_load_protocol_fixture_index()
   if (is.null(index)) {
@@ -141,6 +143,7 @@ bg_list_protocol_fixtures <- function(stability = NULL) {
 #'
 #' @return Parsed fixture payload, or NULL if not found.
 #' @keywords internal
+#' @noRd
 bg_load_protocol_fixture <- function(fixture_name) {
   index <- bg_load_protocol_fixture_index()
   if (is.null(index)) {

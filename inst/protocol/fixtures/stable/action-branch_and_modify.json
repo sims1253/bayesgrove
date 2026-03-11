@@ -3,6 +3,7 @@
   "kind": "branch_and_modify",
   "scope": "project",
   "scope_label": "Project",
+  "scope_kind": "project",
   "title": "Branch and modify to resolve diagnostics",
   "basis": {
     "obligation_refs": [
@@ -47,6 +48,7 @@
     "args": {
       "action_id": "act_branch1234"
     },
+    "prompt": "Branch and modify to resolve diagnostics",
     "input": {
       "mode": "non_interactive",
       "fields": {
@@ -64,6 +66,13 @@
         }
       }
     }
+  },
+  "operator_context": {
+    "scope_kind": "project",
+    "primary_node_id": "node_fit",
+    "focus_node_ids": ["node_fit"],
+    "focus_summary_ids": [],
+    "focus_branch_ids": []
   },
   "metadata": {
     "pack_id": "bayesguide.default_bayesian"

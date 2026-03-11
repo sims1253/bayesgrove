@@ -3,6 +3,7 @@
   "kind": "record_decision",
   "scope": "branch:alt",
   "scope_label": "Alternative branch",
+  "scope_kind": "branch",
   "title": "Record an inferential goal",
   "basis": {
     "obligation_refs": [
@@ -26,6 +27,7 @@
     "args": {
       "action_id": "act_goal1234"
     },
+    "prompt": "Describe the inferential goal for this branch:",
     "input": {
       "mode": "non_interactive",
       "fields": {
@@ -47,6 +49,14 @@
         }
       }
     }
+  },
+  "operator_context": {
+    "scope_kind": "branch",
+    "primary_node_id": "node_fit_alt",
+    "primary_branch_id": "branch:alt",
+    "focus_node_ids": ["node_fit_alt"],
+    "focus_summary_ids": [],
+    "focus_branch_ids": ["branch:alt"]
   },
   "metadata": {
     "pack_id": "bayesguide.default_bayesian"

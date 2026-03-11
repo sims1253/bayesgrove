@@ -184,6 +184,12 @@ bg_remote_command_registry <- function() {
       allowed_args = character(),
       required_args = character()
     ),
+    bg_extension_registry = list(
+      fn = "bg_extension_registry",
+      mutates_state = FALSE,
+      allowed_args = character(),
+      required_args = character()
+    ),
     bg_branch_lineage = list(
       fn = "bg_branch_lineage",
       mutates_state = FALSE,
@@ -323,7 +329,7 @@ bg_build_graph_snapshot_state <- function(project) {
     ),
     protocol = protocol,
     command_surface = bg_protocol_command_surface(),
-    extension_registry = bg_protocol_extension_registry(project)
+    extension_registry = bg_extension_registry(project)
   )
 }
 

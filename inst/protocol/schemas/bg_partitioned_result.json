@@ -42,15 +42,23 @@
   "additionalProperties": {
     "type": "object",
     "description": "Per-scope partition (scope string as key)",
-    "required": ["scope", "scope_label", "obligations", "actions"],
+    "required": ["scope", "scope_kind", "scope_label", "obligations", "actions"],
     "properties": {
       "scope": {
         "type": "string",
         "description": "Scope identifier"
       },
+      "scope_kind": {
+        "type": "string",
+        "description": "Normalized scope category"
+      },
       "scope_label": {
         "type": "string",
         "description": "Human-readable scope label"
+      },
+      "branch_context": {
+        "type": "object",
+        "description": "Branch descriptor for branch scopes"
       },
       "obligations": {
         "type": "object",

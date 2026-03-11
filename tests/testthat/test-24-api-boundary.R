@@ -152,6 +152,7 @@ describe("API boundary classification distribution", {
         "bg_cancel",
         "bg_connect",
         "bg_execute_action",
+        "bg_extension_registry",
         "bg_list_branches",
         "bg_next_actions",
         "bg_record_decision",

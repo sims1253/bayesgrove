@@ -23,6 +23,10 @@
       "type": "string",
       "description": "Human-readable label for the action scope"
     },
+    "scope_kind": {
+      "type": "string",
+      "description": "Normalized scope category for the action"
+    },
     "title": {
       "type": "string",
       "minLength": 1,
@@ -118,6 +122,7 @@
       "properties": {
         "command": { "type": "string" },
         "args": { "type": "object" },
+        "prompt": { "type": "string" },
         "input": { "type": "object" }
       },
       "additionalProperties": false
@@ -140,6 +145,10 @@
     "metadata": {
       "type": "object",
       "description": "Additional metadata from the workflow pack"
+    },
+    "operator_context": {
+      "type": "object",
+      "description": "Normalized focus metadata for operator-facing clients"
     }
   }
 }

@@ -247,7 +247,9 @@ describe("Protocol schema validation against live objects", {
     expect_true("command_surface" %in% names(message))
     expect_true("extension_registry" %in% names(message))
     expect_true("bg_execute_action" %in% names(message$command_surface))
+    expect_true("bg_extension_registry" %in% names(message$command_surface))
     expect_true("templates" %in% names(message$extension_registry))
+    expect_equal(message$protocol$project$scope_kind, "project")
   })
 
   it("validates a live protocol event message", {
@@ -288,6 +290,18 @@ describe("Protocol schema validation against live objects", {
         action_id = "act_123",
         overrides = list(rationale = "Because")
       )
+    )
+
+    expect_true(bg_validate_protocol_object(command, "bg_command"))
+  })
+
+  it("validates a bg_extension_registry command message shape", {
+    command <- list(
+      protocol_version = "0.1.0",
+      message_type = "Command",
+      command_id = "cmd_extension_registry",
+      command = "bg_extension_registry",
+      args = stats::setNames(list(), character())
     )
 
     expect_true(bg_validate_protocol_object(command, "bg_command"))

@@ -3,6 +3,7 @@
   "kind": "record_decision",
   "scope": "branch:alt",
   "scope_label": "Alternative branch",
+  "scope_kind": "branch",
   "title": "Review prior predictive evidence",
   "basis": {
     "obligation_refs": [
@@ -65,6 +66,7 @@
     "args": {
       "action_id": "act_prior1234"
     },
+    "prompt": "What is your review of the current prior predictive evidence?",
     "input": {
       "mode": "non_interactive",
       "fields": {
@@ -85,6 +87,14 @@
         }
       }
     }
+  },
+  "operator_context": {
+    "scope_kind": "branch",
+    "primary_node_id": "node_prior_check",
+    "primary_branch_id": "branch:alt",
+    "focus_node_ids": ["node_prior_check"],
+    "focus_summary_ids": ["sum_prior_1"],
+    "focus_branch_ids": ["branch:alt"]
   },
   "metadata": {
     "pack_id": "bayesgrove.prior_workflow"

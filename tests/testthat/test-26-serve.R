@@ -336,6 +336,57 @@ describe("bg_serve()", {
     expect_true(bg_validate_protocol_object(event, "bg_protocol_event"))
   })
 
+  it("returns the descriptive extension registry over the wire", {
+    skip_if_not_installed("websocket")
+    serve_skip_if_socket_unavailable()
+
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "source")
+    server <- bg_serve(handle, poll_interval = 0.05)
+    withr::defer(server$stop())
+
+    client <- serve_collect_messages(server$url)
+    withr::defer(try(client$client$close(), silent = TRUE))
+
+    serve_wait_until(function() length(client$messages()) >= 1L)
+
+    client$client$send(jsonlite::toJSON(
+      list(
+        protocol_version = serve_ns("bg_protocol_version")(),
+        message_type = "Command",
+        command_id = "cmd_extension_registry",
+        command = "bg_extension_registry",
+        args = stats::setNames(list(), character())
+      ),
+      auto_unbox = TRUE,
+      null = "null"
+    ))
+
+    serve_wait_until(function() {
+      any(vapply(
+        client$messages(),
+        function(msg) {
+          identical(msg$message_type, "CommandResult") &&
+            identical(msg$command_id, "cmd_extension_registry")
+        },
+        logical(1)
+      ))
+    })
+
+    result <- Filter(
+      function(msg) {
+        identical(msg$message_type, "CommandResult") &&
+          identical(msg$command_id, "cmd_extension_registry")
+      },
+      client$messages()
+    )[[1]]
+
+    expect_true(result$ok)
+    expect_equal(result$result$policy$registry_mode, "descriptive")
+    expect_true(isTRUE(result$result$policy$gui_extension_api == FALSE))
+  })
+
   it("does not emit a duplicate ProtocolEvent for one mutating command", {
     skip_if_not_installed("websocket")
     serve_skip_if_socket_unavailable()

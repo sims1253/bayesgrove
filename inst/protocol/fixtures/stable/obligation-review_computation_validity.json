@@ -3,6 +3,7 @@
   "kind": "review_computation_validity",
   "scope": "project",
   "scope_label": "Project",
+  "scope_kind": "project",
   "severity": "blocking",
   "title": "Review computation validity",
   "basis": {
@@ -17,5 +18,12 @@
   "metadata": {
     "pack_id": "bayesguide.default_bayesian",
     "summary_kinds": ["optimizer_diagnostics"]
+  },
+  "operator_context": {
+    "scope_kind": "project",
+    "primary_node_id": "node_fit",
+    "focus_node_ids": ["node_fit"],
+    "focus_summary_ids": ["sum_warn_1"],
+    "focus_branch_ids": []
   }
 }

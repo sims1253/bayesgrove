@@ -151,6 +151,12 @@ bg_build_api_boundary_registry <- function() {
       remote_accessible = TRUE
     ),
     list(
+      fn = "bg_extension_registry",
+      classification = "experimental",
+      note = "Return the descriptive extension registry",
+      remote_accessible = TRUE
+    ),
+    list(
       fn = "bg_execute_action",
       classification = "experimental",
       note = "Execute a protocol action inside bayesgrove",

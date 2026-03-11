@@ -666,12 +666,24 @@ bg_partition_protocol_by_scope <- function(result, project = NULL) {
       scope
     }
 
-    partitioned[[scope]] <- list(
-      scope = scope,
-      scope_label = scope_label,
+    scope_descriptor <- if (!is.null(project)) {
+      bg_protocol_scope_descriptor(project, scope)
+    } else {
+      list(
+        scope = scope,
+        scope_kind = bg_scope_kind(scope),
+        scope_label = scope_label
+      )
+    }
+
+    partitioned[[scope]] <- bg_drop_null_fields(list(
+      scope = scope_descriptor$scope,
+      scope_kind = scope_descriptor$scope_kind,
+      scope_label = scope_descriptor$scope_label,
+      branch_context = scope_descriptor$branch_context %||% NULL,
       obligations = bg_protocol_named_list(scope_obligations),
       actions = bg_protocol_named_list(scope_actions)
-    )
+    ))
   }
 
   # Add summary counts at the top level for convenience
