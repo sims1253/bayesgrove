@@ -341,12 +341,12 @@ warning_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(warning_protocol)
 #>             scope                                       obligations
 #> 1         Project                                              none
-#> 2 Centered branch review_computation_validity, review_fit_criticism
-#> 3   Robust branch                                              none
+#> 2   Robust branch                                              none
+#> 3 Centered branch review_computation_validity, review_fit_criticism
 #>                                               actions
 #> 1                                                none
-#> 2 record_decision, branch_and_modify, record_decision
-#> 3                                                none
+#> 2                                                none
+#> 3 record_decision, branch_and_modify, record_decision
 ```
 
 The downstream PPC is structurally ready, but it should not run yet:
@@ -532,13 +532,13 @@ protocol_overview(project_protocol)
 #>             scope                 obligations
 #> 1         Project  compare_candidate_branches
 #> 2 Repaired branch review_computation_validity
-#> 3 Centered branch review_computation_validity
-#> 4   Robust branch                        none
+#> 3   Robust branch                        none
+#> 4 Centered branch review_computation_validity
 #>                              actions
 #> 1          create_node_from_template
 #> 2 record_decision, branch_and_modify
-#> 3 record_decision, branch_and_modify
-#> 4                               none
+#> 3                               none
+#> 4 record_decision, branch_and_modify
 ```
 
 We create the comparison node from the surfaced template payload, run
@@ -712,7 +712,7 @@ report_path <- bg_export_report(
   format = "md"
 )
 #> Report exported to
-#> /tmp/Rtmpb3jVDJ/bg-guided-review-loop/case-study-report.md
+#> /tmp/RtmpzkEDhn/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -725,7 +725,7 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # bayesgrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-11 08:15:27
+#> **Generated:** 2026-03-11 14:50:29
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology
