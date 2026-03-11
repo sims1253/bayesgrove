@@ -162,7 +162,13 @@ bg_action_template_ref <- function(action) {
 }
 
 #' @keywords internal
-bg_apply_template_action <- function(project, action, scope = "project") {
+bg_apply_template_action <- function(
+  project,
+  action,
+  scope = "project",
+  overrides = list(),
+  interactive = TRUE
+) {
   S7::check_is_S7(project, bg_handle)
 
   template_ref <- bg_action_template_ref(action)
@@ -173,7 +179,14 @@ bg_apply_template_action <- function(project, action, scope = "project") {
   }
 
   template <- bg_lookup_template(template_ref, error = TRUE)
-  template$executor(project, action, scope, template)
+  template$executor(
+    project = project,
+    action = action,
+    scope = scope,
+    template = template,
+    overrides = overrides,
+    interactive = interactive
+  )
 }
 
 #' @keywords internal
@@ -201,6 +214,37 @@ bg_template_read_label <- function(prompt, default_label) {
 }
 
 #' @keywords internal
+bg_template_resolve_label <- function(
+  prompt,
+  default_label,
+  overrides = list(),
+  interactive = TRUE
+) {
+  label_override <- overrides$label %||% NULL
+  if (!is.null(label_override) && nzchar(trimws(label_override))) {
+    return(trimws(label_override))
+  }
+
+  if (!isTRUE(interactive)) {
+    return(default_label)
+  }
+
+  bg_template_read_label(prompt, default_label)
+}
+
+#' @keywords internal
+bg_template_resolve_rationale <- function(
+  overrides = list(),
+  interactive = TRUE,
+  prompt = "Rationale for this decision: "
+) {
+  rationale <- overrides$rationale %||%
+    if (isTRUE(interactive)) bg_repl_readline(prompt) else NULL
+
+  bg_require_rationale(rationale)
+}
+
+#' @keywords internal
 bg_template_review_prompt <- function(action, decision_type) {
   switch(
     decision_type,
@@ -219,7 +263,63 @@ bg_template_review_prompt <- function(action, decision_type) {
 }
 
 #' @keywords internal
-bg_template_review_choice <- function(decision_type) {
+bg_template_review_choice <- function(
+  decision_type,
+  overrides = list(),
+  interactive = TRUE
+) {
+  choice_override <- overrides$choice %||% NULL
+  choice_label_override <- overrides$choice_label %||% NULL
+
+  if (!is.null(choice_override)) {
+    choice_key <- tolower(trimws(choice_override))
+
+    if (identical(decision_type, "computation_review")) {
+      labels <- c(
+        accept = "Accept",
+        reject = "Reject",
+        needs_revision = "Needs revision"
+      )
+      aliases <- c(
+        accept = "accept",
+        reject = "reject",
+        needs_revision = "needs_revision",
+        "needs revision" = "needs_revision"
+      )
+      resolved <- aliases[[choice_key]] %||% NULL
+      if (is.null(resolved)) {
+        cli::cli_abort(
+          "Decision choice must be one of {.val {names(labels)}}."
+        )
+      }
+
+      return(list(
+        choice = resolved,
+        choice_label = choice_label_override %||% labels[[resolved]]
+      ))
+    }
+
+    if (identical(decision_type, "branch_disposition")) {
+      if (!choice_key %in% c("accept", "reject")) {
+        cli::cli_abort("Decision choice must be one of {.val {c('accept', 'reject')}}.")
+      }
+
+      return(list(
+        choice = choice_key,
+        choice_label = choice_label_override %||% choice_key
+      ))
+    }
+
+    return(list(
+      choice = trimws(choice_override),
+      choice_label = choice_label_override %||% trimws(choice_override)
+    ))
+  }
+
+  if (!isTRUE(interactive)) {
+    cli::cli_abort("`choice` override is required for non-interactive review decisions.")
+  }
+
   if (identical(decision_type, "computation_review")) {
     cli::cli_text("{.strong Options:}")
     cli::cli_bullets(c("*" = "[1] Accept - computation is valid for use"))
@@ -286,7 +386,9 @@ bg_execute_template_diagnostic_check <- function(
   project,
   action,
   scope,
-  template
+  template,
+  overrides = list(),
+  interactive = TRUE
 ) {
   payload <- action$payload %||% list()
   source_node_id <- payload$source_node_id %||%
@@ -315,9 +417,11 @@ bg_execute_template_diagnostic_check <- function(
   ))
   cli::cli_text("")
 
-  label <- bg_template_read_label(
+  label <- bg_template_resolve_label(
     "Label for diagnostic check node (press Enter for default): ",
-    default_label
+    default_label,
+    overrides = overrides,
+    interactive = interactive
   )
 
   check_node_id <- bg_add_node(
@@ -357,7 +461,9 @@ bg_execute_template_branch_comparison <- function(
   project,
   action,
   scope,
-  template
+  template,
+  overrides = list(),
+  interactive = TRUE
 ) {
   payload <- action$payload %||% list()
   input_ids <- payload$inputs %||% character()
@@ -392,9 +498,11 @@ bg_execute_template_branch_comparison <- function(
 
   default_label <- payload$default_label %||%
     paste("Compare:", paste(input_labels, collapse = " vs "))
-  label <- bg_template_read_label(
+  label <- bg_template_resolve_label(
     "Label for comparison node (press Enter for default): ",
-    default_label
+    default_label,
+    overrides = overrides,
+    interactive = interactive
   )
 
   compare_node_id <- bg_add_node(
@@ -440,7 +548,9 @@ bg_execute_template_branch_and_modify_fit <- function(
   project,
   action,
   scope,
-  template
+  template,
+  overrides = list(),
+  interactive = TRUE
 ) {
   payload <- action$payload %||% list()
   source_node_id <- payload$source_node_id %||% action$basis$node_ids[[1]]
@@ -485,9 +595,11 @@ bg_execute_template_branch_and_modify_fit <- function(
   }
   cli::cli_text("")
 
-  label <- bg_template_read_label(
+  label <- bg_template_resolve_label(
     "Label for the new branch (press Enter for default): ",
-    default_label
+    default_label,
+    overrides = overrides,
+    interactive = interactive
   )
 
   result <- bg_branch_with_continuation(
@@ -524,10 +636,18 @@ bg_execute_template_branch_and_modify_fit <- function(
 
   applied_params <- list()
   if (length(parameter_suggestions) > 0) {
-    apply_input <- bg_repl_readline(
-      "Apply suggested parameter changes? [Y/n]: "
-    )
-    apply_params <- !identical(tolower(trimws(apply_input)), "n")
+    apply_params <- overrides$apply_parameter_suggestions %||% NULL
+    if (is.null(apply_params)) {
+      if (isTRUE(interactive)) {
+        apply_input <- bg_repl_readline(
+          "Apply suggested parameter changes? [Y/n]: "
+        )
+        apply_params <- !identical(tolower(trimws(apply_input)), "n")
+      } else {
+        apply_params <- TRUE
+      }
+    }
+    apply_params <- isTRUE(apply_params)
 
     if (apply_params) {
       branch_node <- bg_read_graph(project)$nodes[[branch_root_id]]
@@ -612,7 +732,9 @@ bg_execute_template_review_decision <- function(
   project,
   action,
   scope,
-  template
+  template,
+  overrides = list(),
+  interactive = TRUE
 ) {
   payload <- action$payload %||% list()
   decision_type <- payload$decision_type %||% NULL
@@ -629,9 +751,15 @@ bg_execute_template_review_decision <- function(
   cli::cli_text("{cli::col_yellow('Prompt:')} {prompt}")
   cli::cli_text("")
 
-  choice <- bg_template_review_choice(decision_type)
-  rationale <- bg_repl_readline("Rationale for this decision: ")
-  bg_require_rationale(rationale)
+  choice <- bg_template_review_choice(
+    decision_type,
+    overrides = overrides,
+    interactive = interactive
+  )
+  rationale <- bg_template_resolve_rationale(
+    overrides = overrides,
+    interactive = interactive
+  )
 
   decision_metadata <- bg_template_review_metadata(action)
   if (identical(decision_type, "branch_disposition")) {

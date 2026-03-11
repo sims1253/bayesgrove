@@ -19,6 +19,10 @@
       "type": "string",
       "description": "Scope this action applies to (project or branch:xxx)"
     },
+    "scope_label": {
+      "type": "string",
+      "description": "Human-readable label for the action scope"
+    },
     "title": {
       "type": "string",
       "minLength": 1,
@@ -105,6 +109,18 @@
         }
       },
       "additionalProperties": true
+    },
+    "template": {
+      "$ref": "bg_template_descriptor.json"
+    },
+    "invocation": {
+      "type": "object",
+      "properties": {
+        "command": { "type": "string" },
+        "args": { "type": "object" },
+        "input": { "type": "object" }
+      },
+      "additionalProperties": false
     },
     "explanation": {
       "type": "object",

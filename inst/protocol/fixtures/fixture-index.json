@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "fixtures": {
+    "graph_snapshot.guided_review": {
+      "path": "stable/graph_snapshot-guided-review.json",
+      "schema": "bg_graph_snapshot",
+      "stability": "stable",
+      "description": "Canonical GraphSnapshot fixture for the guided-review loop."
+    },
+    "protocol_event.state_changed": {
+      "path": "stable/protocol_event-state_changed.json",
+      "schema": "bg_protocol_event",
+      "stability": "stable",
+      "description": "Canonical ProtocolEvent emitted after a state change."
+    },
+    "command_result.execute_action": {
+      "path": "stable/command_result-execute_action.json",
+      "schema": "bg_command_result",
+      "stability": "stable",
+      "description": "CommandResult returned after executing a protocol action."
+    },
+    "obligation.review_computation_validity": {
+      "path": "stable/obligation-review_computation_validity.json",
+      "schema": "bg_obligation_item",
+      "stability": "stable",
+      "description": "Representative blocking computation-review obligation."
+    },
+    "action.record_inferential_goal": {
+      "path": "stable/action-record_inferential_goal.json",
+      "schema": "bg_action_item",
+      "stability": "stable",
+      "description": "Representative goal-setting action for the main guided loop."
+    },
+    "action.branch_and_modify": {
+      "path": "stable/action-branch_and_modify.json",
+      "schema": "bg_action_item",
+      "stability": "stable",
+      "description": "Representative remediation branch action for the main guided loop."
+    },
+    "action.review_prior_predictive_check": {
+      "path": "experimental/action-review_prior_predictive_check.json",
+      "schema": "bg_action_item",
+      "stability": "experimental",
+      "description": "Representative phase-10 review action that remains experimental."
+    }
+  }
+}

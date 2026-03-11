@@ -150,6 +150,12 @@ bg_build_api_boundary_registry <- function() {
       note = "Record an explicit decision",
       remote_accessible = TRUE
     ),
+    list(
+      fn = "bg_execute_action",
+      classification = "experimental",
+      note = "Execute a protocol action inside bayesgrove",
+      remote_accessible = TRUE
+    ),
 
     # === Stable: Execution Control ===
     list(

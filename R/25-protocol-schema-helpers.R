@@ -91,6 +91,79 @@ bg_list_protocol_schemas <- function() {
   sub("\\.json$", "", schema_files)
 }
 
+#' Load the protocol fixture index
+#'
+#' @return Parsed fixture index as a list, or NULL if not found.
+#' @keywords internal
+bg_load_protocol_fixture_index <- function() {
+  index_path <- bg_protocol_asset_path(
+    "protocol",
+    "fixtures",
+    "fixture-index.json"
+  )
+
+  if (!nzchar(index_path) || !file.exists(index_path)) {
+    return(NULL)
+  }
+
+  jsonlite::read_json(index_path, simplifyVector = FALSE)
+}
+
+#' List available protocol fixtures
+#'
+#' @param stability Optional stability filter.
+#'
+#' @return Character vector of fixture names.
+#' @keywords internal
+bg_list_protocol_fixtures <- function(stability = NULL) {
+  index <- bg_load_protocol_fixture_index()
+  if (is.null(index)) {
+    return(character())
+  }
+
+  fixtures <- index$fixtures %||% list()
+  names_out <- names(fixtures)
+  if (is.null(stability)) {
+    return(names_out %||% character())
+  }
+
+  keep <- vapply(
+    fixtures,
+    function(fixture) identical(fixture$stability %||% NULL, stability),
+    logical(1)
+  )
+  names_out[keep]
+}
+
+#' Load a specific protocol fixture by name
+#'
+#' @param fixture_name Fixture name from `fixture-index.json`.
+#'
+#' @return Parsed fixture payload, or NULL if not found.
+#' @keywords internal
+bg_load_protocol_fixture <- function(fixture_name) {
+  index <- bg_load_protocol_fixture_index()
+  if (is.null(index)) {
+    return(NULL)
+  }
+
+  fixture <- (index$fixtures %||% list())[[fixture_name]] %||% NULL
+  if (is.null(fixture)) {
+    return(NULL)
+  }
+
+  fixture_path <- bg_protocol_asset_path(
+    "protocol",
+    "fixtures",
+    fixture$path
+  )
+  if (!nzchar(fixture_path) || !file.exists(fixture_path)) {
+    return(NULL)
+  }
+
+  jsonlite::read_json(fixture_path, simplifyVector = FALSE)
+}
+
 #' Validate a protocol object against its schema
 #'
 #' Performs structural validation of a protocol object against

@@ -19,6 +19,10 @@
       "type": "string",
       "description": "Scope this obligation applies to (project or branch:xxx)"
     },
+    "scope_label": {
+      "type": "string",
+      "description": "Human-readable label for the obligation scope"
+    },
     "severity": {
       "type": "string",
       "enum": ["advisory", "warning", "blocking"],

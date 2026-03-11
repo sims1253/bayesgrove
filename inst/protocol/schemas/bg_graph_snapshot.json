@@ -15,7 +15,9 @@
     "pending_gates",
     "branches",
     "branch_goals",
-    "protocol"
+    "protocol",
+    "command_surface",
+    "extension_registry"
   ],
   "properties": {
     "protocol_version": {
@@ -128,6 +130,55 @@
     },
     "protocol": {
       "$ref": "bg_partitioned_result.json"
+    },
+    "command_surface": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["command", "mutates_state", "allowed_args", "required_args"],
+        "properties": {
+          "command": { "type": "string" },
+          "classification": { "type": "string" },
+          "description": { "type": "string" },
+          "result_message_type": { "type": "string" },
+          "mutates_state": { "type": "boolean" },
+          "allowed_args": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "required_args": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "extension_registry": {
+      "type": "object",
+      "required": ["node_kinds", "backends", "workflow_packs", "templates"],
+      "properties": {
+        "node_kinds": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "backends": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "workflow_packs": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": { "$ref": "bg_template_descriptor.json" }
+        },
+        "policy": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

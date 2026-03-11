@@ -1,0 +1,71 @@
+{
+  "action_id": "act_branch1234",
+  "kind": "branch_and_modify",
+  "scope": "project",
+  "scope_label": "Project",
+  "title": "Branch and modify to resolve diagnostics",
+  "basis": {
+    "obligation_refs": [
+      {
+        "kind": "review_computation_validity",
+        "scope": "project"
+      }
+    ],
+    "node_ids": ["node_fit"]
+  },
+  "payload": {
+    "template_ref": "branch_and_modify_fit",
+    "source_node_id": "node_fit",
+    "default_label": "Baseline fit (revised)",
+    "modification_hint": "reparametrize",
+    "parameter_suggestions": {
+      "adapt_delta": "0.99"
+    },
+    "continuation_kinds": ["check", "ppc"]
+  },
+  "template": {
+    "template_ref": "branch_and_modify_fit",
+    "title": "Branch and modify fit",
+    "operation_type": "workflow_macro",
+    "default_label": "{source_label} (revised)",
+    "required_basis": {
+      "action_kind": "branch_and_modify",
+      "source_node_id": "exactly one fit node"
+    },
+    "parameter_suggestions": {
+      "modification_hints": ["reparametrize", "adjust_tolerances"],
+      "continuation_kinds": ["check", "ppc"]
+    },
+    "description": "Branch a fit node with continuation and apply suggested parameter changes to the new branch root."
+  },
+  "explanation": {
+    "why_now": "A blocking computation-validity obligation is active.",
+    "references": []
+  },
+  "invocation": {
+    "command": "bg_execute_action",
+    "args": {
+      "action_id": "act_branch1234"
+    },
+    "input": {
+      "mode": "non_interactive",
+      "fields": {
+        "label": {
+          "type": "string",
+          "required": false,
+          "default": "Baseline fit (revised)",
+          "description": "Optional label override for the remediation branch."
+        },
+        "apply_parameter_suggestions": {
+          "type": "boolean",
+          "required": false,
+          "default": true,
+          "description": "Whether to apply Bayesgrove's suggested parameter edits to the new branch root."
+        }
+      }
+    }
+  },
+  "metadata": {
+    "pack_id": "bayesguide.default_bayesian"
+  }
+}

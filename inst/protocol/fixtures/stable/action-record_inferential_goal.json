@@ -1,0 +1,54 @@
+{
+  "action_id": "act_goal1234",
+  "kind": "record_decision",
+  "scope": "branch:alt",
+  "scope_label": "Alternative branch",
+  "title": "Record an inferential goal",
+  "basis": {
+    "obligation_refs": [
+      {
+        "kind": "set_inferential_goal",
+        "scope": "branch:alt"
+      }
+    ],
+    "node_ids": ["node_fit_alt"]
+  },
+  "payload": {
+    "decision_type": "goal_update",
+    "allowed_goal_kinds": ["observable_prediction", "latent_inference"]
+  },
+  "explanation": {
+    "why_now": "Branch-scoped workflow guidance stays blocked until a goal is set.",
+    "references": []
+  },
+  "invocation": {
+    "command": "bg_execute_action",
+    "args": {
+      "action_id": "act_goal1234"
+    },
+    "input": {
+      "mode": "non_interactive",
+      "fields": {
+        "choice": {
+          "type": "string",
+          "required": true,
+          "enum": ["observable_prediction", "latent_inference"],
+          "description": "Goal kind to record for the branch."
+        },
+        "choice_label": {
+          "type": "string",
+          "required": false,
+          "description": "Optional user-facing label for the goal."
+        },
+        "rationale": {
+          "type": "string",
+          "required": true,
+          "description": "Rationale for the inferential goal."
+        }
+      }
+    }
+  },
+  "metadata": {
+    "pack_id": "bayesguide.default_bayesian"
+  }
+}

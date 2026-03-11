@@ -609,5 +609,74 @@ describe("bg_serve()", {
     )[[1]]
 
     expect_true(result$ok)
+    expect_equal(result$result$message_type, "GraphSnapshot")
+    expect_true(bg_validate_protocol_object(result$result, "bg_graph_snapshot"))
+    expect_true("bg_execute_action" %in% names(result$result$command_surface))
+  })
+
+  it("executes protocol actions through bg_execute_action over the wire", {
+    skip_if_not_installed("websocket")
+    serve_skip_if_socket_unavailable()
+
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+    bg_register_node_kind(handle, "fit")
+    seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
+    branch <- bg_branch(handle, seed_id, label = "Alternative")
+
+    action_id <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)$actions[[1]]$action_id
+
+    server <- bg_serve(handle, poll_interval = 0.05)
+    withr::defer(server$stop())
+
+    client <- serve_collect_messages(server$url)
+    withr::defer(try(client$client$close(), silent = TRUE))
+    serve_wait_until(function() length(client$messages()) >= 1L)
+
+    client$client$send(jsonlite::toJSON(
+      list(
+        protocol_version = serve_ns("bg_protocol_version")(),
+        message_type = "Command",
+        command_id = "cmd_execute_action",
+        command = "bg_execute_action",
+        args = list(
+          action_id = action_id,
+          overrides = list(
+            choice = "observable_prediction",
+            choice_label = "Predict y",
+            rationale = "Set the branch goal from the GUI surface."
+          )
+        )
+      ),
+      auto_unbox = TRUE,
+      null = "null"
+    ))
+
+    serve_wait_until(function() {
+      msgs <- client$messages()
+      any(vapply(
+        msgs,
+        function(msg) {
+          identical(msg$message_type, "CommandResult") &&
+            identical(msg$command_id, "cmd_execute_action")
+        },
+        logical(1)
+      ))
+    })
+
+    result <- Filter(
+      function(msg) {
+        identical(msg$message_type, "CommandResult") &&
+          identical(msg$command_id, "cmd_execute_action")
+      },
+      client$messages()
+    )[[1]]
+
+    expect_true(result$ok)
+    expect_equal(result$result$kind, "record_decision")
+    expect_equal(bg_get_goal(handle, branch$branch_id)$kind, "observable_prediction")
   })
 })

@@ -1,0 +1,21 @@
+{
+  "obligation_id": "obl_review1234",
+  "kind": "review_computation_validity",
+  "scope": "project",
+  "scope_label": "Project",
+  "severity": "blocking",
+  "title": "Review computation validity",
+  "basis": {
+    "node_ids": ["node_fit"],
+    "summary_ids": ["sum_warn_1"],
+    "decision_ids": []
+  },
+  "explanation": {
+    "why": "Fresh warning or error summaries are active in this scope.",
+    "references": []
+  },
+  "metadata": {
+    "pack_id": "bayesguide.default_bayesian",
+    "summary_kinds": ["optimizer_diagnostics"]
+  }
+}

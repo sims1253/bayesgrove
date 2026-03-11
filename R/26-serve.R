@@ -157,7 +157,7 @@ bg_drop_null_fields <- function(x) {
 bg_remote_command_registry <- function() {
   list(
     bg_snapshot = list(
-      fn = "bg_snapshot",
+      fn = "bg_remote_graph_snapshot",
       mutates_state = FALSE,
       allowed_args = character(),
       required_args = character()
@@ -235,6 +235,12 @@ bg_remote_command_registry <- function() {
         "metadata"
       ),
       required_args = c("scope", "prompt", "choice", "rationale")
+    ),
+    bg_execute_action = list(
+      fn = "bg_execute_action",
+      mutates_state = TRUE,
+      allowed_args = c("action_id", "overrides"),
+      required_args = "action_id"
     ),
     bg_submit = list(
       fn = "bg_submit",
@@ -315,8 +321,15 @@ bg_build_graph_snapshot_state <- function(project) {
     branch_goals = bg_protocol_named_list(
       bg_read_goal_registry(project)$branch_goals %||% list()
     ),
-    protocol = protocol
+    protocol = protocol,
+    command_surface = bg_protocol_command_surface(),
+    extension_registry = bg_protocol_extension_registry(project)
   )
+}
+
+#' @keywords internal
+bg_remote_graph_snapshot <- function(project) {
+  bg_build_graph_snapshot_message(project)
 }
 
 #' @keywords internal

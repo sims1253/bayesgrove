@@ -10,6 +10,12 @@ bg_builtin_workflow_registry <- local({
         "bayesguide.default_bayesian" = list(
           pack_id = "bayesguide.default_bayesian",
           version = "0.2.0",
+          title = "Default Bayesian workflow",
+          description = paste(
+            "Core guided Bayesian workflow semantics covering inferential goals,",
+            "computation review, fit criticism, candidate comparison, and branch disposition."
+          ),
+          stability = "stable",
           obligation_providers = list(
             bg_default_bayesian_goal_obligations,
             bg_default_bayesian_summary_obligations,
@@ -28,6 +34,11 @@ bg_builtin_workflow_registry <- local({
         "bayesgrove.prior_workflow" = list(
           pack_id = "bayesgrove.prior_workflow",
           version = phase10_version,
+          title = "Prior workflow pack",
+          description = paste(
+            "Extends the guided loop with prior rationale and prior predictive review."
+          ),
+          stability = "experimental",
           obligation_providers = list(
             bg_phase10_prior_workflow_obligations
           ),
@@ -38,6 +49,11 @@ bg_builtin_workflow_registry <- local({
         "bayesgrove.model_checks" = list(
           pack_id = "bayesgrove.model_checks",
           version = phase10_version,
+          title = "Model checks pack",
+          description = paste(
+            "Adds posterior predictive and simulation-based calibration review semantics."
+          ),
+          stability = "experimental",
           obligation_providers = list(
             bg_phase10_model_checks_obligations
           ),
@@ -48,6 +64,11 @@ bg_builtin_workflow_registry <- local({
         "bayesgrove.model_selection" = list(
           pack_id = "bayesgrove.model_selection",
           version = phase10_version,
+          title = "Model selection pack",
+          description = paste(
+            "Adds model-comparison and stacking-weight review semantics."
+          ),
+          stability = "experimental",
           obligation_providers = list(
             bg_phase10_model_selection_obligations
           ),
@@ -58,6 +79,11 @@ bg_builtin_workflow_registry <- local({
         "bayesgrove.causal_minimal" = list(
           pack_id = "bayesgrove.causal_minimal",
           version = phase10_version,
+          title = "Minimal causal framing pack",
+          description = paste(
+            "Adds lightweight causal-question prompts for branch-scoped workflows."
+          ),
+          stability = "experimental",
           obligation_providers = list(
             bg_phase10_causal_minimal_obligations
           ),
@@ -68,6 +94,11 @@ bg_builtin_workflow_registry <- local({
         "bayesgrove.pad_scaffold" = list(
           pack_id = "bayesgrove.pad_scaffold",
           version = phase10_version,
+          title = "PAD scaffold pack",
+          description = paste(
+            "Adds PAD taxonomy and utility-annotation prompts once a branch has a goal."
+          ),
+          stability = "experimental",
           obligation_providers = list(
             bg_phase10_pad_scaffold_obligations
           ),
@@ -542,6 +573,11 @@ bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
     }
   }
   obligations <- bg_merge_protocol_items(obligation_items, "obligation_id")
+  obligations <- bg_protocol_named_list(lapply(
+    obligations,
+    bg_enrich_protocol_obligation,
+    project = project
+  ))
 
   action_items <- list()
   for (context in contexts) {
@@ -557,6 +593,11 @@ bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
     }
   }
   actions <- bg_merge_protocol_items(action_items, "action_id")
+  actions <- bg_protocol_named_list(lapply(
+    actions,
+    bg_enrich_protocol_action,
+    project = project
+  ))
 
   list(
     context = contexts[[1]],

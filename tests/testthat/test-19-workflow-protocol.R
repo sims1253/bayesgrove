@@ -68,6 +68,7 @@ describe("Workflow protocol APIs", {
     expect_equal(obligation$kind, "review_computation_validity")
     expect_equal(obligation$severity, "blocking")
     expect_equal(obligation$scope, "project")
+    expect_equal(obligation$scope_label, "Project")
     expect_equal(obligation$basis$node_ids, node_id)
     expect_length(obligation$basis$summary_ids, 1)
   })
@@ -91,6 +92,36 @@ describe("Workflow protocol APIs", {
     expect_length(result$actions, 1)
     expect_equal(result$actions[[1]]$kind, "record_decision")
     expect_equal(result$actions[[1]]$payload$decision_type, "goal_update")
+    expect_equal(result$actions[[1]]$scope_label, "Alternative")
+    expect_equal(result$actions[[1]]$invocation$command, "bg_execute_action")
+  })
+
+  it("executes a goal-setting action through bg_execute_action()", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesguide.default_bayesian")
+    )
+
+    bg_register_node_kind(handle, "fit")
+    seed_id <- bg_add_node(handle, kind = "fit", label = "Seed")
+    branch <- bg_branch(handle, seed_id, label = "Alternative")
+
+    result <- bg_next_actions(handle, scope = "branch", branch_id = branch$branch_id)
+    action <- result$actions[[1]]
+
+    exec <- bg_execute_action(
+      handle,
+      action$action_id,
+      overrides = list(
+        choice = "observable_prediction",
+        choice_label = "Predict y",
+        rationale = "This branch should target predictive performance."
+      )
+    )
+
+    expect_equal(exec$action_id, action$action_id)
+    expect_equal(bg_get_goal(handle, branch$branch_id)$kind, "observable_prediction")
   })
 
   it("deduplicates identical obligations and actions at runtime", {
@@ -224,6 +255,8 @@ describe("Workflow protocol APIs", {
     )[[1]]
     expect_equal(record_action$payload$template_ref, "review_decision")
     expect_equal(record_action$payload$decision_type, "computation_review")
+    expect_equal(record_action$template$template_ref, "review_decision")
+    expect_equal(record_action$invocation$command, "bg_execute_action")
 
     branch_action <- Filter(
       function(a) identical(a$kind, "branch_and_modify"),

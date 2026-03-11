@@ -1,0 +1,92 @@
+{
+  "action_id": "act_prior1234",
+  "kind": "record_decision",
+  "scope": "branch:alt",
+  "scope_label": "Alternative branch",
+  "title": "Review prior predictive evidence",
+  "basis": {
+    "obligation_refs": [
+      {
+        "kind": "review_prior_predictive_check",
+        "scope": "branch:alt"
+      }
+    ],
+    "node_ids": ["node_prior_check"],
+    "summary_ids": ["sum_prior_1"]
+  },
+  "payload": {
+    "template_ref": "review_decision",
+    "decision_type": "prior_check_review",
+    "summary_ids": ["sum_prior_1"],
+    "node_ids": ["node_prior_check"]
+  },
+  "template": {
+    "template_ref": "review_decision",
+    "title": "Record review decision",
+    "operation_type": "record_decision",
+    "default_label": "{decision_type}",
+    "required_basis": {
+      "action_kind": "record_decision",
+      "decision_type": [
+        "computation_review",
+        "fit_criticism",
+        "prior_rationale",
+        "prior_check_review",
+        "posterior_check_review",
+        "sbc_review",
+        "model_comparison",
+        "branch_disposition",
+        "causal_question",
+        "pad_annotation_review"
+      ]
+    },
+    "parameter_suggestions": {
+      "decision_types": [
+        "computation_review",
+        "fit_criticism",
+        "prior_rationale",
+        "prior_check_review",
+        "posterior_check_review",
+        "sbc_review",
+        "model_comparison",
+        "branch_disposition",
+        "causal_question",
+        "pad_annotation_review"
+      ]
+    },
+    "description": "Record an explicit review-oriented decision tied to current summaries, candidate fits, or branch disposition context."
+  },
+  "explanation": {
+    "why_now": "Current prior predictive evidence should be accepted, rejected, or qualified explicitly before the branch moves on.",
+    "references": []
+  },
+  "invocation": {
+    "command": "bg_execute_action",
+    "args": {
+      "action_id": "act_prior1234"
+    },
+    "input": {
+      "mode": "non_interactive",
+      "fields": {
+        "choice": {
+          "type": "string",
+          "required": true,
+          "description": "What is your review of the current prior predictive evidence?"
+        },
+        "choice_label": {
+          "type": "string",
+          "required": false,
+          "description": "Optional display label for the chosen decision."
+        },
+        "rationale": {
+          "type": "string",
+          "required": true,
+          "description": "Rationale for the recorded review decision."
+        }
+      }
+    }
+  },
+  "metadata": {
+    "pack_id": "bayesgrove.prior_workflow"
+  }
+}

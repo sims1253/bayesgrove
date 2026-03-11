@@ -244,6 +244,10 @@ describe("Protocol schema validation against live objects", {
     message <- snapshot_builder(project)
 
     expect_true(bg_validate_protocol_object(message, "bg_graph_snapshot"))
+    expect_true("command_surface" %in% names(message))
+    expect_true("extension_registry" %in% names(message))
+    expect_true("bg_execute_action" %in% names(message$command_surface))
+    expect_true("templates" %in% names(message$extension_registry))
   })
 
   it("validates a live protocol event message", {
@@ -269,6 +273,21 @@ describe("Protocol schema validation against live objects", {
       command_id = "cmd_123",
       command = "bg_status",
       args = stats::setNames(list(), character())
+    )
+
+    expect_true(bg_validate_protocol_object(command, "bg_command"))
+  })
+
+  it("validates a bg_execute_action command message shape", {
+    command <- list(
+      protocol_version = "0.1.0",
+      message_type = "Command",
+      command_id = "cmd_execute_action",
+      command = "bg_execute_action",
+      args = list(
+        action_id = "act_123",
+        overrides = list(rationale = "Because")
+      )
     )
 
     expect_true(bg_validate_protocol_object(command, "bg_command"))
@@ -403,6 +422,32 @@ describe("Schema helper functions", {
   it("bg_list_protocol_schemas returns expected schemas", {
     schemas <- bg_list_protocol_schemas()
     expect_gte(length(schemas), 3)
+  })
+
+  it("loads checked-in protocol fixtures and validates them against schemas", {
+    index <- bg_load_protocol_fixture_index()
+    expect_false(is.null(index))
+
+    fixtures <- index$fixtures %||% list()
+    expect_gte(length(fixtures), 1)
+
+    for (fixture_name in names(fixtures)) {
+      fixture_spec <- fixtures[[fixture_name]]
+      fixture <- bg_load_protocol_fixture(fixture_name)
+
+      expect_false(is.null(fixture), info = fixture_name)
+      expect_true(
+        bg_validate_protocol_object(fixture, fixture_spec$schema),
+        info = fixture_name
+      )
+    }
+  })
+
+  it("filters protocol fixtures by stability", {
+    stable <- bg_list_protocol_fixtures("stable")
+
+    expect_gte(length(stable), 1)
+    expect_true(all(stable %in% bg_list_protocol_fixtures()))
   })
 
   it("keeps empty object-like protocol fields as named maps", {

@@ -1,0 +1,263 @@
+{
+  "protocol_version": "0.1.0",
+  "message_type": "GraphSnapshot",
+  "emitted_at": "2026-03-10T00:00:00Z",
+  "project_id": "proj_demo123",
+  "project_name": "Guided Review Demo",
+  "graph": {
+    "version": 3,
+    "nodes": {
+      "node_fit": {
+        "id": "node_fit",
+        "kind": "fit",
+        "label": "Baseline fit"
+      }
+    },
+    "edges": {},
+    "registry": {
+      "kinds": {
+        "fit": {
+          "name": "fit"
+        }
+      }
+    }
+  },
+  "status": {
+    "workflow_state": "blocked",
+    "runnable_nodes": 0,
+    "blocked_nodes": 1,
+    "pending_gates": 0,
+    "active_jobs": 0,
+    "health": "warning",
+    "messages": ["Fresh review obligation is active."]
+  },
+  "pending_gates": {},
+  "branches": {
+    "branch:alt": {
+      "branch_id": "branch:alt",
+      "label": "Alternative branch",
+      "root_node_id": "node_fit_alt",
+      "source_node_id": "node_fit",
+      "created_at": "2026-03-10T00:00:00Z",
+      "has_goal": true,
+      "lifecycle": "active"
+    }
+  },
+  "branch_goals": {
+    "branch:alt": {
+      "goal_id": "dec_goal1234",
+      "kind": "observable_prediction",
+      "label": "Predict y"
+    }
+  },
+  "protocol": {
+    "project": {
+      "scope": "project",
+      "scope_label": "Project",
+      "obligations": {
+        "obl_review1234": {
+          "obligation_id": "obl_review1234",
+          "kind": "review_computation_validity",
+          "scope": "project",
+          "scope_label": "Project",
+          "severity": "blocking",
+          "title": "Review computation validity",
+          "basis": {
+            "node_ids": ["node_fit"],
+            "summary_ids": ["sum_warn_1"],
+            "decision_ids": []
+          },
+          "explanation": {
+            "why": "Fresh warning or error summaries are active in this scope.",
+            "references": []
+          },
+          "metadata": {
+            "pack_id": "bayesguide.default_bayesian"
+          }
+        }
+      },
+      "actions": {
+        "act_review1234": {
+          "action_id": "act_review1234",
+          "kind": "record_decision",
+          "scope": "project",
+          "scope_label": "Project",
+          "title": "Record a computation review",
+          "basis": {
+            "obligation_refs": [
+              {
+                "kind": "review_computation_validity",
+                "scope": "project"
+              }
+            ],
+            "node_ids": ["node_fit"]
+          },
+          "payload": {
+            "template_ref": "review_decision",
+            "decision_type": "computation_review",
+            "summary_ids": ["sum_warn_1"],
+            "node_ids": ["node_fit"]
+          },
+          "template": {
+            "template_ref": "review_decision",
+            "title": "Record review decision",
+            "operation_type": "record_decision",
+            "default_label": "{decision_type}",
+            "required_basis": {
+              "action_kind": "record_decision",
+              "decision_type": [
+                "computation_review",
+                "fit_criticism",
+                "prior_rationale",
+                "prior_check_review",
+                "posterior_check_review",
+                "sbc_review",
+                "model_comparison",
+                "branch_disposition",
+                "causal_question",
+                "pad_annotation_review"
+              ]
+            },
+            "parameter_suggestions": {
+              "decision_types": [
+                "computation_review",
+                "fit_criticism",
+                "prior_rationale",
+                "prior_check_review",
+                "posterior_check_review",
+                "sbc_review",
+                "model_comparison",
+                "branch_disposition",
+                "causal_question",
+                "pad_annotation_review"
+              ]
+            },
+            "description": "Record an explicit review-oriented decision tied to current summaries, candidate fits, or branch disposition context."
+          },
+          "explanation": {
+            "why_now": "A blocking computation-validity obligation is active.",
+            "references": []
+          },
+          "invocation": {
+            "command": "bg_execute_action",
+            "args": {
+              "action_id": "act_review1234"
+            },
+            "input": {
+              "mode": "non_interactive",
+              "fields": {
+                "choice": {
+                  "type": "string",
+                  "required": true,
+                  "enum": ["accept", "reject", "needs_revision"],
+                  "description": "Is this computation acceptable for downstream use?"
+                },
+                "choice_label": {
+                  "type": "string",
+                  "required": false,
+                  "description": "Optional display label for the chosen decision."
+                },
+                "rationale": {
+                  "type": "string",
+                  "required": true,
+                  "description": "Rationale for the recorded review decision."
+                }
+              }
+            }
+          },
+          "metadata": {
+            "pack_id": "bayesguide.default_bayesian"
+          }
+        }
+      }
+    },
+    "summary": {
+      "n_scopes": 1,
+      "n_obligations": 1,
+      "n_actions": 1,
+      "n_blocking": 1,
+      "scopes": ["project"]
+    }
+  },
+  "command_surface": {
+    "bg_snapshot": {
+      "command": "bg_snapshot",
+      "classification": "stable",
+      "description": "Return the canonical GraphSnapshot message.",
+      "result_message_type": "GraphSnapshot",
+      "mutates_state": false,
+      "allowed_args": [],
+      "required_args": []
+    },
+    "bg_execute_action": {
+      "command": "bg_execute_action",
+      "classification": "experimental",
+      "description": "Execute a protocol action inside bayesgrove",
+      "mutates_state": true,
+      "allowed_args": ["action_id", "overrides"],
+      "required_args": ["action_id"]
+    }
+  },
+  "extension_registry": {
+    "node_kinds": {
+      "fit": {
+        "kind": "fit",
+        "executor_registered": true,
+        "owner": "bayesgrove"
+      }
+    },
+    "backends": {},
+    "workflow_packs": {
+      "bayesguide.default_bayesian": {
+        "pack_id": "bayesguide.default_bayesian",
+        "version": "0.2.0",
+        "title": "Default Bayesian workflow",
+        "description": "Core guided Bayesian workflow semantics covering inferential goals, computation review, fit criticism, candidate comparison, and branch disposition.",
+        "stability": "stable",
+        "owner": "bayesgrove"
+      }
+    },
+    "templates": {
+      "review_decision": {
+        "template_ref": "review_decision",
+        "title": "Record review decision",
+        "operation_type": "record_decision",
+        "default_label": "{decision_type}",
+        "required_basis": {
+          "action_kind": "record_decision",
+          "decision_type": [
+            "computation_review",
+            "fit_criticism",
+            "prior_rationale",
+            "prior_check_review",
+            "posterior_check_review",
+            "sbc_review",
+            "model_comparison",
+            "branch_disposition",
+            "causal_question",
+            "pad_annotation_review"
+          ]
+        },
+        "parameter_suggestions": {
+          "decision_types": [
+            "computation_review",
+            "fit_criticism",
+            "prior_rationale",
+            "prior_check_review",
+            "posterior_check_review",
+            "sbc_review",
+            "model_comparison",
+            "branch_disposition",
+            "causal_question",
+            "pad_annotation_review"
+          ]
+        },
+        "description": "Record an explicit review-oriented decision tied to current summaries, candidate fits, or branch disposition context."
+      }
+    },
+    "policy": {
+      "execution_owner": "bayesgrove",
+      "gui_role": "presentation_only"
+    }
+  }
+}
