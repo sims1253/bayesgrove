@@ -43,6 +43,13 @@ bg_workflow_source_registry <- function() {
     causal_scaffold = c(
       "McElreath (2020) — Statistical Rethinking (2nd ed.)"
     ),
+    causal_identification = c(
+      "Pearl (2009) — Causality",
+      paste(
+        "Textor et al. (2016) — Robust causal inference using directed acyclic",
+        "graphs: the R package dagitty"
+      )
+    ),
     projection_predictive = c(
       paste(
         "Piironen, Paasiniemi, and Vehtari (2020) — Projective Inference in",

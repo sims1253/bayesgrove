@@ -29,6 +29,8 @@ Remotes:
 Suggests:
     brms,
     cmdstanr,
+    dagitty,
+    ggdag,
     hedgehog,
     knitr,
     mirai,

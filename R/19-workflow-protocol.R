@@ -160,6 +160,22 @@ bg_builtin_workflow_registry <- local({
             bg_phase10_causal_minimal_actions
           )
         ),
+        "bayesgrove.causal_dagitty" = list(
+          pack_id = "bayesgrove.causal_dagitty",
+          version = phase10_version,
+          title = "Dagitty causal workflow pack",
+          description = paste(
+            "Adds dagitty-backed adjustment-set and implication review prompts",
+            "for causal branches."
+          ),
+          stability = "experimental",
+          obligation_providers = list(
+            bg_phase10_causal_dagitty_obligations
+          ),
+          action_providers = list(
+            bg_phase10_causal_dagitty_actions
+          )
+        ),
         "bayesgrove.pad_scaffold" = list(
           pack_id = "bayesgrove.pad_scaffold",
           version = phase10_version,
