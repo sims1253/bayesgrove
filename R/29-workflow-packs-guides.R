@@ -10,7 +10,12 @@ bg_phase10_summary_basis <- function(summaries, branch_ids = NULL) {
   }
 
   list(
-    node_ids = bg_phase10_sort_ids(vapply(summaries, `[[`, character(1), "node_id")),
+    node_ids = bg_phase10_sort_ids(vapply(
+      summaries,
+      `[[`,
+      character(1),
+      "node_id"
+    )),
     summary_ids = bg_phase10_sort_ids(vapply(
       summaries,
       `[[`,
@@ -92,39 +97,52 @@ bg_phase10_stan_repair_hints <- function(summaries) {
     summary_kind <- summary$summary_kind %||% NULL
 
     if (identical(summary_kind, "hmc_diagnostics")) {
-      if (isTRUE(bg_phase10_stan_metric_value(
-        metrics,
-        c("divergences_present", "divergent"),
-        FALSE
-      )) || (bg_phase10_stan_metric_value(
-        metrics,
-        c("divergent_transitions", "divergences"),
-        0
-      ) > 0)) {
+      if (
+        isTRUE(bg_phase10_stan_metric_value(
+          metrics,
+          c("divergences_present", "divergent"),
+          FALSE
+        )) ||
+          (bg_phase10_stan_metric_value(
+            metrics,
+            c("divergent_transitions", "divergences"),
+            0
+          ) >
+            0)
+      ) {
         hints <- c(hints, "reparameterize", "raise_adapt_delta")
       }
 
-      if (isTRUE(bg_phase10_stan_metric_value(
-        metrics,
-        c("treedepth_saturated", "max_treedepth_exceeded"),
-        FALSE
-      )) || (bg_phase10_stan_metric_value(
-        metrics,
-        c("max_treedepth_hits", "treedepth_hits"),
-        0
-      ) > 0)) {
+      if (
+        isTRUE(bg_phase10_stan_metric_value(
+          metrics,
+          c("treedepth_saturated", "max_treedepth_exceeded"),
+          FALSE
+        )) ||
+          (bg_phase10_stan_metric_value(
+            metrics,
+            c("max_treedepth_hits", "treedepth_hits"),
+            0
+          ) >
+            0)
+      ) {
         hints <- c(hints, "increase_max_treedepth")
       }
 
-      if ((bg_phase10_stan_metric_value(
-        metrics,
-        c("max_rhat", "rhat_max"),
-        1
-      ) > 1.01) || (bg_phase10_stan_metric_value(
-        metrics,
-        c("min_ess_bulk", "ess_bulk_min"),
-        Inf
-      ) < 400)) {
+      if (
+        (bg_phase10_stan_metric_value(
+          metrics,
+          c("max_rhat", "rhat_max"),
+          1
+        ) >
+          1.01) ||
+          (bg_phase10_stan_metric_value(
+            metrics,
+            c("min_ess_bulk", "ess_bulk_min"),
+            Inf
+          ) <
+            400)
+      ) {
         hints <- c(hints, "increase_iterations")
       }
     }
@@ -146,17 +164,22 @@ bg_phase10_process_guidance_obligations <- function(
     return(list())
   }
 
-  if (startsWith(context$scope, "branch:") && is.null(bg_phase10_goal_kind(context))) {
+  if (
+    startsWith(context$scope, "branch:") &&
+      is.null(bg_phase10_goal_kind(context))
+  ) {
     return(list())
   }
 
   obligations <- list()
 
-  if (!bg_phase10_has_scope_decision(
-    context,
-    kind = "workflow_preflight",
-    node_ids = fit_node_ids
-  )) {
+  if (
+    !bg_phase10_has_scope_decision(
+      context,
+      kind = "workflow_preflight",
+      node_ids = fit_node_ids
+    )
+  ) {
     obligations <- c(
       obligations,
       list(bg_phase10_obligation(
@@ -385,11 +408,13 @@ bg_phase10_model_taxonomy_obligations <- function(
 
   obligations <- list()
 
-  if (!bg_phase10_has_scope_decision(
-    context,
-    kind = "model_taxonomy",
-    node_ids = fit_node_ids
-  )) {
+  if (
+    !bg_phase10_has_scope_decision(
+      context,
+      kind = "model_taxonomy",
+      node_ids = fit_node_ids
+    )
+  ) {
     obligations <- c(
       obligations,
       list(bg_phase10_obligation(
@@ -412,11 +437,13 @@ bg_phase10_model_taxonomy_obligations <- function(
     )
   }
 
-  if (!bg_phase10_has_scope_decision(
-    context,
-    kind = "utility_tradeoff_review",
-    node_ids = fit_node_ids
-  )) {
+  if (
+    !bg_phase10_has_scope_decision(
+      context,
+      kind = "utility_tradeoff_review",
+      node_ids = fit_node_ids
+    )
+  ) {
     obligations <- c(
       obligations,
       list(bg_phase10_obligation(
@@ -502,7 +529,9 @@ bg_phase10_model_taxonomy_actions <- function(
         payload = list(
           allowed_utility_dimensions = bg_phase10_taxonomy_utility_dimensions(),
           suggested_primary_utilities = bg_phase10_primary_utilities(context),
-          suggested_evaluation_modes = bg_phase10_taxonomy_evaluation_modes(context)
+          suggested_evaluation_modes = bg_phase10_taxonomy_evaluation_modes(
+            context
+          )
         )
       ))
     )
@@ -597,10 +626,12 @@ bg_phase10_stan_workflow_obligations <- function(
             character(1),
             "summary_kind"
           ))),
-          causal_required_terms = causal_contract$required_terms %||% character(),
-          causal_forbidden_terms = causal_contract$forbidden_terms %||% character(),
-          causal_ranked_candidate_terms =
-            causal_contract$ranked_candidate_terms %||% character(),
+          causal_required_terms = causal_contract$required_terms %||%
+            character(),
+          causal_forbidden_terms = causal_contract$forbidden_terms %||%
+            character(),
+          causal_ranked_candidate_terms = causal_contract$ranked_candidate_terms %||%
+            character(),
           utility_dimensions = c(
             "predictive_performance",
             "parsimony",
@@ -678,16 +709,23 @@ bg_phase10_stan_workflow_actions <- function(
             "selection_rule",
             "refit_plan"
           ),
-          required_terms =
-            projection_obligation$metadata$causal_required_terms %||% character(),
-          forbidden_terms =
-            projection_obligation$metadata$causal_forbidden_terms %||% character(),
-          ranked_candidate_terms =
-            projection_obligation$metadata$causal_ranked_candidate_terms %||%
+          required_terms = projection_obligation$metadata$causal_required_terms %||%
+            character(),
+          forbidden_terms = projection_obligation$metadata$causal_forbidden_terms %||%
+            character(),
+          ranked_candidate_terms = projection_obligation$metadata$causal_ranked_candidate_terms %||%
             character(),
           selection_policy = if (
-            length(projection_obligation$metadata$causal_required_terms %||% character()) > 0 ||
-              length(projection_obligation$metadata$causal_forbidden_terms %||% character()) > 0
+            length(
+              projection_obligation$metadata$causal_required_terms %||%
+                character()
+            ) >
+              0 ||
+              length(
+                projection_obligation$metadata$causal_forbidden_terms %||%
+                  character()
+              ) >
+                0
           ) {
             "lock required terms, exclude forbidden terms, and search only across ranked admissible candidates"
           } else {

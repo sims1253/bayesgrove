@@ -141,7 +141,9 @@ describe("Dagitty causal workflow pack", {
     )
     expect_true(any(vapply(
       initial$obligations,
-      function(obligation) identical(obligation$kind, "derive_causal_adjustment"),
+      function(obligation) {
+        identical(obligation$kind, "derive_causal_adjustment")
+      },
       logical(1)
     )))
 
@@ -219,12 +221,13 @@ describe("Dagitty causal workflow pack", {
     expect_false(any(vapply(
       cleared$obligations,
       function(obligation) {
-        obligation$kind %in% c(
-          "derive_causal_adjustment",
-          "review_causal_adjustment",
-          "check_causal_implications",
-          "review_causal_implications"
-        )
+        obligation$kind %in%
+          c(
+            "derive_causal_adjustment",
+            "review_causal_adjustment",
+            "check_causal_implications",
+            "review_causal_implications"
+          )
       },
       logical(1)
     )))

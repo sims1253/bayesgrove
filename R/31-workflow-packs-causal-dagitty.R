@@ -40,9 +40,12 @@ bg_phase10_formula_terms <- function(formula) {
     return(character())
   }
 
-  terms <- unique(unlist(lapply(labels, function(label) {
-    all.vars(stats::as.formula(paste("~", label), env = baseenv()))
-  }), use.names = FALSE))
+  terms <- unique(unlist(
+    lapply(labels, function(label) {
+      all.vars(stats::as.formula(paste("~", label), env = baseenv()))
+    }),
+    use.names = FALSE
+  ))
 
   bg_phase10_sort_ids(terms)
 }
@@ -81,7 +84,9 @@ bg_phase10_causal_allowed_formulas <- function(x, response = NULL) {
       return(spec)
     }
 
-    if (is.character(spec) && length(spec) == 1 && grepl("~", spec, fixed = TRUE)) {
+    if (
+      is.character(spec) && length(spec) == 1 && grepl("~", spec, fixed = TRUE)
+    ) {
       return(bg_phase10_formula_object(spec))
     }
 
@@ -160,7 +165,9 @@ bg_phase10_current_causal_contract <- function(context) {
   formula_nodes <- bg_phase10_formula_nodes(context)
   response <- NULL
   if (length(formula_nodes) > 0) {
-    response <- bg_phase10_formula_response((formula_nodes[[1]]$params %||% list())$formula)
+    response <- bg_phase10_formula_response(
+      (formula_nodes[[1]]$params %||% list())$formula
+    )
   }
 
   bg_phase10_causal_contract_from_summary(
@@ -199,8 +206,7 @@ bg_phase10_formula_contract_violation <- function(node_id, node, contract) {
     forbidden_present = bg_phase10_sort_ids(forbidden_present),
     extra_terms = bg_phase10_sort_ids(extra_terms),
     not_in_allowed_formulas = not_in_allowed_formulas,
-    is_consistent =
-      length(missing_required) == 0 &&
+    is_consistent = length(missing_required) == 0 &&
       length(forbidden_present) == 0 &&
       length(extra_terms) == 0 &&
       !isTRUE(not_in_allowed_formulas)
@@ -276,7 +282,11 @@ bg_phase10_causal_dagitty_obligations <- function(
         ),
         basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
         metadata = list(
-          source_keys = c("taxonomy", "causal_scaffold", "causal_identification"),
+          source_keys = c(
+            "taxonomy",
+            "causal_scaffold",
+            "causal_identification"
+          ),
           summary_kinds = "dagitty_adjustment",
           utility_dimensions = "causal_consistency",
           pad_model_classes = c("PD", "PAD")
@@ -313,7 +323,11 @@ bg_phase10_causal_dagitty_obligations <- function(
           branch_ids = context$scope
         ),
         metadata = list(
-          source_keys = c("taxonomy", "causal_scaffold", "causal_identification"),
+          source_keys = c(
+            "taxonomy",
+            "causal_scaffold",
+            "causal_identification"
+          ),
           summary_kinds = "dagitty_adjustment",
           utility_dimensions = "causal_consistency",
           pad_model_classes = c("PD", "PAD")
@@ -384,7 +398,9 @@ bg_phase10_causal_dagitty_obligations <- function(
         if (length(formula_nodes) == 0) {
           NULL
         } else {
-          bg_phase10_formula_response((formula_nodes[[1]]$params %||% list())$formula)
+          bg_phase10_formula_response(
+            (formula_nodes[[1]]$params %||% list())$formula
+          )
         }
       }
     )
@@ -535,7 +551,10 @@ bg_phase10_causal_dagitty_obligations <- function(
         metadata = list(
           source_keys = c("causal_scaffold", "causal_identification"),
           summary_kinds = "dagitty_implications",
-          utility_dimensions = c("causal_consistency", "structural_faithfulness"),
+          utility_dimensions = c(
+            "causal_consistency",
+            "structural_faithfulness"
+          ),
           pad_model_classes = c("P", "PD", "PAD")
         )
       ))
@@ -572,7 +591,10 @@ bg_phase10_causal_dagitty_obligations <- function(
         metadata = list(
           source_keys = c("causal_scaffold", "causal_identification"),
           summary_kinds = "dagitty_implications",
-          utility_dimensions = c("causal_consistency", "structural_faithfulness"),
+          utility_dimensions = c(
+            "causal_consistency",
+            "structural_faithfulness"
+          ),
           pad_model_classes = c("P", "PD", "PAD")
         )
       ))
@@ -650,7 +672,8 @@ bg_phase10_causal_dagitty_actions <- function(
       context = context,
       obligation = contract_obligation,
       title = "Create causal selection contract",
-      node_kind = pack_config$selection_contract_node_kind %||% "causal_selection_contract",
+      node_kind = pack_config$selection_contract_node_kind %||%
+        "causal_selection_contract",
       default_label_prefix = "Causal selection:",
       why_now = paste0(
         "Create a DAG-backed contract node so the workflow can record required, ",
@@ -692,8 +715,7 @@ bg_phase10_causal_dagitty_actions <- function(
             character(),
           forbidden_terms = review_contract_obligation$metadata$forbidden_terms %||%
             character(),
-          ranked_candidate_terms =
-            review_contract_obligation$metadata$ranked_candidate_terms %||%
+          ranked_candidate_terms = review_contract_obligation$metadata$ranked_candidate_terms %||%
             character()
         )
       ))
@@ -715,7 +737,10 @@ bg_phase10_causal_dagitty_actions <- function(
     contract <- bg_phase10_current_causal_contract(context)
 
     if (!is.null(source_node) && !is.null(contract)) {
-      suggested_formula <- bg_phase10_contract_suggested_formula(source_node, contract)
+      suggested_formula <- bg_phase10_contract_suggested_formula(
+        source_node,
+        contract
+      )
       actions <- c(
         actions,
         list(bg_phase10_action(
@@ -769,7 +794,8 @@ bg_phase10_causal_dagitty_actions <- function(
       context = context,
       obligation = implication_obligation,
       title = "Create DAG implication check",
-      node_kind = pack_config$implications_node_kind %||% "dagitty_implications",
+      node_kind = pack_config$implications_node_kind %||%
+        "dagitty_implications",
       default_label_prefix = "DAG implications:",
       why_now = paste0(
         "Create a dagitty-backed implication node so the workflow can record the ",

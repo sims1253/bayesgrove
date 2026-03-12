@@ -79,13 +79,26 @@ describe("Workflow source references", {
       next_actions$obligations
     )[[1]]
     action <- Filter(
-      function(x) identical(x$payload$decision_type %||% NULL, "computation_review"),
+      function(x) {
+        identical(x$payload$decision_type %||% NULL, "computation_review")
+      },
       next_actions$actions
     )[[1]]
 
-    expect_true(any(grepl("Bayesian Workflow", obligation$explanation$references, fixed = TRUE)))
-    expect_true(any(grepl("Hamiltonian Monte Carlo", obligation$explanation$references, fixed = TRUE)))
-    expect_equal(action$explanation$references, obligation$explanation$references)
+    expect_true(any(grepl(
+      "Bayesian Workflow",
+      obligation$explanation$references,
+      fixed = TRUE
+    )))
+    expect_true(any(grepl(
+      "Hamiltonian Monte Carlo",
+      obligation$explanation$references,
+      fixed = TRUE
+    )))
+    expect_equal(
+      action$explanation$references,
+      obligation$explanation$references
+    )
   })
 
   it("attaches model-comparison sources to phase10 comparison actions", {
@@ -100,7 +113,15 @@ describe("Workflow source references", {
       next_actions$actions
     )[[1]]
 
-    expect_true(any(grepl("leave-one-out cross-validation", action$explanation$references, fixed = TRUE)))
-    expect_true(any(grepl("Stacking", action$explanation$references, fixed = TRUE)))
+    expect_true(any(grepl(
+      "leave-one-out cross-validation",
+      action$explanation$references,
+      fixed = TRUE
+    )))
+    expect_true(any(grepl(
+      "Stacking",
+      action$explanation$references,
+      fixed = TRUE
+    )))
   })
 })

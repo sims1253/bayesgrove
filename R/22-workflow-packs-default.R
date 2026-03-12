@@ -717,7 +717,10 @@ bg_default_bayesian_fit_criticism_obligations <- function(
         "Fresh warning or error summaries from fit or diagnostic nodes ",
         "need an explicit fit-criticism review."
       ),
-      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "stan_diagnostics"
+      ))
     ),
     metadata = list(
       source_keys = c("workflow_core", "stan_diagnostics"),
@@ -918,7 +921,10 @@ bg_default_bayesian_fit_criticism_actions <- function(
         "The current fit or diagnostic warnings need an explicit criticism ",
         "decision tied to the fresh summaries."
       ),
-      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "stan_diagnostics"
+      ))
     ),
     metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
   ))
@@ -973,7 +979,10 @@ bg_default_bayesian_fit_criticism_actions <- function(
       ),
       explanation = list(
         why_now = "A new branch keeps the diagnostic revision loop explicit.",
-        references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+        references = bg_workflow_references(c(
+          "workflow_core",
+          "stan_diagnostics"
+        ))
       ),
       metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
     ))
@@ -1036,7 +1045,9 @@ bg_default_bayesian_comparison_decision_actions <- function(
           "stacking"
         ))
       ),
-      metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
+      metadata = list(
+        source_keys = c("workflow_core", "model_comparison", "stacking")
+      )
     )))
   }
 
@@ -1084,7 +1095,9 @@ bg_default_bayesian_comparison_decision_actions <- function(
         "stacking"
       ))
     ),
-    metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
+    metadata = list(
+      source_keys = c("workflow_core", "model_comparison", "stacking")
+    )
   ))
 }
 
@@ -1151,6 +1164,8 @@ bg_default_bayesian_disposition_actions <- function(
         "stacking"
       ))
     ),
-    metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
+    metadata = list(
+      source_keys = c("workflow_core", "model_comparison", "stacking")
+    )
   ))
 }

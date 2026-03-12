@@ -2,8 +2,8 @@ url: "https://sims1253.github.io/bayesgrove"
 template:
   bootstrap: 5
 
-  development:
-    mode: auto
+development:
+  mode: auto
 
 navbar:
   structure:

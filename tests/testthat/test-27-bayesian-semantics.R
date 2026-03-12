@@ -259,17 +259,21 @@ describe("Phase 10 Bayesian semantics packs", {
     fixture <- make_source_fit_project("bayesgrove.model_checks")
     handle <- fixture$handle
 
-    bg_register_node_kind(handle, "calibration", executor = function(node, inputs) {
-      list(
-        result = list(ok = TRUE),
-        summaries = list(list(
-          summary_kind = "loo_pit_calibration",
-          passed = TRUE,
-          severity = "ok",
-          metrics = list(uniformity_gap = 0.03)
-        ))
-      )
-    })
+    bg_register_node_kind(
+      handle,
+      "calibration",
+      executor = function(node, inputs) {
+        list(
+          result = list(ok = TRUE),
+          summaries = list(list(
+            summary_kind = "loo_pit_calibration",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(uniformity_gap = 0.03)
+          ))
+        )
+      }
+    )
 
     initial <- bg_next_actions(handle, scope = "project")
     expect_true(any(vapply(

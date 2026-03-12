@@ -40,7 +40,9 @@ describe("Workflow guidance packs", {
           summary_kind = "hmc_diagnostics",
           passed = identical(severity, "ok"),
           severity = severity,
-          metrics = list(divergent_transitions = if (identical(severity, "ok")) 0 else 4)
+          metrics = list(
+            divergent_transitions = if (identical(severity, "ok")) 0 else 4
+          )
         ))
       )
     })
@@ -158,7 +160,10 @@ describe("Workflow guidance packs", {
     review_action <- Filter(
       function(action) {
         identical(action$kind, "record_decision") &&
-          identical(action$payload$decision_type, "workflow_generalization_review")
+          identical(
+            action$payload$decision_type,
+            "workflow_generalization_review"
+          )
       },
       review$actions
     )[[1]]
@@ -177,10 +182,11 @@ describe("Workflow guidance packs", {
     expect_false(any(vapply(
       cleared$obligations,
       function(obligation) {
-        obligation$kind %in% c(
-          "review_workflow_preflight",
-          "review_out_of_sample_stability"
-        )
+        obligation$kind %in%
+          c(
+            "review_workflow_preflight",
+            "review_out_of_sample_stability"
+          )
       },
       logical(1)
     )))
@@ -214,10 +220,13 @@ describe("Workflow guidance packs", {
       initial$actions
     )[[1]]
 
-    expect_true(all(c(
-      "causal_consistency",
-      "parameter_recoverability"
-    ) %in% utility_action$payload$suggested_primary_utilities))
+    expect_true(all(
+      c(
+        "causal_consistency",
+        "parameter_recoverability"
+      ) %in%
+        utility_action$payload$suggested_primary_utilities
+    ))
 
     record_action_decision(
       handle,
@@ -246,10 +255,11 @@ describe("Workflow guidance packs", {
     expect_false(any(vapply(
       cleared$obligations,
       function(obligation) {
-        obligation$kind %in% c(
-          "classify_model_taxonomy",
-          "review_utility_tradeoffs"
-        )
+        obligation$kind %in%
+          c(
+            "classify_model_taxonomy",
+            "review_utility_tradeoffs"
+          )
       },
       logical(1)
     )))
@@ -279,10 +289,13 @@ describe("Workflow guidance packs", {
       initial$actions
     )[[1]]
 
-    expect_true(all(c(
-      "raise_adapt_delta",
-      "reparameterize"
-    ) %in% stan_action$payload$suggested_repairs))
+    expect_true(all(
+      c(
+        "raise_adapt_delta",
+        "reparameterize"
+      ) %in%
+        stan_action$payload$suggested_repairs
+    ))
 
     record_action_decision(
       handle,

@@ -1,3 +1,9 @@
+# bayesgrove 0.4.3
+
+* Added process-guidance, model-taxonomy, Stan-workflow, and dagitty-backed causal workflow packs that extend the review protocol with primary-source-backed Bayesian workflow semantics.
+* Added causal selection contracts so DAG-derived required, forbidden, and ranked admissible terms can constrain formulas and projection-oriented review in causal branches.
+* Added the primed-prior case study vignette and refreshed the README plus package vignettes so the documented workflow-pack surface matches the current package behavior.
+
 # bayesgrove 0.4.2
 
 * Added `bg_execute_action()` and `bg_extension_registry()` to the pkgdown reference so the site builds cleanly in CI.

@@ -16,31 +16,16 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-**bayesgrove** is built for the part of Bayesian work that usually gets lost:
-the path between an initial fit and the final analysis. It keeps two layers
-separate without splitting them apart in practice:
+**bayesgrove** manages the path between an initial model fit and the final analysis. It separates two layers:
 
-1. **The execution graph**. `dagriculture` tracks the computations you run:
-   data preparation, fitting, diagnostics, comparison, and export.
-2. **The decision layer**. Gates and decisions record why the workflow changed:
-   a revised prior, a rejected branch, an accepted comparison, or a data
-   exclusion.
+1. **The execution graph**. `dagriculture` tracks data preparation, fitting, diagnostics, comparison, and export.
+2. **The decision layer**. Gates and decisions record why the workflow changed: a revised prior, a rejected branch, an accepted comparison, or a data exclusion.
 
-That split keeps computations reproducible while preserving the reasons behind
-them. The workflow-protocol layer sits on top of the graph: executors emit
-summaries, `bg_next_actions()` turns those summaries into obligations and
-suggested actions, and callers can pass the resulting holds back into
-`bg_plan()` without confusing review state with structural graph blockers. The
-built-in `bayesguide.default_bayesian` pack covers a narrow default loop:
-computation review, branch-scoped fit criticism, candidate comparison, and
-explicit branch acceptance or rejection. Optional packs extend that loop with
-process guidance, PAD taxonomy, prior rationale, predictive checks, SBC,
-LOO-PIT calibration, model-selection review, Stan-specific review, and
-DAG-backed causal selection contracts.
+This separation ensures computations remain reproducible while preserving the rationale behind them. The workflow-protocol layer operates on top of the graph: executors emit summaries, and `bg_next_actions()` converts these summaries into obligations and suggested actions. Callers pass the resulting holds back into `bg_plan()`. This keeps workflow guidance distinct from structural graph blockers.
 
-That review loop is exposed through a small built-in template registry. The
-registry keeps common next steps explicit instead of hardcoding one-off REPL
-behaviors:
+The built-in `bayesguide.default_bayesian` pack implements a baseline review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection. Optional packs extend this loop with process guidance, PAD taxonomy, prior rationale, predictive checks, SBC, LOO-PIT calibration, model-selection review, Stan-specific review, and DAG-backed causal selection contracts.
+
+A built-in template registry exposes this review loop. The registry defines common next steps rather than hardcoding REPL behaviors:
 
 ```{r templates}
 library(bayesgrove)
@@ -60,10 +45,7 @@ boundary <- bg_api_boundary()
 subset(boundary, remote_accessible)[, c("fn", "classification")]
 ```
 
-The same workflow protocol also powers the built-in interactive terminal
-client. `bg_repl()` opens with a dashboard-oriented view so you can inspect the
-current workflow state, active obligations, held nodes, branch-scoped gates,
-recent decisions, and branch lineage without dropping into low-level calls.
+The workflow protocol powers the interactive terminal client. `bg_repl()` provides a dashboard view of the workflow state, active obligations, held nodes, branch-scoped gates, recent decisions, and branch lineage.
 
 ```{r repl-client, eval = FALSE}
 bg_repl(handle)

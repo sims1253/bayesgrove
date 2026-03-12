@@ -870,7 +870,10 @@ bg_default_bayesian_summary_obligations <- function(
     ),
     explanation = list(
       why = "Fresh warning or error summaries are active in this scope.",
-      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "stan_diagnostics"
+      ))
     ),
     metadata = list(
       source_keys = c("workflow_core", "stan_diagnostics"),
@@ -954,7 +957,10 @@ bg_default_bayesian_summary_actions <- function(
     ),
     explanation = list(
       why_now = "A blocking computation-validity obligation is active.",
-      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "stan_diagnostics"
+      ))
     ),
     metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
   ))
@@ -1010,7 +1016,10 @@ bg_default_bayesian_summary_actions <- function(
         ),
         explanation = list(
           why_now = "A new branch preserves provenance while you iterate on diagnostics.",
-          references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
+          references = bg_workflow_references(c(
+            "workflow_core",
+            "stan_diagnostics"
+          ))
         ),
         metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
       ))
