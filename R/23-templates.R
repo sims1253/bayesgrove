@@ -42,6 +42,7 @@ bg_review_decision_types <- function() {
     "model_comparison",
     "branch_disposition",
     "causal_question",
+    "causal_selection_contract_review",
     "pad_annotation_review"
   )
 }
@@ -257,6 +258,10 @@ bg_template_review_prompt <- function(action, decision_type) {
     "model_comparison" = "What is your explicit model comparison decision?",
     "branch_disposition" = "Should this branch be accepted or rejected?",
     "causal_question" = "What causal question, estimand, or DAG review should be recorded for this branch?",
+    "causal_selection_contract_review" = paste(
+      "How should this branch lock required causal terms, exclude forbidden",
+      "terms, and rank admissible precision candidates?"
+    ),
     "pad_annotation_review" = "How should this branch be described using PAD taxonomy and utility language?",
     action$title %||% "Record review decision"
   )

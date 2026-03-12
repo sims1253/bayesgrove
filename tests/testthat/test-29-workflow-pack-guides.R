@@ -364,4 +364,144 @@ describe("Workflow guidance packs", {
       logical(1)
     )))
   })
+
+  it("adds causal selection constraints to projection review payloads", {
+    fixture <- make_branch_fit_project(c(
+      "bayesgrove.stan_workflow",
+      "bayesgrove.causal_dagitty"
+    ))
+    handle <- fixture$handle
+
+    bg_register_node_kind(
+      handle,
+      "dagitty_adjustment",
+      executor = function(node, inputs) {
+        list(
+          summaries = list(list(
+            summary_kind = "dagitty_adjustment",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(adjustment_set = "z")
+          ))
+        )
+      }
+    )
+
+    bg_register_node_kind(
+      handle,
+      "causal_selection_contract",
+      executor = function(node, inputs) {
+        list(
+          summaries = list(list(
+            summary_kind = "causal_selection_contract",
+            passed = TRUE,
+            severity = "ok",
+            metrics = list(
+              required_terms = c("treatment", "z"),
+              forbidden_terms = "post_treatment",
+              ranked_candidate_terms = c("w", "x")
+            )
+          ))
+        )
+      }
+    )
+
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(
+        summaries = list(list(
+          summary_kind = "projpred_selection",
+          passed = TRUE,
+          severity = "ok",
+          metrics = list(selected_terms = c("treatment", "z", "w"))
+        ))
+      )
+    })
+
+    adjustment_id <- bg_add_node(
+      handle,
+      kind = "dagitty_adjustment",
+      label = "Adjustment set",
+      inputs = fixture$branch$root_node_id
+    )
+    bg_run(handle, targets = adjustment_id, mode = "sync")
+
+    adjustment_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "causal_adjustment_review")
+      },
+      bg_next_actions(
+        handle,
+        scope = "branch",
+        branch_id = fixture$branch$branch_id
+      )$actions
+    )[[1]]
+    record_action_decision(
+      handle,
+      adjustment_action,
+      choice = "adjust_for_z",
+      rationale = "The branch will adjust for z."
+    )
+
+    contract_id <- bg_add_node(
+      handle,
+      kind = "causal_selection_contract",
+      label = "Selection contract",
+      inputs = fixture$branch$root_node_id
+    )
+    bg_run(handle, targets = contract_id, mode = "sync")
+
+    contract_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(
+            action$payload$decision_type,
+            "causal_selection_contract_review"
+          )
+      },
+      bg_next_actions(
+        handle,
+        scope = "branch",
+        branch_id = fixture$branch$branch_id
+      )$actions
+    )[[1]]
+    record_action_decision(
+      handle,
+      contract_action,
+      choice = "contract_locked",
+      rationale = "The causal selection contract is now explicit."
+    )
+
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Projection predictive",
+      inputs = fixture$branch$root_node_id
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    review <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = fixture$branch$branch_id
+    )
+    projection_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "projection_selection_review")
+      },
+      review$actions
+    )[[1]]
+
+    expect_setequal(
+      projection_action$payload$required_terms,
+      c("treatment", "z")
+    )
+    expect_equal(projection_action$payload$forbidden_terms, "post_treatment")
+    expect_equal(
+      projection_action$payload$ranked_candidate_terms,
+      c("w", "x")
+    )
+    expect_match(projection_action$payload$selection_policy, "lock required")
+  })
 })

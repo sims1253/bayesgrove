@@ -574,6 +574,8 @@ bg_phase10_stan_workflow_obligations <- function(
   )
 
   if (length(projection_summaries) > 0) {
+    causal_contract <- bg_phase10_current_causal_contract(context)
+
     obligations <- c(
       obligations,
       list(bg_phase10_obligation(
@@ -595,6 +597,10 @@ bg_phase10_stan_workflow_obligations <- function(
             character(1),
             "summary_kind"
           ))),
+          causal_required_terms = causal_contract$required_terms %||% character(),
+          causal_forbidden_terms = causal_contract$forbidden_terms %||% character(),
+          causal_ranked_candidate_terms =
+            causal_contract$ranked_candidate_terms %||% character(),
           utility_dimensions = c(
             "predictive_performance",
             "parsimony",
@@ -671,7 +677,22 @@ bg_phase10_stan_workflow_actions <- function(
             "selected_submodel",
             "selection_rule",
             "refit_plan"
-          )
+          ),
+          required_terms =
+            projection_obligation$metadata$causal_required_terms %||% character(),
+          forbidden_terms =
+            projection_obligation$metadata$causal_forbidden_terms %||% character(),
+          ranked_candidate_terms =
+            projection_obligation$metadata$causal_ranked_candidate_terms %||%
+            character(),
+          selection_policy = if (
+            length(projection_obligation$metadata$causal_required_terms %||% character()) > 0 ||
+              length(projection_obligation$metadata$causal_forbidden_terms %||% character()) > 0
+          ) {
+            "lock required terms, exclude forbidden terms, and search only across ranked admissible candidates"
+          } else {
+            NULL
+          }
         )
       ))
     )
