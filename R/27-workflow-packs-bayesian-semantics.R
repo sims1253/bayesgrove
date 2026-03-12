@@ -201,7 +201,7 @@ bg_phase10_obligation <- function(
   metadata = list()
 ) {
   metadata <- utils::modifyList(
-    list(hold_node_ids = character()),
+    list(hold_node_ids = character(), source_keys = character()),
     metadata %||% list()
   )
 
@@ -223,7 +223,10 @@ bg_phase10_obligation <- function(
     basis = basis,
     explanation = list(
       why = why,
-      references = metadata$references %||% character()
+      references = bg_workflow_references(
+        source_keys = metadata$source_keys,
+        references = metadata$references
+      )
     ),
     metadata = metadata[setdiff(names(metadata), "references")]
   )
@@ -238,6 +241,11 @@ bg_phase10_action <- function(
   payload = list(),
   metadata = list()
 ) {
+  metadata <- utils::modifyList(
+    list(source_keys = character()),
+    metadata %||% list()
+  )
+
   list(
     kind = kind,
     scope = context$scope,
@@ -246,7 +254,10 @@ bg_phase10_action <- function(
     payload = bg_protocol_normalize_value(payload %||% list()),
     explanation = list(
       why_now = why_now,
-      references = metadata$references %||% character()
+      references = bg_workflow_references(
+        source_keys = metadata$source_keys,
+        references = metadata$references
+      )
     ),
     metadata = metadata[setdiff(names(metadata), "references")]
   )
@@ -262,6 +273,20 @@ bg_phase10_check_action <- function(
   why_now,
   metadata = list()
 ) {
+  metadata <- utils::modifyList(
+    metadata %||% list(),
+    list(
+      source_keys = unique(c(
+        obligation$metadata$source_keys %||% character(),
+        (metadata %||% list())$source_keys %||% character()
+      )),
+      references = unique(c(
+        obligation$explanation$references %||% character(),
+        (metadata %||% list())$references %||% character()
+      ))
+    )
+  )
+
   source_node_id <- source_node_id %||%
     bg_phase10_source_node_id(context, obligation$basis$node_ids)
   if (is.null(source_node_id)) {
@@ -303,6 +328,20 @@ bg_phase10_review_action <- function(
   payload = list(),
   metadata = list()
 ) {
+  metadata <- utils::modifyList(
+    metadata %||% list(),
+    list(
+      source_keys = unique(c(
+        obligation$metadata$source_keys %||% character(),
+        (metadata %||% list())$source_keys %||% character()
+      )),
+      references = unique(c(
+        obligation$explanation$references %||% character(),
+        (metadata %||% list())$references %||% character()
+      ))
+    )
+  )
+
   bg_phase10_action(
     context = context,
     kind = "record_decision",
@@ -367,6 +406,7 @@ bg_phase10_prior_workflow_obligations <- function(
         ),
         basis = list(node_ids = fit_node_ids),
         metadata = list(
+          source_keys = c("workflow_core", "prior_predictive", "taxonomy"),
           utility_dimensions = c(
             "structural_faithfulness",
             "robustness",
@@ -395,6 +435,7 @@ bg_phase10_prior_workflow_obligations <- function(
         ),
         basis = list(node_ids = fit_node_ids),
         metadata = list(
+          source_keys = c("workflow_core", "prior_predictive"),
           summary_kinds = "prior_predictive_check",
           utility_dimensions = c(
             "structural_faithfulness",
@@ -433,6 +474,7 @@ bg_phase10_prior_workflow_obligations <- function(
           ))
         ),
         metadata = list(
+          source_keys = c("workflow_core", "prior_predictive"),
           summary_kinds = "prior_predictive_check",
           utility_dimensions = c(
             "structural_faithfulness",
@@ -557,6 +599,7 @@ bg_phase10_model_checks_obligations <- function(
         ),
         basis = list(node_ids = fit_node_ids),
         metadata = list(
+          source_keys = c("workflow_core", "posterior_predictive"),
           summary_kinds = "posterior_predictive_check",
           utility_dimensions = c(
             "predictive_performance",
@@ -596,6 +639,7 @@ bg_phase10_model_checks_obligations <- function(
           ))
         ),
         metadata = list(
+          source_keys = c("workflow_core", "posterior_predictive"),
           summary_kinds = "posterior_predictive_check",
           utility_dimensions = c(
             "predictive_performance",
@@ -626,7 +670,7 @@ bg_phase10_model_checks_obligations <- function(
         ),
         basis = list(node_ids = fit_node_ids),
         metadata = list(
-          references = "Gelman et al. (2020)",
+          source_keys = c("workflow_core", "loo_pit"),
           summary_kinds = "loo_pit_calibration",
           utility_dimensions = c(
             "predictive_performance",
@@ -667,7 +711,7 @@ bg_phase10_model_checks_obligations <- function(
           ))
         ),
         metadata = list(
-          references = "Gelman et al. (2020)",
+          source_keys = c("workflow_core", "loo_pit"),
           summary_kinds = "loo_pit_calibration",
           utility_dimensions = c(
             "predictive_performance",
@@ -703,6 +747,7 @@ bg_phase10_model_checks_obligations <- function(
           ),
           basis = list(node_ids = fit_node_ids),
           metadata = list(
+            source_keys = c("workflow_core", "sbc", "taxonomy"),
             summary_kinds = "sbc_result",
             utility_dimensions = c(
               "parameter_recoverability",
@@ -742,6 +787,7 @@ bg_phase10_model_checks_obligations <- function(
             ))
           ),
           metadata = list(
+            source_keys = c("workflow_core", "sbc", "taxonomy"),
             summary_kinds = "sbc_result",
             utility_dimensions = c(
               "parameter_recoverability",
@@ -1029,6 +1075,7 @@ bg_phase10_model_selection_obligations <- function(
       summary_ids = candidate_basis$summary_ids
     ),
     metadata = list(
+      source_keys = c("workflow_core", "model_comparison", "stacking"),
       candidate_signature = candidate_basis$candidate_signature,
       comparison_context = comparison_context,
       comparison_signature = comparison_context$comparison_signature,
@@ -1099,6 +1146,10 @@ bg_phase10_model_selection_actions <- function(
           "Compare:",
           paste(fit_labels, collapse = " vs ")
         )
+      ),
+      metadata = list(
+        source_keys = obligation$metadata$source_keys %||% character(),
+        references = obligation$explanation$references %||% character()
       )
     )))
   }
@@ -1193,6 +1244,7 @@ bg_phase10_causal_minimal_obligations <- function(
     severity = "advisory",
     basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
     metadata = list(
+      source_keys = c("taxonomy", "causal_scaffold"),
       utility_dimensions = "causal_consistency",
       pad_model_classes = c("P", "PD", "PAD")
     )
@@ -1270,6 +1322,7 @@ bg_phase10_pad_scaffold_obligations <- function(
     severity = "advisory",
     basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
     metadata = list(
+      source_keys = "taxonomy",
       utility_dimensions = bg_phase10_primary_utilities(context),
       pad_model_classes = c("P", "PA", "PD", "PAD")
     )

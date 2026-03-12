@@ -798,9 +798,9 @@ bg_default_bayesian_goal_obligations <- function(
     ),
     explanation = list(
       why = "This branch has no active inferential goal decision.",
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "taxonomy"))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "taxonomy"))
   ))
 }
 
@@ -854,9 +854,10 @@ bg_default_bayesian_summary_obligations <- function(
     ),
     explanation = list(
       why = "Fresh warning or error summaries are active in this scope.",
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
     ),
     metadata = list(
+      source_keys = c("workflow_core", "stan_diagnostics"),
       summary_kinds = unique(vapply(
         pending,
         `[[`,
@@ -899,9 +900,9 @@ bg_default_bayesian_goal_actions <- function(
     ),
     explanation = list(
       why_now = "Branch-scoped workflow guidance stays blocked until a goal is set.",
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "taxonomy"))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "taxonomy"))
   ))
 }
 
@@ -937,9 +938,9 @@ bg_default_bayesian_summary_actions <- function(
     ),
     explanation = list(
       why_now = "A blocking computation-validity obligation is active.",
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
   ))
 
   if (length(node_ids) > 0) {
@@ -993,9 +994,9 @@ bg_default_bayesian_summary_actions <- function(
         ),
         explanation = list(
           why_now = "A new branch preserves provenance while you iterate on diagnostics.",
-          references = character()
+          references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
         ),
-        metadata = list()
+        metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
       ))
     )
   }

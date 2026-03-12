@@ -171,7 +171,7 @@ bg_phase10_process_guidance_obligations <- function(
         severity = "advisory",
         basis = list(node_ids = fit_node_ids),
         metadata = list(
-          references = "Gelman et al. (2020)",
+          source_keys = "workflow_core",
           utility_dimensions = c(
             "structural_faithfulness",
             "robustness",
@@ -206,7 +206,7 @@ bg_phase10_process_guidance_obligations <- function(
         severity = bg_phase10_review_severity(diagnostic_summaries),
         basis = bg_phase10_summary_basis(diagnostic_summaries),
         metadata = list(
-          references = "Gelman et al. (2020)",
+          source_keys = c("workflow_core", "stan_diagnostics"),
           summary_kinds = sort(unique(vapply(
             diagnostic_summaries,
             `[[`,
@@ -245,7 +245,7 @@ bg_phase10_process_guidance_obligations <- function(
         severity = bg_phase10_review_severity(generalization_summaries),
         basis = bg_phase10_summary_basis(generalization_summaries),
         metadata = list(
-          references = "Gelman et al. (2020)",
+          source_keys = c("workflow_core", "model_comparison", "loo_pit"),
           summary_kinds = sort(unique(vapply(
             generalization_summaries,
             `[[`,
@@ -404,7 +404,7 @@ bg_phase10_model_taxonomy_obligations <- function(
         severity = "advisory",
         basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
         metadata = list(
-          references = "Bürkner et al. (2023)",
+          source_keys = "taxonomy",
           utility_dimensions = bg_phase10_primary_utilities(context),
           pad_model_classes = c("P", "PA", "PD", "PAD")
         )
@@ -431,7 +431,7 @@ bg_phase10_model_taxonomy_obligations <- function(
         severity = "advisory",
         basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
         metadata = list(
-          references = "Bürkner et al. (2023)",
+          source_keys = "taxonomy",
           utility_dimensions = bg_phase10_taxonomy_utility_dimensions(),
           pad_model_classes = c("P", "PA", "PD", "PAD")
         )
@@ -545,6 +545,7 @@ bg_phase10_stan_workflow_obligations <- function(
         severity = bg_phase10_review_severity(diagnostic_summaries),
         basis = bg_phase10_summary_basis(diagnostic_summaries),
         metadata = list(
+          source_keys = c("workflow_core", "stan_diagnostics"),
           summary_kinds = sort(unique(vapply(
             diagnostic_summaries,
             `[[`,
@@ -587,6 +588,7 @@ bg_phase10_stan_workflow_obligations <- function(
         severity = bg_phase10_review_severity(projection_summaries),
         basis = bg_phase10_summary_basis(projection_summaries),
         metadata = list(
+          source_keys = c("model_comparison", "projection_predictive"),
           summary_kinds = sort(unique(vapply(
             projection_summaries,
             `[[`,

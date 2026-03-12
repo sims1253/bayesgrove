@@ -717,9 +717,10 @@ bg_default_bayesian_fit_criticism_obligations <- function(
         "Fresh warning or error summaries from fit or diagnostic nodes ",
         "need an explicit fit-criticism review."
       ),
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
     ),
     metadata = list(
+      source_keys = c("workflow_core", "stan_diagnostics"),
       summary_kinds = sort(unique(vapply(
         pending,
         `[[`,
@@ -774,9 +775,14 @@ bg_default_bayesian_comparison_obligations <- function(
         "At least two fit candidates are clean and comparable. ",
         "Run or review a comparison, then record a model comparison decision."
       ),
-      references = character()
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "model_comparison",
+        "stacking"
+      ))
     ),
     metadata = list(
+      source_keys = c("workflow_core", "model_comparison", "stacking"),
       candidate_signature = candidate_basis$candidate_signature,
       hold_node_ids = bg_default_bayesian_hold_node_ids(comparison_evidence)
     )
@@ -860,9 +866,14 @@ bg_default_bayesian_disposition_obligations <- function(
         "A current comparison exists for this branch's candidate set. ",
         "Record whether the branch is accepted or rejected."
       ),
-      references = character()
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "model_comparison",
+        "stacking"
+      ))
     ),
     metadata = list(
+      source_keys = c("workflow_core", "model_comparison", "stacking"),
       comparison_node_id = comparison_evidence$node_id,
       hold_node_ids = bg_default_bayesian_hold_node_ids(comparison_evidence),
       comparison_context = comparison_context,
@@ -907,9 +918,9 @@ bg_default_bayesian_fit_criticism_actions <- function(
         "The current fit or diagnostic warnings need an explicit criticism ",
         "decision tied to the fresh summaries."
       ),
-      references = character()
+      references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
   ))
 
   if (length(node_ids) == 0) {
@@ -962,9 +973,9 @@ bg_default_bayesian_fit_criticism_actions <- function(
       ),
       explanation = list(
         why_now = "A new branch keeps the diagnostic revision loop explicit.",
-        references = character()
+        references = bg_workflow_references(c("workflow_core", "stan_diagnostics"))
       ),
-      metadata = list()
+      metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
     ))
   )
 
@@ -1019,9 +1030,13 @@ bg_default_bayesian_comparison_decision_actions <- function(
           "These fit candidates are ready for formal comparison. ",
           "Create the comparison node before recording the project decision."
         ),
-        references = character()
+        references = bg_workflow_references(c(
+          "workflow_core",
+          "model_comparison",
+          "stacking"
+        ))
       ),
-      metadata = list()
+      metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
     )))
   }
 
@@ -1063,9 +1078,13 @@ bg_default_bayesian_comparison_decision_actions <- function(
         "A current comparison exists for the clean candidate set. ",
         "Record the explicit model comparison decision."
       ),
-      references = character()
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "model_comparison",
+        "stacking"
+      ))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
   ))
 }
 
@@ -1126,8 +1145,12 @@ bg_default_bayesian_disposition_actions <- function(
         "The branch is part of a current comparison context. ",
         "Record an explicit accept or reject disposition."
       ),
-      references = character()
+      references = bg_workflow_references(c(
+        "workflow_core",
+        "model_comparison",
+        "stacking"
+      ))
     ),
-    metadata = list()
+    metadata = list(source_keys = c("workflow_core", "model_comparison", "stacking"))
   ))
 }
