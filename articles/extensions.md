@@ -39,39 +39,51 @@ handle <- bg_init(
   project_name = "Extensions",
   workflow_packs = list(
     "bayesguide.default_bayesian",
+    "bayesgrove.process_guidance",
+    "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
     "bayesgrove.model_checks",
     "bayesgrove.model_selection",
-    "bayesgrove.causal_minimal",
-    "bayesgrove.pad_scaffold"
+    "bayesgrove.stan_workflow",
+    "bayesgrove.causal_dagitty"
   )
 )
 
 vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
-#> [1] "bayesguide.default_bayesian" "bayesgrove.prior_workflow"  
-#> [3] "bayesgrove.model_checks"     "bayesgrove.model_selection" 
-#> [5] "bayesgrove.causal_minimal"   "bayesgrove.pad_scaffold"
+#> [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"
+#> [3] "bayesgrove.model_taxonomy"   "bayesgrove.prior_workflow"  
+#> [5] "bayesgrove.model_checks"     "bayesgrove.model_selection" 
+#> [7] "bayesgrove.stan_workflow"    "bayesgrove.causal_dagitty"
 ```
 
 Those packs add review vocabulary without changing the graph engine:
 
 - `bayesguide.default_bayesian`: computation review, fit criticism,
   candidate comparison, and branch disposition.
+- `bayesgrove.process_guidance`: workflow preflight, iterative repair
+  notes, and out-of-sample stability review.
+- `bayesgrove.model_taxonomy`: PAD classification and utility-tradeoff
+  review.
 - `bayesgrove.prior_workflow`: prior rationale and prior predictive
   review.
 - `bayesgrove.model_checks`: posterior predictive checks and, for
-  `latent_inference` branches, SBC review.
+  `latent_inference` branches, SBC and LOO-PIT calibration review.
 - `bayesgrove.model_selection`: model-comparison evidence from fresh
   comparison summaries, with optional stacking weights.
-- `bayesgrove.causal_minimal`: an advisory causal-question scaffold for
-  `latent_inference` branches.
-- `bayesgrove.pad_scaffold`: an advisory PAD annotation scaffold once a
-  branch has an inferential goal.
+- `bayesgrove.stan_workflow`: a bundled Stan-oriented ruleset covering
+  the default loop, process guidance, taxonomy, predictive checks, model
+  selection, Stan diagnostics, and projection review.
+- `bayesgrove.causal_dagitty`: DAG-backed adjustment review, implication
+  review, and causal selection contracts for `latent_inference`
+  branches.
 
 The scope matters. `bayesgrove.model_selection` only acts at project
-scope when there are at least two clean fit candidates. The causal and
-PAD packs are branch-scoped prompts, not full domain systems, and they
-do not fire until the branch has the right goal context.
+scope when there are at least two clean fit candidates. The taxonomy and
+causal packs are branch-scoped, and they do not fire until the branch
+has the right goal context. In particular, `bayesgrove.causal_dagitty`
+becomes stronger after a reviewed `causal_selection_contract`: formulas
+and projection-based selection can then be constrained to keep required
+identification terms and exclude forbidden controls.
 
 ## Build a node set
 
@@ -141,15 +153,62 @@ Two practical rules make these node sets easy to compose:
 The optional packs are summary-driven. They do not require special node
 kinds; they only care about summary records attached to fresh results.
 
-| Summary kind                                                   | Consumed by                  | Typical use                                                                     |
-|----------------------------------------------------------------|------------------------------|---------------------------------------------------------------------------------|
-| `prior_spec`                                                   | `bayesgrove.prior_workflow`  | Record the current prior specification                                          |
-| `prior_predictive_check`                                       | `bayesgrove.prior_workflow`  | Review whether priors generate plausible observables                            |
-| `posterior_predictive_check`                                   | `bayesgrove.model_checks`    | Review fit-to-data mismatch after conditioning                                  |
-| `sbc_result`                                                   | `bayesgrove.model_checks`    | Review parameter recoverability and calibration for `latent_inference` branches |
-| `comparison_results` / `model_comparison` / `stacking_weights` | `bayesgrove.model_selection` | Compare clean candidates and review weighting evidence                          |
-| `causal_framing`                                               | `bayesgrove.causal_minimal`  | Record a branch-scoped causal question or identifying story                     |
-| `pad_annotation`                                               | `bayesgrove.pad_scaffold`    | Label a branch with PAD class and utility dimensions                            |
+| Summary kind                                                   | Consumed by                  | Typical use                                                                               |
+|----------------------------------------------------------------|------------------------------|-------------------------------------------------------------------------------------------|
+| `prior_spec`                                                   | `bayesgrove.prior_workflow`  | Record the current prior specification                                                    |
+| `prior_predictive_check`                                       | `bayesgrove.prior_workflow`  | Review whether priors generate plausible observables                                      |
+| `posterior_predictive_check`                                   | `bayesgrove.model_checks`    | Review fit-to-data mismatch after conditioning                                            |
+| `loo_pit_calibration`                                          | `bayesgrove.model_checks`    | Review leave-one-out predictive calibration                                               |
+| `sbc_result`                                                   | `bayesgrove.model_checks`    | Review parameter recoverability and calibration for `latent_inference` branches           |
+| `comparison_results` / `model_comparison` / `stacking_weights` | `bayesgrove.model_selection` | Compare clean candidates and review weighting evidence                                    |
+| `projpred_selection` / `projection_predictive_selection`       | `bayesgrove.stan_workflow`   | Review submodel compression and refit plans                                               |
+| `dagitty_adjustment`                                           | `bayesgrove.causal_dagitty`  | Review DAG-derived adjustment sets                                                        |
+| `dagitty_implications`                                         | `bayesgrove.causal_dagitty`  | Review implied independencies and falsification targets                                   |
+| `causal_selection_contract`                                    | `bayesgrove.causal_dagitty`  | Lock required terms, exclude forbidden controls, and rank admissible precision candidates |
+| `pad_annotation`                                               | `bayesgrove.model_taxonomy`  | Label a branch with PAD class and utility dimensions                                      |
+
+## Causal selection contracts and constrained projpred workflows
+
+The new causal-DAG path is meant to guide model construction, not only
+review it after the fact. A causal branch can now emit a
+`causal_selection_contract` summary with fields such as:
+
+- `required_terms` for identification-critical covariates,
+- `forbidden_terms` for colliders, post-treatment variables, or other
+  blocked controls,
+- `ranked_candidate_terms` for the admissible precision path from
+  simpler to richer models, and
+- optionally `allowed_formulas` when the DAG layer wants to enumerate
+  exact permitted RHS patterns.
+
+Once that summary is reviewed, `bayesgrove.causal_dagitty` can enforce
+formula consistency and keep downstream work on hold until the branch’s
+formulas obey the contract. `bayesgrove.stan_workflow` also forwards the
+same causal payload into projection-predictive review so a
+`projpred`-style node can search only inside the admissible ranked
+candidate set.
+
+``` r
+bg_register_node_kind(handle, "causal_selection_contract", executor = function(node, inputs) {
+  list(
+    summaries = list(list(
+      summary_kind = "causal_selection_contract",
+      passed = TRUE,
+      severity = "ok",
+      metrics = list(
+        required_terms = c("treatment", "z"),
+        forbidden_terms = "post_treatment",
+        ranked_candidate_terms = c("w", "x")
+      )
+    ))
+  )
+})
+```
+
+That contract keeps the Bayesian-workflow iteration spirit intact: start
+with the smallest causally valid formula, then add ranked admissible
+terms as the workflow pursues more precision or better predictive
+compression.
 
 Each summary should stay plain and serializable. A good pattern is:
 
@@ -172,10 +231,12 @@ init_normal_workflow <- function(path) {
     project_name = "normal_workflow",
     workflow_packs = list(
       "bayesguide.default_bayesian",
+      "bayesgrove.process_guidance",
+      "bayesgrove.model_taxonomy",
       "bayesgrove.prior_workflow",
       "bayesgrove.model_checks",
       "bayesgrove.model_selection",
-      "bayesgrove.pad_scaffold"
+      "bayesgrove.stan_workflow"
     )
   )
 

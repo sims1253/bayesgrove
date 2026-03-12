@@ -16,9 +16,9 @@ The loop covers the current package strengths:
 - report export after iteration.
 
 It intentionally exercises only the narrow `bayesguide.default_bayesian`
-pack. If you want prior rationale, predictive checks, SBC review,
-stacking-aware model selection, or PAD and causal scaffolds, add the
-optional phase-10 packs described in
+pack. If you want process guidance, taxonomy review, predictive checks,
+SBC review, stacking-aware model selection, Stan-specific review, or
+DAG-constrained causal selection, add the richer packs described in
 [`vignette("extensions", package = "bayesgrove")`](https://sims1253.github.io/bayesgrove/articles/extensions.md).
 
 ## Setup
@@ -531,13 +531,13 @@ project_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(project_protocol)
 #>             scope                 obligations
 #> 1         Project  compare_candidate_branches
-#> 2 Repaired branch review_computation_validity
-#> 3   Robust branch                        none
-#> 4 Centered branch review_computation_validity
+#> 2   Robust branch                        none
+#> 3 Centered branch review_computation_validity
+#> 4 Repaired branch review_computation_validity
 #>                              actions
 #> 1          create_node_from_template
-#> 2 record_decision, branch_and_modify
-#> 3                               none
+#> 2                               none
+#> 3 record_decision, branch_and_modify
 #> 4 record_decision, branch_and_modify
 ```
 
@@ -712,7 +712,7 @@ report_path <- bg_export_report(
   format = "md"
 )
 #> Report exported to
-#> /tmp/Rtmpjg0WOb/bg-guided-review-loop/case-study-report.md
+#> /tmp/RtmpZcBlTq/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -725,7 +725,7 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # bayesgrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-11 15:10:20
+#> **Generated:** 2026-03-12 19:05:07
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology

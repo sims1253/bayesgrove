@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -488,9 +489,9 @@ the computational state.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, path <span class="op">=</span> <span class="st">"simulation-study-report.md"</span>, format <span class="op">=</span> <span class="st">"md"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/Rtmp4EKR6c/bg-simulation-study/simulation-study-report.md</span></span></span>
 <span><span class="va">report_path</span></span>
-<span><span class="co">#&gt; [1] "/tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "/tmp/Rtmp4EKR6c/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
 <p>The generated report now includes graph topology, decision
 provenance, gate context, evidence nodes, and the artifact index for the
 current run.</p>
@@ -503,21 +504,29 @@ now layer a richer Bayesian review vocabulary on top of the same graph
 and decision infrastructure. The optional built-in packs add:</p>
 <ul>
 <li>
+<code>bayesgrove.process_guidance</code> for workflow preflight,
+iterative repair, and out-of-sample stability review,</li>
+<li>
+<code>bayesgrove.model_taxonomy</code> for PAD classification and
+utility trade-offs,</li>
+<li>
 <code>bayesgrove.prior_workflow</code> for prior rationale and prior
 predictive review,</li>
 <li>
 <code>bayesgrove.model_checks</code> for posterior predictive checks
-and, on <code>latent_inference</code> branches, SBC review,</li>
+and, on <code>latent_inference</code> branches, SBC and LOO-PIT
+calibration review,</li>
 <li>
 <code>bayesgrove.model_selection</code> for fresh comparison
 evidence, including <code>comparison_results</code> and stacking
 weights,</li>
 <li>
-<code>bayesgrove.causal_minimal</code> for explicit branch-scoped
-causal framing prompts, and</li>
+<code>bayesgrove.stan_workflow</code> for Stan diagnostics and
+projection-predictive review, and</li>
 <li>
-<code>bayesgrove.pad_scaffold</code> for branch-scoped PAD
-annotations and utility-dimension labels.</li>
+<code>bayesgrove.causal_dagitty</code> for DAG-based adjustment
+review, implication review, and causal selection contracts that can
+constrain formulas or projection-based variable selection.</li>
 </ul>
 <p>What still remains domain-specific is the layer above those
 semantics: rich prior object systems, causal DAG classes, graph-aware

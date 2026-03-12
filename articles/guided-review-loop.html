@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -86,10 +87,10 @@ reproducible on contributor machines and in CI.</p>
 <li>report export after iteration.</li>
 </ul>
 <p>It intentionally exercises only the narrow
-<code>bayesguide.default_bayesian</code> pack. If you want prior
-rationale, predictive checks, SBC review, stacking-aware model
-selection, or PAD and causal scaffolds, add the optional phase-10 packs
-described in
+<code>bayesguide.default_bayesian</code> pack. If you want process
+guidance, taxonomy review, predictive checks, SBC review, stacking-aware
+model selection, Stan-specific review, or DAG-constrained causal
+selection, add the richer packs described in
 <code><a href="../articles/extensions.html">vignette("extensions", package = "bayesgrove")</a></code>.</p>
 </div>
 <div class="section level2">
@@ -598,13 +599,13 @@ candidates are clean, project scope surfaces a comparison action.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">project_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                 obligations</span></span>
 <span><span class="co">#&gt; 1         Project  compare_candidate_branches</span></span>
-<span><span class="co">#&gt; 2 Repaired branch review_computation_validity</span></span>
-<span><span class="co">#&gt; 3   Robust branch                        none</span></span>
-<span><span class="co">#&gt; 4 Centered branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 2   Robust branch                        none</span></span>
+<span><span class="co">#&gt; 3 Centered branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 4 Repaired branch review_computation_validity</span></span>
 <span><span class="co">#&gt;                              actions</span></span>
 <span><span class="co">#&gt; 1          create_node_from_template</span></span>
-<span><span class="co">#&gt; 2 record_decision, branch_and_modify</span></span>
-<span><span class="co">#&gt; 3                               none</span></span>
+<span><span class="co">#&gt; 2                               none</span></span>
+<span><span class="co">#&gt; 3 record_decision, branch_and_modify</span></span>
 <span><span class="co">#&gt; 4 record_decision, branch_and_modify</span></span></code></pre></div>
 <p>We create the comparison node from the surfaced template payload, run
 it, and inspect the deterministic ranking:</p>
@@ -776,7 +777,7 @@ machines.</p>
 <span>  format <span class="op">=</span> <span class="st">"md"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/Rtmpjg0WOb/bg-guided-review-loop/case-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpZcBlTq/bg-guided-review-loop/case-study-report.md</span></span></span>
 <span></span>
 <span><span class="va">report_path_relative</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"^"</span>, <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span>, <span class="st">"/?"</span><span class="op">)</span>,</span>
@@ -789,7 +790,7 @@ machines.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">report_path</span>, n <span class="op">=</span> <span class="fl">12</span>, warn <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # bayesgrove Workflow Report: Guided Review Loop</span></span>
 <span><span class="co">#&gt; **Project ID:** `proj_79663245`</span></span>
-<span><span class="co">#&gt; **Generated:** 2026-03-11 15:10:20</span></span>
+<span><span class="co">#&gt; **Generated:** 2026-03-12 19:05:07</span></span>
 <span><span class="co">#&gt; **Workflow state:** `blocked`</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ## Graph Topology</span></span>

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -96,8 +97,9 @@ confusing review state with structural graph blockers. The built-in
 <code>bayesguide.default_bayesian</code> pack covers a narrow default
 loop: computation review, branch-scoped fit criticism, candidate
 comparison, and explicit branch acceptance or rejection. Optional packs
-extend that loop with prior rationale, predictive checks, SBC,
-model-selection review, minimal causal framing, and PAD annotations.</p>
+extend that loop with process guidance, PAD taxonomy, prior rationale,
+predictive checks, SBC, LOO-PIT calibration, model-selection review,
+Stan-specific review, and DAG-backed causal selection contracts.</p>
 <p>That review loop is exposed through a small built-in template
 registry. The registry keeps common next steps explicit instead of
 hardcoding one-off REPL behaviors:</p>
@@ -176,9 +178,9 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55749989a788&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55f93534e1b0&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/Rtmpy3LvTY/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpIL4dds/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ loaded_graph_version: int 0</span></span>
@@ -193,22 +195,26 @@ packs at initialization time:</p>
 <span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span>,</span>
 <span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
+<span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>    <span class="st">"bayesgrove.prior_workflow"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_checks"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_selection"</span>,</span>
-<span>    <span class="st">"bayesgrove.causal_minimal"</span>,</span>
-<span>    <span class="st">"bayesgrove.pad_scaffold"</span></span>
+<span>    <span class="st">"bayesgrove.stan_workflow"</span>,</span>
+<span>    <span class="st">"bayesgrove.causal_dagitty"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Those packs stay summary-driven: your node executors keep returning
 plain-data summaries, and the protocol layer decides whether that
-evidence creates prior review, posterior-check, SBC, stacking, causal,
-or PAD obligations. A few of those triggers are scope-sensitive. SBC
-only appears on branches whose inferential goal is
-<code>latent_inference</code>, <code>bayesgrove.causal_minimal</code> is
-an advisory branch-scoped scaffold for those same branches, and
-<code>bayesgrove.pad_scaffold</code> starts asking for annotations once
-a branch has any inferential goal at all.</p>
+evidence creates prior review, posterior-check, SBC, calibration,
+stacking, causal, taxonomy, or Stan-review obligations. A few of those
+triggers are scope-sensitive. SBC and causal-DAG obligations appear on
+branches whose inferential goal is <code>latent_inference</code>;
+<code>bayesgrove.model_taxonomy</code> starts asking for PAD and utility
+annotations once a branch has a goal; and a reviewed
+<code>causal_selection_contract</code> can then constrain formulas or
+projection-based selection to keep required terms, exclude forbidden
+controls, and rank the remaining admissible precision candidates.</p>
 </div>
 <div class="section level3">
 <h3 id="defining-the-workflow-structure">2. Defining the Workflow Structure<a class="anchor" aria-label="anchor" href="#defining-the-workflow-structure"></a>
@@ -298,7 +304,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-03-11T15:10:13Z"</span></span>
+<span><span class="co">#&gt; [1] "2026-03-12T19:05:00Z"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
@@ -484,7 +490,7 @@ comparison step:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_e989df0a </span></span>
+<span><span class="co">#&gt;                 obl_35eaa6e4 </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -554,7 +560,7 @@ accept or reject disposition:</p>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_1cb909e7 </span></span>
+<span><span class="co">#&gt;              obl_0ea70de5 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>

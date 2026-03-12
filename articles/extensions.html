@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,7 @@
 <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -137,18 +138,21 @@ time:</p>
 <span>  project_name <span class="op">=</span> <span class="st">"Extensions"</span>,</span>
 <span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
+<span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>    <span class="st">"bayesgrove.prior_workflow"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_checks"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_selection"</span>,</span>
-<span>    <span class="st">"bayesgrove.causal_minimal"</span>,</span>
-<span>    <span class="st">"bayesgrove.pad_scaffold"</span></span>
+<span>    <span class="st">"bayesgrove.stan_workflow"</span>,</span>
+<span>    <span class="st">"bayesgrove.causal_dagitty"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_workflow_packs.html">bg_workflow_packs</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">pack</span><span class="op">)</span> <span class="va">pack</span><span class="op">$</span><span class="va">pack_id</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "bayesguide.default_bayesian" "bayesgrove.prior_workflow"  </span></span>
-<span><span class="co">#&gt; [3] "bayesgrove.model_checks"     "bayesgrove.model_selection" </span></span>
-<span><span class="co">#&gt; [5] "bayesgrove.causal_minimal"   "bayesgrove.pad_scaffold"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"</span></span>
+<span><span class="co">#&gt; [3] "bayesgrove.model_taxonomy"   "bayesgrove.prior_workflow"  </span></span>
+<span><span class="co">#&gt; [5] "bayesgrove.model_checks"     "bayesgrove.model_selection" </span></span>
+<span><span class="co">#&gt; [7] "bayesgrove.stan_workflow"    "bayesgrove.causal_dagitty"</span></span></code></pre></div>
 <p>Those packs add review vocabulary without changing the graph
 engine:</p>
 <ul>
@@ -156,25 +160,39 @@ engine:</p>
 <code>bayesguide.default_bayesian</code>: computation review, fit
 criticism, candidate comparison, and branch disposition.</li>
 <li>
+<code>bayesgrove.process_guidance</code>: workflow preflight,
+iterative repair notes, and out-of-sample stability review.</li>
+<li>
+<code>bayesgrove.model_taxonomy</code>: PAD classification and
+utility-tradeoff review.</li>
+<li>
 <code>bayesgrove.prior_workflow</code>: prior rationale and prior
 predictive review.</li>
 <li>
 <code>bayesgrove.model_checks</code>: posterior predictive checks
-and, for <code>latent_inference</code> branches, SBC review.</li>
+and, for <code>latent_inference</code> branches, SBC and LOO-PIT
+calibration review.</li>
 <li>
 <code>bayesgrove.model_selection</code>: model-comparison evidence
 from fresh comparison summaries, with optional stacking weights.</li>
 <li>
-<code>bayesgrove.causal_minimal</code>: an advisory causal-question
-scaffold for <code>latent_inference</code> branches.</li>
+<code>bayesgrove.stan_workflow</code>: a bundled Stan-oriented
+ruleset covering the default loop, process guidance, taxonomy,
+predictive checks, model selection, Stan diagnostics, and projection
+review.</li>
 <li>
-<code>bayesgrove.pad_scaffold</code>: an advisory PAD annotation
-scaffold once a branch has an inferential goal.</li>
+<code>bayesgrove.causal_dagitty</code>: DAG-backed adjustment
+review, implication review, and causal selection contracts for
+<code>latent_inference</code> branches.</li>
 </ul>
 <p>The scope matters. <code>bayesgrove.model_selection</code> only acts
 at project scope when there are at least two clean fit candidates. The
-causal and PAD packs are branch-scoped prompts, not full domain systems,
-and they do not fire until the branch has the right goal context.</p>
+taxonomy and causal packs are branch-scoped, and they do not fire until
+the branch has the right goal context. In particular,
+<code>bayesgrove.causal_dagitty</code> becomes stronger after a reviewed
+<code>causal_selection_contract</code>: formulas and projection-based
+selection can then be constrained to keep required identification terms
+and exclude forbidden controls.</p>
 </div>
 <div class="section level2">
 <h2 id="build-a-node-set">Build a node set<a class="anchor" aria-label="anchor" href="#build-a-node-set"></a>
@@ -273,12 +291,17 @@ results.</p>
 <td>Review fit-to-data mismatch after conditioning</td>
 </tr>
 <tr class="even">
+<td><code>loo_pit_calibration</code></td>
+<td><code>bayesgrove.model_checks</code></td>
+<td>Review leave-one-out predictive calibration</td>
+</tr>
+<tr class="odd">
 <td><code>sbc_result</code></td>
 <td><code>bayesgrove.model_checks</code></td>
 <td>Review parameter recoverability and calibration for
 <code>latent_inference</code> branches</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>
 <code>comparison_results</code> / <code>model_comparison</code> /
 <code>stacking_weights</code>
@@ -286,18 +309,83 @@ results.</p>
 <td><code>bayesgrove.model_selection</code></td>
 <td>Compare clean candidates and review weighting evidence</td>
 </tr>
+<tr class="odd">
+<td>
+<code>projpred_selection</code> /
+<code>projection_predictive_selection</code>
+</td>
+<td><code>bayesgrove.stan_workflow</code></td>
+<td>Review submodel compression and refit plans</td>
+</tr>
 <tr class="even">
-<td><code>causal_framing</code></td>
-<td><code>bayesgrove.causal_minimal</code></td>
-<td>Record a branch-scoped causal question or identifying story</td>
+<td><code>dagitty_adjustment</code></td>
+<td><code>bayesgrove.causal_dagitty</code></td>
+<td>Review DAG-derived adjustment sets</td>
+</tr>
+<tr class="odd">
+<td><code>dagitty_implications</code></td>
+<td><code>bayesgrove.causal_dagitty</code></td>
+<td>Review implied independencies and falsification targets</td>
+</tr>
+<tr class="even">
+<td><code>causal_selection_contract</code></td>
+<td><code>bayesgrove.causal_dagitty</code></td>
+<td>Lock required terms, exclude forbidden controls, and rank admissible
+precision candidates</td>
 </tr>
 <tr class="odd">
 <td><code>pad_annotation</code></td>
-<td><code>bayesgrove.pad_scaffold</code></td>
+<td><code>bayesgrove.model_taxonomy</code></td>
 <td>Label a branch with PAD class and utility dimensions</td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section level2">
+<h2 id="causal-selection-contracts-and-constrained-projpred-workflows">Causal selection contracts and constrained projpred workflows<a class="anchor" aria-label="anchor" href="#causal-selection-contracts-and-constrained-projpred-workflows"></a>
+</h2>
+<p>The new causal-DAG path is meant to guide model construction, not
+only review it after the fact. A causal branch can now emit a
+<code>causal_selection_contract</code> summary with fields such as:</p>
+<ul>
+<li>
+<code>required_terms</code> for identification-critical
+covariates,</li>
+<li>
+<code>forbidden_terms</code> for colliders, post-treatment
+variables, or other blocked controls,</li>
+<li>
+<code>ranked_candidate_terms</code> for the admissible precision
+path from simpler to richer models, and</li>
+<li>optionally <code>allowed_formulas</code> when the DAG layer wants to
+enumerate exact permitted RHS patterns.</li>
+</ul>
+<p>Once that summary is reviewed, <code>bayesgrove.causal_dagitty</code>
+can enforce formula consistency and keep downstream work on hold until
+the branch’s formulas obey the contract.
+<code>bayesgrove.stan_workflow</code> also forwards the same causal
+payload into projection-predictive review so a
+<code>projpred</code>-style node can search only inside the admissible
+ranked candidate set.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"causal_selection_contract"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    summaries <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      summary_kind <span class="op">=</span> <span class="st">"causal_selection_contract"</span>,</span>
+<span>      passed <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>      severity <span class="op">=</span> <span class="st">"ok"</span>,</span>
+<span>      metrics <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>        required_terms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"treatment"</span>, <span class="st">"z"</span><span class="op">)</span>,</span>
+<span>        forbidden_terms <span class="op">=</span> <span class="st">"post_treatment"</span>,</span>
+<span>        ranked_candidate_terms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"w"</span>, <span class="st">"x"</span><span class="op">)</span></span>
+<span>      <span class="op">)</span></span>
+<span>    <span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
+<p>That contract keeps the Bayesian-workflow iteration spirit intact:
+start with the smallest causally valid formula, then add ranked
+admissible terms as the workflow pursues more precision or better
+predictive compression.</p>
 <p>Each summary should stay plain and serializable. A good pattern
 is:</p>
 <ul>
@@ -318,17 +406,19 @@ evidence,</li>
 <p>A domain module is just a reusable setup layer around
 <code><a href="../reference/bg_init.html">bg_init()</a></code> and your node registration helpers. This is the
 easiest way to publish a project-specific extension package.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">init_normal_workflow</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">path</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>    path <span class="op">=</span> <span class="va">path</span>,</span>
 <span>    project_name <span class="op">=</span> <span class="st">"normal_workflow"</span>,</span>
 <span>    workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>      <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>      <span class="st">"bayesgrove.process_guidance"</span>,</span>
+<span>      <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>      <span class="st">"bayesgrove.prior_workflow"</span>,</span>
 <span>      <span class="st">"bayesgrove.model_checks"</span>,</span>
 <span>      <span class="st">"bayesgrove.model_selection"</span>,</span>
-<span>      <span class="st">"bayesgrove.pad_scaffold"</span></span>
+<span>      <span class="st">"bayesgrove.stan_workflow"</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
@@ -345,7 +435,7 @@ node set and the selected workflow packs evolve together.</p>
 <p>When you need a compile-and-fit backend rather than ad hoc executors,
 register a backend plugin. The built-in helpers already cover common
 cases:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"cmdstanr"</span>, <span class="fu"><a href="../reference/bg_cmdstanr_plugin.html">bg_cmdstanr_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"brms"</span>, <span class="fu"><a href="../reference/bg_brms_plugin.html">bg_brms_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"diagnostics"</span>, <span class="fu"><a href="../reference/bg_diagnostics_plugin.html">bg_diagnostics_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>

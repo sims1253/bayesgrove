@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,6 +21,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
+    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
@@ -41,6 +42,12 @@
       <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.3" id="bayesgrove-043">bayesgrove 0.4.3<a class="anchor" aria-label="anchor" href="#bayesgrove-043"></a></h2>
+<ul><li>Added process-guidance, model-taxonomy, Stan-workflow, and dagitty-backed causal workflow packs that extend the review protocol with primary-source-backed Bayesian workflow semantics.</li>
+<li>Added causal selection contracts so DAG-derived required, forbidden, and ranked admissible terms can constrain formulas and projection-oriented review in causal branches.</li>
+<li>Added the primed-prior case study vignette and refreshed the README plus package vignettes so the documented workflow-pack surface matches the current package behavior.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.2" id="bayesgrove-042">bayesgrove 0.4.2<a class="anchor" aria-label="anchor" href="#bayesgrove-042"></a></h2>
 <ul><li>Added <code><a href="../reference/bg_execute_action.html">bg_execute_action()</a></code> and <code><a href="../reference/bg_extension_registry.html">bg_extension_registry()</a></code> to the pkgdown reference so the site builds cleanly in CI.</li>

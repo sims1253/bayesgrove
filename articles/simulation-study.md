@@ -427,9 +427,9 @@ the computational state.
 ``` r
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md
+#> /tmp/Rtmp4EKR6c/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpHD4Fig/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/Rtmp4EKR6c/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,
@@ -442,16 +442,21 @@ This vignette stays intentionally lightweight, but the package can now
 layer a richer Bayesian review vocabulary on top of the same graph and
 decision infrastructure. The optional built-in packs add:
 
+- `bayesgrove.process_guidance` for workflow preflight, iterative
+  repair, and out-of-sample stability review,
+- `bayesgrove.model_taxonomy` for PAD classification and utility
+  trade-offs,
 - `bayesgrove.prior_workflow` for prior rationale and prior predictive
   review,
 - `bayesgrove.model_checks` for posterior predictive checks and, on
-  `latent_inference` branches, SBC review,
+  `latent_inference` branches, SBC and LOO-PIT calibration review,
 - `bayesgrove.model_selection` for fresh comparison evidence, including
   `comparison_results` and stacking weights,
-- `bayesgrove.causal_minimal` for explicit branch-scoped causal framing
-  prompts, and
-- `bayesgrove.pad_scaffold` for branch-scoped PAD annotations and
-  utility-dimension labels.
+- `bayesgrove.stan_workflow` for Stan diagnostics and
+  projection-predictive review, and
+- `bayesgrove.causal_dagitty` for DAG-based adjustment review,
+  implication review, and causal selection contracts that can constrain
+  formulas or projection-based variable selection.
 
 What still remains domain-specific is the layer above those semantics:
 rich prior object systems, causal DAG classes, graph-aware suggestion

@@ -23,8 +23,9 @@ without confusing review state with structural graph blockers. The
 built-in `bayesguide.default_bayesian` pack covers a narrow default
 loop: computation review, branch-scoped fit criticism, candidate
 comparison, and explicit branch acceptance or rejection. Optional packs
-extend that loop with prior rationale, predictive checks, SBC,
-model-selection review, minimal causal framing, and PAD annotations.
+extend that loop with process guidance, PAD taxonomy, prior rationale,
+predictive checks, SBC, LOO-PIT calibration, model-selection review,
+Stan-specific review, and DAG-backed causal selection contracts.
 
 That review loop is exposed through a small built-in template registry.
 The registry keeps common next steps explicit instead of hardcoding
@@ -108,9 +109,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x55749989a788> 
+#>  @ .state              :<environment: 0x55f93534e1b0> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/Rtmpy3LvTY/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpIL4dds/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -128,23 +129,28 @@ handle <- bg_init(
   project_name = "Quickstart",
   workflow_packs = list(
     "bayesguide.default_bayesian",
+    "bayesgrove.process_guidance",
+    "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
     "bayesgrove.model_checks",
     "bayesgrove.model_selection",
-    "bayesgrove.causal_minimal",
-    "bayesgrove.pad_scaffold"
+    "bayesgrove.stan_workflow",
+    "bayesgrove.causal_dagitty"
   )
 )
 ```
 
 Those packs stay summary-driven: your node executors keep returning
 plain-data summaries, and the protocol layer decides whether that
-evidence creates prior review, posterior-check, SBC, stacking, causal,
-or PAD obligations. A few of those triggers are scope-sensitive. SBC
-only appears on branches whose inferential goal is `latent_inference`,
-`bayesgrove.causal_minimal` is an advisory branch-scoped scaffold for
-those same branches, and `bayesgrove.pad_scaffold` starts asking for
-annotations once a branch has any inferential goal at all.
+evidence creates prior review, posterior-check, SBC, calibration,
+stacking, causal, taxonomy, or Stan-review obligations. A few of those
+triggers are scope-sensitive. SBC and causal-DAG obligations appear on
+branches whose inferential goal is `latent_inference`;
+`bayesgrove.model_taxonomy` starts asking for PAD and utility
+annotations once a branch has a goal; and a reviewed
+`causal_selection_contract` can then constrain formulas or
+projection-based selection to keep required terms, exclude forbidden
+controls, and rank the remaining admissible precision candidates.
 
 ### 2. Defining the Workflow Structure
 
@@ -241,7 +247,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-11T15:10:13Z"
+#> [1] "2026-03-12T19:05:00Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -440,7 +446,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_e989df0a 
+#>                 obl_35eaa6e4 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -514,7 +520,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_1cb909e7 
+#>              obl_0ea70de5 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(

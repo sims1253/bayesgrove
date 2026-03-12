@@ -6,8 +6,9 @@ articles:
   extensions: extensions.html
   getting-started: getting-started.html
   guided-review-loop: guided-review-loop.html
+  primed-priors-case-studies: primed-priors-case-studies.html
   simulation-study: simulation-study.html
-last_built: 2026-03-11T15:09Z
+last_built: 2026-03-12T19:04Z
 urls:
   reference: https://sims1253.github.io/bayesgrove/reference
   article: https://sims1253.github.io/bayesgrove/articles
