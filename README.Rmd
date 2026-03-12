@@ -60,9 +60,10 @@ candidates can require a real comparison before one branch is accepted.
   portable bundle or a structured markdown report.
 
 - **Optional Bayesian semantics packs.** Start with a small default review loop,
-  then add prior rationale, prior and posterior predictive checks, SBC review,
-  stacking-aware model selection, minimal causal framing, and PAD annotations
-  when you need them.
+  then add workflow planning, PAD taxonomy, prior and posterior predictive
+  checks, SBC review, LOO-PIT calibration, stacking-aware model selection,
+  Stan-specific review, and DAG-constrained causal workflows when you need
+  them.
 
 ## Installation
 
@@ -119,31 +120,46 @@ handle <- bg_init(
   project_name = "advanced_workflow",
   workflow_packs = list(
     "bayesguide.default_bayesian",
+    "bayesgrove.process_guidance",
+    "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
     "bayesgrove.model_checks",
     "bayesgrove.model_selection",
-    "bayesgrove.causal_minimal",
-    "bayesgrove.pad_scaffold"
+    "bayesgrove.stan_workflow",
+    "bayesgrove.causal_dagitty"
   )
 )
 ```
 
+- `bayesgrove.process_guidance` adds workflow preflight, iteration planning,
+  and out-of-sample stability review.
+- `bayesgrove.model_taxonomy` asks for explicit PAD classification and utility
+  trade-off review.
 - `bayesgrove.prior_workflow` asks for prior rationale and review of fresh
   `prior_predictive_check` summaries.
 - `bayesgrove.model_checks` adds posterior predictive review, and on
-  branch-scoped `latent_inference` goals it also asks for SBC.
+  branch-scoped `latent_inference` goals it also asks for SBC and can review
+  fresh `loo_pit_calibration` summaries.
 - `bayesgrove.model_selection` reviews fresh comparison evidence from
   `compare` or `comparison` nodes, including `comparison_results` and optional
   `stacking_weights`.
-- `bayesgrove.causal_minimal` adds an advisory branch-scoped causal-framing
-  prompt for `latent_inference` branches.
-- `bayesgrove.pad_scaffold` adds an advisory PAD annotation prompt once a
-  branch has an inferential goal.
+- `bayesgrove.stan_workflow` bundles the default loop, process guidance,
+  taxonomy, prior/model checks, model selection, and Stan-specific diagnostic
+  plus projection-predictive review.
+- `bayesgrove.causal_dagitty` adds DAG-backed adjustment review, implication
+  review, and causal selection contracts that can lock required terms, exclude
+  forbidden controls, and constrain formula or projection-based selection.
 
 These packs read plain-data summaries returned by your executors, so you can
 adopt them incrementally without changing the graph runtime. See
 `vignette("extensions", package = "bayesgrove")` for a guide to writing node
 sets, domain modules, and backend plugins around that contract.
+
+For example, a causal branch can emit a `causal_selection_contract` summary
+with `required_terms`, `forbidden_terms`, and `ranked_candidate_terms`. Once
+reviewed, `bayesgrove.causal_dagitty` can block downstream work until formulas
+respect that contract, while `bayesgrove.stan_workflow` can surface the same
+constraints inside projection-predictive review.
 
 ## A minimal example
 

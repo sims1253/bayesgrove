@@ -425,10 +425,33 @@ With that node set in place, `bayesgrove.causal_dagitty` will:
 
 - ask for a DAG-based adjustment review,
 - ask for a review of the DAG's implied independencies,
-- log both decisions in the branch history.
+- log both decisions in the branch history, and
+- optionally consume a `causal_selection_contract` summary that locks required
+  identification terms, excludes forbidden controls, and ranks admissible
+  precision candidates for later formula revisions or projection-based
+  reduction.
 
 If you want a plotting layer, `ggdag::tidy_dagitty()` can sit on top of the same
 `dag_code`, but `dagitty` should stay the semantic core.
+
+For a primed-prior mediation workflow, a useful next node after DAG adjustment
+is a `causal_selection_contract` node whose summary metrics look like:
+
+```{r causal-selection-contract, eval = FALSE}
+list(
+  summary_kind = "causal_selection_contract",
+  passed = TRUE,
+  severity = "ok",
+  metrics = list(
+    required_terms = c("treatment", "pre_treatment_confounder"),
+    forbidden_terms = c("post_treatment_proxy"),
+    ranked_candidate_terms = c("baseline_risk", "age", "sex")
+  )
+)
+```
+
+Once reviewed, that contract can keep the branch's formulas or projpred-style
+submodel search inside the DAG-approved candidate set.
 
 # Recommended branch structure
 
