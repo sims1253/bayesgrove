@@ -31,6 +31,22 @@ bg_builtin_workflow_registry <- local({
             bg_default_bayesian_disposition_actions
           )
         ),
+        "bayesgrove.process_guidance" = list(
+          pack_id = "bayesgrove.process_guidance",
+          version = phase10_version,
+          title = "Process guidance pack",
+          description = paste(
+            "Adds Bayesian-workflow prompts for preflight planning,",
+            "iteration, and out-of-sample stability review."
+          ),
+          stability = "experimental",
+          obligation_providers = list(
+            bg_phase10_process_guidance_obligations
+          ),
+          action_providers = list(
+            bg_phase10_process_guidance_actions
+          )
+        ),
         "bayesgrove.prior_workflow" = list(
           pack_id = "bayesgrove.prior_workflow",
           version = phase10_version,
