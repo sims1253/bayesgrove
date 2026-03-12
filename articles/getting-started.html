@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -178,9 +178,9 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55f93534e1b0&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x5616b925c868&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpIL4dds/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpdsNonB/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ loaded_graph_version: int 0</span></span>
@@ -304,7 +304,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-03-12T19:05:00Z"</span></span>
+<span><span class="co">#&gt; [1] "2026-03-12T20:13:48Z"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
@@ -490,7 +490,7 @@ comparison step:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_35eaa6e4 </span></span>
+<span><span class="co">#&gt;                 obl_6d7e3fab </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -560,7 +560,7 @@ accept or reject disposition:</p>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_0ea70de5 </span></span>
+<span><span class="co">#&gt;              obl_941bf6e0 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
