@@ -607,6 +607,79 @@ bg_phase10_model_checks_obligations <- function(
     )
   }
 
+  loo_pit_summaries <- bg_phase10_fresh_summaries(
+    context,
+    summary_kinds = "loo_pit_calibration"
+  )
+  if (length(loo_pit_summaries) == 0) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "run_loo_pit_calibration",
+        title = "Run LOO-PIT calibration checks",
+        why = paste0(
+          "Bayesian workflow treats leave-one-out predictive calibration as a ",
+          "separate model-criticism step. Record LOO-PIT evidence so the workflow ",
+          "can distinguish distributional fit from conditional predictive ",
+          "calibration."
+        ),
+        basis = list(node_ids = fit_node_ids),
+        metadata = list(
+          references = "Gelman et al. (2020)",
+          summary_kinds = "loo_pit_calibration",
+          utility_dimensions = c(
+            "predictive_performance",
+            "structural_faithfulness",
+            "robustness"
+          ),
+          pad_model_classes = c("PD", "PAD")
+        )
+      ))
+    )
+  }
+
+  pending_loo_pit_reviews <- bg_phase10_pending_review_summaries(
+    context,
+    decision_kind = "loo_pit_review",
+    summary_kinds = "loo_pit_calibration"
+  )
+  if (length(pending_loo_pit_reviews) > 0) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "review_loo_pit_calibration",
+        title = "Review LOO-PIT calibration",
+        why = paste0(
+          "Fresh LOO-PIT summaries should be reviewed explicitly so the workflow ",
+          "records whether conditional predictive calibration is acceptable or ",
+          "requires model revision."
+        ),
+        severity = bg_phase10_review_severity(pending_loo_pit_reviews),
+        basis = list(
+          node_ids = fit_node_ids,
+          summary_ids = bg_phase10_sort_ids(vapply(
+            pending_loo_pit_reviews,
+            `[[`,
+            character(1),
+            "summary_id"
+          ))
+        ),
+        metadata = list(
+          references = "Gelman et al. (2020)",
+          summary_kinds = "loo_pit_calibration",
+          utility_dimensions = c(
+            "predictive_performance",
+            "structural_faithfulness",
+            "robustness"
+          ),
+          pad_model_classes = c("PD", "PAD")
+        )
+      ))
+    )
+  }
+
   sbc_goal_kinds <- pack_config$sbc_goal_kinds %||% "latent_inference"
   if (
     bg_phase10_goal_kind_allowed(context, allowed_goal_kinds = sbc_goal_kinds)
@@ -730,6 +803,49 @@ bg_phase10_model_checks_actions <- function(
         why_now = paste0(
           "The current posterior predictive evidence should be reviewed before ",
           "the branch is treated as an acceptable PAD model."
+        )
+      ))
+    )
+  }
+
+  loo_pit_obligation <- bg_find_obligation(
+    obligations,
+    kind = "run_loo_pit_calibration",
+    scope = context$scope
+  )
+  if (!is.null(loo_pit_obligation)) {
+    action <- bg_phase10_check_action(
+      context = context,
+      obligation = loo_pit_obligation,
+      title = "Create LOO-PIT calibration check",
+      node_kind = pack_config$loo_pit_node_kind %||% "calibration",
+      default_label_prefix = "LOO-PIT:",
+      why_now = paste0(
+        "Create a calibration node so the workflow can capture leave-one-out ",
+        "predictive calibration summaries as plain data."
+      )
+    )
+    if (!is.null(action)) {
+      actions <- c(actions, list(action))
+    }
+  }
+
+  loo_pit_review_obligation <- bg_find_obligation(
+    obligations,
+    kind = "review_loo_pit_calibration",
+    scope = context$scope
+  )
+  if (!is.null(loo_pit_review_obligation)) {
+    actions <- c(
+      actions,
+      list(bg_phase10_review_action(
+        context = context,
+        obligation = loo_pit_review_obligation,
+        title = "Review LOO-PIT calibration",
+        decision_type = "loo_pit_review",
+        why_now = paste0(
+          "The current LOO-PIT evidence should be reviewed before the workflow ",
+          "treats the model's conditional predictive calibration as acceptable."
         )
       ))
     )

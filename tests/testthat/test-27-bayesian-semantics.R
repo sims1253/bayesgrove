@@ -255,6 +255,69 @@ describe("Phase 10 Bayesian semantics packs", {
     )))
   })
 
+  it("tracks LOO-PIT calibration obligations and review decisions", {
+    fixture <- make_source_fit_project("bayesgrove.model_checks")
+    handle <- fixture$handle
+
+    bg_register_node_kind(handle, "calibration", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(list(
+          summary_kind = "loo_pit_calibration",
+          passed = TRUE,
+          severity = "ok",
+          metrics = list(uniformity_gap = 0.03)
+        ))
+      )
+    })
+
+    initial <- bg_next_actions(handle, scope = "project")
+    expect_true(any(vapply(
+      initial$obligations,
+      function(obligation) {
+        identical(obligation$kind, "run_loo_pit_calibration")
+      },
+      logical(1)
+    )))
+
+    calibration_id <- bg_add_node(
+      handle,
+      kind = "calibration",
+      label = "LOO-PIT calibration",
+      inputs = fixture$fit_id
+    )
+    bg_run(handle, targets = calibration_id, mode = "sync")
+
+    review <- bg_next_actions(handle, scope = "project")
+    review_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "loo_pit_review")
+      },
+      review$actions
+    )[[1]]
+
+    record_action_decision(
+      handle,
+      review_action,
+      choice = "loo_pit_acceptable",
+      rationale = paste(
+        "The leave-one-out PIT values are close enough to uniform for the",
+        "current predictive target."
+      )
+    )
+
+    cleared <- bg_next_actions(handle, scope = "project")
+    expect_false(any(vapply(
+      cleared$obligations,
+      function(obligation) {
+        identical(obligation$kind, "run_loo_pit_calibration") ||
+          identical(obligation$kind, "review_loo_pit_calibration")
+      },
+      logical(1)
+    )))
+  })
+
   it("tracks SBC obligations and review decisions for latent-inference branches", {
     fixture <- make_branch_fit_project(
       workflow_packs = "bayesgrove.model_checks",
