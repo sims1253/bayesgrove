@@ -26,6 +26,8 @@ navbar:
         href: articles/simulation-study.html
       - text: "Guided Review Loop"
         href: articles/guided-review-loop.html
+      - text: "Primed Prior Case Studies"
+        href: articles/primed-priors-case-studies.html
       - text: "Extending bayesgrove"
         href: articles/extensions.html
     architecture:
@@ -125,4 +127,5 @@ articles:
       - "extensions"
       - "getting-started"
       - "guided-review-loop"
+      - "primed-priors-case-studies"
       - "simulation-study"

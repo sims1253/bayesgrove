@@ -1,0 +1,460 @@
+---
+title: "Primed Prior Case Studies"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Primed Prior Case Studies}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Why this vignette exists
+
+This vignette shows how to map the three case studies from Fazio, Scholz,
+Aguilar, and Bürkner's _Primed Priors for Simulation-Based Validation of
+Bayesian Models_ (<https://arxiv.org/abs/2408.06504>) into `bayesgrove`.
+
+It is a workflow showcase, not a full numerical reproduction of the paper. The
+heavy model fitting, SBC loops, and plotting are still delegated to user node
+executors, while `bayesgrove` provides:
+
+- explicit graph structure for priming, fitting, and SBC,
+- branching over priors, priming datasets, and prior weights,
+- decision logging for calibration review,
+- optional workflow packs for prior review, model checks, model comparison,
+  process guidance, model taxonomy, Stan diagnostics, and DAG-based causal
+  checks.
+
+The key idea is to treat a primed-prior workflow as a reusable graph pattern:
+
+1. define a target model,
+2. define one or more synthetic-data generators for priming,
+3. fit a priming model or build a primed prior artifact,
+4. run SBC under the primed prior,
+5. review calibration explicitly,
+6. compare branches across prior weights or priming regimes.
+
+# Setup
+
+```{r setup}
+library(bayesgrove)
+
+project_root <- file.path(tempdir(), "bg-primed-priors")
+unlink(project_root, recursive = TRUE, force = TRUE)
+
+handle <- bg_init(
+  path = project_root,
+  project_name = "primed-priors",
+  workflow_packs = list(
+    "bayesguide.default_bayesian",
+    "bayesgrove.process_guidance",
+    "bayesgrove.prior_workflow",
+    "bayesgrove.model_checks",
+    "bayesgrove.model_selection",
+    "bayesgrove.model_taxonomy",
+    "bayesgrove.stan_workflow",
+    "bayesgrove.causal_dagitty"
+  )
+)
+
+vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
+```
+
+# A reusable primed-SBC graph shape
+
+Across all three case studies, the graph structure is similar:
+
+- one node (or branch) defines the model and prior configuration,
+- one node builds the synthetic data used for priming,
+- one node materializes the primed prior or preconditioning fit,
+- one node generates SBC datasets,
+- one node runs SBC diagnostics and emits `sbc_result` summaries,
+- optional comparison nodes rank competing prior weights or priming schemes.
+
+In practice, the node executors stay project-specific. The package-level
+contract is only that they return plain R data and summary records.
+
+```{r primed-sbc-template, eval = FALSE}
+bg_register_node_kind(handle, "model_spec", executor = function(node, inputs) {
+  node$params
+})
+
+bg_register_node_kind(handle, "prime_data", executor = function(node, inputs) {
+  spec <- inputs[[1]]
+
+  list(
+    priming_data = node$params$generator(spec),
+    strategy = node$params$strategy,
+    prior_weight = node$params$prior_weight
+  )
+})
+
+bg_register_node_kind(handle, "primed_prior", executor = function(node, inputs) {
+  spec <- inputs[[1]]
+  prime <- inputs[[2]]
+
+  list(
+    prior_artifact = node$params$build_prior(spec, prime),
+    summaries = list(
+      list(
+        summary_kind = "prior_spec",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(
+          strategy = prime$strategy,
+          prior_weight = prime$prior_weight
+        )
+      ),
+      list(
+        summary_kind = "prior_predictive_check",
+        passed = TRUE,
+        severity = "ok",
+        metrics = node$params$prior_predictive_metrics(spec, prime)
+      )
+    )
+  )
+})
+
+bg_register_node_kind(handle, "sbc_run", executor = function(node, inputs) {
+  spec <- inputs[[1]]
+  primed <- inputs[[2]]
+
+  sbc <- node$params$run_sbc(spec, primed)
+
+  list(
+    sbc = sbc,
+    summaries = list(list(
+      summary_kind = "sbc_result",
+      passed = sbc$passed,
+      severity = if (sbc$passed) "ok" else "warning",
+      metrics = sbc$metrics
+    ))
+  )
+})
+```
+
+That template is enough to let the built-in packs ask for prior rationale,
+prior predictive review, SBC review, process notes, and branch comparison.
+
+# Case study 1: lower-bounded gamma regression
+
+The paper's first case study uses a gamma regression on the `bodyfat` data with
+a lower-bounded response and weak priors that can generate floating-point
+underflow near zero. The practical lesson is that `bayesgrove` should treat the
+priming strategy itself as a first-class branchable object.
+
+## What to model in the graph
+
+- the baseline gamma model,
+- the priming generator based on fixed parameter values,
+- the alternative priming generator based on external-data resampling,
+- the prior weight `tau = M`,
+- the SBC result and calibration review.
+
+## A bayesgrove mapping
+
+```{r gamma-case-study, eval = FALSE}
+bg_register_node_kind(handle, "bodyfat_reference", executor = function(node, inputs) {
+  node$params$data
+})
+
+bg_register_node_kind(handle, "gamma_prime_data", executor = function(node, inputs) {
+  reference <- inputs[[1]]
+
+  if (identical(node$params$strategy, "external_resample")) {
+    idx <- sample.int(nrow(reference), size = node$params$M, replace = FALSE)
+    priming_data <- reference[idx, , drop = FALSE]
+  } else {
+    priming_data <- node$params$simulate_gamma(
+      M = node$params$M,
+      beta_0 = 1,
+      beta = rep(0.1, 13),
+      alpha = 1
+    )
+  }
+
+  list(
+    priming_data = priming_data,
+    strategy = node$params$strategy,
+    prior_weight = node$params$M
+  )
+})
+
+bg_register_node_kind(handle, "gamma_primed_prior", executor = function(node, inputs) {
+  prime <- inputs[[2]]
+
+  list(
+    prior_weight = prime$prior_weight,
+    summaries = list(
+      list(
+        summary_kind = "prior_spec",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(strategy = prime$strategy, prior_weight = prime$prior_weight)
+      ),
+      list(
+        summary_kind = "prior_predictive_check",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(censoring_threshold = 1e-16, primed = TRUE)
+      )
+    )
+  )
+})
+
+bg_register_node_kind(handle, "gamma_sbc", executor = function(node, inputs) {
+  list(
+    summaries = list(list(
+      summary_kind = "sbc_result",
+      passed = TRUE,
+      severity = "ok",
+      metrics = list(
+        log_gamma = -5.2,
+        M = node$params$M,
+        prior_width = node$params$prior_width
+      )
+    ))
+  )
+})
+```
+
+## Why this graph is useful
+
+The important workflow object is not only the fit, but also the decision about
+how to generate priming data. In `bayesgrove`, that means you can:
+
+- branch over prior widths,
+- branch over `M`,
+- branch over fixed-parameter versus resampled priming data,
+- compare which branch yields acceptable `sbc_result` summaries.
+
+The paper's heuristic `M ~= dim(theta)` maps naturally to a branch parameter and
+to the `process_guidance` pack's explicit workflow-preflight note.
+
+# Case study 2: R2D2 shrinkage prior
+
+The second case study uses primed priors to make SBC feasible for an R2D2-style
+shrinkage prior in high-dimensional regression. The paper studies two priming
+regimes:
+
+1. an intercept-only generator, and
+2. a fixed-coefficients generator with a few large signals.
+
+This is a good fit for `bayesgrove` because those two regimes are genuinely
+different workflow branches.
+
+## A bayesgrove mapping
+
+```{r shrinkage-case-study, eval = FALSE}
+bg_register_node_kind(handle, "shrinkage_scenario", executor = function(node, inputs) {
+  node$params
+})
+
+bg_register_node_kind(handle, "r2d2_prime_data", executor = function(node, inputs) {
+  scenario <- inputs[[1]]
+
+  generator <- switch(
+    node$params$scenario,
+    intercept_only = function() rep(0, scenario$p),
+    fixed_coefficients = function() {
+      beta <- rep(0, scenario$p)
+      beta[c(1:5, (scenario$p - 4):scenario$p)] <- sample(c(1e2, 1e3, 1e4), 10, replace = TRUE)
+      beta
+    }
+  )
+
+  list(
+    beta = generator(),
+    prior_weight = node$params$tau,
+    p = scenario$p,
+    n = scenario$n
+  )
+})
+
+bg_register_node_kind(handle, "r2d2_sbc", executor = function(node, inputs) {
+  prime <- inputs[[2]]
+
+  list(
+    summaries = list(list(
+      summary_kind = "sbc_result",
+      passed = TRUE,
+      severity = "ok",
+      metrics = list(
+        scenario = node$params$scenario,
+        tau = prime$prior_weight,
+        p = prime$p,
+        n = prime$n
+      )
+    ))
+  )
+})
+```
+
+## Why this graph is useful
+
+The paper recommends treating `tau` as a tunable hyperparameter and tailoring
+synthetic data to the intended sparsity regime. In `bayesgrove`, that means:
+
+- create one branch for `intercept_only`,
+- create another branch for `fixed_coefficients`,
+- branch further across candidate `tau` values,
+- use `bayesgrove.model_selection` to compare which branch produces the most
+  stable SBC summaries.
+
+This is also a good place to use `bayesgrove.model_taxonomy`: the workflow can
+explicitly record that the branch is a `PAD` model with utility priorities
+centered on `parameter_recoverability`, `robustness`, and `convergence`.
+
+# Case study 3: latent mediation model
+
+The third case study is the richest one for `bayesgrove`. It combines:
+
+- latent-variable mediation structure,
+- prior-predictive failure under weak defaults,
+- partial priming of selected parameters,
+- SBC review for a `latent_inference` goal,
+- explicit causal structure.
+
+## A bayesgrove mapping
+
+```{r latent-case-study, eval = FALSE}
+bg_register_node_kind(handle, "latent_mediation_spec", executor = function(node, inputs) {
+  node$params
+})
+
+bg_register_node_kind(handle, "latent_prime_data", executor = function(node, inputs) {
+  spec <- inputs[[1]]
+
+  list(
+    synthetic_data = node$params$simulate_latent_data(spec),
+    partial_priming = TRUE,
+    primed_parameters = c(
+      "latent_means",
+      "latent_scales",
+      "structural_slopes"
+    )
+  )
+})
+
+bg_register_node_kind(handle, "latent_sbc", executor = function(node, inputs) {
+  list(
+    summaries = list(
+      list(
+        summary_kind = "prior_predictive_check",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(target = "latent_mediation")
+      ),
+      list(
+        summary_kind = "sbc_result",
+        passed = TRUE,
+        severity = "ok",
+        metrics = list(M = 10, partial_priming = TRUE)
+      )
+    )
+  )
+})
+```
+
+The paper's practical move—treating some generated latent variables as observed
+inside the priming step—maps naturally to a dedicated `latent_prime_data` node.
+That node becomes a visible artifact in the workflow instead of a hidden part of
+an SBC script.
+
+## Adding the DAG layer with `bayesgrove.causal_dagitty`
+
+For this mediation example, the new `bayesgrove.causal_dagitty` pack is a good
+fit. It expects nodes that emit `dagitty_adjustment` and `dagitty_implications`
+summaries. One minimal node set looks like this:
+
+```{r dagitty-case-study, eval = FALSE}
+bg_register_node_kind(handle, "dagitty_adjustment", executor = function(node, inputs) {
+  if (!requireNamespace("dagitty", quietly = TRUE)) {
+    cli::cli_abort("The {.pkg dagitty} package is required.")
+  }
+
+  dag <- dagitty::dagitty(node$params$dag_code)
+  sets <- dagitty::adjustmentSets(
+    dag,
+    exposure = node$params$exposure,
+    outcome = node$params$outcome
+  )
+
+  list(
+    adjustment_sets = sets,
+    summaries = list(list(
+      summary_kind = "dagitty_adjustment",
+      passed = TRUE,
+      severity = "ok",
+      metrics = list(
+        n_sets = length(sets),
+        exposure = node$params$exposure,
+        outcome = node$params$outcome
+      )
+    ))
+  )
+})
+
+bg_register_node_kind(handle, "dagitty_implications", executor = function(node, inputs) {
+  if (!requireNamespace("dagitty", quietly = TRUE)) {
+    cli::cli_abort("The {.pkg dagitty} package is required.")
+  }
+
+  dag <- dagitty::dagitty(node$params$dag_code)
+  implications <- dagitty::impliedConditionalIndependencies(dag)
+
+  list(
+    implications = implications,
+    summaries = list(list(
+      summary_kind = "dagitty_implications",
+      passed = TRUE,
+      severity = "ok",
+      metrics = list(n_implications = length(implications))
+    ))
+  )
+})
+```
+
+With that node set in place, `bayesgrove.causal_dagitty` will:
+
+- ask for a DAG-based adjustment review,
+- ask for a review of the DAG's implied independencies,
+- log both decisions in the branch history.
+
+If you want a plotting layer, `ggdag::tidy_dagitty()` can sit on top of the same
+`dag_code`, but `dagitty` should stay the semantic core.
+
+# Recommended branch structure
+
+For these case studies, a good pattern is:
+
+1. keep one branch per priming regime,
+2. keep one sub-branch per prior weight or prior family,
+3. treat SBC outputs as summaries instead of ad hoc plots,
+4. use `bg_record_decision()` to log whether calibration is acceptable,
+5. only compare branches after the relevant prior, SBC, and DAG reviews are in
+   place.
+
+That gives you a workflow object that is much easier to audit than a single SBC
+script.
+
+# Closing remarks
+
+The paper's main contribution is a way to move validation toward practically
+relevant parts of parameter space. In `bayesgrove`, that maps cleanly to graph
+structure:
+
+- priming strategies become nodes,
+- prior weights become branch parameters,
+- SBC outputs become summaries,
+- calibration judgments become explicit decisions,
+- causal assumptions can become DAG-backed review steps.
+
+That is the core pattern to reuse if you want to turn primed-prior validation
+into a durable, inspectable workflow instead of a one-off analysis script.
