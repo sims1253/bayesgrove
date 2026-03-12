@@ -58,6 +58,36 @@ describe("Workflow guidance packs", {
     list(handle = handle, source_id = source_id, fit_id = fit_id)
   }
 
+  make_branch_fit_project <- function(
+    workflow_packs,
+    goal_kind = "latent_inference",
+    cleanup_env = parent.frame()
+  ) {
+    fixture <- make_fit_project(
+      workflow_packs,
+      cleanup_env = cleanup_env
+    )
+    handle <- fixture$handle
+
+    branch <- bg_branch(handle, fixture$fit_id, label = "Alternative fit")
+    bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = goal_kind,
+      label = goal_kind,
+      rationale = paste("Goal:", goal_kind)
+    )
+
+    bg_run(handle, targets = branch$root_node_id, mode = "sync")
+
+    list(
+      handle = handle,
+      source_id = fixture$source_id,
+      fit_id = fixture$fit_id,
+      branch = branch
+    )
+  }
+
   it("registers the process guidance pack", {
     pack_ids <- c("bayesgrove.process_guidance")
 
@@ -150,6 +180,75 @@ describe("Workflow guidance packs", {
         obligation$kind %in% c(
           "review_workflow_preflight",
           "review_out_of_sample_stability"
+        )
+      },
+      logical(1)
+    )))
+  })
+
+  it("tracks model taxonomy and utility trade-off decisions", {
+    fixture <- make_branch_fit_project("bayesgrove.model_taxonomy")
+    handle <- fixture$handle
+
+    initial <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = fixture$branch$branch_id
+    )
+    obligation_kinds <- vapply(initial$obligations, `[[`, character(1), "kind")
+    expect_true("classify_model_taxonomy" %in% obligation_kinds)
+    expect_true("review_utility_tradeoffs" %in% obligation_kinds)
+
+    taxonomy_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "model_taxonomy")
+      },
+      initial$actions
+    )[[1]]
+    utility_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "utility_tradeoff_review")
+      },
+      initial$actions
+    )[[1]]
+
+    expect_true(all(c(
+      "causal_consistency",
+      "parameter_recoverability"
+    ) %in% utility_action$payload$suggested_primary_utilities))
+
+    record_action_decision(
+      handle,
+      taxonomy_action,
+      choice = "PAD model with posterior approximation",
+      rationale = paste(
+        "The branch is best described as a PAD workflow with training data and",
+        "posterior approximation kept explicit."
+      )
+    )
+    record_action_decision(
+      handle,
+      utility_action,
+      choice = "latent inference utilities recorded",
+      rationale = paste(
+        "The branch prioritizes causal consistency, recoverability, and robust",
+        "posterior computation over raw speed."
+      )
+    )
+
+    cleared <- bg_next_actions(
+      handle,
+      scope = "branch",
+      branch_id = fixture$branch$branch_id
+    )
+    expect_false(any(vapply(
+      cleared$obligations,
+      function(obligation) {
+        obligation$kind %in% c(
+          "classify_model_taxonomy",
+          "review_utility_tradeoffs"
         )
       },
       logical(1)

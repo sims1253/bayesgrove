@@ -47,6 +47,22 @@ bg_builtin_workflow_registry <- local({
             bg_phase10_process_guidance_actions
           )
         ),
+        "bayesgrove.model_taxonomy" = list(
+          pack_id = "bayesgrove.model_taxonomy",
+          version = phase10_version,
+          title = "Model taxonomy pack",
+          description = paste(
+            "Adds PAD classification and utility-tradeoff prompts based on the",
+            "unified Bayesian model taxonomy."
+          ),
+          stability = "experimental",
+          obligation_providers = list(
+            bg_phase10_model_taxonomy_obligations
+          ),
+          action_providers = list(
+            bg_phase10_model_taxonomy_actions
+          )
+        ),
         "bayesgrove.prior_workflow" = list(
           pack_id = "bayesgrove.prior_workflow",
           version = phase10_version,

@@ -33,6 +33,44 @@ bg_phase10_failing_summaries <- function(summaries) {
   )
 }
 
+bg_phase10_taxonomy_utility_dimensions <- function() {
+  c(
+    "causal_consistency",
+    "parameter_recoverability",
+    "predictive_performance",
+    "fairness",
+    "structural_faithfulness",
+    "parsimony",
+    "interpretability",
+    "convergence",
+    "estimation_speed",
+    "robustness"
+  )
+}
+
+bg_phase10_taxonomy_evaluation_modes <- function(context) {
+  goal_kind <- bg_phase10_goal_kind(context)
+
+  switch(
+    goal_kind,
+    observable_prediction = c(
+      "prior_predictive",
+      "posterior_predictive",
+      "out_of_sample"
+    ),
+    latent_inference = c(
+      "prior_predictive",
+      "posterior_predictive",
+      "simulation_based_calibration"
+    ),
+    c(
+      "prior_predictive",
+      "posterior_predictive",
+      "out_of_sample"
+    )
+  )
+}
+
 bg_phase10_process_guidance_obligations <- function(
   context,
   pack_config = list()
@@ -258,6 +296,147 @@ bg_phase10_process_guidance_actions <- function(
             "comparison_action",
             "acceptance_rule"
           )
+        )
+      ))
+    )
+  }
+
+  actions
+}
+
+bg_phase10_model_taxonomy_obligations <- function(
+  context,
+  pack_config = list()
+) {
+  if (!startsWith(context$scope, "branch:")) {
+    return(list())
+  }
+
+  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  if (length(fit_node_ids) == 0 || is.null(bg_phase10_goal_kind(context))) {
+    return(list())
+  }
+
+  obligations <- list()
+
+  if (!bg_phase10_has_scope_decision(
+    context,
+    kind = "model_taxonomy",
+    node_ids = fit_node_ids
+  )) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "classify_model_taxonomy",
+        title = "Classify the branch in model-taxonomy terms",
+        why = paste0(
+          "The PAD taxonomy distinguishes whether the branch is acting mainly as ",
+          "a P, PA, PD, or PAD model. Record that identity explicitly before later ",
+          "workflow steps flatten important modeling assumptions."
+        ),
+        severity = "advisory",
+        basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
+        metadata = list(
+          references = "Bürkner et al. (2023)",
+          utility_dimensions = bg_phase10_primary_utilities(context),
+          pad_model_classes = c("P", "PA", "PD", "PAD")
+        )
+      ))
+    )
+  }
+
+  if (!bg_phase10_has_scope_decision(
+    context,
+    kind = "utility_tradeoff_review",
+    node_ids = fit_node_ids
+  )) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "review_utility_tradeoffs",
+        title = "Record utility priorities",
+        why = paste0(
+          "The model taxonomy paper treats model quality as a trade-off over ",
+          "utilities. Record which utilities are primary for this branch and ",
+          "which evaluations should dominate model criticism."
+        ),
+        severity = "advisory",
+        basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
+        metadata = list(
+          references = "Bürkner et al. (2023)",
+          utility_dimensions = bg_phase10_taxonomy_utility_dimensions(),
+          pad_model_classes = c("P", "PA", "PD", "PAD")
+        )
+      ))
+    )
+  }
+
+  obligations
+}
+
+bg_phase10_model_taxonomy_actions <- function(
+  context,
+  obligations,
+  pack_config = list()
+) {
+  actions <- list()
+
+  taxonomy_obligation <- bg_find_obligation(
+    obligations,
+    kind = "classify_model_taxonomy",
+    scope = context$scope
+  )
+  if (!is.null(taxonomy_obligation)) {
+    actions <- c(
+      actions,
+      list(bg_phase10_review_action(
+        context = context,
+        obligation = taxonomy_obligation,
+        title = "Record model taxonomy classification",
+        decision_type = "model_taxonomy",
+        why_now = paste0(
+          "Making the branch's PAD class explicit keeps later predictive, ",
+          "calibration, and comparison summaries anchored to the intended model ",
+          "identity."
+        ),
+        payload = list(
+          allowed_pad_model_classes = c("P", "PA", "PD", "PAD"),
+          suggested_fields = c(
+            "model_class",
+            "approximator",
+            "training_data_role",
+            "falsification_targets"
+          ),
+          suggested_primary_utilities = bg_phase10_primary_utilities(context)
+        )
+      ))
+    )
+  }
+
+  utility_obligation <- bg_find_obligation(
+    obligations,
+    kind = "review_utility_tradeoffs",
+    scope = context$scope
+  )
+  if (!is.null(utility_obligation)) {
+    actions <- c(
+      actions,
+      list(bg_phase10_review_action(
+        context = context,
+        obligation = utility_obligation,
+        title = "Record utility trade-offs",
+        decision_type = "utility_tradeoff_review",
+        why_now = paste0(
+          "The workflow should be clear about which utilities dominate when the ",
+          "branch faces trade-offs between prediction, calibration, convergence, ",
+          "and interpretability."
+        ),
+        payload = list(
+          allowed_utility_dimensions = bg_phase10_taxonomy_utility_dimensions(),
+          suggested_primary_utilities = bg_phase10_primary_utilities(context),
+          suggested_evaluation_modes = bg_phase10_taxonomy_evaluation_modes(context)
         )
       ))
     )
