@@ -63,6 +63,43 @@ bg_builtin_workflow_registry <- local({
             bg_phase10_model_taxonomy_actions
           )
         ),
+        "bayesgrove.stan_workflow" = list(
+          pack_id = "bayesgrove.stan_workflow",
+          version = phase10_version,
+          title = "Stan workflow pack",
+          description = paste(
+            "Provides a stanflow-inspired workflow bundle with core Bayesgrove,",
+            "process guidance, model taxonomy, predictive checks, selection,",
+            "and Stan-specific diagnostic review."
+          ),
+          stability = "experimental",
+          obligation_providers = list(
+            bg_default_bayesian_goal_obligations,
+            bg_default_bayesian_summary_obligations,
+            bg_default_bayesian_fit_criticism_obligations,
+            bg_default_bayesian_comparison_obligations,
+            bg_default_bayesian_disposition_obligations,
+            bg_phase10_process_guidance_obligations,
+            bg_phase10_model_taxonomy_obligations,
+            bg_phase10_prior_workflow_obligations,
+            bg_phase10_model_checks_obligations,
+            bg_phase10_model_selection_obligations,
+            bg_phase10_stan_workflow_obligations
+          ),
+          action_providers = list(
+            bg_default_bayesian_goal_actions,
+            bg_default_bayesian_summary_actions,
+            bg_default_bayesian_fit_criticism_actions,
+            bg_default_bayesian_comparison_decision_actions,
+            bg_default_bayesian_disposition_actions,
+            bg_phase10_process_guidance_actions,
+            bg_phase10_model_taxonomy_actions,
+            bg_phase10_prior_workflow_actions,
+            bg_phase10_model_checks_actions,
+            bg_phase10_model_selection_actions,
+            bg_phase10_stan_workflow_actions
+          )
+        ),
         "bayesgrove.prior_workflow" = list(
           pack_id = "bayesgrove.prior_workflow",
           version = phase10_version,

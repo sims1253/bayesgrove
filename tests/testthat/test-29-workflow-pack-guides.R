@@ -254,4 +254,114 @@ describe("Workflow guidance packs", {
       logical(1)
     )))
   })
+
+  it("tracks Stan-specific diagnostic review prompts", {
+    fixture <- make_fit_project(
+      workflow_packs = "bayesgrove.stan_workflow",
+      severity = "warning"
+    )
+    handle <- fixture$handle
+
+    initial <- bg_next_actions(handle, scope = "project")
+    expect_true(any(vapply(
+      initial$obligations,
+      function(obligation) {
+        identical(obligation$kind, "review_stan_diagnostics")
+      },
+      logical(1)
+    )))
+
+    stan_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "stan_diagnostic_review")
+      },
+      initial$actions
+    )[[1]]
+
+    expect_true(all(c(
+      "raise_adapt_delta",
+      "reparameterize"
+    ) %in% stan_action$payload$suggested_repairs))
+
+    record_action_decision(
+      handle,
+      stan_action,
+      choice = "sampler repair plan recorded",
+      rationale = paste(
+        "The workflow will reparameterize the model and rerun with a higher",
+        "adapt_delta before trusting downstream comparisons."
+      )
+    )
+
+    after_review <- bg_next_actions(handle, scope = "project")
+    expect_false(any(vapply(
+      after_review$obligations,
+      function(obligation) {
+        identical(obligation$kind, "review_stan_diagnostics")
+      },
+      logical(1)
+    )))
+  })
+
+  it("tracks projection-predictive review prompts", {
+    fixture <- make_fit_project("bayesgrove.stan_workflow")
+    handle <- fixture$handle
+
+    bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(list(
+          summary_kind = "projpred_selection",
+          passed = TRUE,
+          severity = "ok",
+          metrics = list(selected_terms = c("x1", "x2"))
+        ))
+      )
+    })
+
+    compare_id <- bg_add_node(
+      handle,
+      kind = "compare",
+      label = "Projection predictive",
+      inputs = fixture$fit_id
+    )
+    bg_run(handle, targets = compare_id, mode = "sync")
+
+    review <- bg_next_actions(handle, scope = "project")
+    expect_true(any(vapply(
+      review$obligations,
+      function(obligation) {
+        identical(obligation$kind, "review_projection_predictive_selection")
+      },
+      logical(1)
+    )))
+
+    projection_action <- Filter(
+      function(action) {
+        identical(action$kind, "record_decision") &&
+          identical(action$payload$decision_type, "projection_selection_review")
+      },
+      review$actions
+    )[[1]]
+
+    record_action_decision(
+      handle,
+      projection_action,
+      choice = "projection submodel accepted",
+      rationale = paste(
+        "The selected submodel will be refit and compared against the reference",
+        "model before branch disposition."
+      )
+    )
+
+    cleared <- bg_next_actions(handle, scope = "project")
+    expect_false(any(vapply(
+      cleared$obligations,
+      function(obligation) {
+        identical(obligation$kind, "review_projection_predictive_selection")
+      },
+      logical(1)
+    )))
+  })
 })

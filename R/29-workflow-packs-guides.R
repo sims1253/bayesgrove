@@ -71,6 +71,72 @@ bg_phase10_taxonomy_evaluation_modes <- function(context) {
   )
 }
 
+bg_phase10_stan_metric_value <- function(metrics, keys, default = NULL) {
+  metrics <- metrics %||% list()
+
+  for (key in keys) {
+    value <- metrics[[key]] %||% NULL
+    if (!is.null(value)) {
+      return(value)
+    }
+  }
+
+  default
+}
+
+bg_phase10_stan_repair_hints <- function(summaries) {
+  hints <- character()
+
+  for (summary in summaries %||% list()) {
+    metrics <- summary$metrics %||% list()
+    summary_kind <- summary$summary_kind %||% NULL
+
+    if (identical(summary_kind, "hmc_diagnostics")) {
+      if (isTRUE(bg_phase10_stan_metric_value(
+        metrics,
+        c("divergences_present", "divergent"),
+        FALSE
+      )) || (bg_phase10_stan_metric_value(
+        metrics,
+        c("divergent_transitions", "divergences"),
+        0
+      ) > 0)) {
+        hints <- c(hints, "reparameterize", "raise_adapt_delta")
+      }
+
+      if (isTRUE(bg_phase10_stan_metric_value(
+        metrics,
+        c("treedepth_saturated", "max_treedepth_exceeded"),
+        FALSE
+      )) || (bg_phase10_stan_metric_value(
+        metrics,
+        c("max_treedepth_hits", "treedepth_hits"),
+        0
+      ) > 0)) {
+        hints <- c(hints, "increase_max_treedepth")
+      }
+
+      if ((bg_phase10_stan_metric_value(
+        metrics,
+        c("max_rhat", "rhat_max"),
+        1
+      ) > 1.01) || (bg_phase10_stan_metric_value(
+        metrics,
+        c("min_ess_bulk", "ess_bulk_min"),
+        Inf
+      ) < 400)) {
+        hints <- c(hints, "increase_iterations")
+      }
+    }
+
+    if (identical(summary_kind, "optimizer_diagnostics")) {
+      hints <- c(hints, "rescale_parameters", "adjust_tolerances")
+    }
+  }
+
+  sort(unique(hints))
+}
+
 bg_phase10_process_guidance_obligations <- function(
   context,
   pack_config = list()
@@ -437,6 +503,173 @@ bg_phase10_model_taxonomy_actions <- function(
           allowed_utility_dimensions = bg_phase10_taxonomy_utility_dimensions(),
           suggested_primary_utilities = bg_phase10_primary_utilities(context),
           suggested_evaluation_modes = bg_phase10_taxonomy_evaluation_modes(context)
+        )
+      ))
+    )
+  }
+
+  actions
+}
+
+bg_phase10_stan_workflow_obligations <- function(
+  context,
+  pack_config = list()
+) {
+  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  if (length(fit_node_ids) == 0) {
+    return(list())
+  }
+
+  obligations <- list()
+
+  diagnostic_summaries <- bg_phase10_pending_review_summaries(
+    context,
+    decision_kind = "stan_diagnostic_review",
+    summary_kinds = c("hmc_diagnostics", "optimizer_diagnostics"),
+    node_ids = fit_node_ids
+  )
+  diagnostic_summaries <- bg_phase10_failing_summaries(diagnostic_summaries)
+
+  if (length(diagnostic_summaries) > 0) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "review_stan_diagnostics",
+        title = "Review Stan diagnostics",
+        why = paste0(
+          "Stan-focused workflows need an explicit remediation note when HMC or ",
+          "optimizer diagnostics fail. Record the dominant failure mode and the ",
+          "repair plan before trusting downstream fit criticism or comparison."
+        ),
+        severity = bg_phase10_review_severity(diagnostic_summaries),
+        basis = bg_phase10_summary_basis(diagnostic_summaries),
+        metadata = list(
+          summary_kinds = sort(unique(vapply(
+            diagnostic_summaries,
+            `[[`,
+            character(1),
+            "summary_kind"
+          ))),
+          repair_hints = bg_phase10_stan_repair_hints(diagnostic_summaries),
+          utility_dimensions = c(
+            "convergence",
+            "parameter_recoverability",
+            "robustness"
+          ),
+          pad_model_classes = c("PD", "PAD")
+        )
+      ))
+    )
+  }
+
+  projection_summaries <- bg_phase10_pending_review_summaries(
+    context,
+    decision_kind = "projection_selection_review",
+    summary_kinds = c(
+      "projpred_selection",
+      "projection_predictive_selection"
+    )
+  )
+
+  if (length(projection_summaries) > 0) {
+    obligations <- c(
+      obligations,
+      list(bg_phase10_obligation(
+        context = context,
+        kind = "review_projection_predictive_selection",
+        title = "Review projection-predictive selection",
+        why = paste0(
+          "Projection-predictive selection can compress a Stan workflow, but the ",
+          "selected submodel and its role in the broader workflow should still be ",
+          "reviewed explicitly."
+        ),
+        severity = bg_phase10_review_severity(projection_summaries),
+        basis = bg_phase10_summary_basis(projection_summaries),
+        metadata = list(
+          summary_kinds = sort(unique(vapply(
+            projection_summaries,
+            `[[`,
+            character(1),
+            "summary_kind"
+          ))),
+          utility_dimensions = c(
+            "predictive_performance",
+            "parsimony",
+            "interpretability"
+          ),
+          pad_model_classes = c("PD", "PAD")
+        )
+      ))
+    )
+  }
+
+  obligations
+}
+
+bg_phase10_stan_workflow_actions <- function(
+  context,
+  obligations,
+  pack_config = list()
+) {
+  actions <- list()
+
+  diagnostic_obligation <- bg_find_obligation(
+    obligations,
+    kind = "review_stan_diagnostics",
+    scope = context$scope
+  )
+  if (!is.null(diagnostic_obligation)) {
+    actions <- c(
+      actions,
+      list(bg_phase10_review_action(
+        context = context,
+        obligation = diagnostic_obligation,
+        title = "Record Stan diagnostic review",
+        decision_type = "stan_diagnostic_review",
+        why_now = paste0(
+          "The Stan workflow benefits from a concrete repair note that names the ",
+          "failure mode and the next sampler or optimizer intervention."
+        ),
+        payload = list(
+          suggested_fields = c(
+            "dominant_failure_mode",
+            "repair_strategy",
+            "rerun_plan",
+            "acceptance_rule"
+          ),
+          suggested_repairs = diagnostic_obligation$metadata$repair_hints %||%
+            character()
+        )
+      ))
+    )
+  }
+
+  projection_obligation <- bg_find_obligation(
+    obligations,
+    kind = "review_projection_predictive_selection",
+    scope = context$scope
+  )
+  if (!is.null(projection_obligation)) {
+    actions <- c(
+      actions,
+      list(bg_phase10_review_action(
+        context = context,
+        obligation = projection_obligation,
+        title = "Record projection-predictive review",
+        decision_type = "projection_selection_review",
+        why_now = paste0(
+          "Projection-predictive summaries should end in an explicit decision ",
+          "about the reference model, the selected submodel, and any refit or ",
+          "comparison follow-up."
+        ),
+        payload = list(
+          suggested_fields = c(
+            "reference_model",
+            "selected_submodel",
+            "selection_rule",
+            "refit_plan"
+          )
         )
       ))
     )
