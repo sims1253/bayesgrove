@@ -92,14 +92,19 @@ The main guided commands are:
 
 ## Optional workflow packs
 
-The default `bayesguide.default_bayesian` pack is intentionally small.
-Add the optional packs that match your project:
+Projects now start empty by default. Opt into the built-in review stack
+when you want it, and persist those choices directly in the project
+config:
 
 ``` r
 handle <- bg_init(
   path = file.path(tempdir(), "bg-advanced"),
-  project_name = "advanced_workflow",
-  workflow_packs = list(
+  project_name = "advanced_workflow"
+)
+
+bg_use_workflow_packs(
+  handle,
+  c(
     "bayesguide.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
@@ -111,6 +116,14 @@ handle <- bg_init(
   )
 )
 ```
+
+If you want the starter setup in one step, call
+`bg_use_default_workflow(handle)`. That helper enables
+`bayesguide.default_bayesian` and registers the built-in starter node
+kinds (`source`, `fit`, `ppc`, and `compare`). Additional node kinds you
+register with `bg_register_node_kind()` are also persisted, so reopening
+the project restores the runtime registry automatically for
+self-contained executor functions.
 
 - `bayesgrove.process_guidance` adds workflow preflight, iteration
   planning, and out-of-sample stability review.
@@ -184,9 +197,10 @@ library(bayesgrove)
 
 handle <- bg_init(
   path           = file.path(tempdir(), "bg-readme"),
-  project_name   = "eight_schools",
-  workflow_packs = list("bayesguide.default_bayesian")
+  project_name   = "eight_schools"
 )
+
+bg_use_default_workflow(handle)
 
 bg_register_node_kind(handle, "data", executor = function(node, inputs) {
   list(
@@ -260,7 +274,7 @@ The posterior check is held from executing:
 guide <- bg_next_actions(handle, scope = "project")
 
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_6b2f25f0 
+#>                  obl_9daa323c 
 #> "review_computation_validity"
 
 held <- bg_plan(handle, external_holds = guide$metadata$external_holds)

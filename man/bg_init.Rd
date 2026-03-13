@@ -19,8 +19,8 @@ bg_init(
 \item{config}{Optional. Configuration list.}
 
 \item{workflow_packs}{Optional list of active workflow packs. These are
-normalized and fixed at project initialization. The built-in default is
-\code{bayesguide.default_bayesian}, which provides computation review,
+normalized and fixed at project initialization. The project starts empty by
+default. Built-in packs such as \code{bayesguide.default_bayesian} provide computation review,
 branch-scoped fit criticism, candidate-comparison guidance, and explicit
 branch acceptance or rejection decisions. Optional built-in packs add
 prior rationale and prior predictive review

@@ -1,3 +1,10 @@
+# bayesgrove 0.4.4
+
+* Changed `bg_init()` so new projects start empty by default instead of automatically enabling `bayesguide.default_bayesian`.
+* Added `bg_use_workflow_packs()` and `bg_use_default_workflow()` so projects can opt into the built-in review stack after creation.
+* Persisted workflow-pack activations and node-kind registrations in project config, and taught `bg_open()` to rehydrate persisted node-kind runtime registrations automatically on reopen.
+* Refreshed the README and package vignettes so the documented setup flow matches the new empty-by-default project model.
+
 # bayesgrove 0.4.3
 
 * Added process-guidance, model-taxonomy, Stan-workflow, and dagitty-backed causal workflow packs that extend the review protocol with primary-source-backed Bayesian workflow semantics.

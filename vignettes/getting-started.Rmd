@@ -70,20 +70,26 @@ unlink(project_root, recursive = TRUE)
 
 handle <- bg_init(
   path = project_root,
-  project_name = "Quickstart",
-  workflow_packs = list("bayesguide.default_bayesian")
+  project_name = "Quickstart"
 )
+bg_use_default_workflow(handle)
 print(handle)
 ```
 
-If you want the richer phase-10 review vocabulary, add the optional packs at
-initialization time:
+New projects start empty, so `bg_use_default_workflow(handle)` is the quickest
+way to opt into the built-in starter pack plus the starter node kinds.
+If you want the richer phase-10 review vocabulary, persist the optional packs
+after initialization:
 
 ```{r advanced-packs, eval = FALSE}
 handle <- bg_init(
   path = project_root,
-  project_name = "Quickstart",
-  workflow_packs = list(
+  project_name = "Quickstart"
+)
+
+bg_use_workflow_packs(
+  handle,
+  c(
     "bayesguide.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",

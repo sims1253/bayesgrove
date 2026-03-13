@@ -190,6 +190,18 @@ bg_remote_command_registry <- function() {
       allowed_args = character(),
       required_args = character()
     ),
+    bg_use_default_workflow = list(
+      fn = "bg_use_default_workflow",
+      mutates_state = TRUE,
+      allowed_args = character(),
+      required_args = character()
+    ),
+    bg_use_workflow_packs = list(
+      fn = "bg_use_workflow_packs",
+      mutates_state = TRUE,
+      allowed_args = "workflow_packs",
+      required_args = "workflow_packs"
+    ),
     bg_branch_lineage = list(
       fn = "bg_branch_lineage",
       mutates_state = FALSE,

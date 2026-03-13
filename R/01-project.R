@@ -1,3 +1,91 @@
+#' @keywords internal
+bg_project_config_path <- function(path) {
+  file.path(path, ".bayesgrove", "config.json")
+}
+
+#' @keywords internal
+bg_empty_runtime_manifest <- function() {
+  list(
+    node_kinds = list()
+  )
+}
+
+#' @keywords internal
+bg_normalize_runtime_manifest <- function(manifest) {
+  manifest <- manifest %||% list()
+
+  list(
+    node_kinds = manifest$node_kinds %||% list()
+  )
+}
+
+#' @keywords internal
+bg_normalize_project_config <- function(config) {
+  config <- config %||% list()
+  config$workflow_packs <- bg_normalize_workflow_pack_refs(
+    config$workflow_packs %||% list()
+  )
+  config$runtime_manifest <- bg_normalize_runtime_manifest(
+    config$runtime_manifest
+  )
+  config
+}
+
+#' @keywords internal
+bg_read_project_config_path <- function(path) {
+  config_path <- bg_project_config_path(path)
+  if (!file.exists(config_path)) {
+    return(bg_normalize_project_config(list()))
+  }
+
+  bg_normalize_project_config(jsonlite::read_json(config_path))
+}
+
+#' @keywords internal
+bg_write_project_config_path <- function(path, config) {
+  bg_write_json_atomic(
+    bg_project_config_path(path),
+    bg_normalize_project_config(config)
+  )
+}
+
+#' @keywords internal
+bg_restore_runtime_manifest <- function(project) {
+  config <- bg_read_project_config(project)
+  entries <- config$runtime_manifest$node_kinds %||% list()
+
+  if (length(entries) == 0) {
+    return(invisible(project))
+  }
+
+  if (is.null(project@registries$node_kinds)) {
+    project@registries$node_kinds <- list()
+  }
+
+  for (entry in entries) {
+    kind <- entry$kind %||% NULL
+    if (!is.character(kind) || length(kind) != 1 || !nzchar(kind)) {
+      next
+    }
+
+    executor <- NULL
+    executor_source <- entry$executor_source %||% NULL
+    if (is.character(executor_source) && length(executor_source) == 1) {
+      executor <- eval(
+        parse(text = executor_source),
+        envir = asNamespace("bayesgrove")
+      )
+    }
+
+    project@registries$node_kinds[[kind]] <- list(
+      name = kind,
+      executor = executor
+    )
+  }
+
+  invisible(project)
+}
+
 #' Initialize a bayesgrove Project
 #'
 #' Creates the directory structure and initial state for a new bayesgrove project.
@@ -6,8 +94,8 @@
 #' @param project_name Optional. Name of the project. Defaults to the basename of the path.
 #' @param config Optional. Configuration list.
 #' @param workflow_packs Optional list of active workflow packs. These are
-#'   normalized and fixed at project initialization. The built-in default is
-#'   `bayesguide.default_bayesian`, which provides computation review,
+#'   normalized and fixed at project initialization. The project starts empty by
+#'   default. Built-in packs such as `bayesguide.default_bayesian` provide computation review,
 #'   branch-scoped fit criticism, candidate-comparison guidance, and explicit
 #'   branch acceptance or rejection decisions. Optional built-in packs add
 #'   prior rationale and prior predictive review
@@ -69,31 +157,26 @@ bg_init <- function(
   project_id <- bg_new_id("proj")
 
   # Save config
-  config_path <- file.path(bg_dir, "config.json")
   configured_workflow_packs <- workflow_packs
   if (is.null(configured_workflow_packs)) {
-    configured_workflow_packs <- config$workflow_packs %||%
-      bg_default_workflow_pack_refs()
+    configured_workflow_packs <- config$workflow_packs %||% list()
   }
   config$workflow_packs <- NULL
-  full_config <- utils::modifyList(
+  config$runtime_manifest <- bg_normalize_runtime_manifest(
+    config$runtime_manifest
+  )
+  full_config <- bg_normalize_project_config(utils::modifyList(
     list(
       project_id = project_id,
       project_name = project_name,
       version = "0.1.0",
-      workflow_packs = bg_normalize_workflow_pack_refs(
-        configured_workflow_packs
-      )
+      workflow_packs = configured_workflow_packs,
+      runtime_manifest = bg_empty_runtime_manifest()
     ),
     config
-  )
+  ))
 
-  jsonlite::write_json(
-    full_config,
-    config_path,
-    auto_unbox = TRUE,
-    pretty = TRUE
-  )
+  bg_write_project_config_path(path, full_config)
 
   init_handle <- bg_handle(
     project_id = project_id,
@@ -143,11 +226,9 @@ bg_open <- function(path = ".", readonly = FALSE) {
     cli::cli_abort("No bayesgrove project found at {.path {path}}")
   }
 
-  config_path <- file.path(bg_dir, "config.json")
-  if (file.exists(config_path)) {
-    config <- jsonlite::read_json(config_path)
-  } else {
-    config <- list(project_name = basename(path))
+  config <- bg_read_project_config_path(path)
+  if (is.null(config$project_name)) {
+    config$project_name <- basename(path)
   }
 
   graph_path <- file.path(bg_dir, "graph", "graph.json")
@@ -163,7 +244,7 @@ bg_open <- function(path = ".", readonly = FALSE) {
   # In a real implementation we would acquire a lock here if not readonly
   lock_token <- if (!readonly) "lock_mock" else NA_character_
 
-  bg_handle(
+  handle <- bg_handle(
     project_id = project_id,
     path = path,
     readonly = readonly,
@@ -173,6 +254,9 @@ bg_open <- function(path = ".", readonly = FALSE) {
     registries = list(),
     metadata = list()
   )
+
+  bg_restore_runtime_manifest(handle)
+  handle
 }
 
 #' Close a bayesgrove Project

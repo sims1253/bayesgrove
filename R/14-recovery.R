@@ -57,12 +57,11 @@ bg_pause <- function(project) {
 
   # For MVP, pausing is implemented by modifying the config to disable auto_advance
   # and adding a 'paused' marker to the project state.
-  config_path <- file.path(project@path, ".bayesgrove", "config.json")
   config <- bg_read_project_config(project)
 
   config$paused <- TRUE
 
-  jsonlite::write_json(config, config_path, auto_unbox = TRUE, pretty = TRUE)
+  bg_write_project_config_path(project@path, config)
   cli::cli_inform(
     "Workflow paused. Currently running background jobs will continue to run, but no new jobs will be dispatched."
   )
@@ -80,12 +79,11 @@ bg_pause <- function(project) {
 bg_resume <- function(project) {
   S7::check_is_S7(project, bg_handle)
 
-  config_path <- file.path(project@path, ".bayesgrove", "config.json")
   config <- bg_read_project_config(project)
 
   config$paused <- FALSE
 
-  jsonlite::write_json(config, config_path, auto_unbox = TRUE, pretty = TRUE)
+  bg_write_project_config_path(project@path, config)
   cli::cli_inform("Workflow resumed.")
 
   # Optionally trigger an auto-advance here if desired
@@ -94,12 +92,7 @@ bg_resume <- function(project) {
 }
 
 bg_read_project_config <- function(project) {
-  config_path <- file.path(project@path, ".bayesgrove", "config.json")
-  if (!file.exists(config_path)) {
-    return(list())
-  }
-
-  jsonlite::read_json(config_path)
+  bg_read_project_config_path(project@path)
 }
 
 bg_workflow_paused <- function(project) {

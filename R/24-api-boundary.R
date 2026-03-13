@@ -42,6 +42,18 @@ bg_build_api_boundary_registry <- function() {
       note = "Close a project handle",
       remote_accessible = FALSE
     ),
+    list(
+      fn = "bg_use_default_workflow",
+      classification = "experimental",
+      note = "Activate the built-in starter workflow packs and node kinds",
+      remote_accessible = TRUE
+    ),
+    list(
+      fn = "bg_use_workflow_packs",
+      classification = "experimental",
+      note = "Persist additional workflow-pack activations in project config",
+      remote_accessible = TRUE
+    ),
 
     # === Stable: Graph Editing ===
     list(

@@ -78,6 +78,8 @@ reference:
   - title: Workflow Protocol
     contents:
       - bg_list_templates
+      - bg_use_default_workflow
+      - bg_use_workflow_packs
       - bg_workflow_packs
       - bg_workflow_context
       - bg_next_actions

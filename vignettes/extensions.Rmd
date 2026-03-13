@@ -38,8 +38,9 @@ contracts instead of reaching into unexported provider internals.
 
 # Activate the built-in workflow packs you need
 
-The default pack stays narrow. If your workflow needs richer Bayesian review,
-activate the optional built-in packs at project creation time:
+Projects now start empty by default. If your workflow needs the built-in
+review vocabulary, activate and persist the packs you want after creating the
+project:
 
 ```{r setup-packs}
 library(bayesgrove)
@@ -49,8 +50,12 @@ unlink(project_root, recursive = TRUE, force = TRUE)
 
 handle <- bg_init(
   path = project_root,
-  project_name = "Extensions",
-  workflow_packs = list(
+  project_name = "Extensions"
+)
+
+bg_use_workflow_packs(
+  handle,
+  c(
     "bayesguide.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
@@ -230,8 +235,12 @@ extension package.
 init_normal_workflow <- function(path) {
   handle <- bg_init(
     path = path,
-    project_name = "normal_workflow",
-    workflow_packs = list(
+    project_name = "normal_workflow"
+  )
+
+  bg_use_workflow_packs(
+    handle,
+    c(
       "bayesguide.default_bayesian",
       "bayesgrove.process_guidance",
       "bayesgrove.model_taxonomy",

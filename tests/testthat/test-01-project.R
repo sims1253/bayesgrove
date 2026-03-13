@@ -18,6 +18,8 @@ describe("Project Lifecycle", {
     expect_true(file.exists(config_path))
     config <- jsonlite::read_json(config_path)
     expect_equal(config$project_name, "test_proj")
+    expect_length(config$workflow_packs, 0)
+    expect_length(config$runtime_manifest$node_kinds, 0)
 
     # Check graph
     graph_path <- file.path(tmp, ".bayesgrove", "graph", "graph.json")
@@ -34,6 +36,24 @@ describe("Project Lifecycle", {
     expect_equal(handle@closed, FALSE)
     expect_equal(handle@loaded_graph_version, 0L)
     expect_equal(handle@project_id, init_handle@project_id)
+  })
+
+  it("rehydrates persisted node kind executors on open", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(
+      handle,
+      "data",
+      executor = function(node, inputs) 42
+    )
+
+    reopened <- bg_open(path = tmp)
+
+    expect_equal(
+      reopened@registries$node_kinds[["data"]]$executor(NULL, NULL),
+      42
+    )
   })
 
   it("hydrates graphs with dagriculture and list classes preserved", {

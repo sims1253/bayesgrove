@@ -200,7 +200,7 @@ bg_builtin_workflow_registry <- local({
 
 #' @keywords internal
 bg_default_workflow_pack_refs <- function() {
-  list("bayesguide.default_bayesian")
+  list()
 }
 
 #' @keywords internal

@@ -160,6 +160,8 @@ describe("API boundary classification distribution", {
         "bg_snapshot",
         "bg_status",
         "bg_submit",
+        "bg_use_default_workflow",
+        "bg_use_workflow_packs",
         "bg_update_node"
       ))
     )
