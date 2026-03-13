@@ -2,34 +2,33 @@
 
 ## Introduction
 
-**bayesgrove** is built for the part of Bayesian work that usually gets
-lost: the path between an initial fit and the final analysis. It keeps
-two layers separate without splitting them apart in practice:
+**bayesgrove** manages the path between an initial model fit and the
+final analysis. It separates two layers:
 
-1.  **The execution graph**. `dagriculture` tracks the computations you
-    run: data preparation, fitting, diagnostics, comparison, and export.
+1.  **The execution graph**. `dagriculture` tracks data preparation,
+    fitting, diagnostics, comparison, and export.
 2.  **The decision layer**. Gates and decisions record why the workflow
     changed: a revised prior, a rejected branch, an accepted comparison,
     or a data exclusion.
 
-That split keeps computations reproducible while preserving the reasons
-behind them. The workflow-protocol layer sits on top of the graph:
-executors emit summaries,
+This separation ensures computations remain reproducible while
+preserving the rationale behind them. The workflow-protocol layer
+operates on top of the graph: executors emit summaries, and
 [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
-turns those summaries into obligations and suggested actions, and
-callers can pass the resulting holds back into
-[`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
-without confusing review state with structural graph blockers. The
-built-in `bayesguide.default_bayesian` pack covers a narrow default
-loop: computation review, branch-scoped fit criticism, candidate
+converts these summaries into obligations and suggested actions. Callers
+pass the resulting holds back into
+[`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md).
+This keeps workflow guidance distinct from structural graph blockers.
+
+The built-in `bayesguide.default_bayesian` pack implements a baseline
+review loop: computation review, branch-scoped fit criticism, candidate
 comparison, and explicit branch acceptance or rejection. Optional packs
-extend that loop with process guidance, PAD taxonomy, prior rationale,
+extend this loop with process guidance, PAD taxonomy, prior rationale,
 predictive checks, SBC, LOO-PIT calibration, model-selection review,
 Stan-specific review, and DAG-backed causal selection contracts.
 
-That review loop is exposed through a small built-in template registry.
-The registry keeps common next steps explicit instead of hardcoding
-one-off REPL behaviors:
+A built-in template registry exposes this review loop. The registry
+defines common next steps rather than hardcoding REPL behaviors:
 
 ``` r
 library(bayesgrove)
@@ -70,13 +69,10 @@ subset(boundary, remote_accessible)[, c("fn", "classification")]
 #> 7         bg_update_node         stable
 ```
 
-The same workflow protocol also powers the built-in interactive terminal
-client.
+The workflow protocol powers the interactive terminal client.
 [`bg_repl()`](https://sims1253.github.io/bayesgrove/reference/bg_repl.md)
-opens with a dashboard-oriented view so you can inspect the current
-workflow state, active obligations, held nodes, branch-scoped gates,
-recent decisions, and branch lineage without dropping into low-level
-calls.
+provides a dashboard view of the workflow state, active obligations,
+held nodes, branch-scoped gates, recent decisions, and branch lineage.
 
 ``` r
 bg_repl(handle)
@@ -109,9 +105,9 @@ handle <- bg_init(
 )
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x5616b925c868> 
+#>  @ .state              :<environment: 0x55abd3dbc290> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/RtmpdsNonB/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpbSEESe/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 0
@@ -247,7 +243,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-12T20:13:48Z"
+#> [1] "2026-03-13T18:11:55Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -446,7 +442,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_6d7e3fab 
+#>                 obl_8f2609f0 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -520,7 +516,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_941bf6e0 
+#>              obl_da7a638d 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(

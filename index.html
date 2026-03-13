@@ -63,20 +63,12 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>Bayesian work rarely moves in a straight line. You fit a model, check the diagnostics, revise a prior, branch into an alternative, compare candidates, and decide what to keep. Most of that work still disappears into scripts, scratch notes, and memory. Months later, you can often rerun the code, but you cannot easily recover why the analysis changed.</p>
-<p><strong>bayesgrove</strong> keeps both parts of the job in one place: what ran and why. It stores the execution graph next to the decision record, and it turns executor summaries into explicit workflow guidance. Warning diagnostics can block downstream work, fit criticism can trigger a repair branch, and clean candidates can require a real comparison before one branch is accepted.</p>
-<div class="section level2">
-<h2 id="what-you-get">What you get<a class="anchor" aria-label="anchor" href="#what-you-get"></a>
-</h2>
-<ul>
-<li><p><strong>Decision provenance.</strong> Record why you changed a prior, reparametrized a model, or excluded data, inside the workflow instead of in comments that can drift or disappear.</p></li>
-<li><p><strong>Content-aware caching.</strong> Each node stores a SHA-256 fingerprint of its inputs and parameters. If nothing meaningful changed upstream, bayesgrove can skip an expensive fit. If you change a prior, it reruns only the affected subtree.</p></li>
-<li><p><strong>Enforced review.</strong> The built-in workflow protocol reads the summaries your executors return and turns them into obligations. Warning diagnostics create a <code>review_computation_validity</code> step. Branch-scoped fit warnings create <code>review_fit_criticism</code>. Once two candidates are clean, bayesgrove asks for an explicit comparison and then an accept-or-reject decision for each branch.</p></li>
-<li><p><strong>Branching with full lineage.</strong> Fork from any node without losing the baseline. Branch goals, decisions, and diagnostics stay attached to the branch, so you can always reconstruct how a result came to be.</p></li>
-<li><p><strong>Reproducible handoffs.</strong> Export the decision tree and graph topology as a portable bundle or a structured markdown report.</p></li>
-<li><p><strong>Optional Bayesian semantics packs.</strong> Start with a small default review loop, then add workflow planning, PAD taxonomy, prior and posterior predictive checks, SBC review, LOO-PIT calibration, stacking-aware model selection, Stan-specific review, and DAG-constrained causal workflows when you need them.</p></li>
-</ul>
-</div>
+<p>Bayesian analysis is iterative. Models get fit, diagnostics reviewed, priors revised, alternatives branched and compared. Most of that process disappears into scripts, scratch notes, and memory. You can rerun the code, but you cannot recover why it changed.</p>
+<p><strong>bayesgrove</strong> keeps the execution graph and the decision record together. Executor summaries drive workflow obligations. Diagnostic warnings block downstream work, fit criticism opens repair branches, and clean candidates require a formal comparison before a branch can be accepted.</p>
+<p>Decisions are recorded inside the workflow. When you change a prior, reparametrize a model, or exclude data, the rationale lives alongside the computation. Each node carries a SHA-256 fingerprint of its inputs and parameters, so bayesgrove reruns only the affected subtree when something changes.</p>
+<p>The review protocol is enforced rather than advisory. HMC warning diagnostics trigger a <code>review_computation_validity</code> obligation. Branch-scoped fit warnings trigger <code>review_fit_criticism</code>. When two candidates are clean, bayesgrove requires an explicit comparison and an accept-or-reject disposition for each branch before the loop closes.</p>
+<p>You can fork from any node without discarding the baseline. Branch goals, decisions, and diagnostics stay attached, so the full development history is recoverable. Workflows export as portable bundles or structured markdown reports.</p>
+<p>The default review loop is intentionally small. Optional packs add workflow planning, PAD taxonomy, predictive checks, SBC, LOO-PIT calibration, stacking-aware model selection, Stan diagnostics, and DAG-constrained causal workflows without touching the graph runtime.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -101,7 +93,7 @@
 <div class="section level2">
 <h2 id="guided-terminal-client">Guided terminal client<a class="anchor" aria-label="anchor" href="#guided-terminal-client"></a>
 </h2>
-<p>Use <code>bg_repl(handle)</code> when you want the package to lead you through the review loop instead of juggling low-level calls by hand. The REPL opens with a dashboard that shows workflow state, active obligations, held nodes, recent decisions, branch-scoped gates, and branch lineage when you are inside a branch.</p>
+<p>Use <code>bg_repl(handle)</code> when you want the package to lead you through the review loop instead of managing low-level calls by hand. The REPL opens with a dashboard showing workflow state, active obligations, held nodes, recent decisions, branch-scoped gates, and branch lineage.</p>
 <p>The main guided commands are:</p>
 <ul>
 <li>
@@ -119,7 +111,7 @@
 <div class="section level2">
 <h2 id="optional-workflow-packs">Optional workflow packs<a class="anchor" aria-label="anchor" href="#optional-workflow-packs"></a>
 </h2>
-<p>The default <code>bayesguide.default_bayesian</code> pack stays intentionally small. If you want a richer Bayesian workflow, add the optional packs that match your project:</p>
+<p>The default <code>bayesguide.default_bayesian</code> pack is intentionally small. Add the optional packs that match your project:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"bg-advanced"</span><span class="op">)</span>,</span>
@@ -151,15 +143,14 @@
 <li>
 <code>bayesgrove.causal_dagitty</code> adds DAG-backed adjustment review, implication review, and causal selection contracts that can lock required terms, exclude forbidden controls, and constrain formula or projection-based selection.</li>
 </ul>
-<p>These packs read plain-data summaries returned by your executors, so you can adopt them incrementally without changing the graph runtime. See <code><a href="articles/extensions.html">vignette("extensions", package = "bayesgrove")</a></code> for a guide to writing node sets, domain modules, and backend plugins around that contract.</p>
-<p>For example, a causal branch can emit a <code>causal_selection_contract</code> summary with <code>required_terms</code>, <code>forbidden_terms</code>, and <code>ranked_candidate_terms</code>. Once reviewed, <code>bayesgrove.causal_dagitty</code> can block downstream work until formulas respect that contract, while <code>bayesgrove.stan_workflow</code> can surface the same constraints inside projection-predictive review.</p>
+<p>All packs read plain-data summaries returned by your executors, so you can adopt them incrementally without changing the graph runtime. See <code><a href="articles/extensions.html">vignette("extensions", package = "bayesgrove")</a></code> for a guide to writing node sets, domain modules, and backend plugins around that contract.</p>
+<p>A causal branch, for example, can emit a <code>causal_selection_contract</code> summary with <code>required_terms</code>, <code>forbidden_terms</code>, and <code>ranked_candidate_terms</code>. Once reviewed, <code>bayesgrove.causal_dagitty</code> blocks downstream work until formulas respect that contract. <code>bayesgrove.stan_workflow</code> surfaces the same constraints inside projection-predictive review.</p>
 </div>
 <div class="section level2">
 <h2 id="a-minimal-example">A minimal example<a class="anchor" aria-label="anchor" href="#a-minimal-example"></a>
 </h2>
-<p>The executor is a plain R function. You write the same <code>cmdstanr</code> code you already use and return a <code>summaries</code> list alongside the fit. <em>(Future versions of bayesgrove will include built-in <code>cmdstanr</code> and <code>brms</code> executors to reduce boilerplate. This example builds one from scratch so the contract stays visible.)</em> bayesgrove reads those summaries to derive workflow obligations, cache validity, and holds. The rest of the machinery, DAG management, fingerprinting, and branching, stays out of the way until you need it.</p>
-<p>You need a working <code>cmdstanr</code> installation to run this example as written.</p>
-<p>The example uses the eight-schools model in its centered parametrization, which reliably produces divergent transitions and is the canonical motivation for non-centered reparametrization.</p>
+<p>The executor is a plain R function. You write the same <code>cmdstanr</code> code you already use and return a <code>summaries</code> list alongside the fit. bayesgrove reads those summaries to derive workflow obligations, cache validity, and holds. DAG management, fingerprinting, and branching stay out of the way until you need them. Future versions will include built-in <code>cmdstanr</code> and <code>brms</code> executors; this example builds one from scratch so the contract stays visible.</p>
+<p>You need a working <code>cmdstanr</code> installation to run this example. It uses the eight-schools model in the centered parametrization, which reliably produces divergent transitions and is the standard motivation for non-centered reparametrization.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode stan"><code class="sourceCode stan"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co">// eight_schools_centered.stan (saved as `stan_file` path)</span></span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="kw">data</span> {</span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; J;</span>
@@ -247,7 +238,7 @@
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                  obl_a3a4268d </span></span>
+<span><span class="co">#&gt;                  obl_6b2f25f0 </span></span>
 <span><span class="co">#&gt; "review_computation_validity"</span></span>
 <span></span>
 <span><span class="va">held</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span>, external_holds <span class="op">=</span> <span class="va">guide</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">external_holds</span><span class="op">)</span></span>
@@ -312,7 +303,7 @@
 <div class="section level2">
 <h2 id="conceptual-structure">Conceptual structure<a class="anchor" aria-label="anchor" href="#conceptual-structure"></a>
 </h2>
-<p>In practice, bayesgrove keeps three layers separate:</p>
+<p>bayesgrove isolates three layers:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -337,7 +328,7 @@
 </tr>
 </tbody>
 </table>
-<p>The execution DAG is built on <a href="https://github.com/sims1253/dagriculture" class="external-link"><code>dagriculture</code></a>, a purely functional graph library. All workflow semantics—holds, branch scope, obligations, decision provenance—are bayesgrove’s own layer on top of the graph primitives.</p>
+<p>The execution DAG relies on <a href="https://github.com/sims1253/dagriculture" class="external-link"><code>dagriculture</code></a>, a purely functional graph library. Workflow semantics—holds, branch scope, obligations, decision provenance—are bayesgrove’s layer on top of the graph primitives.</p>
 </div>
 <div class="section level2">
 <h2 id="vignettes">Vignettes<a class="anchor" aria-label="anchor" href="#vignettes"></a>
@@ -380,7 +371,7 @@
 <div class="section level2">
 <h2 id="background">Background<a class="anchor" aria-label="anchor" href="#background"></a>
 </h2>
-<p>bayesgrove draws on the iterative model-building perspective described in Gelman et al. (2020, <em>Bayesian Workflow</em>, <a href="https://arxiv.org/abs/2011.01808" class="external-link">arXiv:2011.01808</a>) and the simulation-based calibration work of Talts et al. (2018, <a href="https://arxiv.org/abs/1804.06788" class="external-link">arXiv:1804.06788</a>). The package keeps that spirit in the runtime itself: it treats the <em>why</em> behind an analysis step as part of the workflow, not as something you are expected to remember later.</p>
+<p>bayesgrove implements the iterative model-building perspective described in Gelman et al. (2020, <em>Bayesian Workflow</em>, <a href="https://arxiv.org/abs/2011.01808" class="external-link">arXiv:2011.01808</a>) and the simulation-based calibration workflow of Talts et al. (2018, <a href="https://arxiv.org/abs/1804.06788" class="external-link">arXiv:1804.06788</a>). The package encodes this perspective in the runtime. It treats the rationale for each analysis step as an integral part of the workflow.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
