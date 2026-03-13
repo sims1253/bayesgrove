@@ -25,8 +25,9 @@ unexported provider internals.
 
 ## Activate the built-in workflow packs you need
 
-The default pack stays narrow. If your workflow needs richer Bayesian
-review, activate the optional built-in packs at project creation time:
+Projects now start empty by default. If your workflow needs the built-in
+review vocabulary, activate and persist the packs you want after
+creating the project:
 
 ``` r
 library(bayesgrove)
@@ -36,8 +37,12 @@ unlink(project_root, recursive = TRUE, force = TRUE)
 
 handle <- bg_init(
   path = project_root,
-  project_name = "Extensions",
-  workflow_packs = list(
+  project_name = "Extensions"
+)
+
+bg_use_workflow_packs(
+  handle,
+  c(
     "bayesguide.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
@@ -48,6 +53,92 @@ handle <- bg_init(
     "bayesgrove.causal_dagitty"
   )
 )
+#> [[1]]
+#> [[1]]$pack_id
+#> [1] "bayesguide.default_bayesian"
+#> 
+#> [[1]]$version
+#> [1] "0.2.0"
+#> 
+#> [[1]]$config
+#> list()
+#> 
+#> 
+#> [[2]]
+#> [[2]]$pack_id
+#> [1] "bayesgrove.process_guidance"
+#> 
+#> [[2]]$version
+#> [1] "0.1.0"
+#> 
+#> [[2]]$config
+#> list()
+#> 
+#> 
+#> [[3]]
+#> [[3]]$pack_id
+#> [1] "bayesgrove.model_taxonomy"
+#> 
+#> [[3]]$version
+#> [1] "0.1.0"
+#> 
+#> [[3]]$config
+#> list()
+#> 
+#> 
+#> [[4]]
+#> [[4]]$pack_id
+#> [1] "bayesgrove.prior_workflow"
+#> 
+#> [[4]]$version
+#> [1] "0.1.0"
+#> 
+#> [[4]]$config
+#> list()
+#> 
+#> 
+#> [[5]]
+#> [[5]]$pack_id
+#> [1] "bayesgrove.model_checks"
+#> 
+#> [[5]]$version
+#> [1] "0.1.0"
+#> 
+#> [[5]]$config
+#> list()
+#> 
+#> 
+#> [[6]]
+#> [[6]]$pack_id
+#> [1] "bayesgrove.model_selection"
+#> 
+#> [[6]]$version
+#> [1] "0.1.0"
+#> 
+#> [[6]]$config
+#> list()
+#> 
+#> 
+#> [[7]]
+#> [[7]]$pack_id
+#> [1] "bayesgrove.stan_workflow"
+#> 
+#> [[7]]$version
+#> [1] "0.1.0"
+#> 
+#> [[7]]$config
+#> list()
+#> 
+#> 
+#> [[8]]
+#> [[8]]$pack_id
+#> [1] "bayesgrove.causal_dagitty"
+#> 
+#> [[8]]$version
+#> [1] "0.1.0"
+#> 
+#> [[8]]$config
+#> list()
 
 vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
 #> [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"
@@ -228,8 +319,12 @@ project-specific extension package.
 init_normal_workflow <- function(path) {
   handle <- bg_init(
     path = path,
-    project_name = "normal_workflow",
-    workflow_packs = list(
+    project_name = "normal_workflow"
+  )
+
+  bg_use_workflow_packs(
+    handle,
+    c(
       "bayesguide.default_bayesian",
       "bayesgrove.process_guidance",
       "bayesgrove.model_taxonomy",

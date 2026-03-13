@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -119,22 +119,24 @@ In-process execution is always available; background execution uses
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">boundary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_api_boundary.html">bg_api_boundary</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">boundary</span>, <span class="va">remote_accessible</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fn"</span>, <span class="st">"classification"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                       fn classification</span></span>
-<span><span class="co">#&gt; 5            bg_add_node         stable</span></span>
-<span><span class="co">#&gt; 19        bg_answer_gate         stable</span></span>
-<span><span class="co">#&gt; 13     bg_branch_lineage         stable</span></span>
-<span><span class="co">#&gt; 28             bg_cancel         stable</span></span>
-<span><span class="co">#&gt; 6             bg_connect         stable</span></span>
-<span><span class="co">#&gt; 23     bg_execute_action   experimental</span></span>
-<span><span class="co">#&gt; 22 bg_extension_registry   experimental</span></span>
-<span><span class="co">#&gt; 14      bg_list_branches         stable</span></span>
-<span><span class="co">#&gt; 53       bg_next_actions   experimental</span></span>
-<span><span class="co">#&gt; 21    bg_record_decision         stable</span></span>
-<span><span class="co">#&gt; 8         bg_remove_node         stable</span></span>
-<span><span class="co">#&gt; 44           bg_snapshot         stable</span></span>
-<span><span class="co">#&gt; 31             bg_status         stable</span></span>
-<span><span class="co">#&gt; 26             bg_submit         stable</span></span>
-<span><span class="co">#&gt; 7         bg_update_node         stable</span></span></code></pre></div>
+<span><span class="co">#&gt;                         fn classification</span></span>
+<span><span class="co">#&gt; 7              bg_add_node         stable</span></span>
+<span><span class="co">#&gt; 21          bg_answer_gate         stable</span></span>
+<span><span class="co">#&gt; 15       bg_branch_lineage         stable</span></span>
+<span><span class="co">#&gt; 30               bg_cancel         stable</span></span>
+<span><span class="co">#&gt; 8               bg_connect         stable</span></span>
+<span><span class="co">#&gt; 25       bg_execute_action   experimental</span></span>
+<span><span class="co">#&gt; 24   bg_extension_registry   experimental</span></span>
+<span><span class="co">#&gt; 16        bg_list_branches         stable</span></span>
+<span><span class="co">#&gt; 55         bg_next_actions   experimental</span></span>
+<span><span class="co">#&gt; 23      bg_record_decision         stable</span></span>
+<span><span class="co">#&gt; 10          bg_remove_node         stable</span></span>
+<span><span class="co">#&gt; 46             bg_snapshot         stable</span></span>
+<span><span class="co">#&gt; 33               bg_status         stable</span></span>
+<span><span class="co">#&gt; 28               bg_submit         stable</span></span>
+<span><span class="co">#&gt; 9           bg_update_node         stable</span></span>
+<span><span class="co">#&gt; 5  bg_use_default_workflow   experimental</span></span>
+<span><span class="co">#&gt; 6    bg_use_workflow_packs   experimental</span></span></code></pre></div>
 <p>The workflow protocol powers the interactive terminal client.
 <code><a href="../reference/bg_repl.html">bg_repl()</a></code> provides a dashboard view of the workflow state,
 active obligations, held nodes, branch-scoped gates, recent decisions,
@@ -171,27 +173,34 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span></span>
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="va">project_root</span>,</span>
-<span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesguide.default_bayesian"</span><span class="op">)</span></span>
+<span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span></span>
 <span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55abd3dbc290&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x5600486a6528&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpbSEESe/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmplHABlp/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
-<span><span class="co">#&gt;  @ loaded_graph_version: int 0</span></span>
+<span><span class="co">#&gt;  @ loaded_graph_version: int 4</span></span>
 <span><span class="co">#&gt;  @ lock_token          : chr NA</span></span>
 <span><span class="co">#&gt;  @ registries          : list()</span></span>
 <span><span class="co">#&gt;  @ metadata            : list()</span></span></code></pre></div>
-<p>If you want the richer phase-10 review vocabulary, add the optional
-packs at initialization time:</p>
+<p>New projects start empty, so
+<code>bg_use_default_workflow(handle)</code> is the quickest way to opt
+into the built-in starter pack plus the starter node kinds. If you want
+the richer phase-10 review vocabulary, persist the optional packs after
+initialization:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="va">project_root</span>,</span>
-<span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  project_name <span class="op">=</span> <span class="st">"Quickstart"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs</a></span><span class="op">(</span></span>
+<span>  <span class="va">handle</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
 <span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
@@ -302,7 +311,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-03-13T18:11:55Z"</span></span>
+<span><span class="co">#&gt; [1] "2026-03-13T19:58:32Z"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_2fcde878$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
@@ -488,7 +497,7 @@ comparison step:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_8f2609f0 </span></span>
+<span><span class="co">#&gt;                 obl_c4d94f09 </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -558,7 +567,7 @@ accept or reject disposition:</p>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_da7a638d </span></span>
+<span><span class="co">#&gt;              obl_fd376b00 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>

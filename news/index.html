@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,13 @@
       <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.4" id="bayesgrove-044">bayesgrove 0.4.4<a class="anchor" aria-label="anchor" href="#bayesgrove-044"></a></h2>
+<ul><li>Changed <code><a href="../reference/bg_init.html">bg_init()</a></code> so new projects start empty by default instead of automatically enabling <code>bayesguide.default_bayesian</code>.</li>
+<li>Added <code><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs()</a></code> and <code><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow()</a></code> so projects can opt into the built-in review stack after creation.</li>
+<li>Persisted workflow-pack activations and node-kind registrations in project config, and taught <code><a href="../reference/bg_open.html">bg_open()</a></code> to rehydrate persisted node-kind runtime registrations automatically on reopen.</li>
+<li>Refreshed the README and package vignettes so the documented setup flow matches the new empty-by-default project model.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.3" id="bayesgrove-043">bayesgrove 0.4.3<a class="anchor" aria-label="anchor" href="#bayesgrove-043"></a></h2>
 <ul><li>Added process-guidance, model-taxonomy, Stan-workflow, and dagitty-backed causal workflow packs that extend the review protocol with primary-source-backed Bayesian workflow semantics.</li>

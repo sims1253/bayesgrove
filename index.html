@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -111,12 +111,16 @@
 <div class="section level2">
 <h2 id="optional-workflow-packs">Optional workflow packs<a class="anchor" aria-label="anchor" href="#optional-workflow-packs"></a>
 </h2>
-<p>The default <code>bayesguide.default_bayesian</code> pack is intentionally small. Add the optional packs that match your project:</p>
+<p>Projects now start empty by default. Opt into the built-in review stack when you want it, and persist those choices directly in the project config:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"bg-advanced"</span><span class="op">)</span>,</span>
-<span>  project_name <span class="op">=</span> <span class="st">"advanced_workflow"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  project_name <span class="op">=</span> <span class="st">"advanced_workflow"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/bg_use_workflow_packs.html">bg_use_workflow_packs</a></span><span class="op">(</span></span>
+<span>  <span class="va">handle</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
 <span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
@@ -127,6 +131,7 @@
 <span>    <span class="st">"bayesgrove.causal_dagitty"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p>If you want the starter setup in one step, call <code>bg_use_default_workflow(handle)</code>. That helper enables <code>bayesguide.default_bayesian</code> and registers the built-in starter node kinds (<code>source</code>, <code>fit</code>, <code>ppc</code>, and <code>compare</code>). Additional node kinds you register with <code><a href="reference/bg_register_node_kind.html">bg_register_node_kind()</a></code> are also persisted, so reopening the project restores the runtime registry automatically for self-contained executor functions.</p>
 <ul>
 <li>
 <code>bayesgrove.process_guidance</code> adds workflow preflight, iteration planning, and out-of-sample stability review.</li>
@@ -173,9 +178,10 @@
 <span></span>
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path           <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"bg-readme"</span><span class="op">)</span>,</span>
-<span>  project_name   <span class="op">=</span> <span class="st">"eight_schools"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesguide.default_bayesian"</span><span class="op">)</span></span>
+<span>  project_name   <span class="op">=</span> <span class="st">"eight_schools"</span></span>
 <span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/bg_use_default_workflow.html">bg_use_default_workflow</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"data"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -238,7 +244,7 @@
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                  obl_6b2f25f0 </span></span>
+<span><span class="co">#&gt;                  obl_9daa323c </span></span>
 <span><span class="co">#&gt; "review_computation_validity"</span></span>
 <span></span>
 <span><span class="va">held</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span>, external_holds <span class="op">=</span> <span class="va">guide</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">external_holds</span><span class="op">)</span></span>

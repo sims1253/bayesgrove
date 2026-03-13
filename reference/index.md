@@ -68,6 +68,10 @@
 
 - [`bg_list_templates()`](https://sims1253.github.io/bayesgrove/reference/bg_list_templates.md)
   : List built-in workflow templates
+- [`bg_use_default_workflow()`](https://sims1253.github.io/bayesgrove/reference/bg_use_default_workflow.md)
+  : Activate the built-in starter workflow
+- [`bg_use_workflow_packs()`](https://sims1253.github.io/bayesgrove/reference/bg_use_workflow_packs.md)
+  : Activate workflow packs for a project
 - [`bg_workflow_packs()`](https://sims1253.github.io/bayesgrove/reference/bg_workflow_packs.md)
   : List active workflow packs
 - [`bg_workflow_context()`](https://sims1253.github.io/bayesgrove/reference/bg_workflow_context.md)
