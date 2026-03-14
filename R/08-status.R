@@ -1,6 +1,7 @@
 #' Get workflow status
 #'
 #' @param project A `bg_handle`.
+#' @param auto_advance Deprecated; no longer has any effect.
 #'
 #' @return A `bg_status` list summarizing the project.
 #' @export

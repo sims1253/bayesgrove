@@ -2,14 +2,18 @@
 % Please edit documentation in R/11-async.R
 \name{bg_worker_log}
 \alias{bg_worker_log}
-\title{The internal worker process that executes a single node}
+\title{Write a debug log entry for a worker job}
 \usage{
 bg_worker_log(job_id, message, project_path)
 }
 \arguments{
-\item{args}{List of worker arguments.}
+\item{job_id}{Character string identifying the job.}
+
+\item{message}{Character string to write.}
+
+\item{project_path}{Character string path to the project root.}
 }
 \description{
-The internal worker process that executes a single node
+Write a debug log entry for a worker job
 }
 \keyword{internal}

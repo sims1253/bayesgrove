@@ -8,6 +8,7 @@
 #'
 #' @return A `bg_run_handle` list.
 #' @keywords internal
+#' @noRd
 bg_submit <- function(
   project,
   targets = NULL,
@@ -311,9 +312,11 @@ bg_execute_node <- function(
   )
 }
 
-#' The internal worker process that executes a single node
+#' Write a debug log entry for a worker job
 #'
-#' @param args List of worker arguments.
+#' @param job_id Character string identifying the job.
+#' @param message Character string to write.
+#' @param project_path Character string path to the project root.
 #' @keywords internal
 #' @export
 bg_worker_log <- function(job_id, message, project_path) {
