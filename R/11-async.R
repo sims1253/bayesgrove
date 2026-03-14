@@ -238,16 +238,26 @@ bg_wait <- function(project, run_id, timeout = Inf) {
 #' @return A list with `ok` (logical) and either `ref` (artifact ref) or `error`.
 #' @keywords internal
 #' @export
-bg_execute_node <- function(handle, node_id, fingerprint, input_bindings, graph, job_id) {
+bg_execute_node <- function(
+  handle,
+  node_id,
+  fingerprint,
+  input_bindings,
+  graph,
+  job_id
+) {
   node <- graph$nodes[[node_id]]
   kind_reg <- handle@registries$node_kinds[[node$kind]]
 
   if (is.null(kind_reg) || is.null(kind_reg$executor)) {
     return(list(
       ok = FALSE,
-      error = list(message = sprintf(
-        "No executor registered for node kind %s.", node$kind
-      ))
+      error = list(
+        message = sprintf(
+          "No executor registered for node kind %s.",
+          node$kind
+        )
+      )
     ))
   }
 
@@ -307,6 +317,8 @@ bg_execute_node <- function(handle, node_id, fingerprint, input_bindings, graph,
 #' @keywords internal
 #' @export
 bg_worker_log <- function(job_id, message, project_path) {
+  log_dir <- file.path(project_path, ".bayesgrove", "runs")
+  dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
   cat(
     paste0(message, "\n"),
     file = file.path(

@@ -69,7 +69,7 @@ describe("Interactive REPL", {
       from = source_id,
       to = fit_id,
       prompt = "Proceed to model fitting?",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     rows <- repl_ns("bg_repl_gate_rows")(bg_pending_gates(handle))
@@ -445,21 +445,21 @@ describe("Interactive REPL", {
       from = source_id,
       to = fit_id,
       prompt = "Project gate",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
     bg_add_gate(
       handle,
       from = fit_id,
       to = ppc_id,
       prompt = "Project downstream gate",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
     bg_add_gate(
       handle,
       from = source_id,
       to = branch$root_node_id,
       prompt = "Branch gate",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     dashboard <- repl_ns("bg_repl_dashboard_state")(handle, branch$branch_id)

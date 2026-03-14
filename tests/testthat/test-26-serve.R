@@ -545,8 +545,8 @@ describe("bg_serve()", {
       list(
         protocol_version = serve_ns("bg_protocol_version")(),
         message_type = "Command",
-        command_id = "cmd_submit",
-        command = "bg_submit",
+        command_id = "cmd_run",
+        command = "bg_run",
         args = stats::setNames(list(), character())
       ),
       auto_unbox = TRUE,
@@ -558,7 +558,7 @@ describe("bg_serve()", {
         client$messages(),
         function(msg) {
           identical(msg$message_type, "CommandResult") &&
-            identical(msg$command_id, "cmd_submit")
+            identical(msg$command_id, "cmd_run")
         },
         logical(1)
       ))

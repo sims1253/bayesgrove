@@ -146,12 +146,15 @@ bg_bundle <- function(
 
   # 4. Tar it up
   tar_bin <- Sys.which("tar")
+  tar_tool <- if (nzchar(tar_bin)) tar_bin else "internal"
+  old_wd <- getwd()
+  on.exit(setwd(old_wd), add = TRUE)
+  setwd(tmp_dir)
   utils::tar(
     path,
     files = basename(project@path),
     compression = "gzip",
-    tar = if (nzchar(tar_bin)) tar_bin else "internal",
-    chdir = tmp_dir
+    tar = tar_tool
   )
 
   cli::cli_inform("Project bundled successfully: {.path {path}}")

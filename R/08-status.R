@@ -4,8 +4,14 @@
 #'
 #' @return A `bg_status` list summarizing the project.
 #' @export
-bg_status <- function(project) {
+bg_status <- function(project, auto_advance = NULL) {
   S7::check_is_S7(project, bg_handle)
+
+  if (!is.null(auto_advance)) {
+    cli::cli_warn(
+      "`auto_advance` is deprecated and no longer has any effect."
+    )
+  }
 
   bg_reconcile_daemon_jobs(project)
 

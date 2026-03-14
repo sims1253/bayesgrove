@@ -209,7 +209,8 @@ bg_execute_record_decision_action <- function(
   )
 
   decision_metadata <- bg_build_decision_metadata(
-    action, payload,
+    action,
+    payload,
     extra = if (identical(decision_type, "branch_disposition")) {
       list(disposition = choice_resolved$value)
     } else {

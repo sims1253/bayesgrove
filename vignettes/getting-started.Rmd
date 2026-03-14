@@ -167,7 +167,7 @@ gate <- bg_add_gate(
   from = n_data,
   to = n_model,
   prompt = "Does the simulated data look ready for modeling?",
-  options = c("yes", "no")
+  alternatives = c("yes", "no")
 )
 ```
 

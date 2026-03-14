@@ -375,7 +375,8 @@ bg_template_review_choice <- function(
 bg_template_review_metadata <- function(action) {
   payload <- action$payload %||% list()
   bg_build_decision_metadata(
-    action, payload,
+    action,
+    payload,
     extra = list(template_ref = bg_action_template_ref(action))
   )
 }

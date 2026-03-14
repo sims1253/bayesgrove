@@ -117,16 +117,9 @@ bg_read_graph <- function(project) {
   graph_path <- file.path(bg_dir, "graph", "graph.json")
 
   if (!file.exists(graph_path)) {
-    raw <- list(
-      registry = list(kinds = list(), metadata = list()),
-      nodes = list(),
-      edges = list(),
-      gates = list(),
-      version = 0L,
-      metadata = list()
+    cli::cli_abort(
+      "Graph file not found at {.path {graph_path}}. "
     )
-    class(raw) <- unique(c("dagriculture_graph", class(raw)))
-    return(raw)
   }
 
   raw <- jsonlite::read_json(graph_path)

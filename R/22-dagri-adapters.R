@@ -43,6 +43,8 @@ bg_dagri_add_edge <- function(
   )
 }
 
+# --- Node Update / Removal ---
+
 #' @keywords internal
 bg_dagri_update_node <- function(
   graph,

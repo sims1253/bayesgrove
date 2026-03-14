@@ -376,7 +376,7 @@ bg_read_gate_specs <- function(project) {
 bg_write_gate_specs <- function(project, specs) {
   spec_path <- bg_gate_specs_path(project)
   if (length(specs) == 0) {
-    writeLines("{}", spec_path)
+    bg_write_json_atomic(spec_path, list(), sort_keys = FALSE)
   } else {
     bg_write_json_atomic(spec_path, specs, sort_keys = FALSE)
   }

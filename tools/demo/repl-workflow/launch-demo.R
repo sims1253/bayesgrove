@@ -364,7 +364,7 @@ bg_demo_build_showcase <- function(project_root) {
     from = n_clean,
     to = n_fit,
     prompt = "Proceed after dropping 5% of rows with missing outcome values?",
-    options = c("yes", "no")
+    alternatives = c("yes", "no")
   )
 
   suppressMessages(bg_run(handle, targets = n_clean, mode = "sync"))

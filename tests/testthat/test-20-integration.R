@@ -75,7 +75,7 @@ describe("End-to-End Workflow Integration", {
       from = n_prep,
       to = n_fit_base,
       prompt = "Does the data look ready?",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     # Verify we are blocked

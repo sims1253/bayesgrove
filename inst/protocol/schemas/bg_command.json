@@ -347,7 +347,7 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9._:-]{1,128}$"
         },
-        "command": { "type": "string", "enum": ["bg_submit"] },
+        "command": { "type": "string", "enum": ["bg_run"] },
         "args": {
           "type": "object",
           "properties": {

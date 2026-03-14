@@ -259,15 +259,11 @@ bg_remote_command_registry <- function() {
       allowed_args = c("action_id", "overrides"),
       required_args = "action_id"
     ),
-    bg_submit = list(
-      fn = "bg_submit",
+    bg_run = list(
+      fn = "bg_run",
       mutates_state = TRUE,
       allowed_args = "targets",
-      required_args = character(),
-      normalize_args = function(args) {
-        args$backend <- "mirai"
-        args
-      }
+      required_args = character()
     ),
     bg_cancel = list(
       fn = "bg_cancel",

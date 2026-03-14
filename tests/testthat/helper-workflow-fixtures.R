@@ -13,7 +13,11 @@ make_workflow_hold_fixture <- function() {
     list(rows = 10L)
   })
   bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-    severity <- if (identical(config$fit_summary_mode, "warning")) "warning" else "ok"
+    severity <- if (identical(config$fit_summary_mode, "warning")) {
+      "warning"
+    } else {
+      "ok"
+    }
     list(
       result = list(
         fitted = TRUE,

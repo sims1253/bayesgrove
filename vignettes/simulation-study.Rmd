@@ -230,7 +230,7 @@ build_branch <- function(handle, label, confounding, seed) {
       "Does the descriptive imbalance in the %s scenario justify relying on the adjustment-aware model?",
       label
     ),
-    options = c("yes", "no"),
+    alternatives = c("yes", "no"),
     refs = list(
       list(
         citekey = "scholz2024causalproxy",

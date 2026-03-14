@@ -242,7 +242,7 @@ bg_repl_find_node <- function(project, ref) {
   matches <- character()
   for (node_id in names(graph$nodes)) {
     lbl <- graph$nodes[[node_id]]$label %||% ""
-    if (grepl(ref, lbl, ignore.case = TRUE)) {
+    if (grepl(ref, lbl, ignore.case = TRUE, fixed = TRUE)) {
       matches <- c(matches, node_id)
     }
   }

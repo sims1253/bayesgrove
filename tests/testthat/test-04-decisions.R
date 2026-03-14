@@ -17,7 +17,7 @@ describe("Decision and Gate Layer", {
       from = n1,
       to = n2,
       prompt = "Should we proceed?",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     expect_true(startsWith(gate$id, "gate_"))
@@ -52,7 +52,7 @@ describe("Decision and Gate Layer", {
       from = n1,
       to = n2,
       prompt = "Should we proceed?",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     # Must fail without rationale

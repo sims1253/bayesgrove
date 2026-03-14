@@ -1,3 +1,21 @@
+# bayesgrove 0.4.8
+
+* Fixed CI failures across R-CMD-check, pkgdown, test-coverage, and format-check workflows.
+* Renamed `bg_add_gate()` parameter `options` to `alternatives` consistently across all call sites (vignettes, tests, demo scripts).
+* Fixed `bg_bundle()` error on all platforms: replaced unsupported `chdir` argument to `utils::tar()` with `setwd()`/`on.exit()` pattern.
+* Qualified all `hedgehog::` namespace references in property-based tests to avoid unbound symbol errors.
+* `bg_read_graph()` now aborts with a clear error when `graph.json` is missing instead of silently returning an empty graph.
+* Added backward-compatible `auto_advance` parameter to `bg_status()` with a deprecation warning.
+* Aligned API boundary registry with current exports: added `bg_execute_node` and `bg_worker_log`, removed `bg_submit` and `bg_worker_process`.
+* Replaced `bg_submit` with `bg_run` in the IPC server registry and protocol schema.
+* `bg_write_gate_specs()` now uses atomic writes for the empty-specs case.
+* `bg_worker_log()` now creates the `.bayesgrove/runs` directory if it does not exist.
+* `bg_resolve_node_ref()` now uses fixed-string matching for partial label lookups to avoid regex metacharacter issues.
+* Added section headers for node update/removal operations in `R/22-dagri-adapters.R`.
+* Fixed protocol object validator to reject unnamed (bare) lists for object-type schemas.
+* Removed orphaned `bg_submit.Rd` man page.
+* Ran `air format` across all affected files.
+
 # bayesgrove 0.4.7
 
 * Eliminated all `<<-` super-assignments in production R code by refactoring to explicit environment-based state (`R/13-repl.R`, `R/19-workflow-protocol.R`, `R/26-serve.R`).

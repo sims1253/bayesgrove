@@ -396,7 +396,7 @@ bg_validate_protocol_object_value <- function(
   }
 
   object_names <- names(object)
-  if (is.null(object_names) && length(object) > 0) {
+  if (is.null(object_names)) {
     cli::cli_abort(
       "Value at {.val {path}} must be a named list for schema {.val {schema_name}}."
     )
