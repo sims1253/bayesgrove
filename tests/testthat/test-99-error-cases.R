@@ -4,8 +4,11 @@
 
 describe("Error Handling - Invalid Inputs", {
   it("rejects invalid path on init", {
+    tmp <- tempfile(fileext = ".lock")
+    writeLines("blocked", tmp)
+    on.exit(unlink(tmp), add = TRUE)
     expect_error(
-      bg_init(path = "/nonexistent/path/that/does/not/exist")
+      bg_init(path = file.path(tmp, "subdir"))
     )
   })
 
