@@ -1,12 +1,14 @@
+# --- Workflow Pack Registry ---
+
 #' @keywords internal
 bg_builtin_workflow_registry <- local({
-  registry <- NULL
+  registry_env <- new.env(parent = emptyenv())
 
   function() {
-    if (is.null(registry)) {
+    if (is.null(registry_env$registry)) {
       phase10_version <- "0.1.0"
 
-      registry <<- list(
+      registry_env$registry <- list(
         "bayesguide.default_bayesian" = list(
           pack_id = "bayesguide.default_bayesian",
           version = "0.2.0",
@@ -194,9 +196,11 @@ bg_builtin_workflow_registry <- local({
       )
     }
 
-    registry
+    registry_env$registry
   }
 })
+
+# --- Pack Resolution & Lookup ---
 
 #' @keywords internal
 bg_default_workflow_pack_refs <- function() {
@@ -268,6 +272,8 @@ bg_workflow_packs <- function(project) {
   )
 }
 
+# --- Workflow Scope Resolution & Context ---
+
 #' @keywords internal
 bg_resolve_workflow_scope <- function(project, scope, branch_id = NULL) {
   scope <- match.arg(scope, c("project", "branch"))
@@ -306,6 +312,8 @@ bg_workflow_context <- function(
   resolved_scope <- bg_resolve_workflow_scope(project, scope, branch_id)
   bg_build_workflow_context(project, scope = resolved_scope)
 }
+
+# --- Protocol Value Normalization & Identity ---
 
 #' @keywords internal
 bg_protocol_normalize_value <- function(x, field = NULL) {
@@ -383,6 +391,8 @@ bg_action_id <- function(kind, scope, payload) {
     )
   )
 }
+
+# --- Protocol Canonicalization & Merging ---
 
 #' @keywords internal
 bg_canonicalize_obligation <- function(obligation, pack_ref) {
@@ -473,6 +483,8 @@ bg_merge_protocol_items <- function(items, id_field) {
   bg_protocol_named_list(merged)
 }
 
+# --- Workflow Context Collection & Provider Dispatch ---
+
 #' @keywords internal
 bg_collect_workflow_contexts <- function(project, resolved_scope, plan = NULL) {
   graph <- bg_active_graph(project)
@@ -557,6 +569,8 @@ bg_dispatch_action_providers <- function(context, obligations, pack_ref) {
   lapply(actions, bg_canonicalize_action, pack_ref = pack_ref)
 }
 
+# --- Blocking Obligations & External Holds ---
+
 #' @keywords internal
 bg_blocking_obligation_holds <- function(project, obligations) {
   graph <- bg_read_graph(project)
@@ -599,6 +613,8 @@ bg_workflow_external_holds <- function(project, plan = NULL) {
   )$metadata$external_holds %||%
     bg_protocol_named_list()
 }
+
+# --- Next Actions Engine ---
 
 #' Compute deterministic next workflow actions
 #'
@@ -697,6 +713,8 @@ bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
   )
 }
 
+# --- Protocol Result Partitioning ---
+
 #' Partition protocol results by scope
 #'
 #' Helper for UI layers to group obligations and actions by scope. Returns
@@ -787,6 +805,8 @@ bg_partition_protocol_by_scope <- function(result, project = NULL) {
   partitioned
 }
 
+# --- Default Bayesian: Goal Obligations ---
+
 #' @keywords internal
 bg_default_bayesian_goal_obligations <- function(
   context,
@@ -819,6 +839,8 @@ bg_default_bayesian_goal_obligations <- function(
     metadata = list(source_keys = c("workflow_core", "taxonomy"))
   ))
 }
+
+# --- Default Bayesian: Summary Obligations ---
 
 #' @keywords internal
 bg_default_bayesian_summary_obligations <- function(
@@ -887,6 +909,8 @@ bg_default_bayesian_summary_obligations <- function(
   ))
 }
 
+# --- Default Bayesian: Goal Actions ---
+
 #' @keywords internal
 bg_default_bayesian_goal_actions <- function(
   context,
@@ -924,6 +948,8 @@ bg_default_bayesian_goal_actions <- function(
     metadata = list(source_keys = c("workflow_core", "taxonomy"))
   ))
 }
+
+# --- Default Bayesian: Summary Actions ---
 
 #' @keywords internal
 bg_default_bayesian_summary_actions <- function(
@@ -1028,6 +1054,8 @@ bg_default_bayesian_summary_actions <- function(
 
   actions
 }
+
+# --- Branch Registry from Context ---
 
 #' @keywords internal
 bg_read_branch_registry_from_context <- function(context) {

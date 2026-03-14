@@ -12,7 +12,7 @@ bg_remove_node(project, node_id)
 \item{node_id}{The node ID to remove.}
 }
 \value{
-Invisible TRUE.
+The removed node ID, invisibly.
 }
 \description{
 Remove a node from the bayesgrove project graph

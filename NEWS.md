@@ -1,3 +1,21 @@
+# bayesgrove 0.4.7
+
+* Eliminated all `<<-` super-assignments in production R code by refactoring to explicit environment-based state (`R/13-repl.R`, `R/19-workflow-protocol.R`, `R/26-serve.R`).
+* Removed redundant `library(bayesgrove)` call in the mirai worker (`R/11-async.R`); the function is already resolved via `get()` from `asNamespace()`.
+* Extracted `bg_build_decision_metadata()` helper to deduplicate decision metadata construction across `R/13d-repl-exec.R`, `R/28-protocol-contract.R`, and `R/23-templates.R`.
+* Replaced `requireNamespace()` guard in test properties helper (`tests/testthat/test-09-properties.R`).
+* Refactored `<<-` in test fixtures and test callbacks to use environment-based mutable state.
+
+# bayesgrove 0.4.6
+
+* Fixed mirai worker argument handling to properly pass `lib_paths` and worker args to background processes.
+* Fixed mirai daemon cleanup on project close to prevent resource leaks.
+* Used `mirai::is_error_value()` for proper error detection in job reconciliation.
+* Auto-create project directory in `bg_init()` if the target path does not exist.
+* Refactored REPL module into separate files for better organization (`13a-repl-utils.R`, `13b-repl-display.R`, `13c-repl-guide.R`, `13d-repl-exec.R`).
+* Added property-based tests and error case coverage.
+* Removed stale `README.html` from the repository.
+
 # bayesgrove 0.4.5
 
 * Fix problem to return proper empty graph for empty project

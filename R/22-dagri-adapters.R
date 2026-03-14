@@ -1,6 +1,8 @@
 # Internal adapter layer for graph-generic operations that are plausible
 # migration candidates for `dagriculture`.
 
+# --- Node Operations ---
+
 #' @keywords internal
 bg_dagri_add_node <- function(
   graph,
@@ -19,6 +21,8 @@ bg_dagri_add_node <- function(
     metadata = metadata
   )
 }
+
+# --- Edge Operations ---
 
 #' @keywords internal
 bg_dagri_add_edge <- function(
@@ -88,10 +92,14 @@ bg_dagri_order_edges <- function(edges) {
   edges[order(edge_ids)]
 }
 
+# --- Graph Traversal ---
+
 #' @keywords internal
 bg_dagri_descendants <- function(graph, node_id) {
   dagriculture::dagri_descendants(graph, node_id)
 }
+
+# --- Graph State & Planning ---
 
 #' @keywords internal
 bg_dagri_recompute_state <- function(graph) {
@@ -134,6 +142,8 @@ bg_dagri_edge_ids <- function(edges) {
 
   sort(unique(edge_ids))
 }
+
+# --- Graph Diffing ---
 
 #' @keywords internal
 bg_dagri_graph_diff <- function(graph_before, graph_after) {

@@ -313,7 +313,7 @@ describe("Protocol schema validation against live objects", {
       message_type = "Command",
       command_id = "cmd_124",
       command = "bg_status",
-      args = list(auto_advance = TRUE)
+      args = list()
     )
 
     expect_error(

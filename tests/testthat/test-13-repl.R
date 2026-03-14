@@ -520,7 +520,7 @@ describe("Interactive REPL", {
   it("executes the selected suggested action through the confirmation seam", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
-    executed <- NULL
+    state <- new.env(parent = emptyenv())
 
     action <- list(
       action_id = "act_test",
@@ -548,7 +548,7 @@ describe("Interactive REPL", {
       bg_scope_label = function(project, scope) scope,
       bg_repl_readline = function(prompt = "") "y",
       bg_repl_execute_action = function(project, action, scope = "project") {
-        executed <<- list(action_id = action$action_id, scope = scope)
+        state$executed <- list(action_id = action$action_id, scope = scope)
         "executed"
       },
       .package = "bayesgrove"
@@ -556,13 +556,14 @@ describe("Interactive REPL", {
 
     expect_true(result$executed)
     expect_equal(result$action$action_id, "act_test")
-    expect_equal(executed$scope, "project")
+    expect_equal(state$executed$scope, "project")
   })
 
   it("returns without executing when action preview is declined", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
-    executed <- FALSE
+    state <- new.env(parent = emptyenv())
+    state$executed <- FALSE
 
     action <- list(
       action_id = "act_test",
@@ -582,13 +583,13 @@ describe("Interactive REPL", {
       bg_scope_label = function(project, scope) scope,
       bg_repl_readline = function(prompt = "") "n",
       bg_repl_execute_action = function(project, action, scope = "project") {
-        executed <<- TRUE
+        state$executed <- TRUE
       },
       .package = "bayesgrove"
     )
 
     expect_false(result$executed)
-    expect_false(executed)
+    expect_false(state$executed)
   })
 
   it("parses export arguments for format and path", {
@@ -611,7 +612,7 @@ describe("Interactive REPL", {
   it("passes parsed export arguments through to bg_export_report", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
-    captured <- NULL
+    state <- new.env(parent = emptyenv())
 
     path <- testthat::with_mocked_bindings(
       repl_ns("bg_repl_export_report_command")(
@@ -624,14 +625,14 @@ describe("Interactive REPL", {
         format = c("html", "md"),
         out_file = NULL
       ) {
-        captured <<- list(path = path, format = format[[1]])
+        state$captured <- list(path = path, format = format[[1]])
         file.path(project@path, path)
       },
       .package = "bayesgrove"
     )
 
-    expect_equal(captured$format, "md")
-    expect_equal(captured$path, "reports/workflow.md")
+    expect_equal(state$captured$format, "md")
+    expect_equal(state$captured$path, "reports/workflow.md")
     expect_match(path, "reports/workflow\\.md$")
   })
 
@@ -899,12 +900,13 @@ describe("Interactive REPL", {
     )[[1]]
 
     answers <- c("Fit Non-Centered", "Y")
-    answer_idx <- 0L
+    state <- new.env(parent = emptyenv())
+    state$answer_idx <- 0L
     branch_result <- testthat::with_mocked_bindings(
       repl_ns("bg_repl_execute_branch_and_modify")(handle, action, "project"),
       bg_repl_readline = function(prompt = "") {
-        answer_idx <<- answer_idx + 1L
-        answers[[answer_idx]]
+        state$answer_idx <- state$answer_idx + 1L
+        answers[[state$answer_idx]]
       },
       .package = "bayesgrove"
     )
@@ -957,13 +959,14 @@ describe("Interactive REPL", {
       "Revised comparison goal",
       "Keep this branch in comparison."
     )
-    answer_idx <- 0L
+    state <- new.env(parent = emptyenv())
+    state$answer_idx <- 0L
 
     testthat::with_mocked_bindings(
       repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
       bg_repl_readline = function(prompt = "") {
-        answer_idx <<- answer_idx + 1L
-        answers[[answer_idx]]
+        state$answer_idx <- state$answer_idx + 1L
+        answers[[state$answer_idx]]
       },
       .package = "bayesgrove"
     )
@@ -1080,16 +1083,17 @@ describe("Interactive REPL", {
     )
 
     branch_with_continuation <- repl_ns("bg_branch_with_continuation")
-    called <- NULL
+    state <- new.env(parent = emptyenv())
 
     result <- testthat::with_mocked_bindings(
       repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
       bg_repl_readline = local({
         answers <- c("", "n")
-        idx <- 0L
+        state <- new.env(parent = emptyenv())
+        state$idx <- 0L
         function(prompt = "") {
-          idx <<- idx + 1L
-          answers[[idx]]
+          state$idx <- state$idx + 1L
+          answers[[state$idx]]
         }
       }),
       bg_branch_with_continuation = function(
@@ -1100,7 +1104,7 @@ describe("Interactive REPL", {
         continuation_kinds = NULL,
         continuation_depth = 1L
       ) {
-        called <<- list(
+        state$called <- list(
           node_id = node_id,
           label = label,
           continuation_kinds = continuation_kinds
@@ -1117,8 +1121,8 @@ describe("Interactive REPL", {
       .package = "bayesgrove"
     )
 
-    expect_equal(called$node_id, fit_id)
-    expect_equal(called$continuation_kinds, c("check", "ppc"))
+    expect_equal(state$called$node_id, fit_id)
+    expect_equal(state$called$continuation_kinds, c("check", "ppc"))
     expect_true(startsWith(result$branch$branch_id, "branch:"))
   })
 
@@ -1150,10 +1154,11 @@ describe("Interactive REPL", {
       repl_ns("bg_repl_execute_action")(handle, action, scope = "project"),
       bg_repl_readline = local({
         answers <- c("prefer_branch_b", "Cleaner diagnostics and better fit.")
-        idx <- 0L
+        state <- new.env(parent = emptyenv())
+        state$idx <- 0L
         function(prompt = "") {
-          idx <<- idx + 1L
-          answers[[idx]]
+          state$idx <- state$idx + 1L
+          answers[[state$idx]]
         }
       }),
       .package = "bayesgrove"
@@ -1228,10 +1233,11 @@ describe("Interactive REPL", {
       ),
       bg_repl_readline = local({
         answers <- c("Fit Non-Centered Revision", "Y")
-        idx <- 0L
+        state <- new.env(parent = emptyenv())
+        state$idx <- 0L
         function(prompt = "") {
-          idx <<- idx + 1L
-          answers[[idx]]
+          state$idx <- state$idx + 1L
+          answers[[state$idx]]
         }
       }),
       .package = "bayesgrove"
@@ -1290,10 +1296,11 @@ describe("Interactive REPL", {
           "prefer_revised_branch",
           "The revised branch resolves the diagnostic warning cleanly."
         )
-        idx <- 0L
+        state <- new.env(parent = emptyenv())
+        state$idx <- 0L
         function(prompt = "") {
-          idx <<- idx + 1L
-          answers[[idx]]
+          state$idx <- state$idx + 1L
+          answers[[state$idx]]
         }
       }),
       .package = "bayesgrove"
@@ -1322,10 +1329,11 @@ describe("Interactive REPL", {
           "1",
           "Promote the revised branch as the accepted analysis path."
         )
-        idx <- 0L
+        state <- new.env(parent = emptyenv())
+        state$idx <- 0L
         function(prompt = "") {
-          idx <<- idx + 1L
-          answers[[idx]]
+          state$idx <- state$idx + 1L
+          answers[[state$idx]]
         }
       }),
       .package = "bayesgrove"

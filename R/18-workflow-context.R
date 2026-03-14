@@ -1,3 +1,5 @@
+# --- Timestamps and Storage Paths ---
+
 #' @keywords internal
 bg_now_timestamp <- function() {
   format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
@@ -27,6 +29,8 @@ bg_sort_persisted_value <- function(x) {
 
   x
 }
+
+# --- JSON IO Primitives ---
 
 #' @keywords internal
 bg_write_json_atomic <- function(path, data, sort_keys = TRUE) {
@@ -88,6 +92,8 @@ bg_append_jsonl <- function(path, record) {
   })
 }
 
+# --- Artifact Index IO ---
+
 #' @keywords internal
 bg_artifact_index_path <- function(project) {
   file.path(project@path, ".bayesgrove", "cache", "index.json")
@@ -102,6 +108,8 @@ bg_modify_artifact_index <- function(project, code, timeout = 10, poll = 0.05) {
     poll = poll
   )
 }
+
+# --- Workflow Directory and Registry Paths ---
 
 #' @keywords internal
 bg_workflow_dir <- function(project) {
@@ -145,6 +153,8 @@ bg_empty_goal_registry <- function(project) {
   )
 }
 
+# --- Branch Registry IO ---
+
 #' Read the persisted branch registry
 #'
 #' @param project A `bg_handle`.
@@ -182,6 +192,8 @@ bg_update_branch_metadata <- function(project, branch_id, metadata = list()) {
 
   invisible(record)
 }
+
+# --- Lifecycle State Helpers ---
 
 #' @keywords internal
 bg_lifecycle_state <- function(metadata = list()) {
@@ -273,6 +285,8 @@ bg_active_graph <- function(project, graph = NULL) {
   graph
 }
 
+# --- Branch Record Creation and Registration ---
+
 #' @keywords internal
 bg_new_branch_record <- function(
   project,
@@ -320,6 +334,8 @@ bg_register_branch <- function(
   bg_write_branch_registry(project, registry)
   record
 }
+
+# --- Goal Registry IO ---
 
 #' Read the persisted goal registry
 #'
@@ -443,6 +459,8 @@ bg_get_goal <- function(project, scope) {
 
   bg_read_goal_registry(project)$branch_goals[[scope]] %||% NULL
 }
+
+# --- Artifact Normalization ---
 
 #' @keywords internal
 bg_normalize_artifact_entry <- function(fingerprint, entry) {
@@ -644,6 +662,8 @@ bg_supersede_artifacts_for_node <- function(
   list(index = index, changed = changed, count = count)
 }
 
+# --- Scope Resolution ---
+
 #' @keywords internal
 bg_reverse_edge_map <- function(graph) {
   incoming <- stats::setNames(
@@ -789,6 +809,8 @@ bg_branch_lineage <- function(project, branch_id) {
   lineage
 }
 
+# --- Branch Listing and Scope Labels ---
+
 #' List all branches with their metadata
 #'
 #' Returns a data-frame-like list of all registered branches with their
@@ -887,6 +909,8 @@ bg_scope_node_ids <- function(
 
   setdiff(scope_node_ids, bg_inactive_node_ids(project, graph = graph))
 }
+
+# --- Scope Matching and Decision Resolution ---
 
 #' @keywords internal
 bg_predicted_fingerprints <- function(project, include_inactive = TRUE) {
@@ -999,6 +1023,8 @@ bg_scope_decisions <- function(project, scope) {
     decisions
   )
 }
+
+# --- Summary Persistence and Reading ---
 
 #' Persist executor summaries
 #'
@@ -1173,6 +1199,8 @@ bg_read_summaries <- function(
 
   summaries
 }
+
+# --- Workflow Context Building ---
 
 #' Build the workflow context for a given scope
 #'

@@ -19,9 +19,10 @@ describe("Planning and Orchestration", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
 
-    executor_ran <- FALSE
+    exec_state <- new.env(parent = emptyenv())
+    exec_state$ran <- FALSE
     mock_executor <- function(node, inputs) {
-      executor_ran <<- TRUE
+      exec_state$ran <- TRUE
       "mock_data"
     }
 
@@ -32,7 +33,7 @@ describe("Planning and Orchestration", {
 
     expect_equal(run_res$status, "succeeded")
     expect_equal(run_res$summary$total_executed, 1)
-    expect_true(executor_ran)
+    expect_true(exec_state$ran)
 
     # Check if the result was cached
     plan2 <- bg_plan(handle)
@@ -44,7 +45,8 @@ describe("Planning and Orchestration", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
     original_bg_plan <- bg_plan
-    plan_calls <- 0L
+    call_state <- new.env(parent = emptyenv())
+    call_state$plan_calls <- 0L
 
     bg_register_node_kind(handle, "data", executor = function(node, inputs) {
       "mock_data"
@@ -53,7 +55,7 @@ describe("Planning and Orchestration", {
 
     run_res <- testthat::with_mocked_bindings(
       bg_plan = function(...) {
-        plan_calls <<- plan_calls + 1L
+        call_state$plan_calls <- call_state$plan_calls + 1L
         original_bg_plan(...)
       },
       bg_run(handle, mode = "sync"),
@@ -61,7 +63,7 @@ describe("Planning and Orchestration", {
     )
 
     expect_equal(run_res$status, "succeeded")
-    expect_equal(plan_calls, 1L)
+    expect_equal(call_state$plan_calls, 1L)
   })
 
   it("passes resolved upstream artifacts to executors", {

@@ -143,7 +143,6 @@ bg_register_node_kind <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  # 1. Add structural kind to the graph
   graph <- bg_read_graph(project)
 
   new_kind <- dagriculture::dagri_kind(
@@ -158,7 +157,6 @@ bg_register_node_kind <- function(
 
   bg_commit_graph(project, graph)
 
-  # 2. Add executor to the runtime handle registries
   if (!is.null(executor)) {
     if (!is.function(executor)) {
       cli::cli_abort("Executor must be a function.")

@@ -107,6 +107,9 @@ bg_commit_graph <- function(project, graph) {
 
 #' Read project graph
 #' @param project A `bg_handle`
+#' @return A validated graph with class `dagriculture_graph`.
+#'   Uses payload-level validation and manual class coercion until
+#'   dagriculture exposes a native JSON deserializer.
 #' @keywords internal
 #' @export
 bg_read_graph <- function(project) {
@@ -128,20 +131,6 @@ bg_read_graph <- function(project) {
 
   raw <- jsonlite::read_json(graph_path)
   project@loaded_graph_version <- as.integer(raw$version %||% 0L)
-  # groots doesn't have a json deserializer exposed yet, but we can coerce the lists.
-  # Assuming groots provides groots_graph() to construct it or we pass the raw lists if groots validates them.
-  # Actually groots might require reconstructing the objects. For now, groots_graph() from lists.
-
-  # In the MVP we'll just return it as a list and let groots handle parsing when we have that implemented,
-  # or construct a groots_graph manually.
-
-  # For now, let's assume groots has a way to hydrate, or we just trust the json layout matches S7 properties
-  # Let's write a simple reconstructor since groots is value-oriented.
-
-  # Hack for MVP: groots currently accepts lists that look like graphs, but we should do it properly.
-  # Let's rely on groots::from_list(raw) if it exists, otherwise we'll build it.
-  # I'll just return the raw object and we can see what groots does.
-  # Wait, groots alpha design has `groots_graph(registry, nodes=..., edges=...)`.
   bg_validate_graph_payload(raw, graph_path)
   class(raw) <- unique(c("dagriculture_graph", class(raw)))
   raw

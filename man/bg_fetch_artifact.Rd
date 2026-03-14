@@ -6,6 +6,9 @@
 \usage{
 bg_fetch_artifact(project, ref)
 }
+\value{
+The deserialized R object stored at the given reference.
+}
 \description{
 Fetch an artifact from cache
 }

@@ -4,7 +4,15 @@
 \alias{bg_add_gate}
 \title{Add a decision gate to an edge}
 \usage{
-bg_add_gate(project, from, to, prompt, options, refs = NULL, metadata = list())
+bg_add_gate(
+  project,
+  from,
+  to,
+  prompt,
+  alternatives,
+  refs = NULL,
+  metadata = list()
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
@@ -15,14 +23,15 @@ bg_add_gate(project, from, to, prompt, options, refs = NULL, metadata = list())
 
 \item{prompt}{The question presented to the user.}
 
-\item{options}{Character vector of valid options.}
+\item{alternatives}{Character vector of valid choices.}
 
 \item{refs}{Optional list of references.}
 
 \item{metadata}{Optional metadata.}
 }
 \value{
-The generated \code{bg_pending_gate} record.
+A gate specification list containing the gate ID, edge ID,
+prompt, options, refs, and metadata.
 }
 \description{
 Add a decision gate to an edge

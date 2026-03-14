@@ -1,7 +1,8 @@
 make_workflow_hold_fixture <- function() {
   tmp <- tempfile("workflow-hold-fixture-")
   dir.create(tmp, recursive = TRUE)
-  fit_summary_mode <- "warning"
+  config <- new.env(parent = emptyenv())
+  config$fit_summary_mode <- "warning"
 
   handle <- bg_init(
     path = tmp,
@@ -12,13 +13,13 @@ make_workflow_hold_fixture <- function() {
     list(rows = 10L)
   })
   bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-    severity <- if (identical(fit_summary_mode, "warning")) "warning" else "ok"
+    severity <- if (identical(config$fit_summary_mode, "warning")) "warning" else "ok"
     list(
       result = list(
         fitted = TRUE,
         source_rows = inputs[[1]]$rows,
         revision = node$params$revision %||% 1L,
-        summary_mode = fit_summary_mode
+        summary_mode = config$fit_summary_mode
       ),
       summaries = list(list(
         summary_kind = "optimizer_diagnostics",
@@ -55,7 +56,7 @@ make_workflow_hold_fixture <- function() {
     fit_id = fit_id,
     compare_id = compare_id,
     set_fit_summary_mode = function(mode) {
-      fit_summary_mode <<- mode
+      config$fit_summary_mode <- mode
       invisible(mode)
     }
   )

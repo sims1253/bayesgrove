@@ -7,7 +7,7 @@
 #'   `"mirai"` and errors if the package is not installed.
 #'
 #' @return A `bg_run_handle` list.
-#' @export
+#' @keywords internal
 bg_submit <- function(
   project,
   targets = NULL,
@@ -36,7 +36,7 @@ bg_submit <- function(
 
   if (length(plan$to_execute) == 0) {
     bg_cli_inform("No nodes require execution.")
-    res <- list(
+    return(bg_build_run_handle(
       run_id = run_id,
       status = "succeeded",
       mode = "async",
@@ -48,9 +48,7 @@ bg_submit <- function(
       summary = list(total_jobs = 0L),
       error = NULL,
       metadata = list()
-    )
-    class(res) <- "bg_run_handle"
-    return(res)
+    ))
   }
 
   if (backend == "auto") {
@@ -113,14 +111,13 @@ bg_submit <- function(
 
     m <- mirai::mirai(
       {
-        if (!is.null(args$lib_paths)) {
-          .libPaths(args$lib_paths)
+        if (!is.null(worker_args$lib_paths)) {
+          .libPaths(worker_args$lib_paths)
         }
-        library(bayesgrove)
         fn <- get("bg_worker_process", envir = asNamespace("bayesgrove"))
-        fn(args)
+        fn(worker_args)
       },
-      args = worker_args,
+      .args = list(worker_args = worker_args),
       .compute = project@project_id
     )
 
@@ -130,7 +127,7 @@ bg_submit <- function(
     project@metadata$mirai_procs[[job$job_id]] <- m
   }
 
-  res <- list(
+  bg_build_run_handle(
     run_id = run_id,
     status = "running",
     mode = "async",
@@ -143,8 +140,6 @@ bg_submit <- function(
     error = NULL,
     metadata = list()
   )
-  class(res) <- "bg_run_handle"
-  res
 }
 
 #' Cancel an asynchronous run
@@ -231,40 +226,105 @@ bg_wait <- function(project, run_id, timeout = Inf) {
   invisible(TRUE)
 }
 
+#' Execute a single node: resolve inputs, run executor, store artifact, update job
+#'
+#' @param handle A `bg_handle`.
+#' @param node_id Node to execute.
+#' @param fingerprint Execution fingerprint.
+#' @param input_bindings Input binding list from the run plan.
+#' @param graph The graph (used to look up the node).
+#' @param job_id Job ID to update.
+#'
+#' @return A list with `ok` (logical) and either `ref` (artifact ref) or `error`.
+#' @keywords internal
+#' @export
+bg_execute_node <- function(handle, node_id, fingerprint, input_bindings, graph, job_id) {
+  node <- graph$nodes[[node_id]]
+  kind_reg <- handle@registries$node_kinds[[node$kind]]
+
+  if (is.null(kind_reg) || is.null(kind_reg$executor)) {
+    return(list(
+      ok = FALSE,
+      error = list(message = sprintf(
+        "No executor registered for node kind %s.", node$kind
+      ))
+    ))
+  }
+
+  resolved_inputs <- list()
+  for (b in input_bindings) {
+    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
+      handle,
+      b$artifact_ref
+    )
+  }
+
+  tryCatch(
+    {
+      execution <- kind_reg$executor(node, resolved_inputs)
+      normalized <- bg_normalize_execution_result(execution)
+
+      ref <- bg_store_artifact(
+        handle,
+        node_id,
+        fingerprint,
+        normalized$artifact
+      )
+      bg_write_summaries(
+        project = handle,
+        node_id = node_id,
+        artifact_ref = ref,
+        execution_fingerprint = fingerprint,
+        summaries = normalized$summaries
+      )
+
+      bg_update_job(
+        handle,
+        job_id,
+        status = "succeeded",
+        result_ref = ref,
+        finished_at = bg_now_timestamp()
+      )
+
+      list(ok = TRUE, ref = ref)
+    },
+    error = function(e) {
+      bg_update_job(
+        handle,
+        job_id,
+        status = "failed",
+        error = list(message = e$message),
+        finished_at = bg_now_timestamp()
+      )
+      list(ok = FALSE, error = e)
+    }
+  )
+}
+
 #' The internal worker process that executes a single node
 #'
 #' @param args List of worker arguments.
 #' @keywords internal
 #' @export
-bg_worker_process <- function(args) {
-  # This function runs in a completely separate R process
+bg_worker_log <- function(job_id, message, project_path) {
   cat(
-    "Worker started\n",
+    paste0(message, "\n"),
     file = file.path(
-      args$project_path,
+      project_path,
       ".bayesgrove",
       "runs",
-      paste0(args$job_id, "_debug.txt")
+      paste0(job_id, "_debug.txt")
     ),
     append = TRUE
   )
+}
+
+bg_worker_process <- function(args) {
+  bg_worker_log(args$job_id, "Worker started", args$project_path)
 
   if (!is.null(args$lib_paths)) {
     .libPaths(args$lib_paths)
   }
-
-  library(bayesgrove)
-
-  cat(
-    "Package loaded\n",
-    file = file.path(
-      args$project_path,
-      ".bayesgrove",
-      "runs",
-      paste0(args$job_id, "_debug.txt")
-    ),
-    append = TRUE
-  )
 
   handle <- bg_open(args$project_path, readonly = FALSE)
 
@@ -273,115 +333,27 @@ bg_worker_process <- function(args) {
   }
 
   graph <- bg_read_graph(handle)
-  node <- graph$nodes[[args$node_id]]
+  bg_worker_log(args$job_id, "Executing", args$project_path)
 
-  kind_reg <- handle@registries$node_kinds[[node$kind]]
+  result <- bg_execute_node(
+    handle = handle,
+    node_id = args$node_id,
+    fingerprint = args$fingerprint,
+    input_bindings = args$input_bindings,
+    graph = graph,
+    job_id = args$job_id
+  )
 
-  # Fetch inputs
-  resolved_inputs <- list()
-  for (b in args$input_bindings) {
-    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
-      handle,
-      b$artifact_ref
+  if (result$ok) {
+    bg_worker_log(args$job_id, "Job completed successfully", args$project_path)
+  } else {
+    bg_worker_log(
+      args$job_id,
+      paste0("Error: ", result$error$message),
+      args$project_path
     )
+    cli::cli_abort("Worker execution failed: {result$error$message}")
   }
-
-  cat(
-    "Inputs resolved, executing\n",
-    file = file.path(
-      args$project_path,
-      ".bayesgrove",
-      "runs",
-      paste0(args$job_id, "_debug.txt")
-    ),
-    append = TRUE
-  )
-
-  # Execute
-  result <- tryCatch(
-    {
-      execution <- kind_reg$executor(node, resolved_inputs)
-      normalized <- bg_normalize_execution_result(execution)
-      cat(
-        "Executor finished\n",
-        file = file.path(
-          args$project_path,
-          ".bayesgrove",
-          "runs",
-          paste0(args$job_id, "_debug.txt")
-        ),
-        append = TRUE
-      )
-
-      # Store artifact
-      ref <- bg_store_artifact(
-        handle,
-        args$node_id,
-        args$fingerprint,
-        normalized$artifact
-      )
-      bg_write_summaries(
-        project = handle,
-        node_id = args$node_id,
-        artifact_ref = ref,
-        execution_fingerprint = args$fingerprint,
-        summaries = normalized$summaries
-      )
-      cat(
-        "Artifact stored\n",
-        file = file.path(
-          args$project_path,
-          ".bayesgrove",
-          "runs",
-          paste0(args$job_id, "_debug.txt")
-        ),
-        append = TRUE
-      )
-
-      # Update job
-      bg_update_job(
-        handle,
-        args$job_id,
-        status = "succeeded",
-        result_ref = ref,
-        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-      )
-      cat(
-        "Job updated\n",
-        file = file.path(
-          args$project_path,
-          ".bayesgrove",
-          "runs",
-          paste0(args$job_id, "_debug.txt")
-        ),
-        append = TRUE
-      )
-
-      normalized$artifact
-    },
-    error = function(e) {
-      cat(
-        "Error: ",
-        e$message,
-        "\n",
-        file = file.path(
-          args$project_path,
-          ".bayesgrove",
-          "runs",
-          paste0(args$job_id, "_debug.txt")
-        ),
-        append = TRUE
-      )
-      bg_update_job(
-        handle,
-        args$job_id,
-        status = "failed",
-        error = list(message = e$message),
-        finished_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-      )
-      stop(e)
-    }
-  )
 
   invisible(TRUE)
 }

@@ -6,6 +6,9 @@
 \usage{
 bg_store_artifact(project, node_id, fingerprint, result)
 }
+\value{
+The artifact reference string (e.g. \code{"cas:sha256:..."}).
+}
 \description{
 Store an artifact in cache
 }

@@ -374,19 +374,9 @@ bg_template_review_choice <- function(
 #' @keywords internal
 bg_template_review_metadata <- function(action) {
   payload <- action$payload %||% list()
-  Filter(
-    Negate(is.null),
-    list(
-      action_id = action$action_id,
-      template_ref = bg_action_template_ref(action),
-      summary_ids = payload$summary_ids %||% character(),
-      node_ids = payload$node_ids %||% character(),
-      fit_node_ids = payload$fit_node_ids %||% character(),
-      branch_ids = payload$branch_ids %||% character(),
-      candidate_signature = payload$candidate_signature %||% NULL,
-      comparison_signature = payload$comparison_signature %||% NULL,
-      comparison_context = payload$comparison_context %||% NULL
-    )
+  bg_build_decision_metadata(
+    action, payload,
+    extra = list(template_ref = bg_action_template_ref(action))
   )
 }
 

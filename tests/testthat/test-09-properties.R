@@ -1,7 +1,7 @@
 describe("Fingerprint Properties (Developer Tests)", {
   it("computes the exact same fingerprint regardless of parameter order", {
     skip_if_not_installed("hedgehog")
-    library(hedgehog)
+        requireNamespace("hedgehog", quietly = TRUE)
 
     # Generate a list of random parameters
     gen_params <- gen.list(
@@ -45,7 +45,7 @@ describe("Fingerprint Properties (Developer Tests)", {
 
   it("produces distinct fingerprints when parameters differ", {
     skip_if_not_installed("hedgehog")
-    library(hedgehog)
+        requireNamespace("hedgehog", quietly = TRUE)
 
     gen_val <- gen.int(1000)
 

@@ -168,7 +168,6 @@ bg_remote_command_registry <- function() {
       allowed_args = character(),
       required_args = character(),
       normalize_args = function(args) {
-        args$auto_advance <- FALSE
         args
       }
     ),
@@ -333,7 +332,7 @@ bg_build_graph_snapshot_state <- function(project) {
     project_name = bg_read_project_config(project)$project_name %||%
       basename(project@path),
     graph = bg_read_graph(project),
-    status = bg_drop_null_fields(bg_status(project, auto_advance = FALSE)),
+    status = bg_drop_null_fields(bg_status(project)),
     pending_gates = bg_protocol_named_list(bg_pending_gates(project)),
     branches = bg_protocol_named_list(bg_list_branches(project)),
     branch_goals = bg_protocol_named_list(
@@ -376,7 +375,7 @@ bg_build_protocol_event_message <- function(
     event_kind = event_kind,
     source = source,
     emitted_at = bg_now_timestamp(),
-    status = bg_drop_null_fields(bg_status(project, auto_advance = FALSE)),
+    status = bg_drop_null_fields(bg_status(project)),
     graph_version = as.integer(bg_read_graph(project)$version %||% 0L)
   )
 
@@ -575,7 +574,10 @@ bg_serve_broadcast <- function(state, payload) {
 
     tryCatch(
       bg_serve_send(ws, payload),
-      error = function(...) {
+      error = function(e) {
+        cli::cli_alert_warning(
+          "bg_serve_broadcast: failed to send to client {.val {client_id}}: {e$message}"
+        )
         state$clients[[client_id]] <- NULL
         invisible(NULL)
       }
@@ -595,7 +597,12 @@ bg_schedule_graph_snapshot_send <- function(state, ws) {
 
       tryCatch(
         bg_serve_send(ws, bg_build_graph_snapshot_message(state$project)),
-        error = function(...) invisible(NULL)
+        error = function(e) {
+          cli::cli_alert_warning(
+            "bg_schedule_graph_snapshot_send: failed to send snapshot: {e$message}"
+          )
+          invisible(NULL)
+        }
       )
 
       invisible(TRUE)
@@ -793,7 +800,10 @@ bg_stop_server_state <- function(state) {
   if (!is.null(state$server)) {
     tryCatch(
       httpuv::stopServer(state$server),
-      error = function(...) {
+      error = function(e) {
+        cli::cli_alert_warning(
+          "bg_stop_server_state: failed to stop httpuv server: {e$message}"
+        )
         invisible(NULL)
       }
     )
@@ -811,13 +821,14 @@ bg_start_server_binding <- function(host, port, app) {
     as.integer(port)
   }
 
-  last_error <- NULL
+  error_state <- new.env(parent = emptyenv())
+  error_state$last <- NULL
 
   for (candidate in candidates) {
     server <- tryCatch(
       httpuv::startServer(host, candidate, app = app),
       error = function(e) {
-        last_error <<- e
+        error_state$last <- e
         NULL
       }
     )
@@ -828,6 +839,6 @@ bg_start_server_binding <- function(host, port, app) {
   }
 
   cli::cli_abort(
-    "Unable to bind bg_serve() on {.val {host}}: {conditionMessage(last_error)}"
+    "Unable to bind bg_serve() on {.val {host}}: {conditionMessage(error_state$last)}"
   )
 }
