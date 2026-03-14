@@ -55,7 +55,7 @@ bg_dagri_update_node <- function(
 ) {
   dagriculture::dagri_update_node(
     graph = graph,
-    node_id = node_id,
+    id = node_id,
     label = label,
     params = params,
     metadata = metadata
@@ -66,7 +66,7 @@ bg_dagri_update_node <- function(
 bg_dagri_remove_node <- function(graph, node_id) {
   dagriculture::dagri_remove_node(
     graph = graph,
-    node_id = node_id
+    id = node_id
   )
 }
 

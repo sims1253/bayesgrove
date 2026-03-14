@@ -42,7 +42,7 @@ bg_add_gate <- function(
   # 1. Add structural gate to the graph
   graph <- dagriculture::dagri_add_gate(
     graph = graph,
-    edge_id = edge_id,
+    edge = edge_id,
     id = gate_id
   )
 

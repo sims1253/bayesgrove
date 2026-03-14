@@ -97,9 +97,21 @@ bg_use_default_workflow <- function(project) {
 
   default_node_kinds <- list(
     list(kind = "source", output_type = "data.frame"),
-    list(kind = "fit", input_contract = "data.frame", output_type = "fit"),
-    list(kind = "ppc", input_contract = "fit", output_type = "ppc"),
-    list(kind = "compare", input_contract = "fit", output_type = "comparison")
+    list(
+      kind = "fit",
+      input_contract = list(data = "data.frame"),
+      output_type = "fit"
+    ),
+    list(
+      kind = "ppc",
+      input_contract = list(fit = "fit"),
+      output_type = "ppc"
+    ),
+    list(
+      kind = "compare",
+      input_contract = list(fits = "list"),
+      output_type = "comparison"
+    )
   )
 
   graph <- bg_read_graph(project)

@@ -15,6 +15,9 @@
 * Fixed protocol object validator to reject unnamed (bare) lists for object-type schemas.
 * Removed orphaned `bg_submit.Rd` man page.
 * Ran `air format` across all affected files.
+* Updated dagriculture dependency to `>= 0.1.5`.
+* Fixed dagriculture API mismatches: `dagri_update_node` and `dagri_remove_node` now pass `id` instead of `node_id`; `dagri_add_gate` now passes `edge` instead of `edge_id`.
+* Converted default workflow `input_contract` values from bare strings to proper named lists to satisfy dagriculture 0.1.4+ validation.
 
 # bayesgrove 0.4.7
 
