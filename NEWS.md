@@ -1,3 +1,7 @@
+# bayesgrove 0.4.5
+
+* Fix problem to return proper empty graph for empty project
+
 # bayesgrove 0.4.4
 
 * Changed `bg_init()` so new projects start empty by default instead of automatically enabling `bayesguide.default_bayesian`.
