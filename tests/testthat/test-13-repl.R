@@ -903,7 +903,7 @@ describe("Interactive REPL", {
     state <- new.env(parent = emptyenv())
     state$answer_idx <- 0L
     branch_result <- testthat::with_mocked_bindings(
-      repl_ns("bg_repl_execute_branch_and_modify")(handle, action, "project"),
+      bg_apply_template_action(handle, action, "project", interactive = TRUE),
       bg_repl_readline = function(prompt = "") {
         state$answer_idx <- state$answer_idx + 1L
         answers[[state$answer_idx]]
@@ -1038,11 +1038,7 @@ describe("Interactive REPL", {
     )
 
     result <- testthat::with_mocked_bindings(
-      repl_ns("bg_repl_execute_create_node_from_template")(
-        handle,
-        action,
-        "project"
-      ),
+      bg_apply_template_action(handle, action, "project", interactive = TRUE),
       bg_repl_readline = function(prompt = "") "",
       .package = "bayesgrove"
     )
