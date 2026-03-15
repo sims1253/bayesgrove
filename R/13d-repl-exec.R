@@ -141,24 +141,21 @@ bg_repl_execute_record_decision <- function(project, action, scope) {
       rationale = rationale
     )
   } else {
-    decision_metadata <- bg_build_decision_metadata(
-      action,
-      payload,
-      extra = if (identical(decision_type, "branch_disposition")) {
+    decision <- bg_record_decision_from_action(
+      project = project,
+      scope = scope,
+      prompt = prompt,
+      choice = choice,
+      choice_label = choice_label,
+      rationale = rationale,
+      decision_type = decision_type,
+      action = action,
+      payload = payload,
+      extra_metadata = if (identical(decision_type, "branch_disposition")) {
         list(disposition = choice)
       } else {
         list()
       }
-    )
-
-    decision <- bg_record_decision(
-      project = project,
-      scope = scope,
-      prompt = prompt,
-      choice = choice_label,
-      rationale = rationale,
-      kind = decision_type,
-      metadata = decision_metadata
     )
   }
 
