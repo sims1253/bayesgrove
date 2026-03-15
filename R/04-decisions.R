@@ -162,9 +162,10 @@ bg_answer_gate <- function(
           )
           bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
           project@loaded_graph_version <- original_loaded_version
-          # Restore gate specs to pre-transaction state (ignore current_specs)
+          # Restore only this gate entry to avoid clobbering concurrent updates.
           bg_modify_gate_specs(project, function(current_specs) {
-            specs
+            current_specs[[id]] <- specs[[id]] %||% NULL
+            current_specs
           })
           NULL
         },

@@ -118,7 +118,7 @@ bg_read_graph <- function(project) {
 
   if (!file.exists(graph_path)) {
     cli::cli_abort(
-      "Graph file not found at {.path {graph_path}}. "
+      "Graph file not found at {.path {graph_path}}."
     )
   }
 

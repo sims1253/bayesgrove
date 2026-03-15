@@ -17,13 +17,14 @@ bg_repl_execute_suggested_action <- function(
     return(invisible(list(executed = FALSE, action = NULL)))
   }
 
-  if (is.na(idx) || idx < 1 || idx > length(actions)) {
+  idx_int <- suppressWarnings(as.integer(idx))
+  if (is.na(idx_int) || idx_int < 1L || idx_int > length(actions)) {
     cli::cli_abort(
       "Action {idx} not found. Only {length(actions)} actions available."
     )
   }
 
-  action <- actions[[idx]]
+  action <- actions[[idx_int]]
   bg_repl_print_action_preview(action, heading = heading)
   cli::cli_text("")
 

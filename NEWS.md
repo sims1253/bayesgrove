@@ -1,3 +1,12 @@
+# bayesgrove 0.4.9
+
+* `bg_execute_node()` now transitions job state to "failed" when no executor is registered for a node kind, preventing stuck "running" jobs.
+* `bg_repl_choose_action()` defensively coerces `idx` to integer to produce friendly CLI errors on non-numeric input.
+* `bg_close()` now guards `mirai::daemons()` with `requireNamespace("mirai")` for consistency with the rest of the codebase.
+* Gate answer rollback now restores only the specific gate being modified, avoiding clobbering concurrent updates to other gates.
+* Removed trailing space in `bg_read_graph()` error message.
+* Updated closed/readonly error-case tests to register a valid node kind and assert on specific error messages.
+
 # bayesgrove 0.4.8
 
 * Fixed CI failures across R-CMD-check, pkgdown, test-coverage, and format-check workflows.

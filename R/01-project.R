@@ -283,10 +283,12 @@ bg_close <- function(project) {
   }
 
   # Clean up mirai daemons for this project
-  tryCatch(
-    mirai::daemons(0, .compute = project@project_id),
-    error = function(e) NULL
-  )
+  if (requireNamespace("mirai", quietly = TRUE)) {
+    tryCatch(
+      mirai::daemons(0, .compute = project@project_id),
+      error = function(e) NULL
+    )
+  }
 
   # Here we would release the lock if we hold it
   project@lock_token <- NA_character_

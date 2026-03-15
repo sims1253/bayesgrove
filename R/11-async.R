@@ -251,6 +251,18 @@ bg_execute_node <- function(
   kind_reg <- handle@registries$node_kinds[[node$kind]]
 
   if (is.null(kind_reg) || is.null(kind_reg$executor)) {
+    bg_update_job(
+      handle,
+      job_id,
+      status = "failed",
+      error = list(
+        message = sprintf(
+          "No executor registered for node kind %s.",
+          node$kind
+        )
+      ),
+      finished_at = bg_now_timestamp()
+    )
     return(list(
       ok = FALSE,
       error = list(

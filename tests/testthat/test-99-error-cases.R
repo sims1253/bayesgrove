@@ -80,10 +80,13 @@ describe("Error Handling - Closed Project Operations", {
   it("rejects mutations on closed handle", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "test_kind")
     bg_close(handle)
 
     expect_error(
-      bg_add_node(handle, kind = "test")
+      bg_add_node(handle, kind = "test_kind"),
+      "closed",
+      ignore.case = TRUE
     )
   })
 })
@@ -91,12 +94,15 @@ describe("Error Handling - Closed Project Operations", {
 describe("Error Handling - Readonly Mode", {
   it("rejects mutations on readonly handle", {
     tmp <- withr::local_tempdir()
-    bg_init(path = tmp)
-
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "test_kind")
+    bg_close(handle)
     handle <- bg_open(path = tmp, readonly = TRUE)
 
     expect_error(
-      bg_add_node(handle, kind = "test")
+      bg_add_node(handle, kind = "test_kind"),
+      "readonly",
+      ignore.case = TRUE
     )
   })
 })
