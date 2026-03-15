@@ -177,9 +177,13 @@ bg_phase10_current_causal_contract <- function(context) {
     )
   }
 
-  latest_idx <- which.max(vapply(reviewed, function(s) {
-    s$created_at %||% s$updated_at %||% ""
-  }, character(1)))
+  latest_idx <- which.max(vapply(
+    reviewed,
+    function(s) {
+      s$created_at %||% s$updated_at %||% ""
+    },
+    character(1)
+  ))
   if (length(latest_idx) == 0) {
     latest_idx <- length(reviewed)
   }
