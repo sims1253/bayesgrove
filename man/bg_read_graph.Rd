@@ -9,6 +9,11 @@ bg_read_graph(project)
 \arguments{
 \item{project}{A \code{bg_handle}}
 }
+\value{
+A validated graph with class \code{dagriculture_graph}.
+Uses payload-level validation and manual class coercion until
+dagriculture exposes a native JSON deserializer.
+}
 \description{
 Read project graph
 }

@@ -186,13 +186,13 @@ bg_build_api_boundary_registry <- function() {
       fn = "bg_run",
       classification = "stable",
       note = "Run workflow synchronously",
-      remote_accessible = FALSE
+      remote_accessible = TRUE
     ),
     list(
-      fn = "bg_submit",
+      fn = "bg_execute_node",
       classification = "stable",
-      note = "Submit workflow asynchronously",
-      remote_accessible = TRUE
+      note = "Execute a single node",
+      remote_accessible = FALSE
     ),
     list(
       fn = "bg_wait",
@@ -449,11 +449,11 @@ bg_build_api_boundary_registry <- function() {
       remote_accessible = FALSE
     ),
 
-    # === Internal Exported: Worker Process ===
+    # === Internal Exported: Worker Logging ===
     list(
-      fn = "bg_worker_process",
+      fn = "bg_worker_log",
       classification = "internal_exported",
-      note = "Worker process entry point (cross-process)",
+      note = "Write worker debug log entries",
       remote_accessible = FALSE
     ),
 

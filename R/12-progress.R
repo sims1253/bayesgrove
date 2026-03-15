@@ -29,7 +29,7 @@ bg_reconcile_daemon_jobs <- function(project) {
 
           if (latest$status %in% c("queued", "running")) {
             res <- m$data
-            if (inherits(res, "errorValue")) {
+            if (mirai::is_error_value(res)) {
               bg_update_job(
                 project,
                 job$job_id,

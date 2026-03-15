@@ -31,7 +31,7 @@ describe("Project Status and Results", {
       from = n1,
       to = n2,
       prompt = "OK?",
-      options = c("yes", "no")
+      alternatives = c("yes", "no")
     )
 
     st <- bg_status(handle)

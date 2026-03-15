@@ -62,7 +62,6 @@ reference:
       - bg_repl
       - bg_plan
       - bg_run
-      - bg_submit
       - bg_wait
       - bg_cancel
       - bg_jobs

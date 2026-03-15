@@ -23,42 +23,43 @@ serve_wait_until <- function(predicate, timeout = 3) {
 }
 
 serve_collect_messages <- function(url) {
-  messages <- list()
-  opened <- FALSE
-  closed <- FALSE
-  errors <- character()
+  state <- new.env(parent = emptyenv())
+  state$messages <- list()
+  state$opened <- FALSE
+  state$closed <- FALSE
+  state$errors <- character()
 
   client <- websocket::WebSocket$new(url, autoConnect = FALSE)
   client$onOpen(function(event) {
-    opened <<- TRUE
+    state$opened <- TRUE
     invisible(NULL)
   })
   client$onMessage(function(event) {
-    messages[[length(messages) + 1L]] <<- jsonlite::fromJSON(
+    state$messages[[length(state$messages) + 1L]] <- jsonlite::fromJSON(
       event$data,
       simplifyVector = FALSE
     )
     invisible(NULL)
   })
   client$onError(function(event) {
-    errors <<- c(
-      errors,
+    state$errors <- c(
+      state$errors,
       if (!is.null(event$message)) event$message else "websocket error"
     )
     invisible(NULL)
   })
   client$onClose(function(event) {
-    closed <<- TRUE
+    state$closed <- TRUE
     invisible(NULL)
   })
   client$connect()
 
   list(
     client = client,
-    opened = function() opened,
-    closed = function() closed,
-    messages = function() messages,
-    errors = function() errors
+    opened = function() state$opened,
+    closed = function() state$closed,
+    messages = function() state$messages,
+    errors = function() state$errors
   )
 }
 
@@ -544,8 +545,8 @@ describe("bg_serve()", {
       list(
         protocol_version = serve_ns("bg_protocol_version")(),
         message_type = "Command",
-        command_id = "cmd_submit",
-        command = "bg_submit",
+        command_id = "cmd_run",
+        command = "bg_run",
         args = stats::setNames(list(), character())
       ),
       auto_unbox = TRUE,
@@ -557,7 +558,7 @@ describe("bg_serve()", {
         client$messages(),
         function(msg) {
           identical(msg$message_type, "CommandResult") &&
-            identical(msg$command_id, "cmd_submit")
+            identical(msg$command_id, "cmd_run")
         },
         logical(1)
       ))

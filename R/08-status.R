@@ -1,12 +1,18 @@
 #' Get workflow status
 #'
 #' @param project A `bg_handle`.
-#' @param auto_advance Whether to automatically submit newly eligible nodes if the last run was async (default TRUE).
+#' @param auto_advance Deprecated; no longer has any effect.
 #'
 #' @return A `bg_status` list summarizing the project.
 #' @export
-bg_status <- function(project, auto_advance = TRUE) {
+bg_status <- function(project, auto_advance = NULL) {
   S7::check_is_S7(project, bg_handle)
+
+  if (!is.null(auto_advance)) {
+    cli::cli_warn(
+      "`auto_advance` is deprecated and no longer has any effect."
+    )
+  }
 
   bg_reconcile_daemon_jobs(project)
 
@@ -41,18 +47,6 @@ bg_status <- function(project, auto_advance = TRUE) {
     if (!nzchar(last_run_id)) {
       last_run_id <- NULL
     }
-  }
-
-  if (
-    auto_advance &&
-      length(plan$to_execute) > 0 &&
-      length(gates) == 0 &&
-      num_active == 0 &&
-      !paused
-  ) {
-    # Find if the most recent finished job was from an async run
-    # If so, we might auto-submit here. For the MVP, we let the user explicitly call bg_submit()
-    # or bg_wait() to chain jobs.
   }
 
   messages <- character(0)

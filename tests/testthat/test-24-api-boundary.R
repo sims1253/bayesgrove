@@ -157,9 +157,9 @@ describe("API boundary classification distribution", {
         "bg_next_actions",
         "bg_record_decision",
         "bg_remove_node",
+        "bg_run",
         "bg_snapshot",
         "bg_status",
-        "bg_submit",
         "bg_use_default_workflow",
         "bg_use_workflow_packs",
         "bg_update_node"

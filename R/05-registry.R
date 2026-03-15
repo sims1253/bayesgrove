@@ -97,9 +97,21 @@ bg_use_default_workflow <- function(project) {
 
   default_node_kinds <- list(
     list(kind = "source", output_type = "data.frame"),
-    list(kind = "fit", input_contract = "data.frame", output_type = "fit"),
-    list(kind = "ppc", input_contract = "fit", output_type = "ppc"),
-    list(kind = "compare", input_contract = "fit", output_type = "comparison")
+    list(
+      kind = "fit",
+      input_contract = list(data = "data.frame"),
+      output_type = "fit"
+    ),
+    list(
+      kind = "ppc",
+      input_contract = list(fit = "fit"),
+      output_type = "ppc"
+    ),
+    list(
+      kind = "compare",
+      input_contract = list(fits = "list"),
+      output_type = "comparison"
+    )
   )
 
   graph <- bg_read_graph(project)
@@ -143,7 +155,6 @@ bg_register_node_kind <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  # 1. Add structural kind to the graph
   graph <- bg_read_graph(project)
 
   new_kind <- dagriculture::dagri_kind(
@@ -158,7 +169,6 @@ bg_register_node_kind <- function(
 
   bg_commit_graph(project, graph)
 
-  # 2. Add executor to the runtime handle registries
   if (!is.null(executor)) {
     if (!is.function(executor)) {
       cli::cli_abort("Executor must be a function.")

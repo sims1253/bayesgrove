@@ -6,6 +6,9 @@
 \usage{
 bg_check_artifact(project, fingerprint, node_id = NULL, artifact_index = NULL)
 }
+\value{
+The artifact reference string if found and active, otherwise \code{NULL}.
+}
 \description{
 Check if an artifact exists in cache
 }

@@ -208,23 +208,15 @@ bg_execute_record_decision_action <- function(
     choice_spec = choice_spec
   )
 
-  decision_metadata <- Filter(
-    Negate(is.null),
-    list(
-      action_id = action$action_id,
-      summary_ids = payload$summary_ids %||% character(),
-      node_ids = payload$node_ids %||% character(),
-      fit_node_ids = payload$fit_node_ids %||% character(),
-      branch_ids = payload$branch_ids %||% character(),
-      candidate_signature = payload$candidate_signature %||% NULL,
-      comparison_signature = payload$comparison_signature %||% NULL,
-      comparison_context = payload$comparison_context %||% NULL
-    )
+  decision_metadata <- bg_build_decision_metadata(
+    action,
+    payload,
+    extra = if (identical(decision_type, "branch_disposition")) {
+      list(disposition = choice_resolved$value)
+    } else {
+      list()
+    }
   )
-
-  if (identical(decision_type, "branch_disposition")) {
-    decision_metadata$disposition <- choice_resolved$value
-  }
 
   bg_record_decision(
     project = project,

@@ -4,18 +4,19 @@
 #' @param from Upstream node ID.
 #' @param to Downstream node ID.
 #' @param prompt The question presented to the user.
-#' @param options Character vector of valid options.
+#' @param alternatives Character vector of valid choices.
 #' @param refs Optional list of references.
 #' @param metadata Optional metadata.
 #'
-#' @return The generated `bg_pending_gate` record.
+#' @return A gate specification list containing the gate ID, edge ID,
+#'   prompt, options, refs, and metadata.
 #' @export
 bg_add_gate <- function(
   project,
   from,
   to,
   prompt,
-  options,
+  alternatives,
   refs = NULL,
   metadata = list()
 ) {
@@ -41,7 +42,7 @@ bg_add_gate <- function(
   # 1. Add structural gate to the graph
   graph <- dagriculture::dagri_add_gate(
     graph = graph,
-    edge_id = edge_id,
+    edge = edge_id,
     id = gate_id
   )
 
@@ -52,7 +53,7 @@ bg_add_gate <- function(
     id = gate_id,
     edge_id = edge_id,
     prompt = prompt,
-    options = as.character(options),
+    options = as.character(alternatives),
     refs = refs %||% list(),
     created_at = bg_now_timestamp(),
     metadata = metadata
@@ -161,8 +162,10 @@ bg_answer_gate <- function(
           )
           bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
           project@loaded_graph_version <- original_loaded_version
+          # Restore only this gate entry to avoid clobbering concurrent updates.
           bg_modify_gate_specs(project, function(current_specs) {
-            specs
+            current_specs[[id]] <- specs[[id]] %||% NULL
+            current_specs
           })
           NULL
         },
@@ -373,23 +376,11 @@ bg_read_gate_specs <- function(project) {
 
 bg_write_gate_specs <- function(project, specs) {
   spec_path <- bg_gate_specs_path(project)
-  temp_path <- paste0(spec_path, ".tmp")
-
-  # If list is empty, write an empty object {}
   if (length(specs) == 0) {
-    # Hack to force write an empty object rather than empty array
-    writeLines("{}", temp_path)
+    bg_write_json_atomic(spec_path, list(), sort_keys = FALSE)
   } else {
-    jsonlite::write_json(
-      specs,
-      temp_path,
-      auto_unbox = TRUE,
-      pretty = TRUE,
-      force = TRUE
-    )
+    bg_write_json_atomic(spec_path, specs, sort_keys = FALSE)
   }
-
-  file.rename(temp_path, spec_path)
   invisible(TRUE)
 }
 
@@ -420,4 +411,28 @@ bg_modify_gate_specs <- function(project, code, timeout = 10, poll = 0.05) {
     timeout = timeout,
     poll = poll
   )
+}
+
+#' Build a decision metadata list from action and payload fields
+#'
+#' @param action An action list with `action_id`.
+#' @param payload A payload list with optional provenance fields.
+#' @param extra Additional fields to merge into the metadata.
+#' @return A filtered list of non-NULL metadata entries.
+#' @keywords internal
+bg_build_decision_metadata <- function(action, payload, extra = list()) {
+  base <- Filter(
+    Negate(is.null),
+    list(
+      action_id = action$action_id,
+      summary_ids = payload$summary_ids %||% character(),
+      node_ids = payload$node_ids %||% character(),
+      fit_node_ids = payload$fit_node_ids %||% character(),
+      branch_ids = payload$branch_ids %||% character(),
+      candidate_signature = payload$candidate_signature %||% NULL,
+      comparison_signature = payload$comparison_signature %||% NULL,
+      comparison_context = payload$comparison_context %||% NULL
+    )
+  )
+  utils::modifyList(base, extra)
 }

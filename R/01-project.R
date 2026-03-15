@@ -124,6 +124,17 @@ bg_init <- function(
     cli::cli_abort("Project already exists at {.path {path}}")
   }
 
+  # Create the base path if it doesn't exist
+  if (!dir.exists(path)) {
+    created <- tryCatch(
+      dir.create(path, recursive = TRUE, showWarnings = FALSE),
+      error = function(e) FALSE
+    )
+    if (!created || !dir.exists(path)) {
+      cli::cli_abort("Failed to create project directory at {.path {path}}")
+    }
+  }
+
   # Create directory structure
   dirs <- c(
     "graph",
@@ -269,6 +280,14 @@ bg_close <- function(project) {
 
   if (project@closed) {
     return(invisible(project))
+  }
+
+  # Clean up mirai daemons for this project
+  if (requireNamespace("mirai", quietly = TRUE)) {
+    tryCatch(
+      mirai::daemons(0, .compute = project@project_id),
+      error = function(e) NULL
+    )
   }
 
   # Here we would release the lock if we hold it

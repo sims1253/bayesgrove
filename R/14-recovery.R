@@ -21,7 +21,7 @@ bg_snapshot <- function(project) {
   gates <- bg_pending_gates(project)
   decisions <- bg_read_decisions(project)
   artifacts <- bg_read_artifact_index(project)
-  status <- bg_status(project, auto_advance = FALSE)
+  status <- bg_status(project)
 
   list(
     project_id = project@project_id,
@@ -55,8 +55,6 @@ bg_snapshot <- function(project) {
 bg_pause <- function(project) {
   S7::check_is_S7(project, bg_handle)
 
-  # For MVP, pausing is implemented by modifying the config to disable auto_advance
-  # and adding a 'paused' marker to the project state.
   config <- bg_read_project_config(project)
 
   config$paused <- TRUE
@@ -86,9 +84,7 @@ bg_resume <- function(project) {
   bg_write_project_config_path(project@path, config)
   cli::cli_inform("Workflow resumed.")
 
-  # Optionally trigger an auto-advance here if desired
-  # For now, rely on user calling bg_submit() or bg_run()
-  invisible(bg_status(project, auto_advance = FALSE))
+  invisible(bg_status(project))
 }
 
 bg_read_project_config <- function(project) {

@@ -129,7 +129,7 @@ bg_update_node <- function(
 #' @param project A `bg_handle`.
 #' @param node_id The node ID to remove.
 #'
-#' @return Invisible TRUE.
+#' @return The removed node ID, invisibly.
 #' @export
 bg_remove_node <- function(project, node_id) {
   S7::check_is_S7(project, bg_handle)
@@ -143,5 +143,5 @@ bg_remove_node <- function(project, node_id) {
 
   bg_commit_graph(project, graph)
 
-  invisible(TRUE)
+  invisible(node_id)
 }

@@ -1,3 +1,5 @@
+# --- Context Helpers ---
+
 bg_phase10_sort_ids <- function(x) {
   sort(unique(as.character(x %||% character())))
 }
@@ -31,6 +33,8 @@ bg_phase10_source_node_id <- function(context, node_ids = NULL) {
 
   node_ids[[1]]
 }
+
+# --- Summary Accessors ---
 
 bg_phase10_fresh_summaries <- function(
   context,
@@ -100,6 +104,8 @@ bg_phase10_pending_review_summaries <- function(
   )
 }
 
+# --- Decision Helpers ---
+
 bg_phase10_scope_decisions <- function(context, kind = NULL) {
   bg_default_bayesian_scope_decisions(
     context$evidence$decisions %||% list(),
@@ -131,6 +137,8 @@ bg_phase10_has_scope_decision <- function(context, kind, node_ids = NULL) {
     logical(1)
   ))
 }
+
+# --- Review and Goal Utilities ---
 
 bg_phase10_review_severity <- function(summaries, default = "blocking") {
   if (length(summaries) == 0) {
@@ -190,6 +198,8 @@ bg_phase10_primary_utilities <- function(context) {
     character()
   )
 }
+
+# --- Obligation and Action Constructors ---
 
 bg_phase10_obligation <- function(
   context,
@@ -368,6 +378,8 @@ bg_phase10_review_action <- function(
     metadata = metadata
   )
 }
+
+# --- Prior Workflow Pack ---
 
 bg_phase10_prior_workflow_obligations <- function(
   context,
@@ -570,6 +582,8 @@ bg_phase10_prior_workflow_actions <- function(
 
   actions
 }
+
+# --- Model Checks Pack ---
 
 bg_phase10_model_checks_obligations <- function(
   context,
@@ -943,6 +957,8 @@ bg_phase10_model_checks_actions <- function(
   actions
 }
 
+# --- Model Selection Pack ---
+
 bg_phase10_model_selection_summary_kinds <- function() {
   c("model_comparison", "stacking_weights", "comparison_results")
 }
@@ -1198,6 +1214,8 @@ bg_phase10_model_selection_actions <- function(
   ))
 }
 
+# --- Causal Minimal Pack ---
+
 bg_phase10_causal_minimal_obligations <- function(
   context,
   pack_config = list()
@@ -1280,6 +1298,8 @@ bg_phase10_causal_minimal_actions <- function(
     )
   ))
 }
+
+# --- PAD Scaffold Pack ---
 
 bg_phase10_pad_scaffold_obligations <- function(
   context,

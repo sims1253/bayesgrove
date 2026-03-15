@@ -49,7 +49,7 @@ describe("Handoff and Export Layer", {
       from = n_data,
       to = n_fit,
       prompt = "OK?",
-      options = c("yes", "no"),
+      alternatives = c("yes", "no"),
       refs = list(list(citekey = "demo2026", note = "Workflow checkpoint"))
     )
     bg_answer_gate(

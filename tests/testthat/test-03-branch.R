@@ -490,14 +490,15 @@ describe("Branch with continuation", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
 
-    fit_runs <- 0L
+    state <- new.env(parent = emptyenv())
+    state$fit_runs <- 0L
 
     bg_register_node_kind(handle, "source", executor = function(node, inputs) {
       list(rows = 10L)
     })
     bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-      fit_runs <<- fit_runs + 1L
-      list(fit_runs = fit_runs)
+      state$fit_runs <- state$fit_runs + 1L
+      list(fit_runs = state$fit_runs)
     })
 
     n_source <- bg_add_node(handle, kind = "source", label = "Data")
@@ -516,7 +517,7 @@ describe("Branch with continuation", {
     run_res <- bg_run(handle, mode = "sync")
 
     expect_equal(run_res$summary$total_executed, 0L)
-    expect_equal(fit_runs, 1L)
+    expect_equal(state$fit_runs, 1L)
   })
 })
 

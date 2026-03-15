@@ -10,11 +10,12 @@ describe("Workflow holds end-to-end", {
     fixture <- make_workflow_hold_fixture()
     handle <- fixture$handle
     original_bg_plan <- bg_plan
-    plan_calls <- 0L
+    call_state <- new.env(parent = emptyenv())
+    call_state$plan_calls <- 0L
 
     run_res <- testthat::with_mocked_bindings(
       bg_plan = function(...) {
-        plan_calls <<- plan_calls + 1L
+        call_state$plan_calls <- call_state$plan_calls + 1L
         original_bg_plan(...)
       },
       bg_run(handle, targets = fixture$compare_id, mode = "sync"),
@@ -32,7 +33,7 @@ describe("Workflow holds end-to-end", {
       info = "The source and fit nodes should finish before the new policy hold blocks the comparison."
     )
     expect_equal(
-      plan_calls,
+      call_state$plan_calls,
       2L,
       info = paste(
         "Sync runs should keep the initial planning passes but avoid",

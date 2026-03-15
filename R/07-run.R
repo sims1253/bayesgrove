@@ -1,4 +1,6 @@
 #' Check if an artifact exists in cache
+#'
+#' @return The artifact reference string if found and active, otherwise `NULL`.
 #' @keywords internal
 #' @export
 bg_check_artifact <- function(
@@ -26,6 +28,8 @@ bg_check_artifact <- function(
 }
 
 #' Store an artifact in cache
+#'
+#' @return The artifact reference string (e.g. `"cas:sha256:..."`).
 #' @keywords internal
 #' @export
 bg_store_artifact <- function(project, node_id, fingerprint, result) {
@@ -79,6 +83,8 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
 }
 
 #' Fetch an artifact from cache
+#'
+#' @return The deserialized R object stored at the given reference.
 #' @keywords internal
 #' @export
 bg_fetch_artifact <- function(project, ref) {
@@ -488,95 +494,18 @@ bg_run <- function(
     )
 
     node <- graph$nodes[[node_id]]
-    kind_reg <- project@registries$node_kinds[[node$kind]]
 
-    if (is.null(kind_reg) || is.null(kind_reg$executor)) {
-      bg_update_job(
-        project,
-        job$job_id,
-        status = "failed",
-        error = list(
-          message = sprintf(
-            "No executor registered for node kind %s.",
-            node$kind
-          )
-        ),
-        finished_at = bg_now_timestamp()
-      )
-      res <- list(
-        run_id = run_id,
-        status = "failed",
-        mode = mode,
-        targets = plan$targets,
-        job_ids = job_ids,
-        submitted_at = run_started_at,
-        started_at = run_started_at,
-        finished_at = bg_now_timestamp(),
-        summary = list(total_executed = num_executed - 1L),
-        error = list(
-          message = sprintf(
-            "No executor registered for node kind %s.",
-            node$kind
-          )
-        ),
-        metadata = list(
-          held_by_policy = plan$held_by_policy %||% list()
-        )
-      )
-      class(res) <- "bg_run_handle"
-      return(res)
-    }
-
-    # Resolve input bindings
-    bindings <- plan$input_bindings[[node_id]]
-    resolved_inputs <- list()
-    for (b in bindings) {
-      resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
-        project,
-        b$artifact_ref
-      )
-    }
-
-    # Execute
-    execution_result <- tryCatch(
-      {
-        execution <- kind_reg$executor(node, resolved_inputs)
-        normalized <- bg_normalize_execution_result(execution)
-
-        fp <- plan$metadata$fingerprints[[node_id]]
-        ref <- bg_store_artifact(project, node_id, fp, normalized$artifact)
-        bg_write_summaries(
-          project = project,
-          node_id = node_id,
-          artifact_ref = ref,
-          execution_fingerprint = fp,
-          summaries = normalized$summaries
-        )
-
-        bg_update_job(
-          project,
-          job$job_id,
-          status = "succeeded",
-          result_ref = ref,
-          finished_at = bg_now_timestamp()
-        )
-
-        list(ok = TRUE, ref = ref)
-      },
-      error = function(e) {
-        bg_update_job(
-          project,
-          job$job_id,
-          status = "failed",
-          error = list(message = e$message),
-          finished_at = bg_now_timestamp()
-        )
-        list(ok = FALSE, error = e)
-      }
+    execution_result <- bg_execute_node(
+      handle = project,
+      node_id = node_id,
+      fingerprint = plan$metadata$fingerprints[[node_id]],
+      input_bindings = plan$input_bindings[[node_id]],
+      graph = graph,
+      job_id = job$job_id
     )
 
     if (!isTRUE(execution_result$ok)) {
-      res <- list(
+      return(bg_build_run_handle(
         run_id = run_id,
         status = "failed",
         mode = mode,
@@ -590,9 +519,7 @@ bg_run <- function(
         metadata = list(
           held_by_policy = plan$held_by_policy %||% list()
         )
-      )
-      class(res) <- "bg_run_handle"
-      return(res)
+      ))
     }
 
     plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
@@ -615,7 +542,7 @@ bg_run <- function(
     "partial"
   }
 
-  res <- list(
+  bg_build_run_handle(
     run_id = run_id,
     status = final_status,
     mode = mode,
@@ -629,6 +556,35 @@ bg_run <- function(
     metadata = list(
       held_by_policy = plan$held_by_policy %||% list()
     )
+  )
+}
+
+#' @keywords internal
+bg_build_run_handle <- function(
+  run_id,
+  status,
+  mode,
+  targets,
+  job_ids,
+  submitted_at = NULL,
+  started_at = NULL,
+  finished_at = NULL,
+  summary = list(),
+  error = NULL,
+  metadata = list()
+) {
+  res <- list(
+    run_id = run_id,
+    status = status,
+    mode = mode,
+    targets = targets %||% character(0),
+    job_ids = job_ids %||% character(0),
+    submitted_at = submitted_at,
+    started_at = started_at,
+    finished_at = finished_at,
+    summary = summary,
+    error = error,
+    metadata = metadata
   )
   class(res) <- "bg_run_handle"
   res
