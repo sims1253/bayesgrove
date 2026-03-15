@@ -1,5 +1,28 @@
 # Changelog
 
+## bayesgrove 0.5.1
+
+- Fixed CodeRabbit review issues: wired unused `choice` param into
+  `bg_record_decision_from_action` metadata, stopped
+  `bg_phase10_source_node_id` from widening caller-provided `node_ids`,
+  guarded NULL `goal_kind` before
+  [`switch()`](https://rdrr.io/r/base/switch.html) in
+  `bg_phase10_taxonomy_evaluation_modes`, expanded character vectors to
+  individual specs in `bg_phase10_causal_allowed_formulas`, and selected
+  most recently created contract in
+  `bg_phase10_current_causal_contract`.
+
+## bayesgrove 0.5.0
+
+- Split 5 large production files into focused helper modules to improve
+  file health: `27a-workflow-packs-bayesian-helpers.R`,
+  `22a-workflow-packs-default-helpers.R`, `19a-protocol-helpers.R`,
+  `31a-workflow-packs-causal-dagitty-helpers.R`,
+  `29a-workflow-packs-guides-helpers.R`.
+- Extracted `bg_record_decision_from_action()` helper to deduplicate the
+  common `bg_build_decision_metadata` + `bg_record_decision` pattern in
+  REPL and protocol layers.
+
 ## bayesgrove 0.4.9
 
 - [`bg_execute_node()`](https://sims1253.github.io/bayesgrove/reference/bg_execute_node.md)

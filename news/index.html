@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,9 +39,18 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.4.9/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.5.1" id="bayesgrove-051">bayesgrove 0.5.1<a class="anchor" aria-label="anchor" href="#bayesgrove-051"></a></h2>
+<ul><li>Fixed CodeRabbit review issues: wired unused <code>choice</code> param into <code>bg_record_decision_from_action</code> metadata, stopped <code>bg_phase10_source_node_id</code> from widening caller-provided <code>node_ids</code>, guarded NULL <code>goal_kind</code> before <code><a href="https://rdrr.io/r/base/switch.html" class="external-link">switch()</a></code> in <code>bg_phase10_taxonomy_evaluation_modes</code>, expanded character vectors to individual specs in <code>bg_phase10_causal_allowed_formulas</code>, and selected most recently created contract in <code>bg_phase10_current_causal_contract</code>.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.5.0" id="bayesgrove-050">bayesgrove 0.5.0<a class="anchor" aria-label="anchor" href="#bayesgrove-050"></a></h2>
+<ul><li>Split 5 large production files into focused helper modules to improve file health: <code>27a-workflow-packs-bayesian-helpers.R</code>, <code>22a-workflow-packs-default-helpers.R</code>, <code>19a-protocol-helpers.R</code>, <code>31a-workflow-packs-causal-dagitty-helpers.R</code>, <code>29a-workflow-packs-guides-helpers.R</code>.</li>
+<li>Extracted <code>bg_record_decision_from_action()</code> helper to deduplicate the common <code>bg_build_decision_metadata</code> + <code>bg_record_decision</code> pattern in REPL and protocol layers.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.9" id="bayesgrove-049">bayesgrove 0.4.9<a class="anchor" aria-label="anchor" href="#bayesgrove-049"></a></h2>
 <ul><li>
