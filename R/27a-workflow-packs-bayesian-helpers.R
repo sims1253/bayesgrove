@@ -26,7 +26,11 @@ bg_phase10_node_label <- function(context, node_id) {
 }
 
 bg_phase10_source_node_id <- function(context, node_ids = NULL) {
-  node_ids <- bg_phase10_sort_ids(c(node_ids, bg_phase10_fit_node_ids(context)))
+  node_ids <- if (is.null(node_ids)) {
+    bg_phase10_sort_ids(bg_phase10_fit_node_ids(context))
+  } else {
+    bg_phase10_sort_ids(node_ids)
+  }
   if (length(node_ids) == 0) {
     return(NULL)
   }

@@ -76,8 +76,10 @@ bg_phase10_causal_allowed_formulas <- function(x, response = NULL) {
     return(list())
   }
 
-  raw_specs <- if (inherits(x, "formula") || is.character(x)) {
+  raw_specs <- if (inherits(x, "formula")) {
     list(x)
+  } else if (is.character(x)) {
+    as.list(x)
   } else if (is.list(x) && !is.data.frame(x)) {
     x
   } else {
@@ -175,8 +177,15 @@ bg_phase10_current_causal_contract <- function(context) {
     )
   }
 
+  latest_idx <- which.max(vapply(reviewed, function(s) {
+    s$created_at %||% s$updated_at %||% ""
+  }, character(1)))
+  if (length(latest_idx) == 0) {
+    latest_idx <- length(reviewed)
+  }
+
   bg_phase10_causal_contract_from_summary(
-    reviewed[[length(reviewed)]],
+    reviewed[[latest_idx]],
     response = response
   )
 }

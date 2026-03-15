@@ -60,6 +60,9 @@ bg_phase10_taxonomy_utility_dimensions <- function() {
 
 bg_phase10_taxonomy_evaluation_modes <- function(context) {
   goal_kind <- bg_phase10_goal_kind(context)
+  if (is.null(goal_kind)) {
+    goal_kind <- ""
+  }
 
   switch(
     goal_kind,

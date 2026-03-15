@@ -450,6 +450,8 @@ bg_record_decision_from_action <- function(
   payload,
   extra_metadata = list()
 ) {
+  extra_metadata$disposition <- extra_metadata$disposition %||% choice
+
   decision_metadata <- bg_build_decision_metadata(
     action,
     payload,
