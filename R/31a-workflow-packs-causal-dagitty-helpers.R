@@ -184,9 +184,6 @@ bg_phase10_current_causal_contract <- function(context) {
     },
     character(1)
   ))
-  if (length(latest_idx) == 0) {
-    latest_idx <- length(reviewed)
-  }
 
   bg_phase10_causal_contract_from_summary(
     reviewed[[latest_idx]],
