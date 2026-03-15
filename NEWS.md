@@ -1,3 +1,12 @@
+# bayesgrove 0.5.0
+
+* Split 5 large production files into focused helper modules to improve file health:
+  `27a-workflow-packs-bayesian-helpers.R`, `22a-workflow-packs-default-helpers.R`,
+  `19a-protocol-helpers.R`, `31a-workflow-packs-causal-dagitty-helpers.R`,
+  `29a-workflow-packs-guides-helpers.R`.
+* Extracted `bg_record_decision_from_action()` helper to deduplicate the common
+  `bg_build_decision_metadata` + `bg_record_decision` pattern in REPL and protocol layers.
+
 # bayesgrove 0.4.9
 
 * `bg_execute_node()` now transitions job state to "failed" when no executor is registered for a node kind, preventing stuck "running" jobs.

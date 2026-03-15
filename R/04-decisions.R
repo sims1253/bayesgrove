@@ -436,3 +436,33 @@ bg_build_decision_metadata <- function(action, payload, extra = list()) {
   )
   utils::modifyList(base, extra)
 }
+
+#' @keywords internal
+bg_record_decision_from_action <- function(
+  project,
+  scope,
+  prompt,
+  choice,
+  choice_label,
+  rationale,
+  decision_type,
+  action,
+  payload,
+  extra_metadata = list()
+) {
+  decision_metadata <- bg_build_decision_metadata(
+    action,
+    payload,
+    extra = extra_metadata
+  )
+
+  bg_record_decision(
+    project = project,
+    scope = scope,
+    prompt = prompt,
+    choice = choice_label,
+    rationale = rationale,
+    kind = decision_type,
+    metadata = decision_metadata
+  )
+}
