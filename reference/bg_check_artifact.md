@@ -7,3 +7,7 @@ Check if an artifact exists in cache
 ``` r
 bg_check_artifact(project, fingerprint, node_id = NULL, artifact_index = NULL)
 ```
+
+## Value
+
+The artifact reference string if found and active, otherwise `NULL`.

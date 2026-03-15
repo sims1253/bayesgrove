@@ -20,4 +20,4 @@ bg_remove_node(project, node_id)
 
 ## Value
 
-Invisible TRUE.
+The removed node ID, invisibly.

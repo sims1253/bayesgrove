@@ -37,8 +37,6 @@
   : Create an execution plan
 - [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
   : Run a project workflow
-- [`bg_submit()`](https://sims1253.github.io/bayesgrove/reference/bg_submit.md)
-  : Submit a project workflow for asynchronous execution
 - [`bg_wait()`](https://sims1253.github.io/bayesgrove/reference/bg_wait.md)
   : Wait for asynchronous jobs to complete
 - [`bg_cancel()`](https://sims1253.github.io/bayesgrove/reference/bg_cancel.md)

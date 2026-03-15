@@ -91,6 +91,7 @@ bg_api_boundary()
 #> 63                  bg_create_job internal_exported
 #> 51          bg_diagnostics_plugin            stable
 #> 25              bg_execute_action      experimental
+#> 28                bg_execute_node            stable
 #> 48               bg_export_report            stable
 #> 24          bg_extension_registry      experimental
 #> 61              bg_fetch_artifact internal_exported
@@ -130,14 +131,13 @@ bg_api_boundary()
 #> 46                    bg_snapshot            stable
 #> 33                      bg_status            stable
 #> 60              bg_store_artifact internal_exported
-#> 28                      bg_submit            stable
 #> 40            bg_summary_is_fresh            stable
 #> 64                  bg_update_job internal_exported
 #> 9                  bg_update_node            stable
 #> 5         bg_use_default_workflow      experimental
 #> 6           bg_use_workflow_packs      experimental
 #> 29                        bg_wait            stable
-#> 68              bg_worker_process internal_exported
+#> 68                  bg_worker_log internal_exported
 #> 53            bg_workflow_context      experimental
 #> 52              bg_workflow_packs      experimental
 #> 39             bg_write_summaries            stable
@@ -162,6 +162,7 @@ bg_api_boundary()
 #> 63                              Create job record (worker-facing)
 #> 51                                             Diagnostics plugin
 #> 25                    Execute a protocol action inside bayesgrove
+#> 28                                          Execute a single node
 #> 48                                         Export workflow report
 #> 24                      Return the descriptive extension registry
 #> 61                      Fetch artifact from cache (worker-facing)
@@ -201,14 +202,13 @@ bg_api_boundary()
 #> 46                                           Get project snapshot
 #> 33                                            Get workflow status
 #> 60                        Store artifact in cache (worker-facing)
-#> 28                                 Submit workflow asynchronously
 #> 40                                        Check summary freshness
 #> 64                              Update job record (worker-facing)
 #> 9                                          Update node properties
 #> 5     Activate the built-in starter workflow packs and node kinds
 #> 6  Persist additional workflow-pack activations in project config
 #> 29                                            Wait for async jobs
-#> 68                     Worker process entry point (cross-process)
+#> 68                                 Write worker debug log entries
 #> 53                            Build workflow context for protocol
 #> 52                                     List active workflow packs
 #> 39                                       Write executor summaries
@@ -233,6 +233,7 @@ bg_api_boundary()
 #> 63             FALSE
 #> 51             FALSE
 #> 25              TRUE
+#> 28             FALSE
 #> 48             FALSE
 #> 24              TRUE
 #> 61             FALSE
@@ -265,14 +266,13 @@ bg_api_boundary()
 #> 32             FALSE
 #> 18             FALSE
 #> 17             FALSE
-#> 27             FALSE
+#> 27              TRUE
 #> 44             FALSE
 #> 70             FALSE
 #> 41             FALSE
 #> 46              TRUE
 #> 33              TRUE
 #> 60             FALSE
-#> 28              TRUE
 #> 40             FALSE
 #> 64             FALSE
 #> 9               TRUE
@@ -287,7 +287,7 @@ bg_api_boundary()
 # Filter to a specific function
 bg_api_boundary("bg_run")
 #>        fn classification                       note remote_accessible
-#> 27 bg_run         stable Run workflow synchronously             FALSE
+#> 27 bg_run         stable Run workflow synchronously              TRUE
 
 # Filter to experimental functions
 subset(bg_api_boundary(), classification == "experimental")

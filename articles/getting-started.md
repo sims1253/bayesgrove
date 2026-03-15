@@ -63,9 +63,9 @@ subset(boundary, remote_accessible)[, c("fn", "classification")]
 #> 55         bg_next_actions   experimental
 #> 23      bg_record_decision         stable
 #> 10          bg_remove_node         stable
+#> 27                  bg_run         stable
 #> 46             bg_snapshot         stable
 #> 33               bg_status         stable
-#> 28               bg_submit         stable
 #> 9           bg_update_node         stable
 #> 5  bg_use_default_workflow   experimental
 #> 6    bg_use_workflow_packs   experimental
@@ -107,9 +107,9 @@ handle <- bg_init(
 bg_use_default_workflow(handle)
 print(handle)
 #> <bayesgrove::bg_handle>
-#>  @ .state              :<environment: 0x55c78e3eb848> 
+#>  @ .state              :<environment: 0x559149fbc110> 
 #>  @ project_id          : chr "proj_79663245"
-#>  @ path                : chr "/tmp/RtmpdR339e/bg-quickstart"
+#>  @ path                : chr "/tmp/RtmpLwWVy6/bg-quickstart"
 #>  @ readonly            : logi FALSE
 #>  @ closed              : logi FALSE
 #>  @ loaded_graph_version: int 4
@@ -213,7 +213,7 @@ gate <- bg_add_gate(
   from = n_data,
   to = n_model,
   prompt = "Does the simulated data look ready for modeling?",
-  options = c("yes", "no")
+  alternatives = c("yes", "no")
 )
 ```
 
@@ -251,7 +251,7 @@ print(bg_pending_gates(handle))
 #> list()
 #> 
 #> $gate_2fcde878$created_at
-#> [1] "2026-03-13T20:23:43Z"
+#> [1] "2026-03-15T00:55:13Z"
 #> 
 #> $gate_2fcde878$metadata
 #> list()
@@ -450,7 +450,7 @@ step:
 ``` r
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-#>                 obl_9513c773 
+#>                 obl_6158d82b 
 #> "compare_candidate_branches"
 Filter(
   function(x) identical(x$kind, "create_node_from_template"),
@@ -524,7 +524,7 @@ branch_guide <- bg_next_actions(
   branch_id = branch$branch_id
 )
 vapply(branch_guide$obligations, `[[`, character(1), "kind")
-#>              obl_7534eebb 
+#>              obl_0c35977f 
 #> "accept_or_reject_branch"
 
 disposition_action <- Filter(

@@ -266,7 +266,7 @@ The posterior check is held from executing:
 guide <- bg_next_actions(handle, scope = "project")
 
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_9daa323c 
+#>                  obl_c0c6cdf0 
 #> "review_computation_validity"
 
 held <- bg_plan(handle, external_holds = guide$metadata$external_holds)
@@ -422,8 +422,6 @@ each analysis step as an integral part of the workflow.
   : Create an execution plan
 - [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
   : Run a project workflow
-- [`bg_submit()`](https://sims1253.github.io/bayesgrove/reference/bg_submit.md)
-  : Submit a project workflow for asynchronous execution
 - [`bg_wait()`](https://sims1253.github.io/bayesgrove/reference/bg_wait.md)
   : Wait for asynchronous jobs to complete
 - [`bg_cancel()`](https://sims1253.github.io/bayesgrove/reference/bg_cancel.md)

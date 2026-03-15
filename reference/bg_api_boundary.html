@@ -13,7 +13,7 @@ remote protocol contract."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,7 +45,7 @@ remote protocol contract."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Query the bayesgrove API boundary</h1>
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.4.4/R/24-api-boundary.R" class="external-link"><code>R/24-api-boundary.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/R/24-api-boundary.R" class="external-link"><code>R/24-api-boundary.R</code></a></small>
       <div class="d-none name"><code>bg_api_boundary.Rd</code></div>
     </div>
 
@@ -141,6 +141,7 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 63                  bg_create_job internal_exported</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 51          bg_diagnostics_plugin            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 25              bg_execute_action      experimental</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 28                bg_execute_node            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 48               bg_export_report            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 24          bg_extension_registry      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 61              bg_fetch_artifact internal_exported</span>
@@ -180,14 +181,13 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 46                    bg_snapshot            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 33                      bg_status            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 60              bg_store_artifact internal_exported</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 28                      bg_submit            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 40            bg_summary_is_fresh            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 64                  bg_update_job internal_exported</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9                  bg_update_node            stable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5         bg_use_default_workflow      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 6           bg_use_workflow_packs      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 29                        bg_wait            stable</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 68              bg_worker_process internal_exported</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 68                  bg_worker_log internal_exported</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 53            bg_workflow_context      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 52              bg_workflow_packs      experimental</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 39             bg_write_summaries            stable</span>
@@ -212,6 +212,7 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 63                              Create job record (worker-facing)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 51                                             Diagnostics plugin</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 25                    Execute a protocol action inside bayesgrove</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 28                                          Execute a single node</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 48                                         Export workflow report</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 24                      Return the descriptive extension registry</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 61                      Fetch artifact from cache (worker-facing)</span>
@@ -251,14 +252,13 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 46                                           Get project snapshot</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 33                                            Get workflow status</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 60                        Store artifact in cache (worker-facing)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 28                                 Submit workflow asynchronously</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 40                                        Check summary freshness</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 64                              Update job record (worker-facing)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9                                          Update node properties</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5     Activate the built-in starter workflow packs and node kinds</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 6  Persist additional workflow-pack activations in project config</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 29                                            Wait for async jobs</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 68                     Worker process entry point (cross-process)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 68                                 Write worker debug log entries</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 53                            Build workflow context for protocol</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 52                                     List active workflow packs</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 39                                       Write executor summaries</span>
@@ -283,6 +283,7 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 63             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 51             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 25              TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 28             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 48             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 24              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 61             FALSE</span>
@@ -315,14 +316,13 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-out co"><span class="r-pr">#&gt;</span> 32             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 18             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 17             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 27             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 27              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 44             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 70             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 41             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 46              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 33              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 60             FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 28              TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 40             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 64             FALSE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9               TRUE</span>
@@ -337,7 +337,7 @@ and backs the experimental <code><a href="bg_serve.html">bg_serve()</a></code> p
 <span class="r-in"><span><span class="co"># Filter to a specific function</span></span></span>
 <span class="r-in"><span><span class="fu">bg_api_boundary</span><span class="op">(</span><span class="st">"bg_run"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        fn classification                       note remote_accessible</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 27 bg_run         stable Run workflow synchronously             FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 27 bg_run         stable Run workflow synchronously              TRUE</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Filter to experimental functions</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="fu">bg_api_boundary</span><span class="op">(</span><span class="op">)</span>, <span class="va">classification</span> <span class="op">==</span> <span class="st">"experimental"</span><span class="op">)</span></span></span>

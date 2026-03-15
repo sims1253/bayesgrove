@@ -7,3 +7,7 @@ Store an artifact in cache
 ``` r
 bg_store_artifact(project, node_id, fingerprint, result)
 ```
+
+## Value
+
+The artifact reference string (e.g. `"cas:sha256:..."`).

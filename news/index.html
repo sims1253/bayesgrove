@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,9 +39,68 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.4.4/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.9" id="bayesgrove-049">bayesgrove 0.4.9<a class="anchor" aria-label="anchor" href="#bayesgrove-049"></a></h2>
+<ul><li>
+<code><a href="../reference/bg_execute_node.html">bg_execute_node()</a></code> now transitions job state to “failed” when no executor is registered for a node kind, preventing stuck “running” jobs.</li>
+<li>
+<code>bg_repl_choose_action()</code> defensively coerces <code>idx</code> to integer to produce friendly CLI errors on non-numeric input.</li>
+<li>
+<code><a href="../reference/bg_close.html">bg_close()</a></code> now guards <code><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">mirai::daemons()</a></code> with <code><a href="https://mirai.r-lib.org" class="external-link">requireNamespace("mirai")</a></code> for consistency with the rest of the codebase.</li>
+<li>Gate answer rollback now restores only the specific gate being modified, avoiding clobbering concurrent updates to other gates.</li>
+<li>Removed trailing space in <code><a href="../reference/bg_read_graph.html">bg_read_graph()</a></code> error message.</li>
+<li>Updated closed/readonly error-case tests to register a valid node kind and assert on specific error messages.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.8" id="bayesgrove-048">bayesgrove 0.4.8<a class="anchor" aria-label="anchor" href="#bayesgrove-048"></a></h2>
+<ul><li>Fixed CI failures across R-CMD-check, pkgdown, test-coverage, and format-check workflows.</li>
+<li>Renamed <code><a href="../reference/bg_add_gate.html">bg_add_gate()</a></code> parameter <code>options</code> to <code>alternatives</code> consistently across all call sites (vignettes, tests, demo scripts).</li>
+<li>Fixed <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code> error on all platforms: replaced unsupported <code>chdir</code> argument to <code><a href="https://rdrr.io/r/utils/tar.html" class="external-link">utils::tar()</a></code> with <code><a href="https://rdrr.io/r/base/getwd.html" class="external-link">setwd()</a></code>/<code><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit()</a></code> pattern.</li>
+<li>Qualified all <code>hedgehog::</code> namespace references in property-based tests to avoid unbound symbol errors.</li>
+<li>
+<code><a href="../reference/bg_read_graph.html">bg_read_graph()</a></code> now aborts with a clear error when <code>graph.json</code> is missing instead of silently returning an empty graph.</li>
+<li>Added backward-compatible <code>auto_advance</code> parameter to <code><a href="../reference/bg_status.html">bg_status()</a></code> with a deprecation warning.</li>
+<li>Aligned API boundary registry with current exports: added <code>bg_execute_node</code> and <code>bg_worker_log</code>, removed <code>bg_submit</code> and <code>bg_worker_process</code>.</li>
+<li>Replaced <code>bg_submit</code> with <code>bg_run</code> in the IPC server registry and protocol schema.</li>
+<li>
+<code>bg_write_gate_specs()</code> now uses atomic writes for the empty-specs case.</li>
+<li>
+<code><a href="../reference/bg_worker_log.html">bg_worker_log()</a></code> now creates the <code>.bayesgrove/runs</code> directory if it does not exist.</li>
+<li>
+<code>bg_resolve_node_ref()</code> now uses fixed-string matching for partial label lookups to avoid regex metacharacter issues.</li>
+<li>Added section headers for node update/removal operations in <code>R/22-dagri-adapters.R</code>.</li>
+<li>Fixed protocol object validator to reject unnamed (bare) lists for object-type schemas.</li>
+<li>Removed orphaned <code>bg_submit.Rd</code> man page.</li>
+<li>Ran <code>air format</code> across all affected files.</li>
+<li>Updated dagriculture dependency to <code>&gt;= 0.1.5</code>.</li>
+<li>Fixed dagriculture API mismatches: <code>dagri_update_node</code> and <code>dagri_remove_node</code> now pass <code>id</code> instead of <code>node_id</code>; <code>dagri_add_gate</code> now passes <code>edge</code> instead of <code>edge_id</code>.</li>
+<li>Converted default workflow <code>input_contract</code> values from bare strings to proper named lists to satisfy dagriculture 0.1.4+ validation.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.7" id="bayesgrove-047">bayesgrove 0.4.7<a class="anchor" aria-label="anchor" href="#bayesgrove-047"></a></h2>
+<ul><li>Eliminated all <code>&lt;&lt;-</code> super-assignments in production R code by refactoring to explicit environment-based state (<code>R/13-repl.R</code>, <code>R/19-workflow-protocol.R</code>, <code>R/26-serve.R</code>).</li>
+<li>Removed redundant <code><a href="https://github.com/sims1253/bayesgrove" class="external-link">library(bayesgrove)</a></code> call in the mirai worker (<code>R/11-async.R</code>); the function is already resolved via <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code> from <code><a href="https://rdrr.io/r/base/ns-internal.html" class="external-link">asNamespace()</a></code>.</li>
+<li>Extracted <code><a href="../reference/bg_build_decision_metadata.html">bg_build_decision_metadata()</a></code> helper to deduplicate decision metadata construction across <code>R/13d-repl-exec.R</code>, <code>R/28-protocol-contract.R</code>, and <code>R/23-templates.R</code>.</li>
+<li>Replaced <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code> guard in test properties helper (<code>tests/testthat/test-09-properties.R</code>).</li>
+<li>Refactored <code>&lt;&lt;-</code> in test fixtures and test callbacks to use environment-based mutable state.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.6" id="bayesgrove-046">bayesgrove 0.4.6<a class="anchor" aria-label="anchor" href="#bayesgrove-046"></a></h2>
+<ul><li>Fixed mirai worker argument handling to properly pass <code>lib_paths</code> and worker args to background processes.</li>
+<li>Fixed mirai daemon cleanup on project close to prevent resource leaks.</li>
+<li>Used <code><a href="https://nanonext.r-lib.org/reference/is_error_value.html" class="external-link">mirai::is_error_value()</a></code> for proper error detection in job reconciliation.</li>
+<li>Auto-create project directory in <code><a href="../reference/bg_init.html">bg_init()</a></code> if the target path does not exist.</li>
+<li>Refactored REPL module into separate files for better organization (<code>13a-repl-utils.R</code>, <code>13b-repl-display.R</code>, <code>13c-repl-guide.R</code>, <code>13d-repl-exec.R</code>).</li>
+<li>Added property-based tests and error case coverage.</li>
+<li>Removed stale <code>README.html</code> from the repository.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.4.5" id="bayesgrove-045">bayesgrove 0.4.5<a class="anchor" aria-label="anchor" href="#bayesgrove-045"></a></h2>
+<ul><li>Fix problem to return proper empty graph for empty project</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.4" id="bayesgrove-044">bayesgrove 0.4.4<a class="anchor" aria-label="anchor" href="#bayesgrove-044"></a></h2>
 <ul><li>Changed <code><a href="../reference/bg_init.html">bg_init()</a></code> so new projects start empty by default instead of automatically enabling <code>bayesguide.default_bayesian</code>.</li>
@@ -133,7 +192,7 @@
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.3.4" id="bayesgrove-034">bayesgrove 0.3.4<a class="anchor" aria-label="anchor" href="#bayesgrove-034"></a></h2>
-<ul><li>Enforced workflow holds inside <code><a href="../reference/bg_run.html">bg_run()</a></code> and <code><a href="../reference/bg_submit.html">bg_submit()</a></code> so blocking obligations now affect real execution, not just advisory planning.</li>
+<ul><li>Enforced workflow holds inside <code><a href="../reference/bg_run.html">bg_run()</a></code> and <code>bg_submit()</code> so blocking obligations now affect real execution, not just advisory planning.</li>
 <li>Tightened workflow-context scoping, transactional gate answering, sync job logging, and severity merging to match the workflow protocol and persistence contracts.</li>
 <li>Added locking around shared artifact-index, summary, decision, job, gate-spec, and graph writes to harden async and multi-session behavior.</li>
 <li>Aligned public APIs and docs for status reporting, branching returns, bundling/export arguments, workflow reference topics, and report examples.</li>
@@ -167,7 +226,7 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="bayesgrove-020">bayesgrove 0.2.0<a class="anchor" aria-label="anchor" href="#bayesgrove-020"></a></h2>
 <ul><li><strong>Phase 2 (Async Execution Layer) Implementation</strong></li>
-<li>Added <code><a href="../reference/bg_submit.html">bg_submit()</a></code>, <code><a href="../reference/bg_wait.html">bg_wait()</a></code>, and <code><a href="../reference/bg_cancel.html">bg_cancel()</a></code> to orchestrate true non-blocking background execution of workflows.</li>
+<li>Added <code>bg_submit()</code>, <code><a href="../reference/bg_wait.html">bg_wait()</a></code>, and <code><a href="../reference/bg_cancel.html">bg_cancel()</a></code> to orchestrate true non-blocking background execution of workflows.</li>
 <li>Integrated <code>callr</code> and <code>mirai</code> execution backends for parallel asynchronous job dispatch.</li>
 <li>Added <code><a href="../reference/bg_jobs.html">bg_jobs()</a></code> and JSONL logging (<code>.bayesgrove/runs/jobs.jsonl</code>) to durably track job status, start times, completion, and task progress.</li>
 <li>Updated <code><a href="../reference/bg_status.html">bg_status()</a></code> to double as a reconciliation poller (<code><a href="../reference/bg_reconcile_daemon_jobs.html">bg_reconcile_daemon_jobs()</a></code>), updating crashed or finished daemon jobs automatically without blocking the main session.</li>

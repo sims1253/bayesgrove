@@ -5,7 +5,7 @@ Get workflow status
 ## Usage
 
 ``` r
-bg_status(project, auto_advance = TRUE)
+bg_status(project, auto_advance = NULL)
 ```
 
 ## Arguments
@@ -16,8 +16,7 @@ bg_status(project, auto_advance = TRUE)
 
 - auto_advance:
 
-  Whether to automatically submit newly eligible nodes if the last run
-  was async (default TRUE).
+  Deprecated; no longer has any effect.
 
 ## Value
 

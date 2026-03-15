@@ -5,7 +5,15 @@ Add a decision gate to an edge
 ## Usage
 
 ``` r
-bg_add_gate(project, from, to, prompt, options, refs = NULL, metadata = list())
+bg_add_gate(
+  project,
+  from,
+  to,
+  prompt,
+  alternatives,
+  refs = NULL,
+  metadata = list()
+)
 ```
 
 ## Arguments
@@ -26,9 +34,9 @@ bg_add_gate(project, from, to, prompt, options, refs = NULL, metadata = list())
 
   The question presented to the user.
 
-- options:
+- alternatives:
 
-  Character vector of valid options.
+  Character vector of valid choices.
 
 - refs:
 
@@ -40,4 +48,5 @@ bg_add_gate(project, from, to, prompt, options, refs = NULL, metadata = list())
 
 ## Value
 
-The generated `bg_pending_gate` record.
+A gate specification list containing the gate ID, edge ID, prompt,
+options, refs, and metadata.

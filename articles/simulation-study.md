@@ -220,7 +220,7 @@ build_branch <- function(handle, label, confounding, seed) {
       "Does the descriptive imbalance in the %s scenario justify relying on the adjustment-aware model?",
       label
     ),
-    options = c("yes", "no"),
+    alternatives = c("yes", "no"),
     refs = list(
       list(
         citekey = "scholz2024causalproxy",
@@ -427,9 +427,9 @@ the computational state.
 ``` r
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpcaXRZB/bg-simulation-study/simulation-study-report.md
+#> /tmp/Rtmp5Ioqzu/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpcaXRZB/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/Rtmp5Ioqzu/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,

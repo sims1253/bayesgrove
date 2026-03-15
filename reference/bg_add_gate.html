@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,7 +39,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Add a decision gate to an edge</h1>
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.4.4/R/04-decisions.R" class="external-link"><code>R/04-decisions.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/R/04-decisions.R" class="external-link"><code>R/04-decisions.R</code></a></small>
       <div class="d-none name"><code>bg_add_gate.Rd</code></div>
     </div>
 
@@ -49,7 +49,15 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_add_gate</span><span class="op">(</span><span class="va">project</span>, <span class="va">from</span>, <span class="va">to</span>, <span class="va">prompt</span>, <span class="va">options</span>, refs <span class="op">=</span> <span class="cn">NULL</span>, metadata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_add_gate</span><span class="op">(</span></span>
+<span>  <span class="va">project</span>,</span>
+<span>  <span class="va">from</span>,</span>
+<span>  <span class="va">to</span>,</span>
+<span>  <span class="va">prompt</span>,</span>
+<span>  <span class="va">alternatives</span>,</span>
+<span>  refs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  metadata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -72,8 +80,8 @@
 <dd><p>The question presented to the user.</p></dd>
 
 
-<dt id="arg-options">options<a class="anchor" aria-label="anchor" href="#arg-options"></a></dt>
-<dd><p>Character vector of valid options.</p></dd>
+<dt id="arg-alternatives">alternatives<a class="anchor" aria-label="anchor" href="#arg-alternatives"></a></dt>
+<dd><p>Character vector of valid choices.</p></dd>
 
 
 <dt id="arg-refs">refs<a class="anchor" aria-label="anchor" href="#arg-refs"></a></dt>
@@ -86,7 +94,8 @@
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>The generated <code>bg_pending_gate</code> record.</p>
+    <p>A gate specification list containing the gate ID, edge ID,
+prompt, options, refs, and metadata.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -1,5 +1,113 @@
 # Changelog
 
+## bayesgrove 0.4.9
+
+- [`bg_execute_node()`](https://sims1253.github.io/bayesgrove/reference/bg_execute_node.md)
+  now transitions job state to “failed” when no executor is registered
+  for a node kind, preventing stuck “running” jobs.
+- `bg_repl_choose_action()` defensively coerces `idx` to integer to
+  produce friendly CLI errors on non-numeric input.
+- [`bg_close()`](https://sims1253.github.io/bayesgrove/reference/bg_close.md)
+  now guards
+  [`mirai::daemons()`](https://mirai.r-lib.org/reference/daemons.html)
+  with [`requireNamespace("mirai")`](https://mirai.r-lib.org) for
+  consistency with the rest of the codebase.
+- Gate answer rollback now restores only the specific gate being
+  modified, avoiding clobbering concurrent updates to other gates.
+- Removed trailing space in
+  [`bg_read_graph()`](https://sims1253.github.io/bayesgrove/reference/bg_read_graph.md)
+  error message.
+- Updated closed/readonly error-case tests to register a valid node kind
+  and assert on specific error messages.
+
+## bayesgrove 0.4.8
+
+- Fixed CI failures across R-CMD-check, pkgdown, test-coverage, and
+  format-check workflows.
+- Renamed
+  [`bg_add_gate()`](https://sims1253.github.io/bayesgrove/reference/bg_add_gate.md)
+  parameter `options` to `alternatives` consistently across all call
+  sites (vignettes, tests, demo scripts).
+- Fixed
+  [`bg_bundle()`](https://sims1253.github.io/bayesgrove/reference/bg_bundle.md)
+  error on all platforms: replaced unsupported `chdir` argument to
+  [`utils::tar()`](https://rdrr.io/r/utils/tar.html) with
+  [`setwd()`](https://rdrr.io/r/base/getwd.html)/[`on.exit()`](https://rdrr.io/r/base/on.exit.html)
+  pattern.
+- Qualified all `hedgehog::` namespace references in property-based
+  tests to avoid unbound symbol errors.
+- [`bg_read_graph()`](https://sims1253.github.io/bayesgrove/reference/bg_read_graph.md)
+  now aborts with a clear error when `graph.json` is missing instead of
+  silently returning an empty graph.
+- Added backward-compatible `auto_advance` parameter to
+  [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
+  with a deprecation warning.
+- Aligned API boundary registry with current exports: added
+  `bg_execute_node` and `bg_worker_log`, removed `bg_submit` and
+  `bg_worker_process`.
+- Replaced `bg_submit` with `bg_run` in the IPC server registry and
+  protocol schema.
+- `bg_write_gate_specs()` now uses atomic writes for the empty-specs
+  case.
+- [`bg_worker_log()`](https://sims1253.github.io/bayesgrove/reference/bg_worker_log.md)
+  now creates the `.bayesgrove/runs` directory if it does not exist.
+- `bg_resolve_node_ref()` now uses fixed-string matching for partial
+  label lookups to avoid regex metacharacter issues.
+- Added section headers for node update/removal operations in
+  `R/22-dagri-adapters.R`.
+- Fixed protocol object validator to reject unnamed (bare) lists for
+  object-type schemas.
+- Removed orphaned `bg_submit.Rd` man page.
+- Ran `air format` across all affected files.
+- Updated dagriculture dependency to `>= 0.1.5`.
+- Fixed dagriculture API mismatches: `dagri_update_node` and
+  `dagri_remove_node` now pass `id` instead of `node_id`;
+  `dagri_add_gate` now passes `edge` instead of `edge_id`.
+- Converted default workflow `input_contract` values from bare strings
+  to proper named lists to satisfy dagriculture 0.1.4+ validation.
+
+## bayesgrove 0.4.7
+
+- Eliminated all `<<-` super-assignments in production R code by
+  refactoring to explicit environment-based state (`R/13-repl.R`,
+  `R/19-workflow-protocol.R`, `R/26-serve.R`).
+- Removed redundant
+  [`library(bayesgrove)`](https://github.com/sims1253/bayesgrove) call
+  in the mirai worker (`R/11-async.R`); the function is already resolved
+  via [`get()`](https://rdrr.io/r/base/get.html) from
+  [`asNamespace()`](https://rdrr.io/r/base/ns-internal.html).
+- Extracted
+  [`bg_build_decision_metadata()`](https://sims1253.github.io/bayesgrove/reference/bg_build_decision_metadata.md)
+  helper to deduplicate decision metadata construction across
+  `R/13d-repl-exec.R`, `R/28-protocol-contract.R`, and
+  `R/23-templates.R`.
+- Replaced [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html)
+  guard in test properties helper
+  (`tests/testthat/test-09-properties.R`).
+- Refactored `<<-` in test fixtures and test callbacks to use
+  environment-based mutable state.
+
+## bayesgrove 0.4.6
+
+- Fixed mirai worker argument handling to properly pass `lib_paths` and
+  worker args to background processes.
+- Fixed mirai daemon cleanup on project close to prevent resource leaks.
+- Used
+  [`mirai::is_error_value()`](https://nanonext.r-lib.org/reference/is_error_value.html)
+  for proper error detection in job reconciliation.
+- Auto-create project directory in
+  [`bg_init()`](https://sims1253.github.io/bayesgrove/reference/bg_init.md)
+  if the target path does not exist.
+- Refactored REPL module into separate files for better organization
+  (`13a-repl-utils.R`, `13b-repl-display.R`, `13c-repl-guide.R`,
+  `13d-repl-exec.R`).
+- Added property-based tests and error case coverage.
+- Removed stale `README.html` from the repository.
+
+## bayesgrove 0.4.5
+
+- Fix problem to return proper empty graph for empty project
+
 ## bayesgrove 0.4.4
 
 - Changed
@@ -230,10 +338,8 @@
 
 - Enforced workflow holds inside
   [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
-  and
-  [`bg_submit()`](https://sims1253.github.io/bayesgrove/reference/bg_submit.md)
-  so blocking obligations now affect real execution, not just advisory
-  planning.
+  and `bg_submit()` so blocking obligations now affect real execution,
+  not just advisory planning.
 - Tightened workflow-context scoping, transactional gate answering, sync
   job logging, and severity merging to match the workflow protocol and
   persistence contracts.
@@ -301,8 +407,7 @@
 ## bayesgrove 0.2.0
 
 - **Phase 2 (Async Execution Layer) Implementation**
-- Added
-  [`bg_submit()`](https://sims1253.github.io/bayesgrove/reference/bg_submit.md),
+- Added `bg_submit()`,
   [`bg_wait()`](https://sims1253.github.io/bayesgrove/reference/bg_wait.md),
   and
   [`bg_cancel()`](https://sims1253.github.io/bayesgrove/reference/bg_cancel.md)
