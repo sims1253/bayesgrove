@@ -189,7 +189,7 @@ bg_init <- function(
 
   bg_write_project_config_path(path, full_config)
 
-  init_handle <- bg_handle(
+  handle <- bg_handle(
     project_id = project_id,
     path = path,
     readonly = FALSE,
@@ -201,25 +201,15 @@ bg_init <- function(
   )
 
   bg_write_branch_registry(
-    project = init_handle,
-    registry = bg_empty_branch_registry(init_handle)
+    project = handle,
+    registry = bg_empty_branch_registry(handle)
   )
   bg_write_goal_registry(
-    project = init_handle,
-    registry = bg_empty_goal_registry(init_handle)
+    project = handle,
+    registry = bg_empty_goal_registry(handle)
   )
 
-  # Return handle
-  bg_handle(
-    project_id = project_id,
-    path = path,
-    readonly = FALSE,
-    closed = FALSE,
-    loaded_graph_version = graph$version,
-    lock_token = NA_character_,
-    registries = list(),
-    metadata = list()
-  )
+  handle
 }
 
 #' Open a bayesgrove Project

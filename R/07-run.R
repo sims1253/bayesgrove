@@ -449,23 +449,19 @@ bg_run <- function(
   graph <- bg_dagri_recompute_state(
     bg_active_graph(project, graph = bg_read_graph(project))
   )
-  workflow_plan <- bg_plan(project, mode = "sync")
-  external_holds <- bg_workflow_external_holds(project, plan = workflow_plan)
-  plan <- if (is.null(targets) || length(targets) == 0) {
-    bg_refresh_run_plan(
-      project,
-      workflow_plan,
-      graph,
-      external_holds = external_holds
-    )
-  } else {
-    bg_plan(
-      project,
-      targets,
-      external_holds = external_holds,
-      mode = "sync"
-    )
-  }
+  external_holds <- bg_workflow_external_holds(project)
+  plan <- bg_plan(
+    project,
+    targets = targets,
+    external_holds = external_holds,
+    mode = "sync"
+  )
+  plan <- bg_refresh_run_plan(
+    project,
+    plan,
+    graph,
+    external_holds = external_holds
+  )
 
   run_id <- bg_new_id("run")
   job_ids <- character(0)

@@ -142,11 +142,34 @@ bg_answer_gate <- function(
     )
   )
 
+  bg_transactional_gate_commit(
+    project = project,
+    gate_id = id,
+    original_graph = original_graph,
+    original_loaded_version = original_loaded_version,
+    resolved_graph = graph,
+    original_specs = specs,
+    decision = decision
+  )
+
+  decision
+}
+
+#' @keywords internal
+bg_transactional_gate_commit <- function(
+  project,
+  gate_id,
+  original_graph,
+  original_loaded_version,
+  resolved_graph,
+  original_specs,
+  decision
+) {
   tryCatch(
     {
-      bg_commit_graph(project, graph)
+      bg_commit_graph(project, resolved_graph)
       bg_modify_gate_specs(project, function(current_specs) {
-        current_specs[[id]] <- NULL
+        current_specs[[gate_id]] <- NULL
         current_specs
       })
       bg_write_decision_record(project, decision)
@@ -162,9 +185,8 @@ bg_answer_gate <- function(
           )
           bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
           project@loaded_graph_version <- original_loaded_version
-          # Restore only this gate entry to avoid clobbering concurrent updates.
           bg_modify_gate_specs(project, function(current_specs) {
-            current_specs[[id]] <- specs[[id]] %||% NULL
+            current_specs[[gate_id]] <- original_specs[[gate_id]] %||% NULL
             current_specs
           })
           NULL
@@ -184,7 +206,7 @@ bg_answer_gate <- function(
     }
   )
 
-  decision
+  invisible(TRUE)
 }
 
 #' List pending decision gates

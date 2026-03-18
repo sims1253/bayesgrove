@@ -1,3 +1,21 @@
+# bayesgrove 0.5.2
+
+* Extracted foundational IO primitives (`bg_now_timestamp`, `bg_storage_path`,
+  `bg_sort_persisted_value`, `bg_write_json_atomic`, `bg_with_file_lock`,
+  `bg_append_jsonl`) into `R/00-io.R` to reduce coupling with the workflow
+  context module.
+* Extracted obligation and action evaluation functions from
+  `R/22-workflow-packs-default.R` into `R/22b-default-evaluation.R`, separating
+  constructor helpers from evaluation logic.
+* Eliminated duplicate `bg_handle` creation in `bg_init()` — the handle is
+  now created once and reused for registry writes.
+* Removed redundant `bg_plan()` call in `bg_run()` when targets are specified,
+  replacing the two-call pattern with a single plan followed by refresh.
+* Extracted `bg_transactional_gate_commit()` helper from `bg_answer_gate()`,
+  separating decision construction from transactional commit logic with rollback.
+* Added `bg_status` class to the return value of `bg_status()` for consistency
+  with the `bg_run_handle` pattern.
+
 # bayesgrove 0.5.1
 
 * Fixed CodeRabbit review issues: wired unused `choice` param into `bg_record_decision_from_action` metadata, stopped `bg_phase10_source_node_id` from widening caller-provided `node_ids`, guarded NULL `goal_kind` before `switch()` in `bg_phase10_taxonomy_evaluation_modes`, expanded character vectors to individual specs in `bg_phase10_causal_allowed_formulas`, and selected most recently created contract in `bg_phase10_current_causal_contract`.

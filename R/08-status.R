@@ -106,7 +106,7 @@ bg_status <- function(project, auto_advance = NULL) {
     "ok"
   }
 
-  list(
+  result <- list(
     workflow_state = workflow_state,
     runnable_nodes = length(plan$to_execute),
     blocked_nodes = length(plan$blocked) + length(held_nodes),
@@ -116,6 +116,8 @@ bg_status <- function(project, auto_advance = NULL) {
     health = health,
     messages = messages
   )
+  class(result) <- "bg_status"
+  result
 }
 
 #' Retrieve a result artifact from the workflow
