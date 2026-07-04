@@ -14,15 +14,42 @@ bg_status <- function(project, auto_advance = NULL) {
     )
   }
 
-  bg_reconcile_daemon_jobs(project)
+  # Build a one-shot state object so the external-holds check reads cached
+  # summaries/decisions/jobs instead of re-parsing every JSONL file (Phase 6).
+  # The graph is recomputed once and threaded through bg_refresh_run_plan so the
+  # holds-aware plan reuses the seed's graph plan + fingerprints instead of
+  # reconstructing the whole plan a second time.
+  graph <- bg_dagri_recompute_state(
+    bg_active_graph(project, graph = bg_read_graph(project))
+  )
+  plan_seed <- bg_plan(project)
+  status_state <- new.env(parent = emptyenv())
+  status_state$summaries <- bg_read_summaries(
+    project,
+    include_stale = TRUE,
+    include_inactive = FALSE,
+    predicted_fingerprints = plan_seed$metadata$fingerprints,
+    artifact_index = plan_seed$metadata$artifact_index
+  )
+  status_state$decisions <- bg_read_decisions(project)
+  status_state$jobs <- bg_jobs(project)
 
-  external_holds <- bg_workflow_external_holds(project)
-  plan <- bg_plan(project, external_holds = external_holds)
+  external_holds <- bg_workflow_external_holds(
+    project,
+    plan = plan_seed,
+    state = status_state
+  )
+  plan <- bg_refresh_run_plan(
+    project,
+    plan_seed,
+    graph,
+    external_holds = external_holds
+  )
   gates <- bg_pending_gates(project)
   jobs <- bg_jobs(project)
   active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
   failed_jobs <- Filter(
-    function(j) j$status %in% c("failed", "orphaned"),
+    function(j) j$status %in% c("failed"),
     jobs
   )
   num_active <- length(active_jobs)
@@ -72,7 +99,7 @@ bg_status <- function(project, auto_advance = NULL) {
     messages <- c(
       messages,
       sprintf(
-        "%d job(s) are in a failed or orphaned state.",
+        "%d job(s) are in a failed state.",
         length(failed_jobs)
       )
     )
