@@ -465,16 +465,31 @@ bg_refresh_run_plan <- function(
 
 #' Run a project workflow
 #'
-#' Executes the workflow synchronously in the current R process, driving every
-#' node that is ready and unheld to completion.
+#' Executes the workflow, driving every node that is ready and unheld to
+#' completion. Execution proceeds in topological **waves**: each wave is the set
+#' of nodes whose upstream inputs are already available, so the nodes within a
+#' wave are mutually independent. With `parallel = "auto"` (the default) and
+#' active [mirai::daemons] set, a wave is dispatched concurrently; otherwise it
+#' runs sequentially in topological order. Either way the protocol holds and the
+#' pause flag are evaluated at wave boundaries, so a hold discovered from a fresh
+#' summary in one wave takes effect before the next wave is dispatched.
 #'
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
+#' @param parallel One of `"auto"`, `"never"`, `"always"`. `"auto"` (default)
+#'   dispatches waves in parallel when mirai daemons are active, otherwise falls
+#'   back to sequential execution. `"never"` always runs sequentially.
+#'   `"always"` requires mirai and active daemons, erroring if unavailable.
 #'
 #' @return A `bg_run_handle` list.
 #' @export
-bg_run <- function(project, targets = NULL) {
+bg_run <- function(
+  project,
+  targets = NULL,
+  parallel = c("auto", "never", "always")
+) {
   S7::check_is_S7(project, bg_handle)
+  parallel <- match.arg(parallel)
 
   if (bg_workflow_paused(project)) {
     cli::cli_abort(
@@ -532,68 +547,80 @@ bg_run <- function(project, targets = NULL) {
     "Starting run {.val {run_id}} with {length(plan$to_execute)} node{?s} to execute."
   )
 
-  # Synchronous execution
-  for (node_id in plan$graph_plan$topo_order) {
-    if (!node_id %in% plan$to_execute) {
-      next
+  use_parallel <- bg_parallel_active(parallel)
+
+  # Wave-based execution: each wave is the set of to_execute nodes whose inputs
+  # are already available (mutually independent). The wave is dispatched
+  # sequentially here unless mirai daemons are active and parallel != "never"
+  # (Step 3 wires the parallel branch). Holds and pause are checked at wave
+  # boundaries, so a mid-run hold from a fresh summary applies before the next
+  # wave — never mid-wave.
+  while (length(wave <- bg_compute_wave(plan)) > 0) {
+    if (bg_workflow_paused(project)) {
+      bg_cli_inform(
+        "Workflow paused mid-run after {num_executed} node{?s}; call {.fn bg_resume} then {.fn bg_run} to continue."
+      )
+      break
     }
 
-    bg_cli_inform("Running node {.val {node_id}}...")
-    num_executed <- num_executed + 1L
-    job <- bg_create_job(project, run_id, node_id)
-    job_ids <- c(job_ids, job$job_id)
-    bg_update_job(
-      project,
-      job$job_id,
-      status = "running",
-      started_at = bg_now_timestamp()
-    )
+    for (node_id in wave) {
+      bg_cli_inform("Running node {.val {node_id}}...")
+      num_executed <- num_executed + 1L
+      job <- bg_create_job(project, run_id, node_id)
+      job_ids <- c(job_ids, job$job_id)
+      bg_update_job(
+        project,
+        job$job_id,
+        status = "running",
+        started_at = bg_now_timestamp()
+      )
 
-    node <- graph$nodes[[node_id]]
+      execution_result <- bg_execute_node(
+        handle = project,
+        node_id = node_id,
+        fingerprint = plan$metadata$fingerprints[[node_id]],
+        input_bindings = plan$input_bindings[[node_id]],
+        graph = graph,
+        job_id = job$job_id
+      )
 
-    execution_result <- bg_execute_node(
-      handle = project,
-      node_id = node_id,
-      fingerprint = plan$metadata$fingerprints[[node_id]],
-      input_bindings = plan$input_bindings[[node_id]],
-      graph = graph,
-      job_id = job$job_id
-    )
+      if (!isTRUE(execution_result$ok)) {
+        return(bg_build_run_handle(
+          run_id = run_id,
+          status = "failed",
+          targets = plan$targets,
+          job_ids = job_ids,
+          submitted_at = run_started_at,
+          started_at = run_started_at,
+          finished_at = bg_now_timestamp(),
+          summary = list(total_executed = num_executed - 1L),
+          error = list(message = execution_result$error$message),
+          metadata = list(
+            held_by_policy = plan$held_by_policy %||% list()
+          )
+        ))
+      }
 
-    if (!isTRUE(execution_result$ok)) {
-      return(bg_build_run_handle(
-        run_id = run_id,
-        status = "failed",
-        targets = plan$targets,
-        job_ids = job_ids,
-        submitted_at = run_started_at,
-        started_at = run_started_at,
-        finished_at = bg_now_timestamp(),
-        summary = list(total_executed = num_executed - 1L),
-        error = list(message = execution_result$error$message),
-        metadata = list(
-          held_by_policy = plan$held_by_policy %||% list()
-        )
-      ))
-    }
+      plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
 
-    plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
-
-    # Update the in-memory cache with the summaries just written (Phase 6) so
-    # the external-holds check reads from state, not disk. Annotate each entry
-    # as fresh by construction: it was just executed with the current
-    # fingerprint, so it must be visible to the freshness-strict pack filters
-    # (isTRUE(is_fresh)) that gate mid-run holds. Key by summary_id to match
-    # bg_read_summaries() output shape.
-    if (!is.null(execution_result$summaries)) {
-      for (s in execution_result$summaries) {
-        s$is_fresh <- TRUE
-        s$is_stale <- FALSE
-        run_state$summaries[[s$summary_id]] <- s
+      # Fold the just-written summaries into the in-memory run state so the
+      # between-wave holds check reads from state, not disk. Annotate each entry
+      # as fresh (just executed at the current fingerprint) so freshness-strict
+      # pack filters (isTRUE(is_fresh)) see it. Key by summary_id to match
+      # bg_read_summaries() output shape.
+      if (!is.null(execution_result$summaries)) {
+        for (s in execution_result$summaries) {
+          s$is_fresh <- TRUE
+          s$is_stale <- FALSE
+          run_state$summaries[[s$summary_id]] <- s
+        }
       }
     }
-    run_state$jobs <- bg_jobs(project)
 
+    # Wave boundary: refresh jobs, re-evaluate protocol holds, and refresh the
+    # plan so the next wave's input_bindings populate from the artifacts just
+    # recorded. Holds discovered here block nodes in the next wave.
+    run_state$jobs <- bg_jobs(project)
     external_holds <- bg_workflow_external_holds(
       project,
       plan = plan,
