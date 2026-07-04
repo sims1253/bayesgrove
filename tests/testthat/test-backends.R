@@ -140,6 +140,70 @@ describe("HMC severity rules (Phase 4.5)", {
       "ok"
     )
   })
+
+  it("scales the ESS warning threshold by chain count when n_chains is given", {
+    # Vehtari et al. (2021): ~100 effective samples per chain. With 4 chains
+    # the default ess_warn becomes 400; an ESS of 350 trips warning.
+    metrics <- list(
+      divergences = 0L,
+      max_treedepth_hits = 0L,
+      max_rhat = 1.0,
+      min_bulk_ess = 350,
+      min_tail_ess = 1000,
+      e_bfmi = 0.5,
+      num_transitions = 4000L,
+      n_chains = 4L
+    )
+    expect_equal(bg_hmc_severity(metrics), "warning")
+
+    # With a single chain, the default ess_warn is 100; an ESS of 350 is fine.
+    metrics$min_bulk_ess <- 350
+    metrics$n_chains <- 1L
+    expect_equal(bg_hmc_severity(metrics), "ok")
+
+    # With 8 chains, ess_warn defaults to 800; an ESS of 350 trips warning.
+    metrics$n_chains <- 8L
+    expect_equal(bg_hmc_severity(metrics), "warning")
+  })
+
+  it("keeps the historical 400 default when n_chains is absent", {
+    # No n_chains entry: ess_warn stays 400. ESS of 350 -> warning (same as
+    # the pre-existing behavior).
+    metrics <- list(
+      divergences = 0L,
+      max_treedepth_hits = 0L,
+      max_rhat = 1.0,
+      min_bulk_ess = 350,
+      min_tail_ess = 1000,
+      e_bfmi = 0.5,
+      num_transitions = 4000L
+    )
+    expect_equal(bg_hmc_severity(metrics), "warning")
+  })
+
+  it("an explicit thresholds$ess_warn wins over the n_chains-derived default", {
+    metrics <- list(
+      divergences = 0L,
+      max_treedepth_hits = 0L,
+      max_rhat = 1.0,
+      min_bulk_ess = 350,
+      min_tail_ess = 1000,
+      e_bfmi = 0.5,
+      num_transitions = 4000L,
+      n_chains = 8L
+    )
+    # n_chains=8 would default ess_warn to 800 (350 < 800 -> warning), but an
+    # explicit override lowers it to 300, so 350 >= 300 -> ok.
+    expect_equal(
+      bg_hmc_severity(metrics, thresholds = list(ess_warn = 300)),
+      "ok"
+    )
+    # And an explicit override can also raise it.
+    expect_equal(
+      bg_hmc_severity(metrics, thresholds = list(ess_warn = 500)),
+      "warning"
+    )
+  })
 })
 
 describe("Executor registration (Phase 4.2)", {

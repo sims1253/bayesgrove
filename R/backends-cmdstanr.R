@@ -10,19 +10,36 @@
 #' overridable via node params (`rhat_error`, `rhat_warn`, `ess_warn`,
 #' `ebfmi_warn`, `divergence_rate_error`).
 #'
+#' The ESS warning threshold scales with the chain count: Vehtari et al.
+#' (2021) recommend ~100 effective samples per chain. When `metrics` carries
+#' an `n_chains` entry, `ess_warn` defaults to `100 * n_chains`; otherwise it
+#' stays 400 (the historical default). An explicit `thresholds$ess_warn`
+#' always wins over both.
+#'
 #' @param metrics Named list with: divergences, max_treedepth_hits,
 #'   max_rhat, min_bulk_ess, min_tail_ess, e_bfmi, num_transitions.
 #'   `num_transitions` is the total post-warmup transitions across all
 #'   chains (the denominator for the per-transition divergence rate),
-#'   since divergences are summed across chains.
+#'   since divergences are summed across chains. May optionally carry
+#'   `n_chains` to scale the default ESS warning threshold.
 #' @param thresholds Optional list overriding default thresholds.
 #' @return One of "ok", "warning", "error".
 #' @export
 bg_hmc_severity <- function(metrics, thresholds = list()) {
+  n_chains <- metrics$n_chains
+  ess_warn_default <- if (
+    !is.null(n_chains) &&
+      is.finite(n_chains) &&
+      n_chains > 0
+  ) {
+    100 * n_chains
+  } else {
+    400
+  }
   defaults <- list(
     rhat_error = 1.05,
     rhat_warn = 1.01,
-    ess_warn = 400,
+    ess_warn = ess_warn_default,
     ebfmi_warn = 0.3,
     divergence_rate_error = 0.01
   )
@@ -109,7 +126,8 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
     min_bulk_ess = min_bulk_ess,
     min_tail_ess = min_tail_ess,
     e_bfmi = min_e_bfmi,
-    num_transitions = as.integer(num_transitions)
+    num_transitions = as.integer(num_transitions),
+    n_chains = as.integer(fit$num_chains() %||% NA_integer_)
   )
 }
 

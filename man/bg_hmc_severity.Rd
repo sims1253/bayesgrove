@@ -11,7 +11,8 @@ bg_hmc_severity(metrics, thresholds = list())
 max_rhat, min_bulk_ess, min_tail_ess, e_bfmi, num_transitions.
 \code{num_transitions} is the total post-warmup transitions across all
 chains (the denominator for the per-transition divergence rate),
-since divergences are summed across chains.}
+since divergences are summed across chains. May optionally carry
+\code{n_chains} to scale the default ESS warning threshold.}
 
 \item{thresholds}{Optional list overriding default thresholds.}
 }
@@ -22,4 +23,11 @@ One of "ok", "warning", "error".
 Thresholds follow Vehtari et al. (2021) for R-hat/ESS. Defaults are
 overridable via node params (\code{rhat_error}, \code{rhat_warn}, \code{ess_warn},
 \code{ebfmi_warn}, \code{divergence_rate_error}).
+}
+\details{
+The ESS warning threshold scales with the chain count: Vehtari et al.
+(2021) recommend ~100 effective samples per chain. When \code{metrics} carries
+an \code{n_chains} entry, \code{ess_warn} defaults to \code{100 * n_chains}; otherwise it
+stays 400 (the historical default). An explicit \code{thresholds$ess_warn}
+always wins over both.
 }

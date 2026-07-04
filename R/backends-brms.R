@@ -210,6 +210,10 @@ bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
     num_transitions = tryCatch(
       nrow(posterior::as_draws_matrix(posterior::as_draws(fit))),
       error = function(e) NA_integer_
+    ),
+    n_chains = tryCatch(
+      posterior::nchains(posterior::as_draws(fit)),
+      error = function(e) NA_integer_
     )
   )
 }
