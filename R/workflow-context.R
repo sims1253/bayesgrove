@@ -77,19 +77,71 @@ bg_with_file_lock <- function(lock_path, code, timeout = 10, poll = 0.05) {
 }
 
 #' @keywords internal
-bg_append_jsonl <- function(path, record) {
+bg_append_jsonl <- function(path, record, known_line_count = NULL) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   lock_path <- paste0(path, ".lock")
 
   bg_with_file_lock(lock_path, {
+    # Stamp a monotonic sequence number: current line count + 1. This gives
+    # every record a total order independent of clock resolution, so two
+    # records written within the same second are still distinguishable.
+    # The caller may pass a known line count (e.g. from a jobs cache) to skip
+    # the O(lines) recount; under the lock the file is authoritative, so when
+    # a count is supplied we trust it, otherwise count from disk.
+    existing_lines <- if (!is.null(known_line_count)) {
+      known_line_count
+    } else if (file.exists(path)) {
+      length(count.fields(path, sep = "\n", blank.lines.skip = FALSE))
+    } else {
+      0L
+    }
+    record$seq <- existing_lines + 1L
+
     json_line <- jsonlite::toJSON(
       bg_sort_persisted_value(record),
       auto_unbox = TRUE,
       null = "null"
     )
     cat(paste0(json_line, "\n"), file = path, append = TRUE)
-    invisible(TRUE)
+    invisible(record$seq)
   })
+}
+
+#' Select the index of the latest record by monotonic `seq`, falling back to
+#' `created_at` string comparison for legacy records that lack `seq`.
+#'
+#' @param records A list of record lists.
+#' @param timestamp_field The field to read the tiebreak timestamp from
+#'   (default `"created_at"`); falls back to `updated_at` when missing.
+#' @return An integer index into `records`, or `integer(0)` if empty.
+#' @keywords internal
+#' @noRd
+bg_latest_index_by_seq <- function(
+  records,
+  timestamp_field = "created_at"
+) {
+  if (length(records) == 0) {
+    return(integer(0))
+  }
+
+  seqs <- vapply(records, function(r) r$seq %||% NA_integer_, integer(1))
+  timestamps <- vapply(
+    records,
+    function(r) {
+      r[[timestamp_field]] %||% r$updated_at %||% ""
+    },
+    character(1)
+  )
+
+  has_seq <- !is.na(seqs)
+  if (all(has_seq)) {
+    return(which.max(seqs))
+  }
+  if (any(has_seq)) {
+    return(which(seqs == max(seqs[has_seq], na.rm = TRUE))[[1]])
+  }
+
+  order(timestamps, decreasing = TRUE, na.last = TRUE)[[1]]
 }
 
 # --- Artifact Index IO ---
@@ -707,7 +759,7 @@ bg_node_scope_resolution <- function(project, graph = NULL, branches = NULL) {
 #'   `bg_node_scope_resolution()`.
 #'
 #' @return A scope string, either `project` or a branch id.
-#' @export
+#' @noRd
 bg_resolve_node_scope <- function(
   project,
   node_id,
@@ -916,7 +968,6 @@ bg_scope_node_ids <- function(
 bg_predicted_fingerprints <- function(project, include_inactive = TRUE) {
   bg_plan(
     project,
-    mode = "sync",
     include_inactive = include_inactive
   )$metadata$fingerprints %||%
     list()
@@ -1050,9 +1101,12 @@ bg_write_summaries <- function(
 
   scope <- bg_resolve_node_scope(project, node_id)
   created_at <- bg_now_timestamp()
+  known_kinds <- bg_known_summary_kinds(project)
   persisted <- list()
 
   for (summary in summaries) {
+    bg_validate_summary(summary, node_id, known_kinds)
+
     summary_id <- sprintf(
       "sum_%s",
       digest::digest(
@@ -1069,7 +1123,7 @@ bg_write_summaries <- function(
 
     entry <- list(
       schema_name = "bg_summary_entry",
-      schema_version = 1L,
+      schema_version = 2L,
       summary_id = summary_id,
       project_id = project@project_id,
       node_id = node_id,
@@ -1091,6 +1145,71 @@ bg_write_summaries <- function(
   persisted
 }
 
+#' Validate a summary record before writing.
+#'
+#' Aborts on malformed structure (missing/non-string summary_kind, bad severity,
+#' non-logical passed, non-named-list metrics). Warns — but still allows the
+#' write — when the summary_kind is not in the vocabulary, naming the nearest
+#' known kind as a typo suggestion.
+#' @keywords internal
+#' @noRd
+bg_validate_summary <- function(summary, node_id, known_kinds) {
+  if (!is.list(summary)) {
+    cli::cli_abort(
+      "Summary for node {.val {node_id}} must be a list, not {.obj_type_friendly {summary}}."
+    )
+  }
+
+  kind <- summary$summary_kind %||% NULL
+  if (!is.character(kind) || length(kind) != 1 || !nzchar(kind)) {
+    cli::cli_abort(
+      "Summary for node {.val {node_id}} must have a single non-empty {.field summary_kind}."
+    )
+  }
+
+  severity <- summary$severity %||% "ok"
+  valid_severities <- c("ok", "warning", "error")
+  if (!severity %in% valid_severities) {
+    cli::cli_abort(
+      "Summary {.val {kind}} for node {.val {node_id}} has invalid {.field severity} {.val {severity}} (must be one of {.val {valid_severities}})."
+    )
+  }
+
+  passed <- summary$passed %||% NULL
+  if (!is.null(passed) && !is.logical(passed)) {
+    cli::cli_abort(
+      "Summary {.val {kind}} for node {.val {node_id}} has non-logical {.field passed}."
+    )
+  }
+
+  metrics <- summary$metrics %||% NULL
+  if (!is.null(metrics) && !is.list(metrics)) {
+    cli::cli_abort(
+      "Summary {.val {kind}} for node {.val {node_id}} has non-list {.field metrics}."
+    )
+  }
+
+  if (length(metrics) > 0 && is.null(names(metrics))) {
+    cli::cli_abort(
+      "Summary {.val {kind}} for node {.val {node_id}} has unnamed {.field metrics}."
+    )
+  }
+
+  if (!kind %in% known_kinds) {
+    suggestion <- bg_nearest_summary_kind(kind, known_kinds)
+    cli::cli_warn(c(
+      "Unknown summary kind {.val {kind}} for node {.val {node_id}}.",
+      "i" = if (!is.null(suggestion)) {
+        sprintf("Did you mean {.val %s}?", suggestion)
+      } else {
+        "Register it with {.fn bg_register_summary_kind} to silence this warning."
+      }
+    ))
+  }
+
+  invisible(TRUE)
+}
+
 #' Determine whether a summary is fresh
 #'
 #' @param project A `bg_handle`.
@@ -1099,7 +1218,7 @@ bg_write_summaries <- function(
 #' @param artifact_index Optional normalized artifact index.
 #'
 #' @return Logical scalar.
-#' @export
+#' @noRd
 bg_summary_is_fresh <- function(
   project,
   summary,
@@ -1217,13 +1336,14 @@ bg_build_workflow_context <- function(project, scope = "project") {
 bg_build_workflow_context_impl <- function(
   project,
   scope = "project",
-  plan = NULL
+  plan = NULL,
+  state = NULL
 ) {
   S7::check_is_S7(project, bg_handle)
 
   full_graph <- bg_read_graph(project)
   graph <- bg_active_graph(project, graph = full_graph)
-  plan <- plan %||% bg_plan(project, mode = "sync")
+  plan <- plan %||% bg_plan(project)
   artifact_index <- plan$metadata$artifact_index %||%
     bg_read_artifact_index(
       project
@@ -1265,17 +1385,30 @@ bg_build_workflow_context_impl <- function(
     }
   }
 
-  summaries <- bg_read_summaries(
-    project = project,
-    scope = scope,
-    include_stale = TRUE,
-    include_inactive = FALSE,
-    predicted_fingerprints = predicted_fingerprints,
-    artifact_index = artifact_index
-  )
-  decisions <- bg_scope_decisions(project, scope)
+  # When a per-run state object is supplied (Phase 6), use its cached
+  # summaries/decisions/jobs instead of re-reading from disk on every node.
+  summaries <- if (!is.null(state)) {
+    state$summaries
+  } else {
+    bg_read_summaries(
+      project = project,
+      scope = scope,
+      include_stale = TRUE,
+      include_inactive = FALSE,
+      predicted_fingerprints = predicted_fingerprints,
+      artifact_index = artifact_index
+    )
+  }
+  decisions <- if (!is.null(state)) {
+    state$decisions
+  } else {
+    bg_scope_decisions(project, scope)
+  }
   failed_nodes <- unique(vapply(
-    Filter(function(job) identical(job$status, "failed"), bg_jobs(project)),
+    Filter(
+      function(job) identical(job$status, "failed"),
+      if (!is.null(state)) state$jobs else bg_jobs(project)
+    ),
     `[[`,
     character(1),
     "node_id"

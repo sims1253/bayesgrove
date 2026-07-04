@@ -2,7 +2,7 @@
 #'
 #' @return The artifact reference string if found and active, otherwise `NULL`.
 #' @keywords internal
-#' @export
+#' @noRd
 bg_check_artifact <- function(
   project,
   fingerprint,
@@ -31,26 +31,9 @@ bg_check_artifact <- function(
 #'
 #' @return The artifact reference string (e.g. `"cas:sha256:..."`).
 #' @keywords internal
-#' @export
+#' @noRd
 bg_store_artifact <- function(project, node_id, fingerprint, result) {
-  # Write object to temp file to get its hash
-  tmp <- tempfile()
-  saveRDS(result, tmp)
-
-  file_hash <- digest::digest(file = tmp, algo = "sha256")
-  prefix <- substr(file_hash, 1, 2)
-
-  cas_dir <- file.path(project@path, ".bayesgrove", "cache", "sha256", prefix)
-  dir.create(cas_dir, recursive = TRUE, showWarnings = FALSE)
-
-  artifact_ref <- sprintf("cas:sha256:%s", file_hash)
-  dest_path <- file.path(cas_dir, paste0(file_hash, ".rds"))
-
-  if (!file.exists(dest_path)) {
-    file.rename(tmp, dest_path)
-  } else {
-    unlink(tmp)
-  }
+  artifact_ref <- bg_store_cas_blob(project, result)
 
   bg_modify_artifact_index(project, {
     idx <- bg_read_artifact_index(project)
@@ -82,11 +65,63 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
   artifact_ref
 }
 
+#' Store an R object in the content-addressed blob store, return its ref.
+#'
+#' Writes `object` to the CAS under `cas:sha256:<hash>` and returns the ref
+#' without touching the artifact index (no node binding, no supersession).
+#' Used by `bg_store_artifact` (which then records the binding) and by
+#' `bg_set_node_data` (which only needs a stable, content-addressed ref to
+#' point a node param at).
+#' @return The artifact reference string (e.g. `"cas:sha256:..."`).
+#' @keywords internal
+#' @noRd
+bg_store_cas_blob <- function(project, object) {
+  cache_root <- file.path(project@path, ".bayesgrove", "cache", "sha256")
+  dir.create(cache_root, recursive = TRUE, showWarnings = FALSE)
+
+  # Write the temp RDS inside the destination CAS root so file.rename() never
+  # crosses filesystem boundaries (mirrors bg_write_json_atomic).
+  tmp <- tempfile(tmpdir = cache_root, fileext = ".rds.tmp")
+  saveRDS(object, tmp)
+  # Ensure the temp is cleaned up on every exit path (successful rename moves
+  # it so this is a no-op there; cache hits and errors need the cleanup).
+  on.exit(
+    if (file.exists(tmp)) {
+      unlink(tmp)
+    },
+    add = TRUE
+  )
+
+  file_hash <- digest::digest(file = tmp, algo = "sha256")
+  prefix <- substr(file_hash, 1, 2)
+
+  cas_dir <- file.path(cache_root, prefix)
+  dir.create(cas_dir, recursive = TRUE, showWarnings = FALSE)
+
+  artifact_ref <- sprintf("cas:sha256:%s", file_hash)
+  dest_path <- file.path(cas_dir, paste0(file_hash, ".rds"))
+
+  if (!file.exists(dest_path)) {
+    renamed <- file.rename(tmp, dest_path)
+    if (!renamed) {
+      # Cross-device or permission failure: fall back to copy + unlink,
+      # then verify the destination is readable.
+      copied <- file.copy(tmp, dest_path, overwrite = FALSE)
+      if (!copied || !file.exists(dest_path)) {
+        cli::cli_abort("Failed to store artifact at {.path {dest_path}}.")
+      }
+      unlink(tmp)
+    }
+  }
+
+  artifact_ref
+}
+
 #' Fetch an artifact from cache
 #'
 #' @return The deserialized R object stored at the given reference.
 #' @keywords internal
-#' @export
+#' @noRd
 bg_fetch_artifact <- function(project, ref) {
   if (!startsWith(ref, "cas:sha256:")) {
     cli::cli_abort("Invalid artifact ref format: {.val {ref}}")
@@ -157,7 +192,6 @@ bg_normalize_execution_result <- function(result) {
 #' @param targets Optional character vector of target node IDs.
 #' @param external_holds Optional named list mapping node ids to external hold
 #'   reasons. Held nodes remain distinct from structural blockers.
-#' @param mode Execution mode: 'sync' or 'async'.
 #' @param include_inactive Whether to keep retired or disabled nodes in the
 #'   planning graph. Defaults to `FALSE`.
 #'
@@ -167,10 +201,8 @@ bg_plan <- function(
   project,
   targets = NULL,
   external_holds = list(),
-  mode = c("sync", "async"),
   include_inactive = FALSE
 ) {
-  mode <- match.arg(mode)
   S7::check_is_S7(project, bg_handle)
 
   full_graph <- bg_read_graph(project)
@@ -202,11 +234,10 @@ bg_plan <- function(
 
   # Forward propagate fingerprints to determine cache hits
   fingerprints <- list()
-  artifact_refs <- list()
   artifact_index <- bg_read_artifact_index(project)
-  cache_hits <- character(0)
-  missing_results <- character(0)
-  input_bindings <- list()
+
+  # Compute the environment manifest once per plan, not per node.
+  environment_manifest <- bg_default_environment_manifest()
 
   for (node_id in graph_plan$topo_order) {
     upstream_edges <- bg_dagri_incoming_edges(graph, node_id)
@@ -229,27 +260,21 @@ bg_plan <- function(
       project,
       node_id,
       upstream_fingerprints = up_fps,
+      environment_manifest = environment_manifest,
       graph = graph
     )
   }
 
+  # bg_derive_run_plan_state recomputes cache_hits, missing_results,
+  # to_execute, input_bindings, and artifact_refs from the graph plan and
+  # fingerprint map, so the skeleton passes only what it actually consumes.
   bg_derive_run_plan_state(
     project,
     list(
       graph_plan = graph_plan,
       targets = targets %||% graph_plan$targets,
-      eligible = graph_plan$eligible,
-      blocked = graph_plan$blocked,
-      external_blocked = graph_plan$external_blocked,
-      held_by_policy = graph_plan$external_blocked,
-      cache_hits = cache_hits,
-      missing_results = missing_results,
-      to_execute = character(),
-      input_bindings = input_bindings,
-      mode = mode,
       metadata = list(
         fingerprints = fingerprints,
-        artifact_refs = artifact_refs,
         artifact_index = artifact_index
       )
     ),
@@ -415,21 +440,15 @@ bg_refresh_run_plan <- function(
 
 #' Run a project workflow
 #'
+#' Executes the workflow synchronously in the current R process, driving every
+#' node that is ready and unheld to completion.
+#'
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
-#' @param mode Execution mode: 'sync' or 'async'.
-#' @param backend For async mode, the backend to use (`"auto"` or `"mirai"`).
 #'
 #' @return A `bg_run_handle` list.
 #' @export
-bg_run <- function(
-  project,
-  targets = NULL,
-  mode = c("sync", "async"),
-  backend = c("auto", "mirai")
-) {
-  mode <- match.arg(mode)
-  backend <- match.arg(backend)
+bg_run <- function(project, targets = NULL) {
   S7::check_is_S7(project, bg_handle)
 
   if (bg_workflow_paused(project)) {
@@ -438,19 +457,18 @@ bg_run <- function(
     )
   }
 
-  if (mode == "async") {
-    return(bg_submit(
-      project,
-      targets = targets,
-      mode = "async",
-      backend = backend
-    ))
-  }
-  graph <- bg_dagri_recompute_state(
-    bg_active_graph(project, graph = bg_read_graph(project))
+  # Read the raw graph once and derive the recomputed active graph from it.
+  # The raw graph feeds the protocol holds check (descendants must traverse
+  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
+  # feeds the run-plan derivation. Both are paid for once, not per node.
+  raw_graph <- bg_read_graph(project)
+  graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
+  workflow_plan <- bg_plan(project)
+  external_holds <- bg_workflow_external_holds(
+    project,
+    plan = workflow_plan,
+    graph = raw_graph
   )
-  workflow_plan <- bg_plan(project, mode = "sync")
-  external_holds <- bg_workflow_external_holds(project, plan = workflow_plan)
   plan <- if (is.null(targets) || length(targets) == 0) {
     bg_refresh_run_plan(
       project,
@@ -462,8 +480,7 @@ bg_run <- function(
     bg_plan(
       project,
       targets,
-      external_holds = external_holds,
-      mode = "sync"
+      external_holds = external_holds
     )
   }
 
@@ -471,6 +488,20 @@ bg_run <- function(
   job_ids <- character(0)
   num_executed <- 0L
   run_started_at <- bg_now_timestamp()
+
+  # Per-run state object (Phase 6): cache summaries/decisions/jobs in memory so
+  # the external-holds check between nodes does not re-read every JSONL file.
+  # Trusted only within this bg_run() call; everything else reads disk.
+  run_state <- new.env(parent = emptyenv())
+  run_state$summaries <- bg_read_summaries(
+    project,
+    include_stale = TRUE,
+    include_inactive = FALSE,
+    predicted_fingerprints = plan$metadata$fingerprints,
+    artifact_index = plan$metadata$artifact_index
+  )
+  run_state$decisions <- bg_read_decisions(project)
+  run_state$jobs <- bg_jobs(project)
 
   bg_cli_inform(
     "Starting run {.val {run_id}} with {length(plan$to_execute)} node{?s} to execute."
@@ -484,7 +515,7 @@ bg_run <- function(
 
     bg_cli_inform("Running node {.val {node_id}}...")
     num_executed <- num_executed + 1L
-    job <- bg_create_job(project, run_id, node_id, backend = "sync")
+    job <- bg_create_job(project, run_id, node_id)
     job_ids <- c(job_ids, job$job_id)
     bg_update_job(
       project,
@@ -508,7 +539,6 @@ bg_run <- function(
       return(bg_build_run_handle(
         run_id = run_id,
         status = "failed",
-        mode = mode,
         targets = plan$targets,
         job_ids = job_ids,
         submitted_at = run_started_at,
@@ -523,7 +553,28 @@ bg_run <- function(
     }
 
     plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
-    external_holds <- bg_workflow_external_holds(project, plan = plan)
+
+    # Update the in-memory cache with the summaries just written (Phase 6) so
+    # the external-holds check reads from state, not disk. Annotate each entry
+    # as fresh by construction: it was just executed with the current
+    # fingerprint, so it must be visible to the freshness-strict pack filters
+    # (isTRUE(is_fresh)) that gate mid-run holds. Key by summary_id to match
+    # bg_read_summaries() output shape.
+    if (!is.null(execution_result$summaries)) {
+      for (s in execution_result$summaries) {
+        s$is_fresh <- TRUE
+        s$is_stale <- FALSE
+        run_state$summaries[[s$summary_id]] <- s
+      }
+    }
+    run_state$jobs <- bg_jobs(project)
+
+    external_holds <- bg_workflow_external_holds(
+      project,
+      plan = plan,
+      state = run_state,
+      graph = raw_graph
+    )
     plan <- bg_refresh_run_plan(
       project,
       plan,
@@ -545,7 +596,6 @@ bg_run <- function(
   bg_build_run_handle(
     run_id = run_id,
     status = final_status,
-    mode = mode,
     targets = plan$targets,
     job_ids = job_ids,
     submitted_at = run_started_at,
@@ -559,11 +609,157 @@ bg_run <- function(
   )
 }
 
+#' Execute a single node: resolve inputs, run executor, store artifact, update job
+#'
+#' @param handle A `bg_handle`.
+#' @param node_id Node to execute.
+#' @param fingerprint Execution fingerprint.
+#' @param input_bindings Input binding list from the run plan.
+#' @param graph The graph (used to look up the node).
+#' @param job_id Job ID to update.
+#'
+#' @return A list with `ok` (logical) and either `ref` (artifact ref) or `error`.
+#' @keywords internal
+bg_execute_node <- function(
+  handle,
+  node_id,
+  fingerprint,
+  input_bindings,
+  graph,
+  job_id
+) {
+  node <- graph$nodes[[node_id]]
+  kind_reg <- handle@registries$node_kinds[[node$kind]]
+
+  if (is.null(kind_reg) || is.null(kind_reg$executor)) {
+    message <- sprintf(
+      paste0(
+        "No executor registered for node kind %s. ",
+        "Restore persisted executors with bg_restore_executors(trust = TRUE) ",
+        "or re-register the kind with bg_register_node_kind()."
+      ),
+      node$kind
+    )
+    bg_update_job(
+      handle,
+      job_id,
+      status = "failed",
+      error = list(message = message),
+      finished_at = bg_now_timestamp()
+    )
+    return(list(
+      ok = FALSE,
+      error = list(message = message)
+    ))
+  }
+
+  resolved_inputs <- list()
+  for (b in input_bindings) {
+    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
+      handle,
+      b$artifact_ref
+    )
+  }
+
+  # Generic data_ref resolution: any node whose params carry a single "cas:"
+  # data_ref gets the referenced object fetched from the CAS store and attached
+  # as node$resolved$data before the executor runs. This keeps executors (whose
+  # (node, inputs) signature cannot receive the handle) free of hidden global
+  # state, e.g. bg_executor_stan_data no longer needs an active-handle global.
+  data_ref <- node$params$data_ref %||% NULL
+  if (
+    is.character(data_ref) &&
+      length(data_ref) == 1 &&
+      !is.na(data_ref) &&
+      startsWith(data_ref, "cas:")
+  ) {
+    if (is.null(node$resolved)) {
+      node$resolved <- list()
+    }
+    node$resolved$data <- bg_fetch_artifact(handle, data_ref)
+  }
+
+  tryCatch(
+    {
+      execution <- kind_reg$executor(node, resolved_inputs)
+      normalized <- bg_normalize_execution_result(execution)
+
+      ref <- bg_store_artifact(
+        handle,
+        node_id,
+        fingerprint,
+        normalized$artifact
+      )
+
+      # Copy durable CSV output files for fit executors into runs/<job_id>/.
+      bg_copy_fit_outputs(handle, normalized$artifact, job_id)
+
+      written_summaries <- bg_write_summaries(
+        project = handle,
+        node_id = node_id,
+        artifact_ref = ref,
+        execution_fingerprint = fingerprint,
+        summaries = normalized$summaries
+      )
+
+      bg_update_job(
+        handle,
+        job_id,
+        status = "succeeded",
+        result_ref = ref,
+        finished_at = bg_now_timestamp()
+      )
+
+      list(ok = TRUE, ref = ref, summaries = written_summaries)
+    },
+    error = function(e) {
+      bg_update_job(
+        handle,
+        job_id,
+        status = "failed",
+        error = list(message = e$message),
+        finished_at = bg_now_timestamp()
+      )
+      list(ok = FALSE, error = e)
+    }
+  )
+}
+
+#' Copy durable CSV output files for fit artifacts into runs/<job_id>/.
+#'
+#' CmdStanMCMC objects carry the paths to their output CSVs; copying them into
+#' the project's run directory preserves the raw sampler output alongside the
+#' cached RDS artifact. Silently skips non-fit artifacts or missing CSVs.
+#' @keywords internal
+#' @noRd
+bg_copy_fit_outputs <- function(handle, artifact, job_id) {
+  if (!inherits(artifact, "CmdStanMCMC")) {
+    return(invisible(FALSE))
+  }
+
+  csv_files <- tryCatch(artifact$output_files(), error = function(e) {
+    character()
+  })
+  if (length(csv_files) == 0) {
+    return(invisible(FALSE))
+  }
+
+  run_dir <- file.path(handle@path, ".bayesgrove", "runs", job_id)
+  dir.create(run_dir, recursive = TRUE, showWarnings = FALSE)
+
+  for (csv in csv_files) {
+    if (file.exists(csv)) {
+      file.copy(csv, run_dir, overwrite = TRUE)
+    }
+  }
+
+  invisible(TRUE)
+}
+
 #' @keywords internal
 bg_build_run_handle <- function(
   run_id,
   status,
-  mode,
   targets,
   job_ids,
   submitted_at = NULL,
@@ -576,7 +772,6 @@ bg_build_run_handle <- function(
   res <- list(
     run_id = run_id,
     status = status,
-    mode = mode,
     targets = targets %||% character(0),
     job_ids = job_ids %||% character(0),
     submitted_at = submitted_at,

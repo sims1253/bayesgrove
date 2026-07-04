@@ -6,11 +6,11 @@ bg_builtin_workflow_registry <- local({
 
   function() {
     if (is.null(registry_env$registry)) {
-      phase10_version <- "0.1.0"
+      pack_version <- "0.1.0"
 
       registry_env$registry <- list(
-        "bayesguide.default_bayesian" = list(
-          pack_id = "bayesguide.default_bayesian",
+        "bayesgrove.default_bayesian" = list(
+          pack_id = "bayesgrove.default_bayesian",
           version = "0.2.0",
           title = "Default Bayesian workflow",
           description = paste(
@@ -35,7 +35,7 @@ bg_builtin_workflow_registry <- local({
         ),
         "bayesgrove.process_guidance" = list(
           pack_id = "bayesgrove.process_guidance",
-          version = phase10_version,
+          version = pack_version,
           title = "Process guidance pack",
           description = paste(
             "Adds Bayesian-workflow prompts for preflight planning,",
@@ -43,15 +43,15 @@ bg_builtin_workflow_registry <- local({
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_process_guidance_obligations
+            bg_pack_process_obligations
           ),
           action_providers = list(
-            bg_phase10_process_guidance_actions
+            bg_pack_process_actions
           )
         ),
         "bayesgrove.model_taxonomy" = list(
           pack_id = "bayesgrove.model_taxonomy",
-          version = phase10_version,
+          version = pack_version,
           title = "Model taxonomy pack",
           description = paste(
             "Adds PAD classification and utility-tradeoff prompts based on the",
@@ -59,15 +59,15 @@ bg_builtin_workflow_registry <- local({
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_model_taxonomy_obligations
+            bg_pack_taxonomy_obligations
           ),
           action_providers = list(
-            bg_phase10_model_taxonomy_actions
+            bg_pack_taxonomy_actions
           )
         ),
         "bayesgrove.stan_workflow" = list(
           pack_id = "bayesgrove.stan_workflow",
-          version = phase10_version,
+          version = pack_version,
           title = "Stan workflow pack",
           description = paste(
             "Provides a stanflow-inspired workflow bundle with core Bayesgrove,",
@@ -75,96 +75,84 @@ bg_builtin_workflow_registry <- local({
             "and Stan-specific diagnostic review."
           ),
           stability = "experimental",
+          includes = c(
+            "bayesgrove.default_bayesian",
+            "bayesgrove.process_guidance",
+            "bayesgrove.model_taxonomy",
+            "bayesgrove.prior_workflow",
+            "bayesgrove.model_checks",
+            "bayesgrove.model_selection"
+          ),
           obligation_providers = list(
-            bg_default_bayesian_goal_obligations,
-            bg_default_bayesian_summary_obligations,
-            bg_default_bayesian_fit_criticism_obligations,
-            bg_default_bayesian_comparison_obligations,
-            bg_default_bayesian_disposition_obligations,
-            bg_phase10_process_guidance_obligations,
-            bg_phase10_model_taxonomy_obligations,
-            bg_phase10_prior_workflow_obligations,
-            bg_phase10_model_checks_obligations,
-            bg_phase10_model_selection_obligations,
-            bg_phase10_stan_workflow_obligations
+            bg_pack_causal_stan_obligations
           ),
           action_providers = list(
-            bg_default_bayesian_goal_actions,
-            bg_default_bayesian_summary_actions,
-            bg_default_bayesian_fit_criticism_actions,
-            bg_default_bayesian_comparison_decision_actions,
-            bg_default_bayesian_disposition_actions,
-            bg_phase10_process_guidance_actions,
-            bg_phase10_model_taxonomy_actions,
-            bg_phase10_prior_workflow_actions,
-            bg_phase10_model_checks_actions,
-            bg_phase10_model_selection_actions,
-            bg_phase10_stan_workflow_actions
+            bg_pack_causal_stan_actions
           )
         ),
         "bayesgrove.prior_workflow" = list(
           pack_id = "bayesgrove.prior_workflow",
-          version = phase10_version,
+          version = pack_version,
           title = "Prior workflow pack",
           description = paste(
             "Extends the guided loop with prior rationale and prior predictive review."
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_prior_workflow_obligations
+            bg_pack_prior_obligations
           ),
           action_providers = list(
-            bg_phase10_prior_workflow_actions
+            bg_pack_prior_actions
           )
         ),
         "bayesgrove.model_checks" = list(
           pack_id = "bayesgrove.model_checks",
-          version = phase10_version,
+          version = pack_version,
           title = "Model checks pack",
           description = paste(
             "Adds posterior predictive and simulation-based calibration review semantics."
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_model_checks_obligations
+            bg_pack_checks_obligations
           ),
           action_providers = list(
-            bg_phase10_model_checks_actions
+            bg_pack_checks_actions
           )
         ),
         "bayesgrove.model_selection" = list(
           pack_id = "bayesgrove.model_selection",
-          version = phase10_version,
+          version = pack_version,
           title = "Model selection pack",
           description = paste(
             "Adds model-comparison and stacking-weight review semantics."
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_model_selection_obligations
+            bg_pack_selection_obligations
           ),
           action_providers = list(
-            bg_phase10_model_selection_actions
+            bg_pack_selection_actions
           )
         ),
         "bayesgrove.causal_minimal" = list(
           pack_id = "bayesgrove.causal_minimal",
-          version = phase10_version,
+          version = pack_version,
           title = "Minimal causal framing pack",
           description = paste(
             "Adds lightweight causal-question prompts for branch-scoped workflows."
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_causal_minimal_obligations
+            bg_pack_causal_minimal_obligations
           ),
           action_providers = list(
-            bg_phase10_causal_minimal_actions
+            bg_pack_causal_minimal_actions
           )
         ),
         "bayesgrove.causal_dagitty" = list(
           pack_id = "bayesgrove.causal_dagitty",
-          version = phase10_version,
+          version = pack_version,
           title = "Dagitty causal workflow pack",
           description = paste(
             "Adds dagitty-backed adjustment-set and implication review prompts",
@@ -172,25 +160,25 @@ bg_builtin_workflow_registry <- local({
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_causal_dagitty_obligations
+            bg_pack_causal_dagitty_obligations
           ),
           action_providers = list(
-            bg_phase10_causal_dagitty_actions
+            bg_pack_causal_dagitty_actions
           )
         ),
         "bayesgrove.pad_scaffold" = list(
           pack_id = "bayesgrove.pad_scaffold",
-          version = phase10_version,
+          version = pack_version,
           title = "PAD scaffold pack",
           description = paste(
             "Adds PAD taxonomy and utility-annotation prompts once a branch has a goal."
           ),
           stability = "experimental",
           obligation_providers = list(
-            bg_phase10_pad_scaffold_obligations
+            bg_pack_taxonomy_pad_obligations
           ),
           action_providers = list(
-            bg_phase10_pad_scaffold_actions
+            bg_pack_taxonomy_pad_actions
           )
         )
       )
@@ -222,6 +210,17 @@ bg_normalize_workflow_pack_ref <- function(spec) {
     cli::cli_abort("Workflow packs must be strings or lists with a `pack_id`.")
   }
 
+  # One-release deprecation alias: bayesguide.* -> bayesgrove.*
+  if (startsWith(spec$pack_id, "bayesguide.")) {
+    new_id <- sub("^bayesguide\\.", "bayesgrove.", spec$pack_id)
+    if (!is.null(bg_lookup_workflow_pack(new_id))) {
+      cli::cli_warn(
+        "Pack id {.val {spec$pack_id}} is deprecated; use {.val {new_id}}."
+      )
+      spec$pack_id <- new_id
+    }
+  }
+
   pack <- bg_lookup_workflow_pack(spec$pack_id)
   if (is.null(pack)) {
     cli::cli_abort("Unknown workflow pack {.val {spec$pack_id}}.")
@@ -249,7 +248,7 @@ bg_normalize_workflow_pack_refs <- function(specs) {
 #' @param project A `bg_handle`.
 #'
 #' @return A list of active workflow-pack descriptors. The built-in default
-#'   pack id is `bayesguide.default_bayesian`. Additional built-in pack ids are
+#'   pack id is `bayesgrove.default_bayesian`. Additional built-in pack ids are
 #'   `bayesgrove.prior_workflow`, `bayesgrove.model_checks`,
 #'   `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and
 #'   `bayesgrove.pad_scaffold`.
@@ -303,7 +302,7 @@ bg_resolve_workflow_scope <- function(project, scope, branch_id = NULL) {
 #' @param branch_id Optional branch id, required for branch-scoped queries.
 #'
 #' @return A `bg_workflow_context` plain-data list.
-#' @export
+#' @noRd
 bg_workflow_context <- function(
   project,
   scope = c("project", "branch"),
@@ -314,7 +313,98 @@ bg_workflow_context <- function(
 }
 
 # Protocol value normalization, canonicalization, and context collection
-# functions are in 19a-protocol-helpers.R.
+# functions are in protocol-helpers.R.
+
+#' Expand pack refs by resolving `includes` (pack composition by data).
+#'
+#' Each pack ref may declare `includes = c(...)` naming other packs whose
+#' providers should also run. This resolves the transitive closure with cycle
+#' detection and dedup by pack id, so a pack's providers run at most once even
+#' when reachable through multiple include chains. Included packs inherit the
+#' config of the including pack ref unless the included pack is also directly
+#' active (in which case its own config wins).
+#'
+#' @param pack_refs A list of normalized pack refs (from
+#'   bg_normalize_workflow_pack_refs).
+#' @return A list of expanded pack refs, deduplicated by pack_id, with included
+#'   packs appearing after their includer.
+#' @keywords internal
+#' @noRd
+bg_resolve_pack_includes <- function(pack_refs) {
+  if (length(pack_refs) == 0) {
+    return(list())
+  }
+
+  resolved <- list()
+  # Tracks packs already expanded via includes (transitive closure). Top-level
+  # active packs are NOT deduped here — literal duplicates are handled by
+  # bg_merge_protocol_items so the merged item records pack_ids correctly.
+  included_seen <- character(0)
+
+  resolve_includes <- function(pack_ref, path) {
+    pack_id <- pack_ref$pack_id
+
+    if (pack_id %in% path) {
+      cli::cli_warn(
+        "Cycle detected in pack includes: {.val {c(path, pack_id)}}. Skipping."
+      )
+      return()
+    }
+
+    if (pack_id %in% included_seen) {
+      return()
+    }
+
+    pack <- bg_lookup_workflow_pack(pack_id)
+    if (is.null(pack)) {
+      return()
+    }
+
+    included_seen <<- c(included_seen, pack_id)
+
+    # Resolve included packs first (depth-first) so the includer's own
+    # providers run last, matching the old explicit-bundle ordering.
+    includes <- pack$includes %||% character()
+    for (included_id in includes) {
+      included_ref <- list(
+        pack_id = included_id,
+        version = pack_ref$version,
+        config = pack_ref$config
+      )
+      resolve_includes(included_ref, c(path, pack_id))
+    }
+  }
+
+  for (pack_ref in pack_refs) {
+    # Expand this pack's includes (depth-first, deduped across the closure).
+    resolve_includes(pack_ref, character(0))
+  }
+
+  # Build the final list: for each top-level pack ref, emit its included
+  # packs (in resolution order) then the pack itself. Each included pack
+  # appears at most once across the whole closure.
+  emitted <- character(0)
+  for (pack_ref in pack_refs) {
+    pack <- bg_lookup_workflow_pack(pack_ref$pack_id)
+    includes <- pack$includes %||% character()
+    for (included_id in includes) {
+      if (!included_id %in% emitted) {
+        emitted <- c(emitted, included_id)
+        resolved <- c(
+          resolved,
+          list(list(
+            pack_id = included_id,
+            version = pack_ref$version,
+            config = pack_ref$config
+          ))
+        )
+      }
+    }
+    resolved <- c(resolved, list(pack_ref))
+  }
+
+  resolved
+}
 
 #' @keywords internal
 bg_dispatch_obligation_providers <- function(context, pack_ref) {
@@ -353,8 +443,14 @@ bg_dispatch_action_providers <- function(context, obligations, pack_ref) {
 # --- Blocking Obligations & External Holds ---
 
 #' @keywords internal
-bg_blocking_obligation_holds <- function(project, obligations) {
-  graph <- bg_read_graph(project)
+bg_blocking_obligation_holds <- function(project, obligations, graph = NULL) {
+  # Thread the already-loaded graph through to avoid re-reading it on every
+  # protocol evaluation (the run loop calls this once per executed node). Callers
+  # that already hold the recomputed-state graph pass it; otherwise fall back to
+  # a fresh read so behavior is unchanged for one-shot callers.
+  if (is.null(graph)) {
+    graph <- bg_read_graph(project)
+  }
   holds <- list()
 
   for (obligation in obligations) {
@@ -382,7 +478,12 @@ bg_blocking_obligation_holds <- function(project, obligations) {
 }
 
 #' @keywords internal
-bg_workflow_external_holds <- function(project, plan = NULL) {
+bg_workflow_external_holds <- function(
+  project,
+  plan = NULL,
+  state = NULL,
+  graph = NULL
+) {
   if (length(bg_workflow_packs(project)) == 0) {
     return(bg_protocol_named_list())
   }
@@ -390,7 +491,9 @@ bg_workflow_external_holds <- function(project, plan = NULL) {
   bg_next_actions_impl(
     project,
     resolved_scope = "project",
-    plan = plan
+    plan = plan,
+    state = state,
+    graph = graph
   )$metadata$external_holds %||%
     bg_protocol_named_list()
 }
@@ -404,7 +507,7 @@ bg_workflow_external_holds <- function(project, plan = NULL) {
 #' Callers can pass `result$metadata$external_holds` into [bg_plan()] to keep
 #' workflow holds distinct from structural blockers.
 #'
-#' For the built-in `bayesguide.default_bayesian` pack, the returned
+#' For the built-in `bayesgrove.default_bayesian` pack, the returned
 #' obligations and actions can include:
 #' - `review_computation_validity` and matching `computation_review` actions
 #'   for fresh warning/error summaries,
@@ -441,9 +544,20 @@ bg_next_actions <- function(
 }
 
 #' @keywords internal
-bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
-  active_packs <- bg_workflow_packs(project)
-  contexts <- bg_collect_workflow_contexts(project, resolved_scope, plan = plan)
+bg_next_actions_impl <- function(
+  project,
+  resolved_scope,
+  plan = NULL,
+  state = NULL,
+  graph = NULL
+) {
+  active_packs <- bg_resolve_pack_includes(bg_workflow_packs(project))
+  contexts <- bg_collect_workflow_contexts(
+    project,
+    resolved_scope,
+    plan = plan,
+    state = state
+  )
 
   obligation_items <- list()
   for (context in contexts) {
@@ -488,7 +602,7 @@ bg_next_actions_impl <- function(project, resolved_scope, plan = NULL) {
     metadata = list(
       evaluated_scopes = vapply(contexts, `[[`, character(1), "scope"),
       external_holds = bg_protocol_named_list(
-        bg_blocking_obligation_holds(project, obligations)
+        bg_blocking_obligation_holds(project, obligations, graph = graph)
       )
     )
   )

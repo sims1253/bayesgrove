@@ -14,14 +14,12 @@ bg_status <- function(project, auto_advance = NULL) {
     )
   }
 
-  # Build a one-shot state object so the external-holds check reads cached
-  # summaries/decisions/jobs instead of re-parsing every JSONL file (Phase 6).
-  # The graph is recomputed once and threaded through bg_refresh_run_plan so the
-  # holds-aware plan reuses the seed's graph plan + fingerprints instead of
-  # reconstructing the whole plan a second time.
-  graph <- bg_dagri_recompute_state(
-    bg_active_graph(project, graph = bg_read_graph(project))
-  )
+  # Read the raw graph once and derive the recomputed active graph from it.
+  # The raw graph feeds the protocol holds check (descendants must traverse
+  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
+  # feeds the plan refresh. Both are paid for once, not per protocol call.
+  raw_graph <- bg_read_graph(project)
+  graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
   plan_seed <- bg_plan(project)
   status_state <- new.env(parent = emptyenv())
   status_state$summaries <- bg_read_summaries(
@@ -37,7 +35,8 @@ bg_status <- function(project, auto_advance = NULL) {
   external_holds <- bg_workflow_external_holds(
     project,
     plan = plan_seed,
-    state = status_state
+    state = status_state,
+    graph = raw_graph
   )
   plan <- bg_refresh_run_plan(
     project,
