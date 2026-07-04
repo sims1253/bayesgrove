@@ -29,12 +29,37 @@ bg_check_artifact <- function(
 
 #' Store an artifact in cache
 #'
+#' Writes the blob to the content-addressed store and binds it in the artifact
+#' index (superseding prior bindings for the node). Thin wrapper over
+#' [bg_store_cas_blob] (the idempotent, atomic blob write) and
+#' [bg_bind_artifact_index] (the locked index update) so callers that want both
+#' at once — the sequential execution path — get the historical behavior. The
+#' parallel path splits them: a worker writes the blob; the main process binds
+#' the index (single-writer invariant).
 #' @return The artifact reference string (e.g. `"cas:sha256:..."`).
 #' @keywords internal
 #' @noRd
 bg_store_artifact <- function(project, node_id, fingerprint, result) {
   artifact_ref <- bg_store_cas_blob(project, result)
+  bg_bind_artifact_index(project, node_id, fingerprint, artifact_ref)
+  artifact_ref
+}
 
+#' Bind an artifact ref in the index, superseding prior node bindings.
+#'
+#' The index-writing half of [bg_store_artifact], split out so the parallel
+#' scheduler can have workers write blobs (idempotent, atomic) while the main
+#' process — the single writer of the index — performs this binding after a
+#' wave resolves. Runs under the artifact-index file lock.
+#' @return The artifact reference string (invisibly).
+#' @keywords internal
+#' @noRd
+bg_bind_artifact_index <- function(
+  project,
+  node_id,
+  fingerprint,
+  artifact_ref
+) {
   bg_modify_artifact_index(project, {
     idx <- bg_read_artifact_index(project)
     superseded <- bg_supersede_artifacts_for_node(
@@ -62,7 +87,7 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
     bg_write_artifact_index(project, idx)
   })
 
-  artifact_ref
+  invisible(artifact_ref)
 }
 
 #' Store an R object in the content-addressed blob store, return its ref.
@@ -609,6 +634,25 @@ bg_run <- function(project, targets = NULL) {
   )
 }
 
+#' Run a node's executor and normalize the result (no persistence).
+#'
+#' Pure executor invocation shared by the sequential [bg_execute_node] path and
+#' the parallel wave worker: given the node (with `$resolved$data` already
+#' attached for `cas:` data refs), the resolved input artifacts, and the kind
+#' registry entry, call the executor and normalize what it returns into
+#' `list(artifact=, summaries=)`. Throws on executor error; callers handle
+#' persistence and job-status updates.
+#' @param node The graph node list (with `$resolved$data` set if applicable).
+#' @param resolved_inputs Named list of fetched upstream artifacts.
+#' @param kind_reg The node-kind registry entry carrying `$executor`.
+#' @return `list(artifact = <object>, summaries = <list>)`.
+#' @keywords internal
+#' @noRd
+bg_run_executor <- function(node, resolved_inputs, kind_reg) {
+  execution <- kind_reg$executor(node, resolved_inputs)
+  bg_normalize_execution_result(execution)
+}
+
 #' Execute a single node: resolve inputs, run executor, store artifact, update job
 #'
 #' @param handle A `bg_handle`.
@@ -620,6 +664,7 @@ bg_run <- function(project, targets = NULL) {
 #'
 #' @return A list with `ok` (logical) and either `ref` (artifact ref) or `error`.
 #' @keywords internal
+#' @noRd
 bg_execute_node <- function(
   handle,
   node_id,
@@ -681,8 +726,7 @@ bg_execute_node <- function(
 
   tryCatch(
     {
-      execution <- kind_reg$executor(node, resolved_inputs)
-      normalized <- bg_normalize_execution_result(execution)
+      normalized <- bg_run_executor(node, resolved_inputs, kind_reg)
 
       ref <- bg_store_artifact(
         handle,
