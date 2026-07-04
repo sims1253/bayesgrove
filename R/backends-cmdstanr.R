@@ -375,7 +375,7 @@ bg_executor_loo <- function(node, inputs) {
   draws_array <- bg_extract_draws(fit_artifact, as = "array")
 
   log_lik_var <- node$params$log_lik_var %||% "log_lik"
-  ll_cols <- grepl(log_lik_var, colnames(draws_matrix), fixed = TRUE)
+  ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
   ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
   ll_array <- draws_array[,, ll_cols, drop = FALSE]
 
@@ -533,7 +533,7 @@ bg_executor_ppc <- function(node, inputs) {
   }
 
   # Posterior-predictive draws (yrep) come from the fit.
-  yrep_cols <- grepl(yrep_var, colnames(draws), fixed = TRUE)
+  yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws))
   yrep <- draws[, yrep_cols, drop = FALSE]
 
   if (ncol(yrep) == 0) {
