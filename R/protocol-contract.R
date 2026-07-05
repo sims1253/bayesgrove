@@ -61,7 +61,6 @@ bg_extension_registry <- function(project) {
 
   graph <- bg_read_graph(project)
   node_kinds <- graph$registry$kinds %||% list()
-  backends <- project@registries$backends %||% list()
   workflow_packs <- bg_workflow_packs(project)
   templates <- bg_list_templates()
 
@@ -81,25 +80,6 @@ bg_extension_registry <- function(project) {
         )
       }),
       names(node_kinds)
-    )),
-    backends = bg_protocol_named_list(stats::setNames(
-      lapply(names(backends), function(name) {
-        backend <- backends[[name]]
-        list(
-          backend_id = name,
-          runtime_signature = if (
-            is.function(backend$backend_runtime_signature)
-          ) {
-            backend$backend_runtime_signature(list())
-          } else {
-            list()
-          },
-          capabilities = c("compile", "fit"),
-          owner = "bayesgrove",
-          read_only = TRUE
-        )
-      }),
-      names(backends)
     )),
     workflow_packs = bg_protocol_named_list(stats::setNames(
       lapply(workflow_packs, bg_workflow_pack_public_descriptor),
@@ -289,44 +269,6 @@ bg_action_resolve_choice_label <- function(
     value = resolved,
     label = trimws(choice_label %||% choice_spec[[resolved]])
   )
-}
-
-#' @keywords internal
-bg_protocol_command_surface <- function() {
-  registry <- bg_remote_command_registry()
-  boundary <- bg_api_boundary()
-
-  bg_protocol_named_list(stats::setNames(
-    lapply(names(registry), function(command_name) {
-      spec <- registry[[command_name]]
-      api_row <- boundary[boundary$fn == command_name, , drop = FALSE]
-
-      bg_drop_null_fields(list(
-        command = command_name,
-        classification = if (nrow(api_row) == 1) {
-          api_row$classification[[1]]
-        } else {
-          NULL
-        },
-        description = if (identical(command_name, "bg_snapshot")) {
-          "Return the canonical GraphSnapshot message."
-        } else if (nrow(api_row) == 1) {
-          api_row$note[[1]]
-        } else {
-          NULL
-        },
-        result_message_type = if (identical(command_name, "bg_snapshot")) {
-          "GraphSnapshot"
-        } else {
-          NULL
-        },
-        mutates_state = isTRUE(spec$mutates_state),
-        allowed_args = spec$allowed_args %||% character(),
-        required_args = spec$required_args %||% character()
-      ))
-    }),
-    names(registry)
-  ))
 }
 
 #' @keywords internal

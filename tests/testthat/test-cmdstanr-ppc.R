@@ -35,7 +35,9 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     res <- bayesgrove:::bg_executor_ppc(node, inputs)
 
     expect_true(is.numeric(res$result$p_values$median))
-    expect_true(res$result$p_values$median >= 0 && res$result$p_values$median <= 1)
+    expect_true(
+      res$result$p_values$median >= 0 && res$result$p_values$median <= 1
+    )
   })
 
   it("ignores decoy variables whose name merely contains yrep_var", {

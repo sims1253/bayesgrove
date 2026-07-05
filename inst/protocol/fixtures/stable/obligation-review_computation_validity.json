@@ -16,7 +16,7 @@
     "references": []
   },
   "metadata": {
-    "pack_id": "bayesguide.default_bayesian",
+    "pack_id": "bayesgrove.default_bayesian",
     "summary_kinds": ["optimizer_diagnostics"]
   },
   "operator_context": {

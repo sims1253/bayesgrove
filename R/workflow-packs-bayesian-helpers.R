@@ -5,31 +5,31 @@
 
 # --- Context Helpers ---
 
-bg_phase10_sort_ids <- function(x) {
+bg_pack_sort_ids <- function(x) {
   sort(unique(as.character(x %||% character())))
 }
 
-bg_phase10_fit_nodes <- function(context) {
+bg_pack_fit_nodes <- function(context) {
   Filter(
     function(node) identical(node$kind %||% NULL, "fit"),
     context$structural$nodes %||% list()
   )
 }
 
-bg_phase10_fit_node_ids <- function(context) {
-  bg_phase10_sort_ids(names(bg_phase10_fit_nodes(context)))
+bg_pack_fit_node_ids <- function(context) {
+  bg_pack_sort_ids(names(bg_pack_fit_nodes(context)))
 }
 
-bg_phase10_node_label <- function(context, node_id) {
+bg_pack_node_label <- function(context, node_id) {
   node <- (context$structural$nodes %||% list())[[node_id]] %||% list()
   node$label %||% node_id
 }
 
-bg_phase10_source_node_id <- function(context, node_ids = NULL) {
+bg_pack_source_node_id <- function(context, node_ids = NULL) {
   node_ids <- if (is.null(node_ids)) {
-    bg_phase10_sort_ids(bg_phase10_fit_node_ids(context))
+    bg_pack_sort_ids(bg_pack_fit_node_ids(context))
   } else {
-    bg_phase10_sort_ids(node_ids)
+    bg_pack_sort_ids(node_ids)
   }
   if (length(node_ids) == 0) {
     return(NULL)
@@ -45,7 +45,7 @@ bg_phase10_source_node_id <- function(context, node_ids = NULL) {
 
 # --- Summary Accessors ---
 
-bg_phase10_fresh_summaries <- function(
+bg_pack_fresh_summaries <- function(
   context,
   summary_kinds = NULL,
   node_ids = NULL,
@@ -57,7 +57,7 @@ bg_phase10_fresh_summaries <- function(
     context$evidence$summaries %||% list()
   }
 
-  node_ids <- bg_phase10_sort_ids(node_ids)
+  node_ids <- bg_pack_sort_ids(node_ids)
 
   matches <- Filter(
     function(summary) {
@@ -77,14 +77,14 @@ bg_phase10_fresh_summaries <- function(
   matches[order(vapply(matches, `[[`, character(1), "summary_id"))]
 }
 
-bg_phase10_pending_review_summaries <- function(
+bg_pack_pending_review_summaries <- function(
   context,
   decision_kind,
   summary_kinds,
   node_ids = NULL,
   include_cross_scope = FALSE
 ) {
-  summaries <- bg_phase10_fresh_summaries(
+  summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = summary_kinds,
     node_ids = node_ids,
@@ -94,7 +94,7 @@ bg_phase10_pending_review_summaries <- function(
     return(list())
   }
 
-  fresh_summary_ids <- bg_phase10_sort_ids(vapply(
+  fresh_summary_ids <- bg_pack_sort_ids(vapply(
     summaries,
     `[[`,
     character(1),
@@ -115,7 +115,7 @@ bg_phase10_pending_review_summaries <- function(
 
 # --- Decision Helpers ---
 
-bg_phase10_scope_decisions <- function(context, kind = NULL) {
+bg_pack_scope_decisions <- function(context, kind = NULL) {
   bg_default_bayesian_scope_decisions(
     context$evidence$decisions %||% list(),
     scope = context$scope,
@@ -123,13 +123,13 @@ bg_phase10_scope_decisions <- function(context, kind = NULL) {
   )
 }
 
-bg_phase10_has_scope_decision <- function(context, kind, node_ids = NULL) {
-  decisions <- bg_phase10_scope_decisions(context, kind = kind)
+bg_pack_has_scope_decision <- function(context, kind, node_ids = NULL) {
+  decisions <- bg_pack_scope_decisions(context, kind = kind)
   if (length(decisions) == 0) {
     return(FALSE)
   }
 
-  node_ids <- bg_phase10_sort_ids(node_ids)
+  node_ids <- bg_pack_sort_ids(node_ids)
   if (length(node_ids) == 0) {
     return(TRUE)
   }
@@ -137,7 +137,7 @@ bg_phase10_has_scope_decision <- function(context, kind, node_ids = NULL) {
   any(vapply(
     decisions,
     function(decision) {
-      decision_node_ids <- bg_phase10_sort_ids(c(
+      decision_node_ids <- bg_pack_sort_ids(c(
         decision$metadata$node_ids %||% character(),
         decision$evidence %||% character()
       ))
@@ -149,7 +149,7 @@ bg_phase10_has_scope_decision <- function(context, kind, node_ids = NULL) {
 
 # --- Review and Goal Utilities ---
 
-bg_phase10_review_severity <- function(summaries, default = "blocking") {
+bg_pack_review_severity <- function(summaries, default = "blocking") {
   if (length(summaries) == 0) {
     return(default)
   }
@@ -169,21 +169,21 @@ bg_phase10_review_severity <- function(summaries, default = "blocking") {
   "advisory"
 }
 
-bg_phase10_goal_kind <- function(context) {
+bg_pack_goal_kind <- function(context) {
   context$inferential_goal$kind %||% NULL
 }
 
-bg_phase10_goal_kind_allowed <- function(context, allowed_goal_kinds = NULL) {
+bg_pack_goal_kind_allowed <- function(context, allowed_goal_kinds = NULL) {
   if (is.null(allowed_goal_kinds)) {
     return(TRUE)
   }
 
-  goal_kind <- bg_phase10_goal_kind(context)
+  goal_kind <- bg_pack_goal_kind(context)
   !is.null(goal_kind) && goal_kind %in% allowed_goal_kinds
 }
 
-bg_phase10_primary_utilities <- function(context) {
-  goal_kind <- bg_phase10_goal_kind(context)
+bg_pack_primary_utilities <- function(context) {
+  goal_kind <- bg_pack_goal_kind(context)
   if (is.null(goal_kind) || length(goal_kind) != 1) {
     return(character())
   }

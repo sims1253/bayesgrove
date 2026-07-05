@@ -9,19 +9,31 @@ bg_node_kind_manifest_entry <- function(
   input_contract = NULL,
   output_type = NULL,
   param_schema = NULL,
-  executor = NULL
+  executor = NULL,
+  executor_ref = NULL
 ) {
-  list(
+  entry <- list(
     kind = kind,
     input_contract = input_contract,
     output_type = output_type,
-    param_schema = param_schema,
-    executor_source = if (is.null(executor)) {
-      NULL
-    } else {
-      bg_serialize_registration_function(executor)
-    }
+    param_schema = param_schema
   )
+
+  # Built-in executors persist as a reference and never as source text.
+  # executor_ref is passed by backends-cmdstanr.R's builtin registration path;
+  # bg_register_node_kind() (this file) never sets it.
+  if (!is.null(executor_ref) && startsWith(executor_ref, "builtin:")) {
+    entry$executor_ref <- executor_ref
+    return(entry)
+  }
+
+  entry$executor_source <- if (is.null(executor)) {
+    NULL
+  } else {
+    bg_serialize_registration_function(executor)
+  }
+
+  entry
 }
 
 #' @keywords internal
@@ -31,7 +43,8 @@ bg_persist_node_kind_registration <- function(
   input_contract = NULL,
   output_type = NULL,
   param_schema = NULL,
-  executor = NULL
+  executor = NULL,
+  executor_ref = NULL
 ) {
   config <- bg_read_project_config(project)
   manifest <- config$runtime_manifest %||% bg_empty_runtime_manifest()
@@ -40,7 +53,8 @@ bg_persist_node_kind_registration <- function(
     input_contract = input_contract,
     output_type = output_type,
     param_schema = param_schema,
-    executor = executor
+    executor = executor,
+    executor_ref = executor_ref
   )
   config$runtime_manifest <- manifest
   bg_write_project_config_path(project@path, config)
@@ -93,7 +107,7 @@ bg_use_workflow_packs <- function(project, workflow_packs) {
 bg_use_default_workflow <- function(project) {
   S7::check_is_S7(project, bg_handle)
 
-  bg_use_workflow_packs(project, "bayesguide.default_bayesian")
+  bg_use_workflow_packs(project, "bayesgrove.default_bayesian")
 
   default_node_kinds <- list(
     list(kind = "source", output_type = "data.frame"),
@@ -192,42 +206,6 @@ bg_register_node_kind <- function(
     param_schema = param_schema,
     executor = executor
   )
-
-  invisible(TRUE)
-}
-
-#' Register a backend plugin
-#'
-#' Backends provide domain-specific compilation and fitting implementations
-#' (e.g. cmdstanr, brms).
-#'
-#' @param project A `bg_handle`.
-#' @param name The name of the backend.
-#' @param backend_impl A list containing the backend interface methods.
-#'
-#' @export
-bg_register_backend <- function(project, name, backend_impl) {
-  S7::check_is_S7(project, bg_handle)
-
-  required_methods <- c(
-    "backend_compile",
-    "backend_fit",
-    "backend_source_hash",
-    "backend_runtime_signature"
-  )
-
-  missing <- setdiff(required_methods, names(backend_impl))
-  if (length(missing) > 0) {
-    cli::cli_abort(
-      "Backend {.val {name}} is missing required methods: {.val {missing}}"
-    )
-  }
-
-  if (is.null(project@registries$backends)) {
-    project@registries$backends <- list()
-  }
-
-  project@registries$backends[[name]] <- backend_impl
 
   invisible(TRUE)
 }

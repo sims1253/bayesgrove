@@ -27,14 +27,15 @@ This vignette uses the following vocabulary:
 | Node set | A group of node kinds plus executors you register on a handle |
 | Ruleset | A chosen set of `workflow_packs` plus the summary vocabulary they consume |
 | Domain module | An R helper or package that bundles node registration, pack selection, and project conventions |
-| Plugin | A backend implementation registered with `bg_register_backend()` |
+| Plugin | A built-in executor set (e.g. `bg_use_cmdstanr()`) |
 | Extension | Any combination of the four items above |
 
-The stable public hooks are node-kind registration, backend registration, and
-summary emission from executors. Workflow-pack selection is also public.
-Authoring brand new workflow-pack providers is still an internal extension
-surface, so external packages should currently target the built-in summary
-contracts instead of reaching into unexported provider internals.
+The stable public hooks are node-kind registration, built-in executor
+activation (`bg_use_cmdstanr()` / `bg_use_brms()`), and summary emission from
+executors. Workflow-pack selection is also public. Authoring brand new
+workflow-pack providers is still an internal extension surface, so external
+packages should currently target the built-in summary contracts instead of
+reaching into unexported provider internals.
 
 # Activate the built-in workflow packs you need
 
@@ -56,7 +57,7 @@ handle <- bg_init(
 bg_use_workflow_packs(
   handle,
   c(
-    "bayesguide.default_bayesian",
+    "bayesgrove.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
@@ -72,7 +73,7 @@ vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
 
 Those packs add review vocabulary without changing the graph engine:
 
-- `bayesguide.default_bayesian`: computation review, fit criticism,
+- `bayesgrove.default_bayesian`: computation review, fit criticism,
   candidate comparison, and branch disposition.
 - `bayesgrove.process_guidance`: workflow preflight, iterative repair notes,
   and out-of-sample stability review.
@@ -158,6 +159,59 @@ Two practical rules make these node sets easy to compose:
 1. Keep executors domain-specific and return plain data.
 2. Emit summaries as plain-data records so workflow packs can react to them.
 
+## Opening a project never runs project-supplied code
+
+Executors are R functions, and a project's runtime manifest stores their
+source text so the project can be reopened later. For safety, `bg_open()`
+restores persisted node kinds **structurally only** — the kind name, input
+contracts, and stored executor source are kept as inert metadata, but the
+source is never evaluated. Opening a project directory from an untrusted
+source therefore executes nothing.
+
+To restore executable executors after opening, call
+`bg_restore_executors()` explicitly:
+
+```{r restore, eval = FALSE}
+handle <- bg_open("path/to/project")
+
+# Default: print the stored source for each kind and abort, so you can
+# review what would run before consenting.
+bg_restore_executors(handle)
+
+# Once you have reviewed the source, opt in:
+bg_restore_executors(handle, trust = TRUE)
+```
+
+With `trust = FALSE` (the default) the stored source for each kind is
+printed and the call aborts. With `trust = TRUE` each source is evaluated
+in a child of the global environment (not inside the bayesgrove
+namespace), and a warning reminds you that closures capturing the original
+environment are not restored. Alternatively, re-register executors with
+`bg_register_node_kind()`.
+
+Built-in executors (shipped with the package) are persisted as stable
+references and restore safely without this opt-in step.
+
+### Params are data, never code
+
+The same trust boundary applies to node `params`. A node's params carry
+**data** only — never R source. There is no params channel that evaluates
+arbitrary code at run time, so a hostile `graph.json` cannot smuggle code in
+through a `data_fn_source` or `check_fn_source` param (those have been
+removed). To attach a data object that JSON serialization would mangle (for
+example Stan's typed integers), use `bg_set_node_data()`, which stores the
+object in the content-addressed store and records a `data_ref` param pointing
+at it:
+
+```{r set-data, eval = FALSE}
+n_data <- bg_add_node(handle, kind = "stan_data", label = "Data")
+bg_set_node_data(handle, n_data, list(N = 10L, y = as.integer(y)))
+```
+
+Code enters a project only through the executor gate above — by registering a
+node kind in-session with `bg_register_node_kind()`, or by consenting with
+`bg_restore_executors(trust = TRUE)`.
+
 # Emit summaries that workflow packs understand
 
 The optional packs are summary-driven. They do not require special node kinds;
@@ -241,7 +295,7 @@ init_normal_workflow <- function(path) {
   bg_use_workflow_packs(
     handle,
     c(
-      "bayesguide.default_bayesian",
+      "bayesgrove.default_bayesian",
       "bayesgrove.process_guidance",
       "bayesgrove.model_taxonomy",
       "bayesgrove.prior_workflow",
@@ -260,27 +314,27 @@ That helper can live in your analysis package, a lab-internal utility package,
 or even a plain project script. The important part is that the node set and the
 selected workflow packs evolve together.
 
-# Register a backend plugin
+# Built-in cmdstanr and brms executors
 
-When you need a compile-and-fit backend rather than ad hoc executors, register
-a backend plugin. The built-in helpers already cover common cases:
+For real model fitting, bayesgrove ships built-in executors that wrap
+cmdstanr and brms and compute diagnostics themselves (divergences, R-hat,
+ESS, Pareto-k, posterior-predictive p-values). Activate them with:
 
-```{r backend-plugin, eval = FALSE}
-bg_register_backend(handle, "cmdstanr", bg_cmdstanr_plugin())
-bg_register_backend(handle, "brms", bg_brms_plugin())
-bg_register_backend(handle, "diagnostics", bg_diagnostics_plugin())
+```{r builtin-executors, eval = FALSE}
+bg_use_cmdstanr(handle)
+bg_use_brms(handle)
 ```
 
-A custom backend is just a named list with these methods:
+These register node kinds (`stan_data`, `cmdstanr_fit`, `brms_fit`, `loo`,
+`compare`, `ppc`, ...) whose executors emit the validated summary kinds the
+workflow packs consume. You do not need to hand-roll diagnostics: a fit
+through `bg_use_cmdstanr()` emits an `hmc_diagnostics` summary automatically,
+and a blocking `review_computation_validity` obligation follows when
+diagnostics are poor.
 
-- `backend_compile`
-- `backend_fit`
-- `backend_source_hash`
-- `backend_runtime_signature`
+Custom executors are still possible via `bg_register_node_kind()`; but the
+built-in executors are the documented happy path for cmdstanr and brms.
 
-Keep backend plugins focused on compilation and execution mechanics. Workflow
-semantics should still be expressed through summaries and workflow packs, not
-hardcoded into the backend layer.
 
 # What a ruleset means right now
 

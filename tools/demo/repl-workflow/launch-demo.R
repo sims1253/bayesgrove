@@ -86,7 +86,7 @@ bg_demo_build_base <- function(project_root) {
   handle <- bg_init(
     path = project_root,
     project_name = "Hierarchical Analysis",
-    workflow_packs = list("bayesguide.default_bayesian")
+    workflow_packs = list("bayesgrove.default_bayesian")
   )
 
   bg_demo_repl_register_kinds(handle)
@@ -110,7 +110,7 @@ bg_demo_build_base <- function(project_root) {
     inputs = n_fit
   )
 
-  suppressMessages(bg_run(handle, targets = n_fit, mode = "sync"))
+  suppressMessages(bg_run(handle, targets = n_fit))
 
   list(
     handle = handle,
@@ -157,7 +157,7 @@ bg_demo_warn_branch <- function(handle, n_fit) {
   )
 
   suppressMessages(
-    bg_run(handle, targets = centered_branch$branch$root_node_id, mode = "sync")
+    bg_run(handle, targets = centered_branch$branch$root_node_id)
   )
 
   centered_branch
@@ -203,8 +203,7 @@ bg_demo_revision_branch <- function(handle, warning_branch) {
 
   suppressMessages(bg_run(
     handle,
-    targets = revised$branch$root_node_id,
-    mode = "sync"
+    targets = revised$branch$root_node_id
   ))
 
   revised
@@ -230,7 +229,7 @@ bg_demo_compare_node <- function(
     inputs = comparison_action$payload$inputs
   )
 
-  suppressMessages(bg_run(handle, targets = compare_node_id, mode = "sync"))
+  suppressMessages(bg_run(handle, targets = compare_node_id))
   compare_node_id
 }
 
@@ -340,7 +339,7 @@ bg_demo_build_showcase <- function(project_root) {
   handle <- bg_init(
     path = project_root,
     project_name = "Missing Data Review",
-    workflow_packs = list("bayesguide.default_bayesian")
+    workflow_packs = list("bayesgrove.default_bayesian")
   )
 
   bg_demo_register_showcase_kinds(handle)
@@ -367,7 +366,7 @@ bg_demo_build_showcase <- function(project_root) {
     alternatives = c("yes", "no")
   )
 
-  suppressMessages(bg_run(handle, targets = n_clean, mode = "sync"))
+  suppressMessages(bg_run(handle, targets = n_clean))
 
   list(
     handle = handle,

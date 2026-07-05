@@ -1,8 +1,8 @@
 # Causal Dagitty Workflow Pack - Obligations and Actions
 # -----------------------------------------------------
-# Formula/dagitty helpers are in 31a-workflow-packs-causal-dagitty-helpers.R.
+# Formula/dagitty helpers are in workflow-packs-causal-dagitty-helpers.R.
 
-bg_phase10_causal_dagitty_obligations <- function(
+bg_pack_causal_dagitty_obligations <- function(
   context,
   pack_config = list()
 ) {
@@ -11,22 +11,22 @@ bg_phase10_causal_dagitty_obligations <- function(
   }
 
   allowed_goal_kinds <- pack_config$goal_kinds %||% "latent_inference"
-  if (!bg_phase10_goal_kind_allowed(context, allowed_goal_kinds)) {
+  if (!bg_pack_goal_kind_allowed(context, allowed_goal_kinds)) {
     return(list())
   }
 
-  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  fit_node_ids <- bg_pack_fit_node_ids(context)
   if (length(fit_node_ids) == 0) {
     return(list())
   }
 
   obligations <- list()
 
-  adjustment_summaries <- bg_phase10_fresh_summaries(
+  adjustment_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "dagitty_adjustment"
   )
-  has_adjustment_review <- bg_phase10_has_scope_decision(
+  has_adjustment_review <- bg_pack_has_scope_decision(
     context,
     kind = "causal_adjustment_review",
     node_ids = fit_node_ids
@@ -35,7 +35,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   if (length(adjustment_summaries) == 0 && !has_adjustment_review) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "derive_causal_adjustment",
         title = "Derive a DAG-based adjustment strategy",
@@ -59,7 +59,7 @@ bg_phase10_causal_dagitty_obligations <- function(
     )
   }
 
-  pending_adjustment_reviews <- bg_phase10_pending_review_summaries(
+  pending_adjustment_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "causal_adjustment_review",
     summary_kinds = "dagitty_adjustment"
@@ -67,7 +67,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   if (length(pending_adjustment_reviews) > 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_causal_adjustment",
         title = "Review the DAG-based adjustment set",
@@ -75,10 +75,10 @@ bg_phase10_causal_dagitty_obligations <- function(
           "Fresh DAG-derived adjustment summaries should be reviewed explicitly ",
           "before the branch commits to an estimand or adjustment strategy."
         ),
-        severity = bg_phase10_review_severity(pending_adjustment_reviews),
+        severity = bg_pack_review_severity(pending_adjustment_reviews),
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_adjustment_reviews,
             `[[`,
             character(1),
@@ -100,11 +100,11 @@ bg_phase10_causal_dagitty_obligations <- function(
     )
   }
 
-  contract_summaries <- bg_phase10_fresh_summaries(
+  contract_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "causal_selection_contract"
   )
-  has_contract_review <- bg_phase10_has_scope_decision(
+  has_contract_review <- bg_pack_has_scope_decision(
     context,
     kind = "causal_selection_contract_review",
     node_ids = fit_node_ids
@@ -117,7 +117,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   ) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "derive_causal_selection_contract",
         title = "Derive a causal selection contract",
@@ -149,20 +149,20 @@ bg_phase10_causal_dagitty_obligations <- function(
     )
   }
 
-  pending_contract_reviews <- bg_phase10_pending_review_summaries(
+  pending_contract_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "causal_selection_contract_review",
     summary_kinds = "causal_selection_contract"
   )
   if (length(pending_contract_reviews) > 0) {
-    contract <- bg_phase10_causal_contract_from_summary(
+    contract <- bg_pack_causal_contract_from_summary(
       pending_contract_reviews[[length(pending_contract_reviews)]],
       response = {
-        formula_nodes <- bg_phase10_formula_nodes(context)
+        formula_nodes <- bg_pack_formula_nodes(context)
         if (length(formula_nodes) == 0) {
           NULL
         } else {
-          bg_phase10_formula_response(
+          bg_pack_formula_response(
             (formula_nodes[[1]]$params %||% list())$formula
           )
         }
@@ -171,7 +171,7 @@ bg_phase10_causal_dagitty_obligations <- function(
 
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_causal_selection_contract",
         title = "Review the causal selection contract",
@@ -183,7 +183,7 @@ bg_phase10_causal_dagitty_obligations <- function(
         severity = "advisory",
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_contract_reviews,
             `[[`,
             character(1),
@@ -215,12 +215,12 @@ bg_phase10_causal_dagitty_obligations <- function(
     )
   }
 
-  reviewed_contract <- bg_phase10_current_causal_contract(context)
+  reviewed_contract <- bg_pack_current_causal_contract(context)
   if (!is.null(reviewed_contract)) {
-    formula_nodes <- bg_phase10_formula_nodes(context)
+    formula_nodes <- bg_pack_formula_nodes(context)
     violations <- Map(
       function(node_id, node) {
-        bg_phase10_formula_contract_violation(
+        bg_pack_formula_contract_violation(
           node_id,
           node,
           reviewed_contract
@@ -237,7 +237,7 @@ bg_phase10_causal_dagitty_obligations <- function(
     if (length(violations) > 0) {
       obligations <- c(
         obligations,
-        list(bg_phase10_obligation(
+        list(bg_pack_obligation(
           context = context,
           kind = "enforce_causal_formula_contract",
           title = "Revise formulas to respect the causal selection contract",
@@ -248,7 +248,7 @@ bg_phase10_causal_dagitty_obligations <- function(
           ),
           severity = "blocking",
           basis = list(
-            node_ids = bg_phase10_sort_ids(vapply(
+            node_ids = bg_pack_sort_ids(vapply(
               violations,
               `[[`,
               character(1),
@@ -258,7 +258,7 @@ bg_phase10_causal_dagitty_obligations <- function(
             branch_ids = context$scope
           ),
           metadata = list(
-            hold_node_ids = bg_phase10_sort_ids(vapply(
+            hold_node_ids = bg_pack_sort_ids(vapply(
               violations,
               `[[`,
               character(1),
@@ -284,11 +284,11 @@ bg_phase10_causal_dagitty_obligations <- function(
     }
   }
 
-  implication_summaries <- bg_phase10_fresh_summaries(
+  implication_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "dagitty_implications"
   )
-  has_implication_review <- bg_phase10_has_scope_decision(
+  has_implication_review <- bg_pack_has_scope_decision(
     context,
     kind = "causal_implication_review",
     node_ids = fit_node_ids
@@ -301,7 +301,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   ) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "check_causal_implications",
         title = "Check DAG implications",
@@ -325,7 +325,7 @@ bg_phase10_causal_dagitty_obligations <- function(
     )
   }
 
-  pending_implication_reviews <- bg_phase10_pending_review_summaries(
+  pending_implication_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "causal_implication_review",
     summary_kinds = "dagitty_implications"
@@ -333,7 +333,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   if (length(pending_implication_reviews) > 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_causal_implications",
         title = "Review DAG implications",
@@ -341,10 +341,10 @@ bg_phase10_causal_dagitty_obligations <- function(
           "Fresh implied-independence summaries should be reviewed so the branch ",
           "records which qualitative predictions the causal graph actually makes."
         ),
-        severity = bg_phase10_review_severity(pending_implication_reviews),
+        severity = bg_pack_review_severity(pending_implication_reviews),
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_implication_reviews,
             `[[`,
             character(1),
@@ -368,7 +368,7 @@ bg_phase10_causal_dagitty_obligations <- function(
   obligations
 }
 
-bg_phase10_causal_dagitty_actions <- function(
+bg_pack_causal_dagitty_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -381,7 +381,7 @@ bg_phase10_causal_dagitty_actions <- function(
     scope = context$scope
   )
   if (!is.null(adjustment_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = adjustment_obligation,
       title = "Create DAG-based adjustment check",
@@ -405,7 +405,7 @@ bg_phase10_causal_dagitty_actions <- function(
   if (!is.null(review_adjustment_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = review_adjustment_obligation,
         title = "Record causal adjustment review",
@@ -432,7 +432,7 @@ bg_phase10_causal_dagitty_actions <- function(
     scope = context$scope
   )
   if (!is.null(contract_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = contract_obligation,
       title = "Create causal selection contract",
@@ -457,7 +457,7 @@ bg_phase10_causal_dagitty_actions <- function(
   if (!is.null(review_contract_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = review_contract_obligation,
         title = "Record causal selection contract review",
@@ -493,21 +493,21 @@ bg_phase10_causal_dagitty_actions <- function(
   )
   if (!is.null(formula_obligation)) {
     graph_nodes <- context$structural$nodes %||% list()
-    source_node_id <- bg_phase10_source_node_id(
+    source_node_id <- bg_pack_source_node_id(
       context,
       formula_obligation$basis$node_ids %||% character()
     )
     source_node <- graph_nodes[[source_node_id]] %||% NULL
-    contract <- bg_phase10_current_causal_contract(context)
+    contract <- bg_pack_current_causal_contract(context)
 
     if (!is.null(source_node) && !is.null(contract)) {
-      suggested_formula <- bg_phase10_contract_suggested_formula(
+      suggested_formula <- bg_pack_contract_suggested_formula(
         source_node,
         contract
       )
       actions <- c(
         actions,
-        list(bg_phase10_action(
+        list(bg_pack_action(
           context = context,
           kind = "branch_and_modify",
           title = "Branch and revise formula to satisfy the causal contract",
@@ -554,7 +554,7 @@ bg_phase10_causal_dagitty_actions <- function(
     scope = context$scope
   )
   if (!is.null(implication_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = implication_obligation,
       title = "Create DAG implication check",
@@ -579,7 +579,7 @@ bg_phase10_causal_dagitty_actions <- function(
   if (!is.null(review_implication_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = review_implication_obligation,
         title = "Record causal implication review",

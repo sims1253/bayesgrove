@@ -80,14 +80,8 @@ print.bg_next_actions_result <- function(x, ...) {
   cli::cli_text("{cli::col_grey('Obligations:')}")
   for (i in seq_along(obligations)) {
     ob <- obligations[[i]]
-    severity <- ob$severity %||% "info"
-    glyph <- switch(
-      severity,
-      "blocking" = cli::col_red("x"),
-      "warning" = cli::col_yellow("!"),
-      "info" = cli::col_blue("i"),
-      cli::col_grey("*")
-    )
+    style <- bg_obligation_severity_style(ob$severity %||% "advisory")
+    glyph <- style$color(style$icon)
     title <- ob$title %||% ob$kind %||% "obligation"
     kind <- ob$kind %||% "unknown"
     why <- ob$why %||% ob$description %||% ""

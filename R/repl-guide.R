@@ -3,13 +3,28 @@
 # Functions for workflow guide, actions, and dashboard state.
 
 #' @keywords internal
-bg_repl_guide_state <- function(project, scope = "project") {
+bg_repl_guide_state <- function(project, scope = "project", bundle = NULL) {
   query <- bg_repl_protocol_query(scope)
-  actions <- bg_next_actions(
-    project,
-    scope = query$scope,
-    branch_id = query$branch_id
-  )
+  actions <- if (is.null(bundle)) {
+    bg_next_actions(
+      project,
+      scope = query$scope,
+      branch_id = query$branch_id
+    )
+  } else {
+    resolved_scope <- bg_resolve_workflow_scope(
+      project,
+      query$scope,
+      query$branch_id
+    )
+    bg_next_actions_impl(
+      project,
+      resolved_scope,
+      plan = bundle$plan_seed,
+      state = bundle$state,
+      graph = bundle$raw_graph
+    )
+  }
 
   list(
     scope = scope,
@@ -20,14 +35,23 @@ bg_repl_guide_state <- function(project, scope = "project") {
 }
 
 #' @keywords internal
-bg_repl_held_node_rows <- function(project, scope = "project", limit = 5L) {
+bg_repl_held_node_rows <- function(
+  project,
+  scope = "project",
+  limit = 5L,
+  bundle = NULL
+) {
   rows <- Filter(
     function(row) identical(row$state, "held"),
-    bg_repl_node_rows(project)
+    bg_repl_node_rows(project, bundle = bundle)
   )
 
   if (startsWith(scope, "branch:")) {
-    scope_node_ids <- bg_scope_node_ids(project, scope)
+    scope_node_ids <- bg_scope_node_ids(
+      project,
+      scope,
+      graph = bundle$raw_graph
+    )
     rows <- Filter(function(row) row$id %in% scope_node_ids, rows)
   }
 
@@ -92,13 +116,13 @@ bg_repl_lineage_rows <- function(project, scope) {
 }
 
 #' @keywords internal
-bg_repl_pending_gates <- function(project, scope = "project") {
-  gates <- bg_pending_gates(project)
+bg_repl_pending_gates <- function(project, scope = "project", graph = NULL) {
+  gates <- bg_pending_gates(project, graph = graph)
   if (!startsWith(scope, "branch:")) {
     return(gates)
   }
 
-  scope_node_ids <- bg_scope_node_ids(project, scope)
+  scope_node_ids <- bg_scope_node_ids(project, scope, graph = graph)
   Filter(
     function(gate) {
       from_node_id <- gate$from_node_id %||% NULL
@@ -116,13 +140,26 @@ bg_repl_dashboard_state <- function(
   held_limit = 5L,
   decision_limit = 5L
 ) {
-  pending_gates <- bg_repl_pending_gates(project, scope)
+  # One graph+plan+holds bundle for the whole dashboard, instead of each
+  # section (status, guide, held nodes, gates) re-reading and re-planning
+  # independently.
+  bundle <- bg_workflow_bundle(project)
+  pending_gates <- bg_repl_pending_gates(
+    project,
+    scope,
+    graph = bundle$raw_graph
+  )
   list(
     scope = scope,
     scope_label = bg_scope_label(project, scope),
-    status = bg_status(project),
-    guide = bg_repl_guide_state(project, scope),
-    held_nodes = bg_repl_held_node_rows(project, scope, limit = held_limit),
+    status = bg_status_from_bundle(project, bundle),
+    guide = bg_repl_guide_state(project, scope, bundle = bundle),
+    held_nodes = bg_repl_held_node_rows(
+      project,
+      scope,
+      limit = held_limit,
+      bundle = bundle
+    ),
     pending_gates = bg_repl_gate_rows(pending_gates),
     decisions = bg_repl_decision_rows(project, scope, limit = decision_limit),
     lineage = bg_repl_lineage_rows(project, scope)
@@ -144,12 +181,9 @@ bg_repl_print_guide_state <- function(guide_state, project) {
   } else {
     cli::cli_text("{.strong Active Obligations:}")
     for (obl in actions$obligations) {
-      color <- if (obl$severity == "blocking") cli::col_red else cli::col_yellow
-      icon <- if (obl$severity == "blocking") {
-        cli::symbol$cross
-      } else {
-        cli::symbol$warning
-      }
+      style <- bg_obligation_severity_style(obl$severity)
+      color <- style$color
+      icon <- style$icon
       # Show scope label if different from current scope (for project-wide view)
       scope_note <- if (
         !identical(obl$scope, scope) && identical(scope, "project")

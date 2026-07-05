@@ -1,4 +1,16 @@
 #' @keywords internal
+bg_drop_null_fields <- function(x) {
+  if (!is.list(x)) {
+    return(x)
+  }
+
+  keep <- !vapply(x, is.null, logical(1))
+  x <- x[keep]
+
+  lapply(x, bg_drop_null_fields)
+}
+
+#' @keywords internal
 bg_new_id <- function(prefix) {
   sprintf(
     "%s_%s",

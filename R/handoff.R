@@ -1,18 +1,3 @@
-#' Bundle a bayesgrove project for reproducible handoff
-#'
-#' Creates a portable `.tar.gz` archive of the project, including the structural
-#' graph, decision log, job history, configuration, and optionally cached artifacts
-#' or raw data files.
-#'
-#' @param project A `bg_handle`.
-#' @param path File path where the bundle should be saved (default: a temp file).
-#' @param include_data How to handle external data sources: 'omit',
-#'   'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
-#'   treated as 'omit'.
-#' @param include_fits Logical, whether to package the large model fit artifacts.
-#'
-#' @return The file path to the generated bundle.
-#' @export
 #' Capture a reproducibility manifest for bundling.
 #'
 #' Captures R/platform session info plus CmdStan/Stan versions (when cmdstanr
@@ -59,6 +44,21 @@ bg_reproducibility_manifest <- function() {
   )
 }
 
+#' Bundle a bayesgrove project for reproducible handoff
+#'
+#' Creates a portable `.tar.gz` archive of the project, including the structural
+#' graph, decision log, job history, configuration, and optionally cached artifacts
+#' or raw data files.
+#'
+#' @param project A `bg_handle`.
+#' @param path File path where the bundle should be saved (default: a temp file).
+#' @param include_data How to handle external data sources: 'omit',
+#'   'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
+#'   treated as 'omit'.
+#' @param include_fits Logical, whether to package the large model fit artifacts.
+#'
+#' @return The file path to the generated bundle.
+#' @export
 bg_bundle <- function(
   project,
   path = NULL,

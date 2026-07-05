@@ -261,7 +261,7 @@ The comparison nodes are blocked, but the descriptive summaries and both model
 branches can already run.
 
 ```{r run-before-gates}
-first_run <- bg_run(handle, mode = "sync")
+first_run <- bg_run(handle)
 first_run$summary
 
 bg_status(handle)
@@ -319,7 +319,7 @@ bg_answer_gate(
 # Second run: execute the comparison nodes
 
 ```{r run-after-gates}
-second_run <- bg_run(handle, mode = "sync")
+second_run <- bg_run(handle)
 second_run$summary
 ```
 

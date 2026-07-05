@@ -557,7 +557,8 @@ bg_next_actions_impl <- function(
     project,
     resolved_scope,
     plan = plan,
-    state = state
+    state = state,
+    graph = graph
   )
 
   obligation_items <- list()

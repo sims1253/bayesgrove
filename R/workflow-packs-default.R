@@ -1,6 +1,6 @@
 # Default Bayesian workflow pack helpers.
 # These internal utilities implement the stronger
-# `bayesguide.default_bayesian` review/comparison/disposition loop.
+# `bayesgrove.default_bayesian` review/comparison/disposition loop.
 
 #' @keywords internal
 bg_parameter_suggestions_from_hint <- function(hint, current_params = list()) {
@@ -70,7 +70,7 @@ bg_parameter_suggestions_from_hint <- function(hint, current_params = list()) {
 
 # Default Workflow Pack - Obligations and Actions
 # -----------------------------------------------
-# Context accessors are in 22a-workflow-packs-default-helpers.R.
+# Context accessors are in workflow-packs-default-helpers.R.
 
 #' @keywords internal
 bg_default_bayesian_obligation_candidate_basis <- function(obligation) {

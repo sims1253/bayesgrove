@@ -42,7 +42,7 @@ bg_add_gate <- function(
   # 1. Add structural gate to the graph
   graph <- dagriculture::dagri_add_gate(
     graph = graph,
-    edge = edge_id,
+    edge_id = edge_id,
     id = gate_id
   )
 
@@ -190,10 +190,12 @@ bg_answer_gate <- function(
 #' List pending decision gates
 #'
 #' @param project A `bg_handle`.
+#' @param graph Optional already-loaded raw graph, to avoid a redundant
+#'   read when the caller already has one for the same command cycle.
 #'
 #' @return A list of denormalized pending gates with edge context.
 #' @export
-bg_pending_gates <- function(project) {
+bg_pending_gates <- function(project, graph = NULL) {
   S7::check_is_S7(project, bg_handle)
 
   specs <- bg_read_gate_specs(project)
@@ -201,7 +203,7 @@ bg_pending_gates <- function(project) {
     return(list())
   }
 
-  graph <- bg_read_graph(project)
+  graph <- graph %||% bg_read_graph(project)
   inactive_node_ids <- bg_inactive_node_ids(project, graph = graph)
 
   gates <- Filter(

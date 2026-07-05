@@ -2,6 +2,21 @@
 # ----------------------
 # Functions for printing and formatting REPL output.
 
+#' Shared color/icon style for an obligation's severity.
+#'
+#' Obligation severity is binary in practice ("blocking" or "advisory"), so
+#' anything other than "blocking" gets the advisory style; this keeps
+#' unrecognized/future severities from silently falling through to no style.
+#' @keywords internal
+#' @noRd
+bg_obligation_severity_style <- function(severity) {
+  if (identical(severity, "blocking")) {
+    list(color = cli::col_red, icon = cli::symbol$cross)
+  } else {
+    list(color = cli::col_yellow, icon = cli::symbol$warning)
+  }
+}
+
 #' @keywords internal
 bg_repl_print_branches <- function(project, current_scope = "project") {
   branches <- bg_list_branches(project)
@@ -141,14 +156,30 @@ bg_repl_print_status <- function(status, project = NULL) {
   }
 }
 
+#' Compute the graph/plan/jobs needed to render node state, reusing an
+#' already-computed bundle when the caller has one for this command cycle.
 #' @keywords internal
-bg_repl_node_rows <- function(project) {
-  external_holds <- bg_workflow_external_holds(project)
-  plan <- bg_plan(project, external_holds = external_holds)
-  graph <- bg_dagri_recompute_state(bg_read_graph(project))
-  jobs <- bg_jobs(project)
-  active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
+#' @noRd
+bg_repl_graph_plan_jobs <- function(project, bundle = NULL) {
+  if (!is.null(bundle)) {
+    return(list(
+      graph = bg_dagri_recompute_state(bundle$raw_graph),
+      plan = bundle$plan,
+      jobs = bundle$state$jobs
+    ))
+  }
 
+  external_holds <- bg_workflow_external_holds(project)
+  list(
+    graph = bg_dagri_recompute_state(bg_read_graph(project)),
+    plan = bg_plan(project, external_holds = external_holds),
+    jobs = bg_jobs(project)
+  )
+}
+
+#' @keywords internal
+bg_repl_job_by_node <- function(jobs) {
+  active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
   job_by_node <- list()
   for (job in active_jobs) {
     if (
@@ -157,6 +188,15 @@ bg_repl_node_rows <- function(project) {
       job_by_node[[job$node_id]] <- job
     }
   }
+  job_by_node
+}
+
+#' @keywords internal
+bg_repl_node_rows <- function(project, bundle = NULL) {
+  gpj <- bg_repl_graph_plan_jobs(project, bundle)
+  graph <- gpj$graph
+  plan <- gpj$plan
+  job_by_node <- bg_repl_job_by_node(gpj$jobs)
 
   lapply(plan$graph_plan$topo_order, function(node_id) {
     node <- graph$nodes[[node_id]]
@@ -208,22 +248,11 @@ bg_repl_node_rows <- function(project) {
 }
 
 #' @keywords internal
-bg_repl_print_nodes <- function(project, scope = "project") {
-  graph <- bg_dagri_recompute_state(bg_read_graph(project))
-
-  external_holds <- bg_workflow_external_holds(project)
-  plan <- bg_plan(project, external_holds = external_holds)
-
-  jobs <- bg_jobs(project)
-  active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
-  job_by_node <- list()
-  for (job in active_jobs) {
-    if (
-      is.null(job_by_node[[job$node_id]]) || identical(job$status, "running")
-    ) {
-      job_by_node[[job$node_id]] <- job
-    }
-  }
+bg_repl_print_nodes <- function(project, scope = "project", bundle = NULL) {
+  gpj <- bg_repl_graph_plan_jobs(project, bundle)
+  graph <- gpj$graph
+  plan <- gpj$plan
+  job_by_node <- bg_repl_job_by_node(gpj$jobs)
 
   # Overlay execution state onto the structural graph state for printing
   for (node_id in names(graph$nodes)) {
@@ -483,10 +512,8 @@ bg_repl_help_lines <- function() {
     "invalidate  Invalidate a node and its downstream (requires node_id or label)",
     "retire      Retire a node and downstream lineage (requires node_id or label)",
     "retire-branch Retire an entire branch (requires branch id, branch label, or branch node)",
-    "run [node]  Run eligible nodes or a specific node synchronously",
-    "submit      Submit eligible nodes asynchronously",
-    "jobs        List active background jobs",
-    "cancel      Cancel an active run (requires run_id)",
+    "run [node]  Run eligible nodes or a specific node",
+    "jobs        List job records",
     "export      Export workflow report [html|md] [path]",
     "exit        Leave REPL"
   )

@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 
 This separation ensures computations remain reproducible while preserving the rationale behind them. The workflow-protocol layer operates on top of the graph: executors emit summaries, and `bg_next_actions()` converts these summaries into obligations and suggested actions. Callers pass the resulting holds back into `bg_plan()`. This keeps workflow guidance distinct from structural graph blockers.
 
-The built-in `bayesguide.default_bayesian` pack implements a baseline review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection. Optional packs extend this loop with process guidance, PAD taxonomy, prior rationale, predictive checks, SBC, LOO-PIT calibration, model-selection review, Stan-specific review, and DAG-backed causal selection contracts.
+The built-in `bayesgrove.default_bayesian` pack implements a baseline review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection. Optional packs extend this loop with process guidance, PAD taxonomy, prior rationale, predictive checks, SBC, LOO-PIT calibration, model-selection review, Stan-specific review, and DAG-backed causal selection contracts.
 
 A built-in template registry exposes this review loop. The registry defines common next steps rather than hardcoding REPL behaviors:
 
@@ -35,14 +35,11 @@ bg_list_templates("branch_comparison")$operation_type
 ```
 
 The package also makes its public boundary explicit. `bg_api_boundary()`
-distinguishes stable, experimental, and internal-but-exported functions, and
-marks the smaller remote IPC contract exposed by the experimental `bg_serve()`
-server. In-process execution is always available; background execution uses
-`mirai`.
+distinguishes stable, experimental, and internal-but-exported functions.
 
 ```{r boundary}
 boundary <- bg_api_boundary()
-subset(boundary, remote_accessible)[, c("fn", "classification")]
+subset(boundary, classification == "stable")
 ```
 
 The workflow protocol powers the interactive terminal client. `bg_repl()` provides a dashboard view of the workflow state, active obligations, held nodes, branch-scoped gates, recent decisions, and branch lineage.
@@ -90,7 +87,7 @@ handle <- bg_init(
 bg_use_workflow_packs(
   handle,
   c(
-    "bayesguide.default_bayesian",
+    "bayesgrove.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
@@ -197,7 +194,7 @@ node so that we can inspect the workflow protocol before scheduling downstream
 comparison work.
 
 ```{r execution}
-run_result <- bg_run(handle, targets = n_model, mode = "sync")
+run_result <- bg_run(handle, targets = n_model)
 print(run_result$summary)
 ```
 
@@ -247,7 +244,7 @@ unlink(comparison_root, recursive = TRUE)
 comparison_handle <- bg_init(
   path = comparison_root,
   project_name = "Comparison",
-  workflow_packs = list("bayesguide.default_bayesian")
+  workflow_packs = list("bayesgrove.default_bayesian")
 )
 
 bg_register_node_kind(
@@ -296,7 +293,7 @@ n_fit_base <- bg_add_node(
   inputs = n_source2,
   params = list(variant = "baseline")
 )
-bg_run(comparison_handle, mode = "sync")
+bg_run(comparison_handle)
 
 branch <- bg_branch(comparison_handle, n_fit_base, label = "Alternative Fit")
 bg_set_goal(
@@ -311,7 +308,7 @@ bg_update_node(
   branch$root_node_id,
   params = list(variant = "alternative")
 )
-bg_run(comparison_handle, targets = branch$root_node_id, mode = "sync")
+bg_run(comparison_handle, targets = branch$root_node_id)
 ```
 
 With two clean fits, project scope now requires an explicit comparison step:
@@ -339,7 +336,7 @@ comparison_node_id <- bg_add_node(
   label = "Compare Fits",
   inputs = c(n_fit_base, branch$root_node_id)
 )
-bg_run(comparison_handle, targets = comparison_node_id, mode = "sync")
+bg_run(comparison_handle, targets = comparison_node_id)
 
 comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
 comparison_action <- Filter(

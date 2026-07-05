@@ -1,3 +1,103 @@
+# bayesgrove 0.7.0
+
+## Breaking changes
+
+* Removed the `data_fn_source` and `check_fn_source` node params, which
+  evaluated R source text at run time and so reopened a params-as-code
+  channel. Attach data with the new `bg_set_node_data()`; prior-predictive
+  checking with a custom function now uses the trusted-executor pattern
+  (register a node kind wrapping `prior_fit` via `bg_register_node_kind()` or
+  `bg_restore_executors(trust = TRUE)`).
+
+## Bug fixes
+
+* `bg_cmdstanr_hmc_metrics()` now reads `num_divergent` / `num_max_treedepth`
+  from `diagnostic_summary()` (was `divergent` / `max_treedepth`, which
+  silently always read zero divergences).
+* E-BFMI handling no longer collapses to `Inf` when a single chain is `NA`;
+  finite chains are filtered before taking the minimum (both cmdstanr and
+  brms backends).
+* `bg_executor_ppc()` computes the posterior-predictive p-value on the
+  per-draw margin (`apply(yrep, 1, ...)`), not the per-observation margin.
+  PPC statistics are restricted to an allowlist (`mean`, `sd`, `median`,
+  `min`, `max`, `mad`).
+* brms `bg_brms_hmc_metrics()` computes real per-chain E-BFMI from the
+  `energy__` sampler parameter (was the raw energy minimum, never comparable
+  to the threshold); treedepth hits compare against the configured
+  `max_treedepth` rather than a hardcoded 10.
+* brms executors build the `brm()` call via `do.call` with NULL args dropped,
+  so a missing `seed` no longer passes `seed = NULL` (brms' default is `NA`).
+* The fingerprint now hashes `stan_file` CONTENTS, not the path, so editing a
+  Stan program invalidates the cache at a fixed path. The dataless
+  `brms::stancode()` source-hash branch has been removed.
+* Mid-run summaries are annotated `is_fresh = TRUE`, so freshness-strict
+  workflow packs (fit criticism) see evidence emitted within the same
+  `bg_run()` call and hold downstream nodes correctly.
+* `bg_executor_compare()` reports the runner-up `elpd_diff` and a plain-data
+  comparison table (was the always-zero best-model value); stacking weights
+  use `loo::loo_model_weights(method = "stacking")` and surface errors in
+  summary metadata instead of being silently dropped.
+* `bg_executor_loo()` computes `r_eff` via `loo::relative_eff()` from
+  chain-shaped draws, eliminating the missing-`r_eff` warning.
+
+## New features
+
+* `bg_set_node_data()` attaches an R data object to a node via the
+  content-addressed store, preserving types that JSON serialization would
+  mangle (e.g. Stan integers).
+* Project-level `workflow_strictness` config key: packs without an explicit
+  per-ref `strictness` inherit the project default (e.g. `"advisory"`).
+
+# bayesgrove 0.6.0
+
+## Breaking changes
+
+* Removed the IPC server (`bg_serve()`), async execution (`bg_submit()`,
+  `bg_wait()`, `bg_cancel()`, mirai dispatch), and the backend-plugin
+  machinery (`bg_register_backend()`, `bg_cmdstanr_plugin()`, etc.).
+  Execution is now synchronous and in-process. The job log is retained.
+* `bg_run()` and `bg_plan()` no longer accept `mode` or `backend` arguments.
+* `bg_open()` now requires `force = TRUE` to steal a locked project.
+* Pack ids renamed from `bayesguide.*` to `bayesgrove.*` (deprecation alias
+  warns and redirects for one release).
+* Summary records are stamped `schema_version = 2`; fingerprint format bumped
+  to `"2"`, invalidating all 0.x caches.
+
+## New features
+
+* Built-in cmdstanr/brms executors (`bg_use_cmdstanr()`, `bg_use_brms()`)
+  that compute HMC, LOO, and PPC diagnostics themselves. Severity rules
+  (`bg_hmc_severity()`) follow Vehtari et al. (2021) with overridable
+  thresholds.
+* Summary-kind vocabulary (`bg_summary_vocabulary()`,
+  `bg_register_summary_kind()`): executors emitting an unknown summary kind
+  get a warning with a typo suggestion; malformed summaries abort at write
+  time.
+* Pack composition by `includes`: `bayesgrove.stan_workflow` now includes its
+  constituent packs instead of duplicating providers. Cycle detection and
+  dedup ensure each provider runs at most once.
+* Advisory mode: packs with `config = list(strictness = "advisory")` produce
+  obligations that surface in the REPL but never create blocking holds.
+* Real single-writer project lock (directory-based with pid/host reporting,
+  `force` takeover, GC finalizer, readonly exempt).
+* Opening a project never runs project-supplied code; `bg_restore_executors()`
+  is the explicit trust gate for persisted executor source.
+* Per-run state object caches decisions/summaries so the external-holds
+  check between nodes is O(1) parses per run, not O(N).
+
+## Improvements
+
+* Fingerprint now includes the executor body (user executors) or executor_ref
+  + package version (built-ins) and the environment manifest (R, bayesgrove,
+  cmdstanr, brms versions).
+* JSONL records carry a monotonic `seq` field; latest-record selection uses
+  `seq` with `created_at` tiebreak.
+* Artifact store temp files are written inside the CAS directory (no
+  cross-device rename failures); cache-hit leak fixed.
+* cmdstanr fit CSV output files are copied into `.bayesgrove/runs/<job_id>/`
+  as a durable record alongside the cached RDS artifact.
+* `bg_status()` uses a one-shot state cache, avoiding redundant JSONL parses.
+
 # bayesgrove 0.5.1
 
 * Fixed CodeRabbit review issues: wired unused `choice` param into `bg_record_decision_from_action` metadata, stopped `bg_phase10_source_node_id` from widening caller-provided `node_ids`, guarded NULL `goal_kind` before `switch()` in `bg_phase10_taxonomy_evaluation_modes`, expanded character vectors to individual specs in `bg_phase10_causal_allowed_formulas`, and selected most recently created contract in `bg_phase10_current_causal_contract`.

@@ -1,3 +1,54 @@
+#' Compute the shared graph/plan/holds bundle behind a status or protocol
+#' query.
+#'
+#' Reads the raw graph once and derives the recomputed active graph and
+#' refreshed run plan from it. Callers that need several of `bg_status()`,
+#' `bg_next_actions()`, or node-state rows for the same command cycle should
+#' compute this once and thread it through, instead of each recomputing its
+#' own graph/plan/holds independently.
+#' @keywords internal
+#' @noRd
+bg_workflow_bundle <- function(project) {
+  # The raw graph feeds the protocol holds check (descendants must traverse
+  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
+  # feeds the plan refresh. Both are paid for once, not per protocol call.
+  raw_graph <- bg_read_graph(project)
+  graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
+  plan_seed <- bg_plan(project)
+  state <- new.env(parent = emptyenv())
+  state$summaries <- bg_read_summaries(
+    project,
+    include_stale = TRUE,
+    include_inactive = FALSE,
+    predicted_fingerprints = plan_seed$metadata$fingerprints,
+    artifact_index = plan_seed$metadata$artifact_index
+  )
+  state$decisions <- bg_read_decisions(project)
+  state$jobs <- bg_jobs(project)
+
+  external_holds <- bg_workflow_external_holds(
+    project,
+    plan = plan_seed,
+    state = state,
+    graph = raw_graph
+  )
+  plan <- bg_refresh_run_plan(
+    project,
+    plan_seed,
+    graph,
+    external_holds = external_holds
+  )
+
+  list(
+    raw_graph = raw_graph,
+    graph = graph,
+    plan_seed = plan_seed,
+    plan = plan,
+    state = state,
+    external_holds = external_holds
+  )
+}
+
 #' Get workflow status
 #'
 #' @param project A `bg_handle`.
@@ -14,38 +65,14 @@ bg_status <- function(project, auto_advance = NULL) {
     )
   }
 
-  # Read the raw graph once and derive the recomputed active graph from it.
-  # The raw graph feeds the protocol holds check (descendants must traverse
-  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
-  # feeds the plan refresh. Both are paid for once, not per protocol call.
-  raw_graph <- bg_read_graph(project)
-  graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
-  plan_seed <- bg_plan(project)
-  status_state <- new.env(parent = emptyenv())
-  status_state$summaries <- bg_read_summaries(
-    project,
-    include_stale = TRUE,
-    include_inactive = FALSE,
-    predicted_fingerprints = plan_seed$metadata$fingerprints,
-    artifact_index = plan_seed$metadata$artifact_index
-  )
-  status_state$decisions <- bg_read_decisions(project)
-  status_state$jobs <- bg_jobs(project)
+  bg_status_from_bundle(project, bg_workflow_bundle(project))
+}
 
-  external_holds <- bg_workflow_external_holds(
-    project,
-    plan = plan_seed,
-    state = status_state,
-    graph = raw_graph
-  )
-  plan <- bg_refresh_run_plan(
-    project,
-    plan_seed,
-    graph,
-    external_holds = external_holds
-  )
-  gates <- bg_pending_gates(project)
-  jobs <- bg_jobs(project)
+#' @keywords internal
+bg_status_from_bundle <- function(project, bundle) {
+  plan <- bundle$plan
+  gates <- bg_pending_gates(project, graph = bundle$raw_graph)
+  jobs <- bundle$state$jobs
   active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
   failed_jobs <- Filter(
     function(j) j$status %in% c("failed"),

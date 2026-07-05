@@ -29,7 +29,7 @@ The loop covers the current package strengths:
 - comparison and final branch disposition,
 - report export after iteration.
 
-It intentionally exercises only the narrow `bayesguide.default_bayesian` pack.
+It intentionally exercises only the narrow `bayesgrove.default_bayesian` pack.
 If you want process guidance, taxonomy review, predictive checks, SBC review,
 stacking-aware model selection, Stan-specific review, or DAG-constrained
 causal selection, add the richer packs described in
@@ -46,7 +46,7 @@ unlink(project_root, recursive = TRUE, force = TRUE)
 handle <- bg_init(
   path = project_root,
   project_name = "Guided Review Loop",
-  workflow_packs = list("bayesguide.default_bayesian")
+  workflow_packs = list("bayesgrove.default_bayesian")
 )
 
 node_label <- function(node_id) {
@@ -323,7 +323,7 @@ turns that warning into a blocking branch-scoped obligation, and downstream work
 on that branch is held by policy.
 
 ```{r centered-run}
-bg_run(handle, targets = warning_fit_id, mode = "sync")
+bg_run(handle, targets = warning_fit_id)
 
 warning_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(warning_protocol)
@@ -424,7 +424,7 @@ After one run, we update the branched fit, invalidate it, and rerun. The old
 warning summary becomes stale and the new clean summary becomes current.
 
 ```{r rerun-repair}
-bg_run(handle, targets = repaired_fit_id, mode = "sync")
+bg_run(handle, targets = repaired_fit_id)
 
 bg_update_node(
   handle,
@@ -437,7 +437,7 @@ bg_update_node(
   )
 )
 bg_invalidate(handle, repaired_fit_id, recursive = TRUE)
-bg_run(handle, targets = repaired_fit_id, mode = "sync")
+bg_run(handle, targets = repaired_fit_id)
 
 repaired_summaries <- bg_read_summaries(
   handle,
@@ -456,7 +456,7 @@ The robust branch runs cleanly on the first try. Once both branch candidates are
 clean, project scope surfaces a comparison action.
 
 ```{r comparison-ready}
-bg_run(handle, targets = robust_fit_id, mode = "sync")
+bg_run(handle, targets = robust_fit_id)
 
 project_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(project_protocol)
@@ -478,7 +478,7 @@ comparison_node_id <- bg_add_node(
   label = "Compare repaired vs robust branch",
   inputs = comparison_action$payload$inputs
 )
-bg_run(handle, targets = comparison_node_id, mode = "sync")
+bg_run(handle, targets = comparison_node_id)
 
 bg_result(handle, comparison_node_id)$ranking
 ```

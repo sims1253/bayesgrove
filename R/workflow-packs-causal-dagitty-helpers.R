@@ -3,14 +3,14 @@
 # Formula parsing, dagitty contract extraction, and violation detection
 # helpers for the causal dagitty workflow pack.
 
-bg_phase10_formula_nodes <- function(context) {
+bg_pack_formula_nodes <- function(context) {
   Filter(
     function(node) !is.null((node$params %||% list())$formula),
     context$structural$nodes %||% list()
   )
 }
 
-bg_phase10_formula_object <- function(formula) {
+bg_pack_formula_object <- function(formula) {
   if (inherits(formula, "formula")) {
     return(formula)
   }
@@ -25,8 +25,8 @@ bg_phase10_formula_object <- function(formula) {
   NULL
 }
 
-bg_phase10_formula_response <- function(formula) {
-  formula <- bg_phase10_formula_object(formula)
+bg_pack_formula_response <- function(formula) {
+  formula <- bg_pack_formula_object(formula)
   if (is.null(formula) || length(formula) < 3) {
     return(NULL)
   }
@@ -34,8 +34,8 @@ bg_phase10_formula_response <- function(formula) {
   paste(deparse(formula[[2]]), collapse = " ")
 }
 
-bg_phase10_formula_terms <- function(formula) {
-  formula <- bg_phase10_formula_object(formula)
+bg_pack_formula_terms <- function(formula) {
+  formula <- bg_pack_formula_object(formula)
   if (is.null(formula) || length(formula) < 3) {
     return(character())
   }
@@ -52,10 +52,10 @@ bg_phase10_formula_terms <- function(formula) {
     use.names = FALSE
   ))
 
-  bg_phase10_sort_ids(terms)
+  bg_pack_sort_ids(terms)
 }
 
-bg_phase10_causal_terms <- function(x) {
+bg_pack_causal_terms <- function(x) {
   if (is.null(x)) {
     return(character())
   }
@@ -68,10 +68,10 @@ bg_phase10_causal_terms <- function(x) {
   x <- trimws(x)
   x <- x[nzchar(x)]
 
-  bg_phase10_sort_ids(x)
+  bg_pack_sort_ids(x)
 }
 
-bg_phase10_causal_allowed_formulas <- function(x, response = NULL) {
+bg_pack_causal_allowed_formulas <- function(x, response = NULL) {
   if (is.null(x)) {
     return(list())
   }
@@ -94,10 +94,10 @@ bg_phase10_causal_allowed_formulas <- function(x, response = NULL) {
     if (
       is.character(spec) && length(spec) == 1 && grepl("~", spec, fixed = TRUE)
     ) {
-      return(bg_phase10_formula_object(spec))
+      return(bg_pack_formula_object(spec))
     }
 
-    terms <- bg_phase10_causal_terms(spec)
+    terms <- bg_pack_causal_terms(spec)
     if (length(terms) == 0 || is.null(response)) {
       return(NULL)
     }
@@ -111,22 +111,22 @@ bg_phase10_causal_allowed_formulas <- function(x, response = NULL) {
   Filter(Negate(is.null), formulas)
 }
 
-bg_phase10_causal_contract_from_summary <- function(summary, response = NULL) {
+bg_pack_causal_contract_from_summary <- function(summary, response = NULL) {
   metrics <- summary$metrics %||% list()
 
-  required_terms <- bg_phase10_causal_terms(metrics$required_terms)
-  forbidden_terms <- bg_phase10_causal_terms(metrics$forbidden_terms)
-  optional_terms <- bg_phase10_causal_terms(metrics$optional_terms)
-  ranked_candidate_terms <- bg_phase10_causal_terms(
+  required_terms <- bg_pack_causal_terms(metrics$required_terms)
+  forbidden_terms <- bg_pack_causal_terms(metrics$forbidden_terms)
+  optional_terms <- bg_pack_causal_terms(metrics$optional_terms)
+  ranked_candidate_terms <- bg_pack_causal_terms(
     metrics$ranked_candidate_terms %||% metrics$preferred_order
   )
-  allowed_formulas <- bg_phase10_causal_allowed_formulas(
+  allowed_formulas <- bg_pack_causal_allowed_formulas(
     metrics$allowed_formulas,
     response = response
   )
-  allowed_formula_terms <- lapply(allowed_formulas, bg_phase10_formula_terms)
+  allowed_formula_terms <- lapply(allowed_formulas, bg_pack_formula_terms)
 
-  allowed_terms <- bg_phase10_sort_ids(c(
+  allowed_terms <- bg_pack_sort_ids(c(
     required_terms,
     optional_terms,
     ranked_candidate_terms,
@@ -146,8 +146,8 @@ bg_phase10_causal_contract_from_summary <- function(summary, response = NULL) {
   )
 }
 
-bg_phase10_current_causal_contract <- function(context) {
-  summaries <- bg_phase10_fresh_summaries(
+bg_pack_current_causal_contract <- function(context) {
+  summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "causal_selection_contract"
   )
@@ -169,32 +169,27 @@ bg_phase10_current_causal_contract <- function(context) {
     return(NULL)
   }
 
-  formula_nodes <- bg_phase10_formula_nodes(context)
+  formula_nodes <- bg_pack_formula_nodes(context)
   response <- NULL
   if (length(formula_nodes) > 0) {
-    response <- bg_phase10_formula_response(
+    response <- bg_pack_formula_response(
       (formula_nodes[[1]]$params %||% list())$formula
     )
   }
 
-  timestamps <- vapply(
-    reviewed,
-    function(s) {
-      s$created_at %||% s$updated_at %||% ""
-    },
-    character(1)
-  )
-  latest_idx <- max(order(timestamps, decreasing = TRUE))
+  # Select the latest contract by monotonic seq (created_at tiebreak for
+  # legacy records lacking seq). reviewed is guaranteed non-empty here.
+  latest_idx <- bg_latest_index_by_seq(reviewed)
 
-  bg_phase10_causal_contract_from_summary(
+  bg_pack_causal_contract_from_summary(
     reviewed[[latest_idx]],
     response = response
   )
 }
 
-bg_phase10_formula_contract_violation <- function(node_id, node, contract) {
+bg_pack_formula_contract_violation <- function(node_id, node, contract) {
   formula <- (node$params %||% list())$formula
-  rhs_terms <- bg_phase10_formula_terms(formula)
+  rhs_terms <- bg_pack_formula_terms(formula)
 
   missing_required <- setdiff(contract$required_terms, rhs_terms)
   forbidden_present <- intersect(contract$forbidden_terms, rhs_terms)
@@ -218,9 +213,9 @@ bg_phase10_formula_contract_violation <- function(node_id, node, contract) {
     node = node,
     formula = formula,
     rhs_terms = rhs_terms,
-    missing_required = bg_phase10_sort_ids(missing_required),
-    forbidden_present = bg_phase10_sort_ids(forbidden_present),
-    extra_terms = bg_phase10_sort_ids(extra_terms),
+    missing_required = bg_pack_sort_ids(missing_required),
+    forbidden_present = bg_pack_sort_ids(forbidden_present),
+    extra_terms = bg_pack_sort_ids(extra_terms),
     not_in_allowed_formulas = not_in_allowed_formulas,
     is_consistent = length(missing_required) == 0 &&
       length(forbidden_present) == 0 &&
@@ -229,9 +224,9 @@ bg_phase10_formula_contract_violation <- function(node_id, node, contract) {
   )
 }
 
-bg_phase10_contract_suggested_formula <- function(node, contract) {
+bg_pack_contract_suggested_formula <- function(node, contract) {
   current_formula <- (node$params %||% list())$formula
-  response <- bg_phase10_formula_response(current_formula)
+  response <- bg_pack_formula_response(current_formula)
   if (is.null(response)) {
     return(NULL)
   }

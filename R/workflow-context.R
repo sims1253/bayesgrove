@@ -1337,11 +1337,12 @@ bg_build_workflow_context_impl <- function(
   project,
   scope = "project",
   plan = NULL,
-  state = NULL
+  state = NULL,
+  graph = NULL
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  full_graph <- bg_read_graph(project)
+  full_graph <- graph %||% bg_read_graph(project)
   graph <- bg_active_graph(project, graph = full_graph)
   plan <- plan %||% bg_plan(project)
   artifact_index <- plan$metadata$artifact_index %||%

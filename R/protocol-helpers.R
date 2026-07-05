@@ -86,6 +86,18 @@ bg_canonicalize_obligation <- function(obligation, pack_ref) {
   metadata <- obligation$metadata %||% list()
   metadata$pack_id <- metadata$pack_id %||% pack_ref$pack_id
 
+  # Advisory mode: downgrade blocking obligations to advisory so they surface
+  # in bg_next_actions() and the REPL but never produce external holds.
+  severity <- obligation$severity
+  config <- pack_ref$config %||% list()
+  strictness <- config$strictness %||% "blocking"
+  if (
+    identical(severity, "blocking") &&
+      identical(strictness, "advisory")
+  ) {
+    severity <- "advisory"
+  }
+
   list(
     obligation_id = bg_obligation_id(
       obligation$kind,
@@ -94,7 +106,7 @@ bg_canonicalize_obligation <- function(obligation, pack_ref) {
     ),
     kind = obligation$kind,
     scope = obligation$scope,
-    severity = obligation$severity,
+    severity = severity,
     title = obligation$title,
     basis = basis,
     explanation = bg_protocol_normalize_value(
@@ -172,18 +184,33 @@ bg_merge_protocol_items <- function(items, id_field) {
 # --- Workflow Context Collection ---
 
 #' @keywords internal
-bg_collect_workflow_contexts <- function(project, resolved_scope, plan = NULL) {
-  graph <- bg_active_graph(project)
+bg_collect_workflow_contexts <- function(
+  project,
+  resolved_scope,
+  plan = NULL,
+  state = NULL,
+  graph = NULL
+) {
+  raw_graph <- graph
+  graph <- bg_active_graph(project, graph = graph)
   predicted_fingerprints <- plan$metadata$fingerprints %||% NULL
   artifact_index <- plan$metadata$artifact_index %||% NULL
-  all_summaries <- bg_read_summaries(
-    project,
-    include_stale = TRUE,
-    include_inactive = FALSE,
-    predicted_fingerprints = predicted_fingerprints,
-    artifact_index = artifact_index
-  )
-  all_decisions <- bg_read_decisions(project)
+  all_summaries <- if (!is.null(state)) {
+    state$summaries
+  } else {
+    bg_read_summaries(
+      project,
+      include_stale = TRUE,
+      include_inactive = FALSE,
+      predicted_fingerprints = predicted_fingerprints,
+      artifact_index = artifact_index
+    )
+  }
+  all_decisions <- if (!is.null(state)) {
+    state$decisions
+  } else {
+    bg_read_decisions(project)
+  }
 
   enrich_context <- function(context) {
     context$metadata$cross_scope_summaries <- all_summaries
@@ -198,7 +225,9 @@ bg_collect_workflow_contexts <- function(project, resolved_scope, plan = NULL) {
       bg_build_workflow_context_impl(
         project,
         scope = resolved_scope,
-        plan = plan
+        plan = plan,
+        state = state,
+        graph = raw_graph
       )
     )))
   }
@@ -208,13 +237,21 @@ bg_collect_workflow_contexts <- function(project, resolved_scope, plan = NULL) {
   ))
   branch_ids <- intersect(branch_ids, bg_active_branch_ids(project))
   project_context <- enrich_context(
-    bg_build_workflow_context_impl(project, scope = "project", plan = plan)
+    bg_build_workflow_context_impl(
+      project,
+      scope = "project",
+      plan = plan,
+      state = state,
+      graph = raw_graph
+    )
   )
   branch_contexts <- lapply(branch_ids, function(branch_id) {
     enrich_context(bg_build_workflow_context_impl(
       project,
       scope = branch_id,
-      plan = plan
+      plan = plan,
+      state = state,
+      graph = raw_graph
     ))
   })
 

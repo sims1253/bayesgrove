@@ -1,11 +1,11 @@
 # Bayesian Semantics Workflow Pack - Obligations and Actions
 # -----------------------------------------------------------
 # Obligation and action constructors for phase-10 workflow phases.
-# Helper functions are in 27a-workflow-packs-bayesian-helpers.R.
+# Helper functions are in workflow-packs-bayesian-helpers.R.
 
 # --- Obligation and Action Constructors ---
 
-bg_phase10_obligation <- function(
+bg_pack_obligation <- function(
   context,
   kind,
   title,
@@ -46,7 +46,7 @@ bg_phase10_obligation <- function(
   )
 }
 
-bg_phase10_action <- function(
+bg_pack_action <- function(
   context,
   kind,
   title,
@@ -77,7 +77,7 @@ bg_phase10_action <- function(
   )
 }
 
-bg_phase10_check_action <- function(
+bg_pack_check_action <- function(
   context,
   obligation,
   title,
@@ -102,12 +102,12 @@ bg_phase10_check_action <- function(
   )
 
   source_node_id <- source_node_id %||%
-    bg_phase10_source_node_id(context, obligation$basis$node_ids)
+    bg_pack_source_node_id(context, obligation$basis$node_ids)
   if (is.null(source_node_id)) {
     return(NULL)
   }
 
-  bg_phase10_action(
+  bg_pack_action(
     context = context,
     kind = "create_node_from_template",
     title = title,
@@ -126,14 +126,14 @@ bg_phase10_check_action <- function(
       node_kind = node_kind,
       default_label = paste(
         default_label_prefix,
-        bg_phase10_node_label(context, source_node_id)
+        bg_pack_node_label(context, source_node_id)
       )
     ),
     metadata = metadata
   )
 }
 
-bg_phase10_review_action <- function(
+bg_pack_review_action <- function(
   context,
   obligation,
   title,
@@ -156,7 +156,7 @@ bg_phase10_review_action <- function(
     )
   )
 
-  bg_phase10_action(
+  bg_pack_action(
     context = context,
     kind = "record_decision",
     title = title,
@@ -185,25 +185,25 @@ bg_phase10_review_action <- function(
 
 # --- Prior Workflow Pack ---
 
-bg_phase10_prior_workflow_obligations <- function(
+bg_pack_prior_obligations <- function(
   context,
   pack_config = list()
 ) {
-  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  fit_node_ids <- bg_pack_fit_node_ids(context)
   if (length(fit_node_ids) == 0) {
     return(list())
   }
 
   obligations <- list()
 
-  prior_spec_summaries <- bg_phase10_fresh_summaries(
+  prior_spec_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "prior_spec",
     node_ids = fit_node_ids
   )
   if (
     length(prior_spec_summaries) == 0 &&
-      !bg_phase10_has_scope_decision(
+      !bg_pack_has_scope_decision(
         context,
         kind = "prior_rationale",
         node_ids = fit_node_ids
@@ -211,7 +211,7 @@ bg_phase10_prior_workflow_obligations <- function(
   ) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "record_prior_rationale",
         title = "Record prior rationale",
@@ -234,14 +234,14 @@ bg_phase10_prior_workflow_obligations <- function(
     )
   }
 
-  prior_check_summaries <- bg_phase10_fresh_summaries(
+  prior_check_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "prior_predictive_check"
   )
   if (length(prior_check_summaries) == 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "run_prior_predictive_check",
         title = "Run prior predictive checks",
@@ -263,7 +263,7 @@ bg_phase10_prior_workflow_obligations <- function(
     )
   }
 
-  pending_prior_reviews <- bg_phase10_pending_review_summaries(
+  pending_prior_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "prior_check_review",
     summary_kinds = "prior_predictive_check"
@@ -271,7 +271,7 @@ bg_phase10_prior_workflow_obligations <- function(
   if (length(pending_prior_reviews) > 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_prior_predictive_check",
         title = "Review prior predictive evidence",
@@ -279,10 +279,10 @@ bg_phase10_prior_workflow_obligations <- function(
           "Fresh prior predictive summaries should be reviewed explicitly before ",
           "treating the current prior specification as adequate."
         ),
-        severity = bg_phase10_review_severity(pending_prior_reviews),
+        severity = bg_pack_review_severity(pending_prior_reviews),
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_prior_reviews,
             `[[`,
             character(1),
@@ -305,7 +305,7 @@ bg_phase10_prior_workflow_obligations <- function(
   obligations
 }
 
-bg_phase10_prior_workflow_actions <- function(
+bg_pack_prior_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -320,7 +320,7 @@ bg_phase10_prior_workflow_actions <- function(
   if (!is.null(rationale_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = rationale_obligation,
         title = "Record prior rationale",
@@ -347,7 +347,7 @@ bg_phase10_prior_workflow_actions <- function(
     scope = context$scope
   )
   if (!is.null(prior_check_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = prior_check_obligation,
       title = "Create prior predictive check",
@@ -371,7 +371,7 @@ bg_phase10_prior_workflow_actions <- function(
   if (!is.null(review_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = review_obligation,
         title = "Review prior predictive evidence",
@@ -389,25 +389,25 @@ bg_phase10_prior_workflow_actions <- function(
 
 # --- Model Checks Pack ---
 
-bg_phase10_model_checks_obligations <- function(
+bg_pack_checks_obligations <- function(
   context,
   pack_config = list()
 ) {
-  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  fit_node_ids <- bg_pack_fit_node_ids(context)
   if (length(fit_node_ids) == 0) {
     return(list())
   }
 
   obligations <- list()
 
-  posterior_summaries <- bg_phase10_fresh_summaries(
+  posterior_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "posterior_predictive_check"
   )
   if (length(posterior_summaries) == 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "run_posterior_predictive_check",
         title = "Run posterior predictive checks",
@@ -429,7 +429,7 @@ bg_phase10_model_checks_obligations <- function(
     )
   }
 
-  pending_posterior_reviews <- bg_phase10_pending_review_summaries(
+  pending_posterior_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "posterior_check_review",
     summary_kinds = "posterior_predictive_check"
@@ -437,7 +437,7 @@ bg_phase10_model_checks_obligations <- function(
   if (length(pending_posterior_reviews) > 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_posterior_predictive_check",
         title = "Review posterior predictive evidence",
@@ -446,10 +446,10 @@ bg_phase10_model_checks_obligations <- function(
           "the workflow records how the current fit fares against the observed ",
           "data structure."
         ),
-        severity = bg_phase10_review_severity(pending_posterior_reviews),
+        severity = bg_pack_review_severity(pending_posterior_reviews),
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_posterior_reviews,
             `[[`,
             character(1),
@@ -469,14 +469,14 @@ bg_phase10_model_checks_obligations <- function(
     )
   }
 
-  loo_pit_summaries <- bg_phase10_fresh_summaries(
+  loo_pit_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "loo_pit_calibration"
   )
   if (length(loo_pit_summaries) == 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "run_loo_pit_calibration",
         title = "Run LOO-PIT calibration checks",
@@ -501,7 +501,7 @@ bg_phase10_model_checks_obligations <- function(
     )
   }
 
-  pending_loo_pit_reviews <- bg_phase10_pending_review_summaries(
+  pending_loo_pit_reviews <- bg_pack_pending_review_summaries(
     context,
     decision_kind = "loo_pit_review",
     summary_kinds = "loo_pit_calibration"
@@ -509,7 +509,7 @@ bg_phase10_model_checks_obligations <- function(
   if (length(pending_loo_pit_reviews) > 0) {
     obligations <- c(
       obligations,
-      list(bg_phase10_obligation(
+      list(bg_pack_obligation(
         context = context,
         kind = "review_loo_pit_calibration",
         title = "Review LOO-PIT calibration",
@@ -518,10 +518,10 @@ bg_phase10_model_checks_obligations <- function(
           "records whether conditional predictive calibration is acceptable or ",
           "requires model revision."
         ),
-        severity = bg_phase10_review_severity(pending_loo_pit_reviews),
+        severity = bg_pack_review_severity(pending_loo_pit_reviews),
         basis = list(
           node_ids = fit_node_ids,
-          summary_ids = bg_phase10_sort_ids(vapply(
+          summary_ids = bg_pack_sort_ids(vapply(
             pending_loo_pit_reviews,
             `[[`,
             character(1),
@@ -543,10 +543,8 @@ bg_phase10_model_checks_obligations <- function(
   }
 
   sbc_goal_kinds <- pack_config$sbc_goal_kinds %||% "latent_inference"
-  if (
-    bg_phase10_goal_kind_allowed(context, allowed_goal_kinds = sbc_goal_kinds)
-  ) {
-    sbc_summaries <- bg_phase10_fresh_summaries(
+  if (bg_pack_goal_kind_allowed(context, allowed_goal_kinds = sbc_goal_kinds)) {
+    sbc_summaries <- bg_pack_fresh_summaries(
       context,
       summary_kinds = "sbc_result"
     )
@@ -554,7 +552,7 @@ bg_phase10_model_checks_obligations <- function(
     if (length(sbc_summaries) == 0) {
       obligations <- c(
         obligations,
-        list(bg_phase10_obligation(
+        list(bg_pack_obligation(
           context = context,
           kind = "run_sbc",
           title = "Run simulation-based calibration",
@@ -578,7 +576,7 @@ bg_phase10_model_checks_obligations <- function(
       )
     }
 
-    pending_sbc_reviews <- bg_phase10_pending_review_summaries(
+    pending_sbc_reviews <- bg_pack_pending_review_summaries(
       context,
       decision_kind = "sbc_review",
       summary_kinds = "sbc_result"
@@ -586,7 +584,7 @@ bg_phase10_model_checks_obligations <- function(
     if (length(pending_sbc_reviews) > 0) {
       obligations <- c(
         obligations,
-        list(bg_phase10_obligation(
+        list(bg_pack_obligation(
           context = context,
           kind = "review_sbc",
           title = "Review SBC evidence",
@@ -594,10 +592,10 @@ bg_phase10_model_checks_obligations <- function(
             "Fresh SBC summaries should be reviewed explicitly before treating ",
             "the approximate posterior as trustworthy for latent inference."
           ),
-          severity = bg_phase10_review_severity(pending_sbc_reviews),
+          severity = bg_pack_review_severity(pending_sbc_reviews),
           basis = list(
             node_ids = fit_node_ids,
-            summary_ids = bg_phase10_sort_ids(vapply(
+            summary_ids = bg_pack_sort_ids(vapply(
               pending_sbc_reviews,
               `[[`,
               character(1),
@@ -622,7 +620,7 @@ bg_phase10_model_checks_obligations <- function(
   obligations
 }
 
-bg_phase10_model_checks_actions <- function(
+bg_pack_checks_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -635,7 +633,7 @@ bg_phase10_model_checks_actions <- function(
     scope = context$scope
   )
   if (!is.null(posterior_check_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = posterior_check_obligation,
       title = "Create posterior predictive check",
@@ -659,7 +657,7 @@ bg_phase10_model_checks_actions <- function(
   if (!is.null(posterior_review_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = posterior_review_obligation,
         title = "Review posterior predictive evidence",
@@ -678,7 +676,7 @@ bg_phase10_model_checks_actions <- function(
     scope = context$scope
   )
   if (!is.null(loo_pit_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = loo_pit_obligation,
       title = "Create LOO-PIT calibration check",
@@ -702,7 +700,7 @@ bg_phase10_model_checks_actions <- function(
   if (!is.null(loo_pit_review_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = loo_pit_review_obligation,
         title = "Review LOO-PIT calibration",
@@ -721,7 +719,7 @@ bg_phase10_model_checks_actions <- function(
     scope = context$scope
   )
   if (!is.null(sbc_obligation)) {
-    action <- bg_phase10_check_action(
+    action <- bg_pack_check_action(
       context = context,
       obligation = sbc_obligation,
       title = "Create SBC check",
@@ -745,7 +743,7 @@ bg_phase10_model_checks_actions <- function(
   if (!is.null(sbc_review_obligation)) {
     actions <- c(
       actions,
-      list(bg_phase10_review_action(
+      list(bg_pack_review_action(
         context = context,
         obligation = sbc_review_obligation,
         title = "Review SBC evidence",
@@ -763,20 +761,20 @@ bg_phase10_model_checks_actions <- function(
 
 # --- Model Selection Pack ---
 
-bg_phase10_model_selection_summary_kinds <- function() {
+bg_pack_selection_summary_kinds <- function() {
   c("model_comparison", "stacking_weights", "comparison_results")
 }
 
-bg_phase10_model_selection_evidence <- function(context, candidate_basis) {
+bg_pack_selection_evidence <- function(context, candidate_basis) {
   if (is.null(candidate_basis) || length(candidate_basis$node_ids) < 2) {
     return(NULL)
   }
 
   nodes <- bg_default_bayesian_all_nodes(context)
   edges <- bg_default_bayesian_all_edges(context)
-  summaries <- bg_phase10_fresh_summaries(
+  summaries <- bg_pack_fresh_summaries(
     context,
-    summary_kinds = bg_phase10_model_selection_summary_kinds(),
+    summary_kinds = bg_pack_selection_summary_kinds(),
     include_cross_scope = TRUE
   )
   comparison_nodes <- Filter(
@@ -812,13 +810,13 @@ bg_phase10_model_selection_evidence <- function(context, candidate_basis) {
     matches[[node_id]] <- list(
       node_id = node_id,
       label = comparison_nodes[[node_id]]$label %||% node_id,
-      summary_ids = bg_phase10_sort_ids(vapply(
+      summary_ids = bg_pack_sort_ids(vapply(
         node_summaries,
         `[[`,
         character(1),
         "summary_id"
       )),
-      summary_kinds = bg_phase10_sort_ids(vapply(
+      summary_kinds = bg_pack_sort_ids(vapply(
         node_summaries,
         `[[`,
         character(1),
@@ -845,7 +843,7 @@ bg_phase10_model_selection_evidence <- function(context, candidate_basis) {
   matches[[ordering[[1]]]]
 }
 
-bg_phase10_model_selection_obligations <- function(
+bg_pack_selection_obligations <- function(
   context,
   pack_config = list()
 ) {
@@ -860,7 +858,7 @@ bg_phase10_model_selection_obligations <- function(
     return(list())
   }
 
-  comparison_evidence <- bg_phase10_model_selection_evidence(
+  comparison_evidence <- bg_pack_selection_evidence(
     context,
     candidate_basis
   )
@@ -879,7 +877,7 @@ bg_phase10_model_selection_obligations <- function(
     return(list())
   }
 
-  list(bg_phase10_obligation(
+  list(bg_pack_obligation(
     context = context,
     kind = "review_model_selection",
     title = "Review model comparison evidence",
@@ -908,7 +906,7 @@ bg_phase10_model_selection_obligations <- function(
   ))
 }
 
-bg_phase10_model_selection_actions <- function(
+bg_pack_selection_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -927,7 +925,7 @@ bg_phase10_model_selection_actions <- function(
   }
 
   candidate_basis <- bg_default_bayesian_obligation_candidate_basis(obligation)
-  comparison_evidence <- bg_phase10_model_selection_evidence(
+  comparison_evidence <- bg_pack_selection_evidence(
     context,
     candidate_basis
   )
@@ -942,7 +940,7 @@ bg_phase10_model_selection_actions <- function(
       character(1)
     )
 
-    return(list(bg_phase10_action(
+    return(list(bg_pack_action(
       context = context,
       kind = "create_node_from_template",
       title = "Create model comparison node",
@@ -981,7 +979,7 @@ bg_phase10_model_selection_actions <- function(
   has_stacking <- "stacking_weights" %in%
     (comparison_evidence$summary_kinds %||% character())
 
-  list(bg_phase10_review_action(
+  list(bg_pack_review_action(
     context = context,
     obligation = obligation,
     title = if (has_stacking) {
@@ -1005,7 +1003,7 @@ bg_phase10_model_selection_actions <- function(
     payload = list(
       fit_node_ids = candidate_basis$node_ids,
       branch_ids = candidate_basis$branch_ids,
-      summary_ids = bg_phase10_sort_ids(c(
+      summary_ids = bg_pack_sort_ids(c(
         candidate_basis$summary_ids,
         comparison_evidence$summary_ids %||% character()
       )),
@@ -1020,7 +1018,7 @@ bg_phase10_model_selection_actions <- function(
 
 # --- Causal Minimal Pack ---
 
-bg_phase10_causal_minimal_obligations <- function(
+bg_pack_causal_minimal_obligations <- function(
   context,
   pack_config = list()
 ) {
@@ -1029,23 +1027,23 @@ bg_phase10_causal_minimal_obligations <- function(
   }
 
   allowed_goal_kinds <- pack_config$goal_kinds %||% "latent_inference"
-  if (!bg_phase10_goal_kind_allowed(context, allowed_goal_kinds)) {
+  if (!bg_pack_goal_kind_allowed(context, allowed_goal_kinds)) {
     return(list())
   }
 
-  fit_node_ids <- bg_phase10_fit_node_ids(context)
+  fit_node_ids <- bg_pack_fit_node_ids(context)
   if (length(fit_node_ids) == 0) {
     return(list())
   }
 
-  causal_summaries <- bg_phase10_fresh_summaries(
+  causal_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "causal_framing",
     node_ids = fit_node_ids
   )
   if (
     length(causal_summaries) > 0 ||
-      bg_phase10_has_scope_decision(
+      bg_pack_has_scope_decision(
         context,
         kind = "causal_question",
         node_ids = fit_node_ids
@@ -1054,7 +1052,7 @@ bg_phase10_causal_minimal_obligations <- function(
     return(list())
   }
 
-  list(bg_phase10_obligation(
+  list(bg_pack_obligation(
     context = context,
     kind = "frame_causal_question",
     title = "Record causal framing",
@@ -1073,7 +1071,7 @@ bg_phase10_causal_minimal_obligations <- function(
   ))
 }
 
-bg_phase10_causal_minimal_actions <- function(
+bg_pack_causal_minimal_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -1087,7 +1085,7 @@ bg_phase10_causal_minimal_actions <- function(
     return(list())
   }
 
-  list(bg_phase10_review_action(
+  list(bg_pack_review_action(
     context = context,
     obligation = obligation,
     title = "Record causal question or estimand",
@@ -1105,7 +1103,7 @@ bg_phase10_causal_minimal_actions <- function(
 
 # --- PAD Scaffold Pack ---
 
-bg_phase10_pad_scaffold_obligations <- function(
+bg_pack_taxonomy_pad_obligations <- function(
   context,
   pack_config = list()
 ) {
@@ -1113,19 +1111,19 @@ bg_phase10_pad_scaffold_obligations <- function(
     return(list())
   }
 
-  fit_node_ids <- bg_phase10_fit_node_ids(context)
-  if (length(fit_node_ids) == 0 || is.null(bg_phase10_goal_kind(context))) {
+  fit_node_ids <- bg_pack_fit_node_ids(context)
+  if (length(fit_node_ids) == 0 || is.null(bg_pack_goal_kind(context))) {
     return(list())
   }
 
-  pad_summaries <- bg_phase10_fresh_summaries(
+  pad_summaries <- bg_pack_fresh_summaries(
     context,
     summary_kinds = "pad_annotation",
     node_ids = fit_node_ids
   )
   if (
     length(pad_summaries) > 0 ||
-      bg_phase10_has_scope_decision(
+      bg_pack_has_scope_decision(
         context,
         kind = "pad_annotation_review",
         node_ids = fit_node_ids
@@ -1134,7 +1132,7 @@ bg_phase10_pad_scaffold_obligations <- function(
     return(list())
   }
 
-  list(bg_phase10_obligation(
+  list(bg_pack_obligation(
     context = context,
     kind = "review_pad_annotation",
     title = "Record PAD taxonomy annotation",
@@ -1147,13 +1145,13 @@ bg_phase10_pad_scaffold_obligations <- function(
     basis = list(node_ids = fit_node_ids, branch_ids = context$scope),
     metadata = list(
       source_keys = "taxonomy",
-      utility_dimensions = bg_phase10_primary_utilities(context),
+      utility_dimensions = bg_pack_primary_utilities(context),
       pad_model_classes = c("P", "PA", "PD", "PAD")
     )
   ))
 }
 
-bg_phase10_pad_scaffold_actions <- function(
+bg_pack_taxonomy_pad_actions <- function(
   context,
   obligations,
   pack_config = list()
@@ -1167,7 +1165,7 @@ bg_phase10_pad_scaffold_actions <- function(
     return(list())
   }
 
-  list(bg_phase10_review_action(
+  list(bg_pack_review_action(
     context = context,
     obligation = obligation,
     title = "Record PAD annotation",
@@ -1178,7 +1176,7 @@ bg_phase10_pad_scaffold_actions <- function(
     ),
     payload = list(
       allowed_pad_model_classes = c("P", "PA", "PD", "PAD"),
-      suggested_primary_utilities = bg_phase10_primary_utilities(context)
+      suggested_primary_utilities = bg_pack_primary_utilities(context)
     )
   ))
 }
