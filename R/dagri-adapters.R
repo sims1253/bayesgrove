@@ -1,5 +1,10 @@
-# Internal adapter layer for graph-generic operations that are plausible
-# migration candidates for `dagriculture`.
+# Adapter layer for graph-generic operations.
+#
+# The edge-diff and edge-traversal helpers below are thin pass-throughs to
+# `dagriculture` (>=0.3.0), which now owns them as the canonical `dagri_*`
+# implementations. Bayesgrove keeps the `bg_dagri_*` wrappers so internal call
+# sites read consistently and so a future dagriculture API change has one
+# adapter to update rather than N call sites.
 
 # --- Node Operations ---
 
@@ -70,28 +75,21 @@ bg_dagri_remove_node <- function(graph, node_id) {
   )
 }
 
+# --- Edge Traversal & Diffing (owned by dagriculture >=0.3.0) ---
+
 #' @keywords internal
 bg_dagri_incoming_edges <- function(graph, node_id) {
-  Filter(function(edge) identical(edge$to, node_id), graph$edges %||% list())
+  dagriculture::dagri_incoming_edges(graph, node_id)
 }
 
 #' @keywords internal
 bg_dagri_outgoing_edges <- function(graph, node_id) {
-  Filter(function(edge) identical(edge$from, node_id), graph$edges %||% list())
+  dagriculture::dagri_outgoing_edges(graph, node_id)
 }
 
 #' @keywords internal
 bg_dagri_order_edges <- function(edges) {
-  if (length(edges) <= 1) {
-    return(edges)
-  }
-
-  edge_ids <- vapply(
-    edges,
-    function(edge) edge$id %||% "",
-    character(1)
-  )
-  edges[order(edge_ids)]
+  dagriculture::dagri_order_edges(edges)
 }
 
 # --- Graph Traversal ---
@@ -117,48 +115,14 @@ bg_dagri_plan <- function(graph, targets = NULL, external_holds = list()) {
   )
 }
 
-# Prefer container names because `dagriculture` stores edges keyed by id today,
-# but fall back to the embedded `edge$id` so diffs still work if edges become
-# unnamed lists.
 #' @keywords internal
 bg_dagri_edge_ids <- function(edges) {
-  if (length(edges) == 0) {
-    return(character())
-  }
-
-  edge_names <- names(edges) %||% rep("", length(edges))
-  if (all(nzchar(edge_names))) {
-    return(sort(unique(edge_names)))
-  }
-
-  edge_ids <- vapply(
-    edges,
-    function(edge) edge$id %||% "",
-    character(1)
-  )
-  if (!all(nzchar(edge_ids))) {
-    cli::cli_abort(
-      "Graph edges must be named or carry non-empty `id` fields for diffing."
-    )
-  }
-
-  sort(unique(edge_ids))
+  dagriculture::dagri_edge_ids(edges)
 }
 
 # --- Graph Diffing ---
 
 #' @keywords internal
 bg_dagri_graph_diff <- function(graph_before, graph_after) {
-  before_nodes <- names(graph_before$nodes %||% list())
-  after_nodes <- names(graph_after$nodes %||% list())
-  before_edges <- bg_dagri_edge_ids(graph_before$edges %||% list())
-  after_edges <- bg_dagri_edge_ids(graph_after$edges %||% list())
-
-  # Migration candidate: pure structural diff with no workflow semantics.
-  list(
-    added_nodes = setdiff(after_nodes, before_nodes),
-    removed_nodes = setdiff(before_nodes, after_nodes),
-    added_edges = setdiff(after_edges, before_edges),
-    removed_edges = setdiff(before_edges, after_edges)
-  )
+  dagriculture::dagri_graph_diff(graph_before, graph_after)
 }
