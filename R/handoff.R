@@ -13,6 +13,52 @@
 #'
 #' @return The file path to the generated bundle.
 #' @export
+#' Capture a reproducibility manifest for bundling.
+#'
+#' Captures R/platform session info plus CmdStan/Stan versions (when cmdstanr
+#' is installed) so a bundle records the environment that produced it. On
+#' cross-machine restore, a caller compares manifests and warns on mismatch
+#' rather than silently rerunning everything.
+#'
+#' Uses `utils::sessionInfo()` to avoid a hard `sessioninfo` dependency; the
+#' output is a structured list (not the print-formatted string) so it
+#' round-trips through JSON.
+#' @return A list with `$r_version`, `$platform`, `$packages` (named versions),
+#'   and `$cmdstan` (version string or NULL).
+#' @keywords internal
+#' @noRd
+bg_reproducibility_manifest <- function() {
+  si <- utils::sessionInfo()
+  pkgs <- c()
+  op <- si$loadedOnly
+  if (is.list(op)) {
+    pkgs <- vapply(op, function(p) p$Version %||% NA_character_, character(1))
+  }
+  ap <- si$otherPkgs
+  if (is.list(ap)) {
+    pkgs <- c(
+      pkgs,
+      vapply(ap, function(p) p$Version %||% NA_character_, character(1))
+    )
+  }
+
+  cmdstan <- NULL
+  if (requireNamespace("cmdstanr", quietly = TRUE)) {
+    cmdstan <- tryCatch(
+      as.character(cmdstanr::cmdstan_version()),
+      error = function(e) NA_character_
+    )
+  }
+
+  list(
+    captured_at = bg_now_timestamp(),
+    r_version = si$R.version$version.string %||% NA_character_,
+    platform = si$platform %||% NA_character_,
+    packages = pkgs[order(names(pkgs))],
+    cmdstan = cmdstan
+  )
+}
+
 bg_bundle <- function(
   project,
   path = NULL,
@@ -125,7 +171,9 @@ bg_bundle <- function(
     }
   }
 
-  # 3. Write bundle manifest
+  # 3. Write bundle manifest, including a reproducibility manifest (session
+  # info + CmdStan/Stan versions) so cross-machine restores surface
+  # environment mismatches as a warning rather than silently rerunning.
   manifest <- list(
     schema_name = "bg_bundle_manifest",
     schema_version = 1,
@@ -133,7 +181,8 @@ bg_bundle <- function(
     project_id = project@project_id,
     created_at = bg_now_timestamp(),
     data_policy = include_data,
-    include_fits = include_fits
+    include_fits = include_fits,
+    reproducibility = bg_reproducibility_manifest()
   )
 
   jsonlite::write_json(

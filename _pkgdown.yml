@@ -20,6 +20,8 @@ navbar:
     intro:
       text: "Get Started"
       menu:
+      - text: "Concepts"
+        href: articles/concepts.html
       - text: "Getting Started"
         href: articles/getting-started.html
       - text: "Simulation Study Workflow"
@@ -44,7 +46,6 @@ reference:
   - title: API Boundary
     contents:
       - bg_api_boundary
-      - bg_serve
   - title: Project Lifecycle
     contents:
       - bg_handle
@@ -62,10 +63,7 @@ reference:
       - bg_repl
       - bg_plan
       - bg_run
-      - bg_wait
-      - bg_cancel
       - bg_jobs
-      - bg_reconcile_daemon_jobs
       - bg_compute_fingerprint
       - bg_status
       - bg_result
@@ -80,7 +78,6 @@ reference:
       - bg_use_default_workflow
       - bg_use_workflow_packs
       - bg_workflow_packs
-      - bg_workflow_context
       - bg_next_actions
       - bg_execute_action
       - bg_extension_registry
@@ -92,13 +89,13 @@ reference:
       - bg_read_goal_registry
       - bg_list_branches
       - bg_branch_lineage
-      - bg_resolve_node_scope
       - bg_scope_label
       - bg_set_goal
       - bg_get_goal
       - bg_read_summaries
       - bg_write_summaries
-      - bg_summary_is_fresh
+      - bg_summary_vocabulary
+      - bg_register_summary_kind
   - title: Branching & Invalidation
     contents:
       - bg_branch
@@ -114,17 +111,18 @@ reference:
       - bg_record_decision
   - title: Extensions
     contents:
-      - bg_register_backend
       - bg_register_node_kind
-      - bg_cmdstanr_plugin
-      - bg_brms_plugin
-      - bg_diagnostics_plugin
+      - bg_restore_executors
+      - bg_use_cmdstanr
+      - bg_use_brms
+      - bg_hmc_severity
 
 articles:
   - title: "All Vignettes"
     desc: ~
     contents:
       - "dagriculture-boundary"
+      - "eight-schools"
       - "extensions"
       - "getting-started"
       - "guided-review-loop"

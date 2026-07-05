@@ -1,0 +1,34 @@
+citHeader("To cite bayesgrove in publications use:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "bayesgrove: Enforced Decision Tracking for Bayesian Workflows",
+  author = person("Maximilian", "Scholz"),
+  year = format(Sys.Date(), "%Y"),
+  note = "R package version {metaVersion}",
+  url = "https://github.com/sims1253/bayesgrove"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Bayesian Workflow",
+  author = c(
+    person("Andrew", "Gelman"),
+    person("Aki", "Vehtari"),
+    person("Daniel", "Simpson"),
+    person("Daniel", "Bafumi"),
+    person("Charles-Carlier", "Berger"),
+    person("Houjun", "Sui"),
+    person("Lei", "Zheng"),
+    person("Lauren", "Kennedy"),
+    person("Rajesh", "Kumar"),
+    person("Yuling", "Yao")
+  ),
+  year = "2020",
+  journal = "arXiv preprint arXiv:2011.01808",
+  textVersion = paste(
+    "Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B.,",
+    "Yao, Y., Kennedy, L., Gabry, J., Buerkner, P.-C., & Modrak, M. (2020).",
+    "Bayesian Workflow. arXiv preprint arXiv:2011.01808."
+  )
+)
