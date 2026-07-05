@@ -80,6 +80,10 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
 #'
 #' @return A list containing the `branch` record and `continuation_nodes`
 #'   mapping source node IDs to their cloned counterparts.
+#' @seealso [bg_branch], which will eventually absorb continuation via a
+#'   `continue = character()` argument. `bg_branch_with_continuation` is
+#'   soft-deprecated for that merge; prefer the long name only while the merge
+#'   is pending.
 #' @export
 bg_branch_with_continuation <- function(
   project,

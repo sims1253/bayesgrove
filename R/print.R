@@ -44,5 +44,60 @@ print.bg_run_handle <- function(x, ...) {
     error_message <- x$error$message %||% x$error$type %||% "Unknown error"
     cli::cli_alert_danger("Error: {error_message}")
   }
+
+  # When blocked, surface the held nodes + their reason and the resolving call,
+  # so the console UI carries the protocol forward.
+  if (identical(status_text, "blocked")) {
+    held <- x$metadata$held_by_policy %||% list()
+    if (length(held) > 0L) {
+      cli::cli_text("{cli::col_magenta('Held nodes:')}")
+      for (node_id in names(held)) {
+        reason <- held[[node_id]]
+        why <- reason$reason %||% "held by protocol"
+        cli::cli_bullets(c(
+          "*" = "{cli::col_grey(node_id)}: {why}"
+        ))
+      }
+      cli::cli_text(
+        "{cli::col_grey('Next:')} call {.fn bg_next_actions} on the handle to see obligations."
+      )
+    }
+  }
+  invisible(x)
+}
+
+#' @method print bg_next_actions_result
+#' @export
+print.bg_next_actions_result <- function(x, ...) {
+  cli::cli_text("{cli::col_grey('<bg_next_actions_result>')}")
+
+  obligations <- x$obligations %||% list()
+  if (length(obligations) == 0L) {
+    cli::cli_alert_success("No outstanding obligations.")
+    return(invisible(x))
+  }
+
+  cli::cli_text("{cli::col_grey('Obligations:')}")
+  for (i in seq_along(obligations)) {
+    ob <- obligations[[i]]
+    severity <- ob$severity %||% "info"
+    glyph <- switch(
+      severity,
+      "blocking" = cli::col_red("x"),
+      "warning" = cli::col_yellow("!"),
+      "info" = cli::col_blue("i"),
+      cli::col_grey("*")
+    )
+    title <- ob$title %||% ob$kind %||% "obligation"
+    kind <- ob$kind %||% "unknown"
+    why <- ob$why %||% ob$description %||% ""
+    cli::cli_text("{glyph} {i}. [{kind}] {title}")
+    if (nzchar(why)) {
+      cli::cli_text("     {cli::col_grey(why)}")
+    }
+    resolving <- ob$resolving_call %||%
+      sprintf('bg_record_decision(handle, kind = "%s", ...)', kind)
+    cli::cli_text("     {cli::col_cyan(resolving)}")
+  }
   invisible(x)
 }

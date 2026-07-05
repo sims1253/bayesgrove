@@ -92,11 +92,19 @@ bg_connect <- function(
 
 #' Update a node in the bayesgrove project graph
 #'
+#' `params` and `metadata` default to MERGING into the node's existing values
+#' via [utils::modifyList], so `bg_update_node(handle, id, params = list(stan_file = f))`
+#' updates just `stan_file` and preserves `chains`, `seed`, etc. Pass
+#' `replace = TRUE` for intentional wholesale replacement (the historical
+#' behavior of `dagriculture::dagri_update_node`).
+#'
 #' @param project A `bg_handle`.
 #' @param node_id The node ID to update.
 #' @param label Optional new label.
-#' @param params Optional new parameters.
-#' @param metadata Optional new metadata.
+#' @param params Optional new parameters (merged by default).
+#' @param metadata Optional new metadata (merged by default).
+#' @param replace Logical scalar, default `FALSE`. When `TRUE`, `params` and
+#'   `metadata` REPLACE the existing lists wholesale instead of merging.
 #'
 #' @return The node ID.
 #' @export
@@ -105,11 +113,38 @@ bg_update_node <- function(
   node_id,
   label = NULL,
   params = NULL,
-  metadata = NULL
+  metadata = NULL,
+  replace = FALSE
 ) {
   S7::check_is_S7(project, bg_handle)
 
   graph <- bg_read_graph(project)
+
+  if (!isTRUE(replace)) {
+    existing <- graph$nodes[[node_id]]
+    if (
+      !is.null(params) &&
+        is.list(params) &&
+        is.list(existing$params %||% list())
+    ) {
+      params <- utils::modifyList(
+        existing$params %||% list(),
+        params,
+        keep.null = TRUE
+      )
+    }
+    if (
+      !is.null(metadata) &&
+        is.list(metadata) &&
+        is.list(existing$metadata %||% list())
+    ) {
+      metadata <- utils::modifyList(
+        existing$metadata %||% list(),
+        metadata,
+        keep.null = TRUE
+      )
+    }
+  }
 
   graph <- bg_dagri_update_node(
     graph = graph,
@@ -122,6 +157,43 @@ bg_update_node <- function(
   bg_commit_graph(project, graph)
 
   node_id
+}
+
+#' Attach a data object to a node via the content-addressed store
+#'
+#' Serializes `data` through the project's CAS store and records a
+#' `data_ref = "cas:sha256:..."` param on the node, so the `stan_data` executor
+#' can fetch it at run time without an embedded code channel. Existing params
+#' are preserved (merged, not replaced). The data object must be serializable
+#' via [base::saveRDS()].
+#'
+#' @param project A `bg_handle`.
+#' @param node_id The node to attach data to (typically a `stan_data` node).
+#' @param data An R object to attach.
+#' @return The node ID, invisibly.
+#' @export
+bg_set_node_data <- function(project, node_id, data) {
+  S7::check_is_S7(project, bg_handle)
+
+  ref <- bg_store_cas_blob(project, data)
+
+  graph <- bg_read_graph(project)
+  node <- graph$nodes[[node_id]]
+  if (is.null(node)) {
+    cli::cli_abort("No node with id {.val {node_id}}.")
+  }
+  merged_params <- utils::modifyList(
+    node$params %||% list(),
+    list(data_ref = ref)
+  )
+  graph <- bg_dagri_update_node(
+    graph = graph,
+    node_id = node_id,
+    params = merged_params
+  )
+  bg_commit_graph(project, graph)
+
+  invisible(node_id)
 }
 
 #' Remove a node from the bayesgrove project graph

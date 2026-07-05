@@ -11,9 +11,6 @@
 bg_snapshot <- function(project) {
   S7::check_is_S7(project, bg_handle)
 
-  # Ensure background jobs are reconciled first
-  bg_reconcile_daemon_jobs(project)
-
   config <- bg_read_project_config(project)
 
   graph <- bg_read_graph(project)
@@ -28,13 +25,6 @@ bg_snapshot <- function(project) {
     name = config$project_name %||% basename(project@path),
     path = project@path,
     graph = graph,
-    registry_bindings = lapply(project@registries$backends, function(b) {
-      if (is.function(b$backend_runtime_signature)) {
-        b$backend_runtime_signature(list())
-      } else {
-        list()
-      }
-    }),
     decisions = decisions,
     gate_specs = gates,
     artifacts = artifacts,
@@ -49,6 +39,12 @@ bg_snapshot <- function(project) {
 #' Pausing the workflow stops auto-advancing and marks the workflow state
 #' so that no new jobs are dispatched. It does not cancel currently running jobs.
 #'
+#' In a synchronous runtime this is a near-no-op: it only gates the next
+#' [bg_run] call. Under parallel execution (Milestone 3) pause takes effect at
+#' WAVE BOUNDARIES — the in-flight wave finishes, then the run stops before the
+#' next wave dispatches, and [bg_resume] clears the flag. Reclassified
+#' `experimental` while the wave-boundary semantics settle.
+#'
 #' @param project A `bg_handle`.
 #'
 #' @export
@@ -61,7 +57,7 @@ bg_pause <- function(project) {
 
   bg_write_project_config_path(project@path, config)
   cli::cli_inform(
-    "Workflow paused. Currently running background jobs will continue to run, but no new jobs will be dispatched."
+    "Workflow paused. No new jobs will be dispatched until the workflow is resumed."
   )
 
   invisible(list(state = "paused", workflow_state = "paused"))
@@ -69,7 +65,9 @@ bg_pause <- function(project) {
 
 #' Resume the workflow execution
 #'
-#' Removes the pause marker, allowing the workflow to resume execution.
+#' Removes the pause marker, allowing the workflow to resume execution. Pair
+#' with [bg_pause]; reclassified `experimental` along with it (the
+#' wave-boundary pause semantics are new in Milestone 3).
 #'
 #' @param project A `bg_handle`.
 #'

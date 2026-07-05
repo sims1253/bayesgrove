@@ -595,7 +595,7 @@ bg_next_actions_impl <- function(
     project = project
   ))
 
-  list(
+  result <- list(
     context = contexts[[1]],
     obligations = bg_protocol_named_list(obligations),
     actions = bg_protocol_named_list(actions),
@@ -606,6 +606,9 @@ bg_next_actions_impl <- function(
       )
     )
   )
+  # Add a class so a print method can render the obligations as a numbered
+  # checklist; the underlying structure stays a plain-data list.
+  structure(result, class = c("bg_next_actions_result", "list"))
 }
 
 # --- Protocol Result Partitioning ---
