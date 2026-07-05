@@ -158,14 +158,20 @@ bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
 
 #' Prepare a user executor for shipment to a mirai daemon.
 #'
-#' mirai serializes the function object to the daemon directly. `carrier::crate`
-#' is the recommended way to make a closure self-contained (so it does not
-#' capture unreachable global state), but crate requires the function literal
-#' to be defined INSIDE the crate() call — it cannot wrap an already-registered
-#' function object. So we attempt to re-build the function from its persisted
-#' source (when available) inside crate(); if no source is available or crate
-#' fails, we ship the function as-is and mirai's own serialization carries it
-#' (with a warning that the closure should be self-contained).
+#' mirai serializes the function object to the daemon directly. To keep the
+#' closure self-contained (so it does not capture unreachable state from the
+#' caller's environment), we prefer to rebuild the function from its persisted
+#' source when available — the rebuilt function's parent environment is a child
+#' of globalenv, matching the `bg_restore_executors` evaluation context. When no
+#' source is available, we ship the registered function as-is and warn that a
+#' non-self-contained closure may not survive the daemon trip.
+#'
+#' `carrier::crate()` is the canonical "self-contained closure" tool, but it
+#' requires the function literal to be defined INSIDE the crate() call — it
+#' cannot wrap an already-built function object or an `eval(parse())` result.
+#' So crating is the user's responsibility at registration time (they may
+#' register a function built inside `carrier::crate()`); here we ship the
+#' cleanest available form.
 #' @param kind_reg The node-kind registry entry.
 #' @return A list describing how the worker resolves the executor.
 #' @keywords internal
@@ -183,32 +189,30 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
     )
   }
 
-  # Try to crate from persisted source so the closure is self-contained.
+  # Prefer rebuilding from persisted source so the closure's parent is a clean
+  # globalenv child (no capture of the caller's runtime state). This matches
+  # how bg_restore_executors evaluates source and yields a daemon-safe closure.
   src <- kind_reg$executor_source %||% NULL
-  crated <- NULL
   if (
-    !is.null(src) &&
-      is.character(src) &&
+    is.character(src) &&
       length(src) == 1L &&
-      nzchar(src) &&
-      requireNamespace("carrier", quietly = TRUE)
+      nzchar(src)
   ) {
-    crated <- tryCatch(
-      carrier::crate(eval(parse(text = src), envir = globalenv())),
+    rebuilt <- tryCatch(
+      eval(parse(text = src), envir = new.env(parent = globalenv())),
       error = function(e) NULL
     )
+    if (is.function(rebuilt)) {
+      return(list(mode = "function", fn = rebuilt, rebuilt_from_source = TRUE))
+    }
   }
 
-  if (!is.null(crated)) {
-    return(list(mode = "function", fn = crated, crated = TRUE))
-  }
-
-  # Fall back to shipping the function object directly. mirai serializes it;
-  # warn that a non-self-contained closure may not survive the trip.
+  # Fall back to shipping the registered function object directly. mirai
+  # serializes it; warn that a non-self-contained closure may not survive.
   cli::cli_warn(
-    "Shipping the {.val {kind}} executor to daemons without crating. Make it self-contained (define it inside {.fn carrier::crate} or avoid capturing non-package objects) for robust parallel dispatch."
+    "Shipping the {.val {kind}} executor to daemons without rebuilding from source. Make it self-contained (avoid capturing non-package objects) for robust parallel dispatch."
   )
-  list(mode = "function", fn = fn, crated = FALSE)
+  list(mode = "function", fn = fn, rebuilt_from_source = FALSE)
 }
 
 #' Dispatch a wave's nodes to mirai daemons in parallel and gather results.
