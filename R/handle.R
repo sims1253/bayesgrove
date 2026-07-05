@@ -1,5 +1,14 @@
 #' @title bayesgrove Project Handle
 #' @description A reference-semantic handle for an open bayesgrove project.
+#'
+#' # Decision record: S7 + environment-backed state
+#'
+#' `bg_handle` is intentionally an S7 class with an environment-backed `.state`
+#' slot (used by the jobs cache, registries, etc.). This gives reference
+#' semantics WITH S7 validation. Do NOT migrate to R6 or plain environments:
+#' the S7 validation guards are load-bearing, and plain environments would
+#' lose them. (PLAN.md Milestone 9 item 3.)
+#'
 #' @param project_id Unique project identifier.
 #' @param path File path to the project root.
 #' @param readonly Logical, whether the handle is readonly.

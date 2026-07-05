@@ -60,6 +60,8 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_jobs", classification = "stable"),
     list(fn = "bg_fit_stan", classification = "experimental"),
     list(fn = "bg_fit_brms", classification = "experimental"),
+    list(fn = "bg_graph_mermaid", classification = "stable"),
+    list(fn = "bg_plot", classification = "experimental"),
 
     # === Stable: Registries and Summaries ===
     list(fn = "bg_read_branch_registry", classification = "stable"),

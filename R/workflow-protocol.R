@@ -211,6 +211,7 @@ bg_normalize_workflow_pack_ref <- function(spec) {
   }
 
   # One-release deprecation alias: bayesguide.* -> bayesgrove.*
+  # TODO(0.9.0): remove this alias; only bayesgrove.* pack ids remain valid.
   if (startsWith(spec$pack_id, "bayesguide.")) {
     new_id <- sub("^bayesguide\\.", "bayesgrove.", spec$pack_id)
     if (!is.null(bg_lookup_workflow_pack(new_id))) {
