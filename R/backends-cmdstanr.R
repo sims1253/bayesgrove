@@ -599,5 +599,28 @@ bg_executor_ppc <- function(node, inputs) {
     metrics = p_values
   )
 
-  list(result = p_values, summaries = list(summary))
+  # Plot-ready data: observed y plus a capped subsample of yrep rows, so a
+  # downstream plot (Milestone 7) can render ppc_dens_overlay without re-running
+  # the fit. Cap to max_yrep_rows draws (default 100), evenly spaced across the
+  # posterior to keep the subsample representative. Stored alongside the p-values
+  # in the artifact; the summary carries only the scalar metrics.
+  max_yrep_rows <- node$params$max_yrep_rows %||% 100L
+  yrep_rows <- if (nrow(yrep) > max_yrep_rows) {
+    # Evenly-spaced row indices across the posterior draws.
+    seq.int(1L, nrow(yrep), length.out = max_yrep_rows)
+  } else {
+    seq_len(nrow(yrep))
+  }
+  plot_data <- list(
+    observed_y = y,
+    yrep = unname(yrep[yrep_rows, , drop = FALSE]),
+    stats = stats
+  )
+
+  result <- list(
+    p_values = p_values,
+    plot_data = plot_data
+  )
+
+  list(result = result, summaries = list(summary))
 }

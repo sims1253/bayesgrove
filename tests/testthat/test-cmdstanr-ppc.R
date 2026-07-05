@@ -13,9 +13,13 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     node <- list(params = list(stats = "mean"))
     res <- bayesgrove:::bg_executor_ppc(node, inputs)
 
-    expect_equal(res$result$mean, 2 / 3)
+    expect_equal(res$result$p_values$mean, 2 / 3)
     expect_equal(res$summaries[[1]]$metrics$mean, 2 / 3)
     expect_equal(res$summaries[[1]]$summary_kind, "posterior_predictive_check")
+    # Plot-ready data: observed y and a capped yrep subsample are stored.
+    expect_equal(res$result$plot_data$observed_y, c(9, 11))
+    expect_true(is.matrix(res$result$plot_data$yrep))
+    expect_equal(ncol(res$result$plot_data$yrep), 2L)
   })
 
   it("rejects statistics outside the allowlist", {
@@ -30,8 +34,8 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     node <- list(params = list(stats = "median"))
     res <- bayesgrove:::bg_executor_ppc(node, inputs)
 
-    expect_true(is.numeric(res$result$median))
-    expect_true(res$result$median >= 0 && res$result$median <= 1)
+    expect_true(is.numeric(res$result$p_values$median))
+    expect_true(res$result$p_values$median >= 0 && res$result$p_values$median <= 1)
   })
 
   it("ignores decoy variables whose name merely contains yrep_var", {
@@ -50,10 +54,26 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     res <- bayesgrove:::bg_executor_ppc(node, decoy_inputs)
 
     # With the decoy excluded, the mean p-value matches the base fixture.
-    expect_equal(res$result$mean, 2 / 3)
+    expect_equal(res$result$p_values$mean, 2 / 3)
 
     # And the helper selects exactly the yrep[i] columns.
     sel <- bayesgrove:::bg_indexed_var_cols("yrep", colnames(draws))
     expect_equal(which(sel), 1:2)
+  })
+
+  it("caps the yrep subsample to max_yrep_rows for plot-ready storage", {
+    # A fit with many draws should be capped to max_yrep_rows in plot_data so
+    # the artifact stays small, while all draws still feed the p-value calc.
+    # big_yrep: col1 all 0, col2 all 10 -> every per-draw mean is 5; observed
+    # mean is 10, so p-value (P(T(yrep) >= T(y))) is 0.
+    big_yrep <- matrix(rep(c(0, 10), each = 250), nrow = 250, ncol = 2)
+    colnames(big_yrep) <- c("yrep[1]", "yrep[2]")
+    big_inputs <- list(big_yrep, list(y = c(9, 11)))
+    node <- list(params = list(stats = "mean", max_yrep_rows = 50L))
+    res <- bayesgrove:::bg_executor_ppc(node, big_inputs)
+
+    expect_equal(nrow(res$result$plot_data$yrep), 50L)
+    # The p-value still uses all 250 draws.
+    expect_equal(res$result$p_values$mean, 0)
   })
 })
