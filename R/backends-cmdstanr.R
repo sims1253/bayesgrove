@@ -889,7 +889,7 @@ bg_executor_sbc <- function(node, inputs) {
 
   ranks <- integer(n_sims)
   for (i in seq_len(n_sims)) {
-    sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + iL else NULL
+    sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + i else NULL
     gen <- data_fn(sim_seed)
     theta_true <- gen$theta
     sim_data <- gen$data
