@@ -78,22 +78,263 @@ bg_parallel_active <- function(parallel) {
   daemons_up
 }
 
-#' Report whether mirai daemons are currently set.
+#' Report whether mirai daemons are currently active.
 #'
-#' mirai exposes daemon status via `mirai::status()` (a data frame with one row
-#' per daemon) in current versions; older/newer builds may use
-#' `mirai::daemons()` returning a non-NULL value when set. This helper tries the
-#' modern check first and falls back gracefully so a future API change degrades
-#' to "no daemons" (sequential) rather than erroring.
-#' @return TRUE if at least one mirai daemon is active.
+#' `mirai::status()` returns a list whose `$connections` field counts active
+#' daemon connections (> 0 when daemons are set). This is the modern, stable
+#' check. Wrapped in tryCatch so a future API change degrades to "no daemons"
+#' (sequential fallback) rather than erroring mid-run.
+#' @return TRUE if at least one mirai daemon connection is active.
 #' @keywords internal
 #' @noRd
 bg_mirai_daemons_active <- function() {
   status <- tryCatch(mirai::status(), error = function(e) NULL)
-  if (is.data.frame(status) && nrow(status) > 0) {
-    return(TRUE)
+  is.list(status) &&
+    is.numeric(status$connections) &&
+    length(status$connections) > 0 &&
+    status$connections[[1]] > 0
+}
+
+# Parallel wave dispatch -----------------------------------------------------
+#
+# Workers run the executor and write the artifact BLOB only (content-addressed
+# writes are idempotent and atomic, so concurrent workers never corrupt the
+# CAS). The main process is the single writer of the artifact INDEX, the
+# summaries JSONL, and the jobs JSONL — the existing single-writer lock model
+# is preserved. Each worker returns list(node_id, ref, summaries, error) and
+# the main process folds the results back into the plan + run state.
+
+#' Build a worker task bundle for one node in a wave.
+#'
+#' Pre-resolves everything the worker cannot reach without a live handle: the
+#' fetched upstream artifacts (`resolved_inputs`) and the `node$resolved$data`
+#' for `cas:` data refs. The node, kind registry entry, fingerprint, and project
+#' path travel to the daemon; the worker runs [bg_run_executor] and
+#' [bg_store_cas_blob] and returns the result shape.
+#'
+#' Built-in executors are NOT shipped across (they resolve by `builtin:` ref on
+#' the daemon after `library(bayesgrove)`); user executors are crated with
+#' `carrier::crate()` by [bg_prepare_executor_for_ship] (Step 4).
+#' @return A list suitable as the worker payload, or NULL if the kind has no
+#'   usable executor (the caller records a failed job).
+#' @keywords internal
+#' @noRd
+bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
+  node <- graph$nodes[[node_id]]
+
+  resolved_inputs <- list()
+  for (b in plan$input_bindings[[node_id]] %||% list()) {
+    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
+      project,
+      b$artifact_ref
+    )
   }
-  daemons <- tryCatch(mirai::daemons(), error = function(e) NULL)
-  !is.null(daemons) &&
-    (!is.numeric(daemons) || length(daemons) == 0 || daemons[[1]] > 0)
+
+  data_ref <- node$params$data_ref %||% NULL
+  if (
+    is.character(data_ref) &&
+      length(data_ref) == 1 &&
+      !is.na(data_ref) &&
+      startsWith(data_ref, "cas:")
+  ) {
+    if (is.null(node$resolved)) {
+      node$resolved <- list()
+    }
+    node$resolved$data <- bg_fetch_artifact(project, data_ref)
+  }
+
+  executor <- bg_prepare_executor_for_ship(kind_reg, node$kind)
+
+  list(
+    node_id = node_id,
+    node = node,
+    resolved_inputs = resolved_inputs,
+    executor = executor,
+    kind_reg = kind_reg,
+    fingerprint = plan$metadata$fingerprints[[node_id]],
+    project_path = project@path
+  )
+}
+
+#' Prepare a user executor for shipment to a mirai daemon.
+#'
+#' mirai serializes the function object to the daemon directly. `carrier::crate`
+#' is the recommended way to make a closure self-contained (so it does not
+#' capture unreachable global state), but crate requires the function literal
+#' to be defined INSIDE the crate() call — it cannot wrap an already-registered
+#' function object. So we attempt to re-build the function from its persisted
+#' source (when available) inside crate(); if no source is available or crate
+#' fails, we ship the function as-is and mirai's own serialization carries it
+#' (with a warning that the closure should be self-contained).
+#' @param kind_reg The node-kind registry entry.
+#' @return A list describing how the worker resolves the executor.
+#' @keywords internal
+#' @noRd
+bg_prepare_executor_for_ship <- function(kind_reg, kind) {
+  executor_ref <- kind_reg$executor_ref %||% NULL
+  if (!is.null(executor_ref) && startsWith(executor_ref, "builtin:")) {
+    return(list(mode = "builtin", ref = executor_ref))
+  }
+
+  fn <- kind_reg$executor
+  if (!is.function(fn)) {
+    cli::cli_abort(
+      "Executor for kind {.val {kind}} is not a registered function; call {.fn bg_restore_executors} or {.fn bg_register_node_kind} before running in parallel."
+    )
+  }
+
+  # Try to crate from persisted source so the closure is self-contained.
+  src <- kind_reg$executor_source %||% NULL
+  crated <- NULL
+  if (
+    !is.null(src) &&
+      is.character(src) &&
+      length(src) == 1L &&
+      nzchar(src) &&
+      requireNamespace("carrier", quietly = TRUE)
+  ) {
+    crated <- tryCatch(
+      carrier::crate(eval(parse(text = src), envir = globalenv())),
+      error = function(e) NULL
+    )
+  }
+
+  if (!is.null(crated)) {
+    return(list(mode = "function", fn = crated, crated = TRUE))
+  }
+
+  # Fall back to shipping the function object directly. mirai serializes it;
+  # warn that a non-self-contained closure may not survive the trip.
+  cli::cli_warn(
+    "Shipping the {.val {kind}} executor to daemons without crating. Make it self-contained (define it inside {.fn carrier::crate} or avoid capturing non-package objects) for robust parallel dispatch."
+  )
+  list(mode = "function", fn = fn, crated = FALSE)
+}
+
+#' Dispatch a wave's nodes to mirai daemons in parallel and gather results.
+#'
+#' Builds a worker task bundle per node (pre-resolving inputs and `cas:` data
+#' refs on the main process, where the live handle is available), dispatches
+#' them with `purrr::map(.x, purrr::in_parallel(bg_wave_worker))` (backed by the
+#' active mirai daemons), and returns one result list per node tagged
+#' `$worker_origin = TRUE` so the caller knows the blob is written but the
+#' index/summaries/job still need finalizing on the main process.
+#'
+#' @param project A `bg_handle` (main process; holds the writer lock).
+#' @param wave Character vector of node IDs in this wave.
+#' @param plan The current run plan.
+#' @param graph The recomputed active graph.
+#' @return A list of result lists (one per wave node), each carrying
+#'   `$node_id`, `$ok`, and either `$ref`+`$summaries` or `$error`, plus
+#'   `$worker_origin = TRUE`.
+#' @keywords internal
+#' @noRd
+bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
+  tasks <- lapply(wave, function(node_id) {
+    kind_reg <- project@registries$node_kinds[[graph$nodes[[node_id]]$kind]]
+    bg_build_worker_task(project, node_id, plan, graph, kind_reg)
+  })
+  names(tasks) <- wave
+
+  # purrr::in_parallel() crates `.f` with carrier, so `.f` MUST be a function
+  # literal defined inline (it cannot wrap an existing package function
+  # object). The inline literal runs crated on the daemon in a globalenv
+  # context, NOT bayesgrove's namespace, so it must reach the worker via
+  # getFromNamespace rather than a bare name (which would not resolve).
+  # getFromNamespace avoids the R CMD check NOTE that ::: to one's own
+  # namespace would trigger, while still resolving the internal worker on the
+  # daemon (bayesgrove must be installed there, as it is for any built-in
+  # executor). The map blocks until all daemons return.
+  raw_results <- purrr::map(
+    tasks,
+    purrr::in_parallel(function(task) {
+      worker <- utils::getFromNamespace("bg_wave_worker", "bayesgrove")
+      worker(task)
+    })
+  )
+  lapply(wave, function(node_id) {
+    res <- raw_results[[node_id]]
+    res$node_id <- node_id
+    res$worker_origin <- TRUE
+    res
+  })
+}
+
+#' The wave worker: run one node's executor and write its CAS blob.
+#'
+#' Runs on a mirai daemon. Loads bayesgrove, resolves the executor (built-in by
+#' ref, or uses the crated user function), calls [bg_run_executor], and writes
+#' the artifact blob via [bg_store_cas_blob] (idempotent + atomic, safe under
+#' concurrent writes). Does NOT touch the artifact index, summaries JSONL, or
+#' jobs JSONL — the main process owns those (single-writer invariant). Returns
+#' `list(node_id, ref, summaries, ok, error)`; `ref`/`summaries` are populated
+#' on success, `error` on failure.
+#' @param task A worker task bundle from [bg_build_worker_task].
+#' @return Result list for the main process to finalize.
+#' @keywords internal
+#' @noRd
+bg_wave_worker <- function(task) {
+  # Daemons should have bayesgrove loaded; if not, the executor / CAS helpers
+  # will not resolve. Require it quietly so a missing install surfaces cleanly.
+  # (The body below uses unqualified calls — they resolve in bayesgrove's own
+  # namespace because this function's defining environment is the package, even
+  # when invoked via ::: on a daemon.)
+  if (!requireNamespace("bayesgrove", quietly = TRUE)) {
+    return(list(
+      node_id = task$node_id,
+      ok = FALSE,
+      error = list(message = "bayesgrove is not installed on the daemon")
+    ))
+  }
+
+  # Open a read-only handle on the worker so bg_store_cas_blob can write the
+  # blob (it only needs the path). Read-only skips the writer lock, which the
+  # main process already holds; the worker only writes the content-addressed
+  # blob (idempotent + atomic), never the locked index/summaries/jobs files.
+  project <- bg_open(task$project_path, readonly = TRUE)
+
+  kind_reg <- task$kind_reg
+  resolved_executor <- if (identical(task$executor$mode, "builtin")) {
+    bg_resolve_builtin_executor(task$executor$ref)
+  } else {
+    task$executor$fn
+  }
+  kind_reg$executor <- resolved_executor
+  if (is.null(kind_reg$executor) || !is.function(kind_reg$executor)) {
+    return(list(
+      node_id = task$node_id,
+      ok = FALSE,
+      error = list(
+        message = sprintf(
+          "Could not resolve executor on the daemon for node %s",
+          task$node_id
+        )
+      )
+    ))
+  }
+
+  tryCatch(
+    {
+      normalized <- bg_run_executor(
+        task$node,
+        task$resolved_inputs,
+        kind_reg
+      )
+      ref <- bg_store_cas_blob(project, normalized$artifact)
+      list(
+        node_id = task$node_id,
+        ok = TRUE,
+        ref = ref,
+        summaries = normalized$summaries,
+        fingerprint = task$fingerprint
+      )
+    },
+    error = function(e) {
+      list(
+        node_id = task$node_id,
+        ok = FALSE,
+        error = list(message = conditionMessage(e))
+      )
+    }
+  )
 }

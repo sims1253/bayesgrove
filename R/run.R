@@ -563,6 +563,14 @@ bg_run <- function(
       break
     }
 
+    # Decide dispatch mode for this wave: parallel only when enabled AND the
+    # wave has >1 node (a single-node wave gains nothing from dispatch and the
+    # sequential path avoids task-construction overhead).
+    wave_parallel <- use_parallel && length(wave) > 1L
+
+    # Record jobs (queued -> running) up front so the records exist regardless
+    # of dispatch mode; the executor/blob work happens next.
+    wave_jobs <- list()
     for (node_id in wave) {
       bg_cli_inform("Running node {.val {node_id}}...")
       num_executed <- num_executed + 1L
@@ -574,17 +582,87 @@ bg_run <- function(
         status = "running",
         started_at = bg_now_timestamp()
       )
+      wave_jobs[[node_id]] <- job$job_id
+    }
 
-      execution_result <- bg_execute_node(
-        handle = project,
-        node_id = node_id,
-        fingerprint = plan$metadata$fingerprints[[node_id]],
-        input_bindings = plan$input_bindings[[node_id]],
-        graph = graph,
-        job_id = job$job_id
-      )
+    # Dispatch and gather one (node_id -> execution_result) per wave node.
+    results <- if (wave_parallel) {
+      bg_dispatch_wave_parallel(project, wave, plan, graph)
+    } else {
+      lapply(wave, function(node_id) {
+        bg_execute_node(
+          handle = project,
+          node_id = node_id,
+          fingerprint = plan$metadata$fingerprints[[node_id]],
+          input_bindings = plan$input_bindings[[node_id]],
+          graph = graph,
+          job_id = wave_jobs[[node_id]]
+        )
+      })
+    }
+    names(results) <- wave
 
-      if (!isTRUE(execution_result$ok)) {
+    # Main-process finalization for any parallel result that returned only a
+    # blob ref (worker wrote the blob; main binds the index, copies fit
+    # outputs, writes summaries, and marks the job). Sequential results are
+    # already finalized by bg_execute_node; this is a no-op for them.
+    for (node_id in wave) {
+      res <- results[[node_id]]
+      if (isTRUE(res$worker_origin) && isTRUE(res$ok)) {
+        ref <- res$ref
+        bg_bind_artifact_index(
+          project,
+          node_id,
+          plan$metadata$fingerprints[[node_id]],
+          ref
+        )
+        # Fit-output copying needs the artifact object; refetch from the CAS
+        # (the worker wrote the blob). Cheap relative to the fit itself.
+        # NOTE: best-effort under parallel dispatch — a fit produced on a
+        # remote daemon embedded CSV paths in the daemon's tempdir, which are
+        # unreachable from this process, so bg_copy_fit_outputs silently skips
+        # them. The RDS artifact itself is preserved; only the durable CSV
+        # copies are dropped under parallel dispatch.
+        bg_copy_fit_outputs(
+          project,
+          bg_fetch_artifact(project, ref),
+          wave_jobs[[node_id]]
+        )
+        written <- bg_write_summaries(
+          project = project,
+          node_id = node_id,
+          artifact_ref = ref,
+          execution_fingerprint = plan$metadata$fingerprints[[node_id]],
+          summaries = res$summaries
+        )
+        res$summaries <- written
+        results[[node_id]] <- res
+        bg_update_job(
+          project,
+          wave_jobs[[node_id]],
+          status = "succeeded",
+          result_ref = ref,
+          finished_at = bg_now_timestamp()
+        )
+      }
+    }
+
+    # Fold summaries into run state + record artifacts into the plan. Abort the
+    # run on the first failed node (mirrors the pre-wave-loop behavior).
+    for (node_id in wave) {
+      res <- results[[node_id]]
+      if (!isTRUE(res$ok)) {
+        # Ensure the job reflects the failure (parallel workers do not update
+        # jobs; sequential bg_execute_node already did).
+        if (isTRUE(res$worker_origin)) {
+          bg_update_job(
+            project,
+            wave_jobs[[node_id]],
+            status = "failed",
+            error = list(message = res$error$message),
+            finished_at = bg_now_timestamp()
+          )
+        }
         return(bg_build_run_handle(
           run_id = run_id,
           status = "failed",
@@ -594,22 +672,17 @@ bg_run <- function(
           started_at = run_started_at,
           finished_at = bg_now_timestamp(),
           summary = list(total_executed = num_executed - 1L),
-          error = list(message = execution_result$error$message),
+          error = list(message = res$error$message),
           metadata = list(
             held_by_policy = plan$held_by_policy %||% list()
           )
         ))
       }
 
-      plan <- bg_run_plan_record_artifact(plan, node_id, execution_result$ref)
+      plan <- bg_run_plan_record_artifact(plan, node_id, res$ref)
 
-      # Fold the just-written summaries into the in-memory run state so the
-      # between-wave holds check reads from state, not disk. Annotate each entry
-      # as fresh (just executed at the current fingerprint) so freshness-strict
-      # pack filters (isTRUE(is_fresh)) see it. Key by summary_id to match
-      # bg_read_summaries() output shape.
-      if (!is.null(execution_result$summaries)) {
-        for (s in execution_result$summaries) {
+      if (!is.null(res$summaries)) {
+        for (s in res$summaries) {
           s$is_fresh <- TRUE
           s$is_stale <- FALSE
           run_state$summaries[[s$summary_id]] <- s
