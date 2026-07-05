@@ -40,8 +40,7 @@ bg_bundle <- function(
     )
   }
 
-  # Ensure the project state is up to date and clean
-  bg_reconcile_daemon_jobs(project)
+  # Ensure the project state is up to date
   snap <- bg_snapshot(project)
 
   tmp_dir <- tempfile("bgb")
@@ -231,6 +230,26 @@ bg_export_report <- function(
           paste(sapply(upstreams, function(e) e$from), collapse = ", ")
         )
       )
+    }
+  }
+
+  # Embed the Mermaid flowchart (Milestone 7). In HTML it renders natively via
+  # the mermaid.js <script>; in Markdown it renders on GitHub/Quarto fenced.
+  mermaid <- tryCatch(bg_graph_mermaid(project), error = function(e) NULL)
+  if (!is.null(mermaid)) {
+    if (identical(format, "html")) {
+      lines <- c(
+        lines,
+        "",
+        '<div class="mermaid">',
+        mermaid,
+        "</div>",
+        '<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>',
+        "<script>mermaid.initialize({startOnLoad: true});</script>"
+      )
+    } else {
+      fenced <- c("```{mermaid}", mermaid, "```")
+      lines <- c(lines, "", "## DAG (Mermaid)", "", fenced)
     }
   }
 

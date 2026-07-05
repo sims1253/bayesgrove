@@ -24,6 +24,7 @@ Imports:
 Remotes:
     sims1253/dagriculture
 Suggests:
+    bayesplot,
     brms,
     carrier,
     cmdstanr,
