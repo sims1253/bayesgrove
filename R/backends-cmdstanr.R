@@ -134,9 +134,10 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
 #' Register cmdstanr node kinds on a project.
 #'
 #' Registers the built-in cmdstanr executor node kinds: `stan_data`,
-#' `cmdstanr_fit`, `prior_fit`, `loo`, `compare`, and `ppc`. Each executor is
-#' a built-in resolved by reference (no source text persisted). The fit
-#' executors compute HMC diagnostics themselves and emit `hmc_diagnostics`
+#' `cmdstanr_fit`, `prior_fit`, `loo`, `compare`, `ppc`, `loo_pit`, and `sbc`.
+#' Each executor is a built-in resolved by reference (no source text
+#' persisted). The fit executors compute HMC diagnostics themselves and emit
+#' `hmc_diagnostics`
 #' summaries with severity rules; no user-written diagnostic code is required.
 #'
 #' @param project A `bg_handle`.
@@ -166,6 +167,14 @@ bg_use_cmdstanr <- function(project) {
     ppc = list(
       executor = bg_executor_ppc,
       output_type = "ppc"
+    ),
+    loo_pit = list(
+      executor = bg_executor_loo_pit,
+      output_type = "loo_pit"
+    ),
+    sbc = list(
+      executor = bg_executor_sbc,
+      output_type = "sbc"
     )
   )
 
@@ -620,6 +629,386 @@ bg_executor_ppc <- function(node, inputs) {
   result <- list(
     p_values = p_values,
     plot_data = plot_data
+  )
+
+  list(result = result, summaries = list(summary))
+}
+
+#' Compute LOO-PIT (probability integral transform) calibration values.
+#'
+#' For each observation `y_i`, PIT_i is the value of the leave-one-out
+#' posterior-predictive CDF at `y_i`, computed from the PSIS-LOO weights applied
+#' to the posterior-predictive draws (`yrep`). If the model is well calibrated,
+#' the PIT values are uniformly distributed on [0, 1]. The executor emits a
+#' `loo_pit_calibration` summary whose severity reflects a Kolmogorov–Smirnov
+#' distance of the empirical PIT distribution from Uniformity, and stores the
+#' plot-ready PIT vector + observed `y` in the artifact (for a PIT ECDF or
+#' histogram plot).
+#'
+#' Inputs: a fit node (carrying `log_lik` and `yrep` draws) and a data node
+#' supplying the observed `y_var` (default `"y"`).
+#' @keywords internal
+#' @noRd
+bg_executor_loo_pit <- function(node, inputs) {
+  if (!requireNamespace("loo", quietly = TRUE)) {
+    cli::cli_abort("The {.pkg loo} package is required for loo_pit nodes.")
+  }
+  if (length(inputs) < 2) {
+    cli::cli_abort(
+      "{.field loo_pit} requires two inputs: a fit node and a data node supplying the observed {.field {node$params$y_var %||% 'y'}}."
+    )
+  }
+
+  fit_input <- node$params$fit_input %||% NULL
+  data_input <- node$params$data_input %||% NULL
+  fit_artifact <- if (!is.null(fit_input) && fit_input %in% names(inputs)) {
+    inputs[[fit_input]]
+  } else {
+    inputs[[1]]
+  }
+  observed_data <- if (!is.null(data_input) && data_input %in% names(inputs)) {
+    inputs[[data_input]]
+  } else {
+    inputs[[2]]
+  }
+
+  draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
+  log_lik_var <- node$params$log_lik_var %||% "log_lik"
+  ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
+  ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
+  if (ncol(ll_draws) == 0) {
+    cli::cli_abort(
+      "No draws matching {.val {log_lik_var}} found in the fit for {.field loo_pit}."
+    )
+  }
+
+  yrep_var <- node$params$yrep_var %||% "yrep"
+  yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws_matrix))
+  yrep <- draws_matrix[, yrep_cols, drop = FALSE]
+  if (ncol(yrep) == 0) {
+    cli::cli_abort(
+      "Could not find {.val {yrep_var}} draws in the fit for loo_pit."
+    )
+  }
+
+  y_var <- node$params$y_var %||% "y"
+  y <- observed_data[[y_var]] %||% NULL
+  if (is.null(y)) {
+    if (is.numeric(observed_data)) {
+      y <- observed_data
+    } else {
+      cli::cli_abort(
+        "Observed variable {.val {y_var}} not found in the loo_pit data input."
+      )
+    }
+  }
+
+  if (ncol(ll_draws) != length(y) || ncol(yrep) != length(y)) {
+    cli::cli_abort(
+      "log_lik/yrep column count ({ncol(ll_draws)}) must match the number of observed values ({length(y)})."
+    )
+  }
+
+  # PSIS-LOO weights per observation (draws x observations). loo::psis takes the
+  # importance ratios for LOO (=-log_lik) and returns smoothed log weights.
+  psis_obj <- loo::psis(-ll_draws)
+  log_w <- psis_obj$log_weights
+  # Normalize columns: exp(log_w - logsumexp) per observation.
+  weights <- apply(log_w, 2L, function(col) {
+    m <- max(col)
+    exp(col - m) / sum(exp(col - m))
+  })
+  # If psis() returns a single column, apply() drops dims; restore.
+  if (!is.matrix(weights)) {
+    weights <- matrix(weights, ncol = 1L)
+  }
+
+  # PIT_i = sum_j w[j,i] * I(yrep[j,i] <= y_i): the LOO predictive CDF at y_i.
+  n_obs <- length(y)
+  pit <- vapply(
+    seq_len(n_obs),
+    function(i) {
+      sum(weights[, i] * (yrep[, i] <= y[[i]]))
+    },
+    numeric(1)
+  )
+
+  severity <- bg_loo_pit_severity(
+    pit,
+    ks_warn = node$params$ks_warn %||% 0.10,
+    ks_error = node$params$ks_error %||% 0.15
+  )
+
+  summary <- list(
+    summary_kind = "loo_pit_calibration",
+    passed = identical(severity, "ok"),
+    severity = severity,
+    metrics = list(
+      ks_statistic = bg_ks_uniform_stat(pit),
+      n_obs = as.integer(n_obs)
+    )
+  )
+
+  result <- list(
+    pit_values = pit,
+    observed_y = y,
+    plot_data = list(
+      pit_values = pit,
+      observed_y = y
+    )
+  )
+
+  list(result = result, summaries = list(summary))
+}
+
+#' Kolmogorov–Smirnov distance of a sample from Uniform(0, 1).
+#'
+#' The KS statistic is the maximum absolute difference between the empirical CDF
+#' of the sample and the Uniform(0,1) CDF. Used to grade LOO-PIT calibration: a
+#' well-calibrated model has PIT values ~ Uniform(0,1), so KS near 0.
+#' @param x Numeric vector of values in [0, 1].
+#' @return The KS statistic (numeric scalar).
+#' @keywords internal
+#' @noRd
+bg_ks_uniform_stat <- function(x) {
+  x <- x[is.finite(x)]
+  if (length(x) == 0L) {
+    return(NA_real_)
+  }
+  n <- length(x)
+  sorted <- sort(x)
+  # Empirical CDF: at sorted value x_(i), F_n jumps from (i-1)/n to i/n. The
+  # KS distance to F(x)=x is max over both edges: |i/n - x_(i)| and |x_(i) - (i-1)/n|.
+  i <- seq_len(n)
+  d_plus <- i / n - sorted
+  d_minus <- sorted - (i - 1L) / n
+  max(abs(d_plus), abs(d_minus))
+}
+
+#' Grade LOO-PIT calibration severity from the KS distance to Uniformity.
+#'
+#' @param pit PIT values in [0,1].
+#' @param ks_warn Warn above this KS distance (default 0.10).
+#' @param ks_error Error above this KS distance (default 0.15).
+#' @return One of "ok", "warning", "error".
+#' @keywords internal
+#' @noRd
+bg_loo_pit_severity <- function(pit, ks_warn = 0.10, ks_error = 0.15) {
+  ks <- bg_ks_uniform_stat(pit)
+  if (is.na(ks)) {
+    return("ok")
+  }
+  if (ks >= ks_error) {
+    "error"
+  } else if (ks >= ks_warn) {
+    "warning"
+  } else {
+    "ok"
+  }
+}
+
+# Simulation-based calibration (SBC) ----------------------------------------
+#
+# Talts et al. (2018): if a model is correctly specified, repeated draws of
+# theta_true from the prior, data generated from the prior-predictive, and the
+# model fit to that data, produce posterior ranks of theta_true that are
+# uniformly distributed. The executor runs the SBC loop, bin-aggregates ranks,
+# and grades calibration with a chi-squared uniformity test.
+#
+# Two input modes:
+#   (a) generator-source: a trusted `data_fn` source param of the form
+#       function(seed) list(theta = <true value>, data = <stan data list>),
+#       plus `stan_file`, `theta_name` (the Stan parameter to rank), and
+#       `n_sims`. Each sim draws theta_true + data, fits the model, ranks.
+#   (b) prior_fit upstream: the prior_fit node's Stan program generates theta
+#       and y_sim under fixed_param; SBC re-uses it. (Future: mode detection by
+#       inspecting the upstream artifact; mode (a) is the explicit, testable
+#       path and is what the executor implements directly.)
+#
+# Cost: this fits n_sims models. Run it under mirai daemons (Milestone 3) for
+# scale — each sim is independent and the whole loop parallelizes cleanly.
+
+#' Run simulation-based calibration.
+#'
+#' @param node Params: `stan_file`, `data_fn` (source text of
+#'   `function(seed) list(theta=<scalar>, data=<list>)`), `theta_name`
+#'   (Stan parameter name to rank, default `"theta"`), `n_sims` (default 20L),
+#'   `chains`, `iter_warmup`, `iter_sampling`, `seed`, `n_bins` (default 20L).
+#' @param inputs Unused (the data_fn generator is self-contained source).
+#' @return `list(result=, summaries=)` with an `sbc_result` summary carrying the
+#'   rank histogram counts, chi-squared statistic, and severity.
+#' @keywords internal
+#' @noRd
+bg_executor_sbc <- function(node, inputs) {
+  if (!requireNamespace("cmdstanr", quietly = TRUE)) {
+    cli::cli_abort(
+      "The {.pkg cmdstanr} package is required for sbc nodes. Run it under mirai daemons for scale (Milestone 3)."
+    )
+  }
+
+  stan_file <- node$params$stan_file %||% NULL
+  if (is.null(stan_file) || !file.exists(stan_file)) {
+    cli::cli_abort(
+      "{.field stan_file} must point to an existing Stan program for sbc."
+    )
+  }
+
+  data_fn_src <- node$params$data_fn %||% NULL
+  if (
+    !is.character(data_fn_src) ||
+      length(data_fn_src) != 1L ||
+      !nzchar(data_fn_src)
+  ) {
+    cli::cli_abort(c(
+      "{.field data_fn} must be the source text of a generator function for sbc.",
+      "i" = "Define it as {.code function(seed) list(theta = <scalar>, data = <stan data list>)}; it is evaluated in a child of the global environment (same trust model as {.fn bg_restore_executors})."
+    ))
+  }
+
+  data_fn <- tryCatch(
+    eval(parse(text = data_fn_src), envir = new.env(parent = globalenv())),
+    error = function(e) {
+      cli::cli_abort(
+        "Failed to parse {.field data_fn} source for sbc: {.err {conditionMessage(e)}}"
+      )
+    }
+  )
+  if (!is.function(data_fn)) {
+    cli::cli_abort("{.field data_fn} source must evaluate to a function.")
+  }
+
+  theta_name <- node$params$theta_name %||% "theta"
+  n_sims <- as.integer(node$params$n_sims %||% 20L)
+  if (n_sims < 1L) {
+    cli::cli_abort("{.field n_sims} must be a positive integer.")
+  }
+  n_bins <- as.integer(node$params$n_bins %||% n_sims)
+  base_seed <- node$params$seed %||% NULL
+
+  model <- cmdstanr::cmdstan_model(stan_file = stan_file)
+
+  ranks <- integer(n_sims)
+  for (i in seq_len(n_sims)) {
+    sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + iL else NULL
+    gen <- data_fn(sim_seed)
+    theta_true <- gen$theta
+    sim_data <- gen$data
+    if (is.null(theta_true) || length(theta_true) != 1L) {
+      cli::cli_abort(
+        "{.field data_fn} must return a single numeric {.val theta} for each simulation."
+      )
+    }
+
+    sampler_args <- list(
+      data = sim_data,
+      chains = node$params$chains %||% 1L,
+      iter_warmup = node$params$iter_warmup %||% 200L,
+      iter_sampling = node$params$iter_sampling %||% 200L,
+      seed = sim_seed,
+      refresh = 0L
+    )
+    sampler_args <- sampler_args[!vapply(sampler_args, is.null, logical(1))]
+    fit <- tryCatch(
+      do.call(model$sample, sampler_args),
+      error = function(e) {
+        cli::cli_warn("SBC sim {i} failed to fit: {.err {conditionMessage(e)}}")
+        NULL
+      }
+    )
+    if (is.null(fit)) {
+      ranks[[i]] <- NA_integer_
+      next
+    }
+
+    # Posterior draws of theta_name; rank theta_true among them.
+    theta_draws <- tryCatch(
+      posterior::extract_variable(fit$draws(), theta_name),
+      error = function(e) {
+        posterior::extract_variable(
+          fit$draws(),
+          paste0(theta_name, "[1]")
+        )
+      }
+    )
+    theta_draws <- theta_draws[is.finite(theta_draws)]
+    if (length(theta_draws) == 0L) {
+      ranks[[i]] <- NA_integer_
+      next
+    }
+    # Rank: number of posterior draws <= theta_true (Talts et al. rank stat).
+    ranks[[i]] <- as.integer(sum(theta_draws <= theta_true))
+  }
+
+  valid_ranks <- ranks[!is.na(ranks)]
+  n_valid <- length(valid_ranks)
+  if (n_valid == 0L) {
+    summary <- list(
+      summary_kind = "sbc_result",
+      passed = FALSE,
+      severity = "error",
+      metrics = list(
+        n_sims = n_sims,
+        n_valid = 0L,
+        chi_sq = NA_real_,
+        n_bins = n_bins
+      )
+    )
+    result <- list(
+      ranks = ranks,
+      rank_histogram = integer(n_bins),
+      n_sims = n_sims
+    )
+    return(list(result = result, summaries = list(summary)))
+  }
+
+  # Histogram of ranks into n_bins bins over [0, max_possible_rank].
+  max_rank <- max(valid_ranks)
+  breaks <- seq.int(0L, max_rank + 1L, length.out = n_bins + 1L)
+  hist_counts <- as.integer(table(
+    cut(valid_ranks, breaks = breaks, include.lowest = TRUE, right = FALSE)
+  ))
+  # Chi-squared uniformity test: expected count = n_valid / n_bins per bin.
+  expected <- rep(n_valid / length(hist_counts), length(hist_counts))
+  chi_sq <- sum((hist_counts - expected)^2 / expected)
+  dof <- length(hist_counts) - 1L
+  p_value <- tryCatch(
+    stats::pchisq(chi_sq, df = dof, lower.tail = FALSE),
+    error = function(e) NA_real_
+  )
+
+  # Severity: warn/error by p-value thresholds (low p => poor calibration).
+  p_warn <- node$params$sbc_p_warn %||% 0.05
+  p_error <- node$params$sbc_p_error %||% 0.01
+  severity <- if (!is.na(p_value) && p_value < p_error) {
+    "error"
+  } else if (!is.na(p_value) && p_value < p_warn) {
+    "warning"
+  } else {
+    "ok"
+  }
+
+  summary <- list(
+    summary_kind = "sbc_result",
+    passed = identical(severity, "ok"),
+    severity = severity,
+    metrics = list(
+      n_sims = n_sims,
+      n_valid = as.integer(n_valid),
+      n_bins = as.integer(length(hist_counts)),
+      chi_sq = as.numeric(chi_sq),
+      p_value = as.numeric(p_value)
+    )
+  )
+
+  result <- list(
+    ranks = ranks,
+    rank_histogram = hist_counts,
+    theta_name = theta_name,
+    n_sims = n_sims,
+    plot_data = list(
+      rank_histogram = hist_counts,
+      breaks = breaks[-length(breaks)]
+    )
   )
 
   list(result = result, summaries = list(summary))

@@ -6,9 +6,9 @@
 #' Register brms node kinds on a project.
 #'
 #' Registers `brms_fit` and `brms_prior_fit` built-in executors. The
-#' `loo`, `compare`, and `ppc` kinds are shared with [bg_use_cmdstanr()] and
-#' are registered here too so a brms-only project can use them without calling
-#' both setup functions.
+#' `loo`, `compare`, `ppc`, `loo_pit`, and `sbc` kinds are shared with
+#' [bg_use_cmdstanr()] and are registered here too so a brms-only project can
+#' use them without calling both setup functions.
 #'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
@@ -40,6 +40,14 @@ bg_use_brms <- function(project) {
     ppc = list(
       executor = bg_executor_ppc,
       output_type = "ppc"
+    ),
+    loo_pit = list(
+      executor = bg_executor_loo_pit,
+      output_type = "loo_pit"
+    ),
+    sbc = list(
+      executor = bg_executor_sbc,
+      output_type = "sbc"
     )
   )
 
