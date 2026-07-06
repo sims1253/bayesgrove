@@ -15,7 +15,7 @@ The loop covers the current package strengths:
 - comparison and final branch disposition,
 - report export after iteration.
 
-It intentionally exercises only the narrow `bayesguide.default_bayesian`
+It intentionally exercises only the narrow `bayesgrove.default_bayesian`
 pack. If you want process guidance, taxonomy review, predictive checks,
 SBC review, stacking-aware model selection, Stan-specific review, or
 DAG-constrained causal selection, add the richer packs described in
@@ -24,6 +24,7 @@ DAG-constrained causal selection, add the richer packs described in
 ## Setup
 
 ``` r
+
 library(bayesgrove)
 
 project_root <- file.path(tempdir(), "bg-guided-review-loop")
@@ -32,7 +33,7 @@ unlink(project_root, recursive = TRUE, force = TRUE)
 handle <- bg_init(
   path = project_root,
   project_name = "Guided Review Loop",
-  workflow_packs = list("bayesguide.default_bayesian")
+  workflow_packs = list("bayesgrove.default_bayesian")
 )
 
 node_label <- function(node_id) {
@@ -129,6 +130,7 @@ summary_overview <- function(summaries) {
 ## Register deterministic node kinds
 
 ``` r
+
 bg_register_node_kind(handle, "source", executor = function(node, inputs) {
   data.frame(
     group = rep(c("a", "b", "c"), each = 4),
@@ -215,6 +217,7 @@ create two branches:
   later.
 
 ``` r
+
 source_id <- bg_add_node(handle, kind = "source", label = "Synthetic cohort")
 baseline_fit_id <- bg_add_node(
   handle,
@@ -233,13 +236,13 @@ baseline_ppc_id <- bg_add_node(
   inputs = baseline_fit_id
 )
 
-warning_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = baseline_fit_id,
+warning_branch <- bg_branch(
+  handle,
+  baseline_fit_id,
   label = "Centered branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-warning_fit_id <- warning_branch$branch$root_node_id
+warning_fit_id <- warning_branch$root_node_id
 warning_ppc_id <- warning_branch$continuation_nodes[[baseline_ppc_id]]$clone_id
 
 bg_update_node(
@@ -251,29 +254,29 @@ bg_update_node(
     parametrization = "centered"
   )
 )
-#> [1] "node_2fcde878"
+#> [1] "node_e22e00ae"
 bg_update_node(handle, warning_ppc_id, label = "Centered branch PPC")
-#> [1] "node_8d060132"
+#> [1] "node_95d7b92f"
 
 bg_set_goal(
   project = handle,
-  branch_id = warning_branch$branch$branch_id,
+  branch_id = warning_branch$branch_id,
   kind = "observable_prediction",
   label = "Repair the centered branch without losing forecast skill",
   rationale = "This branch explores a questionable fit before accepting it."
 )
-#> <bg_decision_record> dec_228cca5b
+#> <bg_decision_record> dec_da036e34
 #> • Prompt: Set inferential goal
 #> • Choice: Repair the centered branch without losing forecast skill
 #> • Rationale: This branch explores a questionable fit before accepting it.
 
-robust_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = baseline_fit_id,
+robust_branch <- bg_branch(
+  handle,
+  baseline_fit_id,
   label = "Robust branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-robust_fit_id <- robust_branch$branch$root_node_id
+robust_fit_id <- robust_branch$root_node_id
 robust_ppc_id <- robust_branch$continuation_nodes[[baseline_ppc_id]]$clone_id
 
 bg_update_node(
@@ -285,29 +288,29 @@ bg_update_node(
     parametrization = "non-centered"
   )
 )
-#> [1] "node_da036e34"
+#> [1] "node_0bf76a9f"
 bg_update_node(handle, robust_ppc_id, label = "Robust branch PPC")
-#> [1] "node_bf27a6a9"
+#> [1] "node_dab33fa3"
 
 bg_set_goal(
   project = handle,
-  branch_id = robust_branch$branch$branch_id,
+  branch_id = robust_branch$branch_id,
   kind = "observable_prediction",
   label = "Keep a clean alternative for later comparison",
   rationale = "A second branch lets the project compare explicit alternatives."
 )
-#> <bg_decision_record> dec_da63f1d6
+#> <bg_decision_record> dec_edb00da8
 #> • Prompt: Set inferential goal
 #> • Choice: Keep a clean alternative for later comparison
 #> • Rationale: A second branch lets the project compare explicit alternatives.
 
 data.frame(
   branch = c(
-    scope_label(warning_branch$branch$branch_id),
-    scope_label(robust_branch$branch$branch_id)
+    scope_label(warning_branch$branch_id),
+    scope_label(robust_branch$branch_id)
   ),
   goal = vapply(
-    c(warning_branch$branch$branch_id, robust_branch$branch$branch_id),
+    c(warning_branch$branch_id, robust_branch$branch_id),
     function(branch_id) bg_get_goal(handle, branch_id)$label,
     character(1)
   ),
@@ -325,15 +328,14 @@ pack turns that warning into a blocking branch-scoped obligation, and
 downstream work on that branch is held by policy.
 
 ``` r
-bg_run(handle, targets = warning_fit_id, mode = "sync")
-#> Starting run "run_edb00da8" with 1 node to execute.
-#> Running node "node_8cfeb1ca"...
-#> Running node "node_2fcde878"...
-#> <bg_run_handle> run_edb00da8
+
+bg_run(handle, targets = warning_fit_id)
+#> Starting run "run_68a250c5" with 1 node to execute.
+#> Running node "node_7ecd6878"...
+#> Running node "node_e22e00ae"...
+#> <bg_run_handle> run_68a250c5
 #> 
 #> • Status: succeeded
-#> 
-#> • Mode: sync
 #> 
 #> • Executed Nodes: 2
 
@@ -341,17 +343,18 @@ warning_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(warning_protocol)
 #>             scope                                       obligations
 #> 1         Project                                              none
-#> 2   Robust branch                                              none
-#> 3 Centered branch review_computation_validity, review_fit_criticism
+#> 2 Centered branch review_computation_validity, review_fit_criticism
+#> 3   Robust branch                                              none
 #>                                               actions
 #> 1                                                none
-#> 2                                                none
-#> 3 record_decision, branch_and_modify, record_decision
+#> 2 record_decision, branch_and_modify, record_decision
+#> 3                                                none
 ```
 
 The downstream PPC is structurally ready, but it should not run yet:
 
 ``` r
+
 held_plan <- bg_plan(
   handle,
   external_holds = warning_protocol$metadata$external_holds
@@ -373,10 +376,11 @@ review. We record that decision before creating a repair branch from the
 criticized fit.
 
 ``` r
+
 warning_branch_protocol <- bg_next_actions(
   handle,
   scope = "branch",
-  branch_id = warning_branch$branch$branch_id
+  branch_id = warning_branch$branch_id
 )
 criticism_action <- find_action(
   warning_branch_protocol$actions,
@@ -386,7 +390,7 @@ criticism_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = warning_branch$branch$branch_id,
+  scope = warning_branch$branch_id,
   prompt = "How should the centered branch be handled?",
   choice = "needs_reparametrization",
   rationale = paste(
@@ -396,19 +400,19 @@ bg_record_decision(
   kind = "fit_criticism",
   metadata = criticism_action$payload[c("node_ids", "summary_ids")]
 )
-#> <bg_decision_record> dec_12d04737
+#> <bg_decision_record> dec_abe165f4
 #> • Prompt: How should the centered branch be handled?
 #> • Choice: needs_reparametrization
 #> • Rationale: The warning summary blocks downstream review, so the fit should be
 #>   repaired before it participates in branch comparison.
 
-repaired_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = warning_fit_id,
+repaired_branch <- bg_branch(
+  handle,
+  warning_fit_id,
   label = "Repaired branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-repaired_fit_id <- repaired_branch$branch$root_node_id
+repaired_fit_id <- repaired_branch$root_node_id
 repaired_ppc_id <- repaired_branch$continuation_nodes[[warning_ppc_id]]$clone_id
 
 bg_update_node(
@@ -421,27 +425,27 @@ bg_update_node(
     revision = 1L
   )
 )
-#> [1] "node_abe165f4"
+#> [1] "node_86892a1e"
 bg_update_node(handle, repaired_ppc_id, label = "Repaired branch PPC")
-#> [1] "node_7d13f8ab"
+#> [1] "node_28679b29"
 
 bg_set_goal(
   project = handle,
-  branch_id = repaired_branch$branch$branch_id,
+  branch_id = repaired_branch$branch_id,
   kind = "observable_prediction",
   label = "Resolve the warning and keep the branch comparable",
   rationale = "This branch is the repaired continuation of the criticism loop."
 )
-#> <bg_decision_record> dec_2304d5aa
+#> <bg_decision_record> dec_9813439a
 #> • Prompt: Set inferential goal
 #> • Choice: Resolve the warning and keep the branch comparable
 #> • Rationale: This branch is the repaired continuation of the criticism loop.
 
 data.frame(
-  branch = scope_label(repaired_branch$branch$branch_id),
+  branch = scope_label(repaired_branch$branch_id),
   lineage = paste(
     vapply(
-      bg_branch_lineage(handle, repaired_branch$branch$branch_id),
+      bg_branch_lineage(handle, repaired_branch$branch_id),
       scope_label,
       character(1)
     ),
@@ -461,14 +465,13 @@ and rerun. The old warning summary becomes stale and the new clean
 summary becomes current.
 
 ``` r
-bg_run(handle, targets = repaired_fit_id, mode = "sync")
-#> Starting run "run_9813439a" with 1 node to execute.
-#> Running node "node_abe165f4"...
-#> <bg_run_handle> run_9813439a
+
+bg_run(handle, targets = repaired_fit_id)
+#> Starting run "run_d79763f6" with 1 node to execute.
+#> Running node "node_86892a1e"...
+#> <bg_run_handle> run_d79763f6
 #> 
 #> • Status: succeeded
-#> 
-#> • Mode: sync
 #> 
 #> • Executed Nodes: 1
 
@@ -482,23 +485,21 @@ bg_update_node(
     revision = 2L
   )
 )
-#> [1] "node_abe165f4"
+#> [1] "node_86892a1e"
 bg_invalidate(handle, repaired_fit_id, recursive = TRUE)
 #> Invalidated 2 nodes; superseded 1 cache binding.
-bg_run(handle, targets = repaired_fit_id, mode = "sync")
-#> Starting run "run_3607d7ef" with 1 node to execute.
-#> Running node "node_abe165f4"...
-#> <bg_run_handle> run_3607d7ef
+bg_run(handle, targets = repaired_fit_id)
+#> Starting run "run_22d06b87" with 1 node to execute.
+#> Running node "node_86892a1e"...
+#> <bg_run_handle> run_22d06b87
 #> 
 #> • Status: succeeded
-#> 
-#> • Mode: sync
 #> 
 #> • Executed Nodes: 1
 
 repaired_summaries <- bg_read_summaries(
   handle,
-  scope = repaired_branch$branch$branch_id
+  scope = repaired_branch$branch_id
 )
 repaired_summaries <- Filter(
   function(x) identical(x$node_id, repaired_fit_id),
@@ -516,14 +517,13 @@ The robust branch runs cleanly on the first try. Once both branch
 candidates are clean, project scope surfaces a comparison action.
 
 ``` r
-bg_run(handle, targets = robust_fit_id, mode = "sync")
-#> Starting run "run_066eb3c3" with 1 node to execute.
-#> Running node "node_da036e34"...
-#> <bg_run_handle> run_066eb3c3
+
+bg_run(handle, targets = robust_fit_id)
+#> Starting run "run_c3ae03a7" with 1 node to execute.
+#> Running node "node_0bf76a9f"...
+#> <bg_run_handle> run_c3ae03a7
 #> 
 #> • Status: succeeded
-#> 
-#> • Mode: sync
 #> 
 #> • Executed Nodes: 1
 
@@ -531,20 +531,21 @@ project_protocol <- bg_next_actions(handle, scope = "project")
 protocol_overview(project_protocol)
 #>             scope                 obligations
 #> 1         Project  compare_candidate_branches
-#> 2   Robust branch                        none
+#> 2 Centered branch review_computation_validity
 #> 3 Repaired branch review_computation_validity
-#> 4 Centered branch review_computation_validity
+#> 4   Robust branch                        none
 #>                              actions
 #> 1          create_node_from_template
-#> 2                               none
+#> 2 record_decision, branch_and_modify
 #> 3 record_decision, branch_and_modify
-#> 4 record_decision, branch_and_modify
+#> 4                               none
 ```
 
 We create the comparison node from the surfaced template payload, run
 it, and inspect the deterministic ranking:
 
 ``` r
+
 comparison_action <- find_action(
   project_protocol$actions,
   kind = "create_node_from_template",
@@ -557,21 +558,19 @@ comparison_node_id <- bg_add_node(
   label = "Compare repaired vs robust branch",
   inputs = comparison_action$payload$inputs
 )
-bg_run(handle, targets = comparison_node_id, mode = "sync")
-#> Starting run "run_67e00e8b" with 1 node to execute.
-#> Running node "node_7da2e6bf"...
-#> <bg_run_handle> run_67e00e8b
+bg_run(handle, targets = comparison_node_id)
+#> Starting run "run_7373fff5" with 1 node to execute.
+#> Running node "node_b44d27ce"...
+#> <bg_run_handle> run_7373fff5
 #> 
 #> • Status: succeeded
-#> 
-#> • Mode: sync
 #> 
 #> • Executed Nodes: 1
 
 bg_result(handle, comparison_node_id)$ranking
 #>             fit expected_elpd
-#> 1 node_abe165f4          0.95
-#> 2 node_da036e34          0.91
+#> 2 node_86892a1e          0.95
+#> 1 node_0bf76a9f          0.91
 ```
 
 ## Record model comparison and branch disposition decisions
@@ -582,6 +581,7 @@ The current comparison now unlocks two layers of explicit provenance:
 - one accept/reject decision for each candidate branch.
 
 ``` r
+
 comparison_protocol <- bg_next_actions(handle, scope = "project")
 comparison_decision_action <- find_action(
   comparison_protocol$actions,
@@ -608,7 +608,7 @@ bg_record_decision(
     "comparison_context"
   )]
 )
-#> <bg_decision_record> dec_250d85b9
+#> <bg_decision_record> dec_dfe990f6
 #> • Prompt: Which branch should anchor the final report?
 #> • Choice: prefer_repaired_branch
 #> • Rationale: The repaired branch resolves the diagnostic warning and keeps the
@@ -618,7 +618,7 @@ repaired_disposition_action <- find_action(
   bg_next_actions(
     handle,
     scope = "branch",
-    branch_id = repaired_branch$branch$branch_id
+    branch_id = repaired_branch$branch_id
   )$actions,
   kind = "record_decision",
   decision_type = "branch_disposition"
@@ -626,7 +626,7 @@ repaired_disposition_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = repaired_branch$branch$branch_id,
+  scope = repaired_branch$branch_id,
   prompt = "Should the repaired branch be accepted?",
   choice = "accept",
   rationale = "This is the clean branch preferred by the comparison step.",
@@ -638,7 +638,7 @@ bg_record_decision(
     comparison_context = repaired_disposition_action$payload$comparison_context
   )
 )
-#> <bg_decision_record> dec_dfe990f6
+#> <bg_decision_record> dec_e3453114
 #> • Prompt: Should the repaired branch be accepted?
 #> • Choice: accept
 #> • Rationale: This is the clean branch preferred by the comparison step.
@@ -647,7 +647,7 @@ robust_disposition_action <- find_action(
   bg_next_actions(
     handle,
     scope = "branch",
-    branch_id = robust_branch$branch$branch_id
+    branch_id = robust_branch$branch_id
   )$actions,
   kind = "record_decision",
   decision_type = "branch_disposition"
@@ -655,7 +655,7 @@ robust_disposition_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = robust_branch$branch$branch_id,
+  scope = robust_branch$branch_id,
   prompt = "Should the robust branch be accepted?",
   choice = "reject",
   rationale = "Keep it as a documented alternative, but not the final path.",
@@ -667,7 +667,7 @@ bg_record_decision(
     comparison_context = robust_disposition_action$payload$comparison_context
   )
 )
-#> <bg_decision_record> dec_e3453114
+#> <bg_decision_record> dec_ad1005cd
 #> • Prompt: Should the robust branch be accepted?
 #> • Choice: reject
 #> • Rationale: Keep it as a documented alternative, but not the final path.
@@ -706,13 +706,14 @@ decision provenance. The path below is shown relative to
 output stable across machines.
 
 ``` r
+
 report_path <- bg_export_report(
   handle,
   path = "case-study-report.md",
   format = "md"
 )
 #> Report exported to
-#> /tmp/RtmpM2nQEl/bg-guided-review-loop/case-study-report.md
+#> /tmp/RtmpOK34AU/bg-guided-review-loop/case-study-report.md
 
 report_path_relative <- sub(
   paste0("^", normalizePath(tempdir(), winslash = "/"), "/?"),
@@ -725,16 +726,16 @@ cat(report_path_relative, sep = "\n")
 cat(readLines(report_path, n = 12, warn = FALSE), sep = "\n")
 #> # bayesgrove Workflow Report: Guided Review Loop
 #> **Project ID:** `proj_79663245`
-#> **Generated:** 2026-03-15 22:42:03
+#> **Generated:** 2026-07-06 14:39:13
 #> **Workflow state:** `blocked`
 #> 
 #> ## Graph Topology
-#> - **node_8cfeb1ca** (`source`): Synthetic cohort
-#> - **node_7ecd6878** (`fit`): Baseline fit
-#>   - *Inputs:* node_8cfeb1ca
-#> - **node_2fcde878** (`fit`): Centered branch
-#>   - *Inputs:* node_8cfeb1ca
-#> - **node_da036e34** (`fit`): Robust branch
+#> - **node_7ecd6878** (`source`): Synthetic cohort
+#> - **node_9b922665** (`fit`): Baseline fit
+#>   - *Inputs:* node_7ecd6878
+#> - **node_e22e00ae** (`fit`): Centered branch
+#>   - *Inputs:* node_7ecd6878
+#> - **node_0bf76a9f** (`fit`): Robust branch
 ```
 
 ## What this loop demonstrates

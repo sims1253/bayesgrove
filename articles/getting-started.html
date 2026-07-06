@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Getting Started with bayesgrove • bayesgrove</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting Started with bayesgrove">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,10 +33,14 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-get-started" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Get Started</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started">
-<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="../articles/concepts.html">Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
     <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
+    <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
+    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -65,7 +69,7 @@
       <h1>Getting Started with bayesgrove</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/0.5.1/vignettes/getting-started.Rmd" class="external-link"><code>vignettes/getting-started.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/getting-started.Rmd" class="external-link"><code>vignettes/getting-started.Rmd</code></a></small>
       <div class="d-none name"><code>getting-started.Rmd</code></div>
     </div>
 
@@ -93,7 +97,7 @@ operates on top of the graph: executors emit summaries, and
 and suggested actions. Callers pass the resulting holds back into
 <code><a href="../reference/bg_plan.html">bg_plan()</a></code>. This keeps workflow guidance distinct from
 structural graph blockers.</p>
-<p>The built-in <code>bayesguide.default_bayesian</code> pack implements
+<p>The built-in <code>bayesgrove.default_bayesian</code> pack implements
 a baseline review loop: computation review, branch-scoped fit criticism,
 candidate comparison, and explicit branch acceptance or rejection.
 Optional packs extend this loop with process guidance, PAD taxonomy,
@@ -112,31 +116,51 @@ defines common next steps rather than hardcoding REPL behaviors:</p>
 <span><span class="co">#&gt; [1] "create_node"</span></span></code></pre></div>
 <p>The package also makes its public boundary explicit.
 <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code> distinguishes stable, experimental, and
-internal-but-exported functions, and marks the smaller remote IPC
-contract exposed by the experimental <code><a href="../reference/bg_serve.html">bg_serve()</a></code> server.
-In-process execution is always available; background execution uses
-<code>mirai</code>.</p>
+internal-but-exported functions.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">boundary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_api_boundary.html">bg_api_boundary</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">boundary</span>, <span class="va">remote_accessible</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fn"</span>, <span class="st">"classification"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">boundary</span>, <span class="va">classification</span> <span class="op">==</span> <span class="st">"stable"</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                         fn classification</span></span>
+<span><span class="co">#&gt; 21             bg_add_gate         stable</span></span>
 <span><span class="co">#&gt; 7              bg_add_node         stable</span></span>
-<span><span class="co">#&gt; 21          bg_answer_gate         stable</span></span>
-<span><span class="co">#&gt; 15       bg_branch_lineage         stable</span></span>
-<span><span class="co">#&gt; 30               bg_cancel         stable</span></span>
+<span><span class="co">#&gt; 22          bg_answer_gate         stable</span></span>
+<span><span class="co">#&gt; 62         bg_api_boundary         stable</span></span>
+<span><span class="co">#&gt; 14               bg_branch         stable</span></span>
+<span><span class="co">#&gt; 16       bg_branch_lineage         stable</span></span>
+<span><span class="co">#&gt; 49               bg_bundle         stable</span></span>
+<span><span class="co">#&gt; 4                 bg_close         stable</span></span>
+<span><span class="co">#&gt; 47  bg_compute_fingerprint         stable</span></span>
 <span><span class="co">#&gt; 8               bg_connect         stable</span></span>
-<span><span class="co">#&gt; 25       bg_execute_action   experimental</span></span>
-<span><span class="co">#&gt; 24   bg_extension_registry   experimental</span></span>
-<span><span class="co">#&gt; 16        bg_list_branches         stable</span></span>
-<span><span class="co">#&gt; 55         bg_next_actions   experimental</span></span>
-<span><span class="co">#&gt; 23      bg_record_decision         stable</span></span>
-<span><span class="co">#&gt; 10          bg_remove_node         stable</span></span>
-<span><span class="co">#&gt; 27                  bg_run         stable</span></span>
-<span><span class="co">#&gt; 46             bg_snapshot         stable</span></span>
-<span><span class="co">#&gt; 33               bg_status         stable</span></span>
+<span><span class="co">#&gt; 50        bg_export_report         stable</span></span>
+<span><span class="co">#&gt; 45             bg_get_goal         stable</span></span>
+<span><span class="co">#&gt; 36        bg_graph_mermaid         stable</span></span>
+<span><span class="co">#&gt; 1                bg_handle         stable</span></span>
+<span><span class="co">#&gt; 61         bg_hmc_severity         stable</span></span>
+<span><span class="co">#&gt; 2                  bg_init         stable</span></span>
+<span><span class="co">#&gt; 20           bg_invalidate         stable</span></span>
+<span><span class="co">#&gt; 33                 bg_jobs         stable</span></span>
+<span><span class="co">#&gt; 17        bg_list_branches         stable</span></span>
+<span><span class="co">#&gt; 3                  bg_open         stable</span></span>
+<span><span class="co">#&gt; 23        bg_pending_gates         stable</span></span>
+<span><span class="co">#&gt; 27                 bg_plan         stable</span></span>
+<span><span class="co">#&gt; 38 bg_read_branch_registry         stable</span></span>
+<span><span class="co">#&gt; 39   bg_read_goal_registry         stable</span></span>
+<span><span class="co">#&gt; 12           bg_read_graph         stable</span></span>
+<span><span class="co">#&gt; 40       bg_read_summaries         stable</span></span>
+<span><span class="co">#&gt; 24      bg_record_decision         stable</span></span>
+<span><span class="co">#&gt; 11          bg_remove_node         stable</span></span>
+<span><span class="co">#&gt; 32               bg_result         stable</span></span>
+<span><span class="co">#&gt; 19        bg_retire_branch         stable</span></span>
+<span><span class="co">#&gt; 18          bg_retire_node         stable</span></span>
+<span><span class="co">#&gt; 28                  bg_run         stable</span></span>
+<span><span class="co">#&gt; 46          bg_scope_label         stable</span></span>
+<span><span class="co">#&gt; 44             bg_set_goal         stable</span></span>
+<span><span class="co">#&gt; 48             bg_snapshot         stable</span></span>
+<span><span class="co">#&gt; 31               bg_status         stable</span></span>
 <span><span class="co">#&gt; 9           bg_update_node         stable</span></span>
-<span><span class="co">#&gt; 5  bg_use_default_workflow   experimental</span></span>
-<span><span class="co">#&gt; 6    bg_use_workflow_packs   experimental</span></span></code></pre></div>
+<span><span class="co">#&gt; 60             bg_use_brms         stable</span></span>
+<span><span class="co">#&gt; 59         bg_use_cmdstanr         stable</span></span>
+<span><span class="co">#&gt; 41      bg_write_summaries         stable</span></span></code></pre></div>
 <p>The workflow protocol powers the interactive terminal client.
 <code><a href="../reference/bg_repl.html">bg_repl()</a></code> provides a dashboard view of the workflow state,
 active obligations, held nodes, branch-scoped gates, recent decisions,
@@ -178,13 +202,13 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span><span class="fu"><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x5575bfccb748&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55d173c24708&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpiWuScs/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpBlKXUd/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ loaded_graph_version: int 4</span></span>
-<span><span class="co">#&gt;  @ lock_token          : chr NA</span></span>
+<span><span class="co">#&gt;  @ lock_token          : chr "lock_8cfeb1ca"</span></span>
 <span><span class="co">#&gt;  @ registries          : list()</span></span>
 <span><span class="co">#&gt;  @ metadata            : list()</span></span></code></pre></div>
 <p>New projects start empty, so
@@ -201,7 +225,7 @@ initialization:</p>
 <span><span class="fu"><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>    <span class="st">"bayesgrove.default_bayesian"</span>,</span>
 <span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>    <span class="st">"bayesgrove.prior_workflow"</span>,</span>
@@ -283,49 +307,49 @@ graph is blocked by an unresolved gate:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">plan</span><span class="op">$</span><span class="va">blocked</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $node_7ecd6878</span></span>
+<span><span class="co">#&gt; $node_9b922665</span></span>
 <span><span class="co">#&gt; [1] "gate"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $node_cf82482e</span></span>
+<span><span class="co">#&gt; $node_2a487687</span></span>
 <span><span class="co">#&gt; [1] "upstream_blocked"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_pending_gates.html">bg_pending_gates</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $gate_2fcde878</span></span>
-<span><span class="co">#&gt; $gate_2fcde878$id</span></span>
-<span><span class="co">#&gt; [1] "gate_2fcde878"</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$id</span></span>
+<span><span class="co">#&gt; [1] "gate_e22e00ae"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$edge_id</span></span>
-<span><span class="co">#&gt; [1] "edge_9b922665"</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$edge_id</span></span>
+<span><span class="co">#&gt; [1] "edge_cf82482e"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$prompt</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$prompt</span></span>
 <span><span class="co">#&gt; [1] "Does the simulated data look ready for modeling?"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$options</span></span>
-<span><span class="co">#&gt; $gate_2fcde878$options[[1]]</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$options</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$options[[1]]</span></span>
 <span><span class="co">#&gt; [1] "yes"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$options[[2]]</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$options[[2]]</span></span>
 <span><span class="co">#&gt; [1] "no"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$refs</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$refs</span></span>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-03-15T22:41:56Z"</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$created_at</span></span>
+<span><span class="co">#&gt; [1] "2026-07-06T14:39:02Z"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$metadata</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$from_node_id</span></span>
-<span><span class="co">#&gt; [1] "node_8cfeb1ca"</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$to_node_id</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$from_node_id</span></span>
 <span><span class="co">#&gt; [1] "node_7ecd6878"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$from_label</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$to_node_id</span></span>
+<span><span class="co">#&gt; [1] "node_9b922665"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$from_label</span></span>
 <span><span class="co">#&gt; [1] "Simulated Dataset"</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $gate_2fcde878$to_label</span></span>
+<span><span class="co">#&gt; $gate_e22e00ae$to_label</span></span>
 <span><span class="co">#&gt; [1] "Baseline Fit"</span></span></code></pre></div>
 <p>We must explicitly answer the gate and provide a rationale. This
 rationale is logged permanently.</p>
@@ -336,7 +360,7 @@ rationale is logged permanently.</p>
 <span>  choice <span class="op">=</span> <span class="st">"yes"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"The simulated distributions match our expectations."</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_e22e00ae</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_8d060132</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Does the simulated data look ready for modeling?</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> yes</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> The simulated distributions match our expectations.</span></span></code></pre></div>
@@ -348,10 +372,10 @@ rationale is logged permanently.</p>
 through the fit node so that we can inspect the workflow protocol before
 scheduling downstream comparison work.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">run_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_model</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_8d060132"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8cfeb1ca"</span>...</span></span>
+<code class="sourceCode R"><span><span class="va">run_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_95d7b92f"</span> with 1 node to execute.</span></span>
 <span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7ecd6878"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_9b922665"</span>...</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">run_result</span><span class="op">$</span><span class="va">summary</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $total_executed</span></span>
 <span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
@@ -384,7 +408,7 @@ structural graph state:</p>
 <span><span class="va">held_plan</span><span class="op">$</span><span class="va">blocked</span></span>
 <span><span class="co">#&gt; named list()</span></span>
 <span><span class="va">held_plan</span><span class="op">$</span><span class="va">external_blocked</span></span>
-<span><span class="co">#&gt; $node_cf82482e</span></span>
+<span><span class="co">#&gt; $node_2a487687</span></span>
 <span><span class="co">#&gt; [1] "Review computation validity"</span></span></code></pre></div>
 <p>In this example, the downstream comparison node is not structurally
 broken. It is simply being held until the warning summary is reviewed or
@@ -403,7 +427,7 @@ fresh project so that the comparison state is easy to inspect.</p>
 <span><span class="va">comparison_handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="va">comparison_root</span>,</span>
 <span>  project_name <span class="op">=</span> <span class="st">"Comparison"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesguide.default_bayesian"</span><span class="op">)</span></span>
+<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesgrove.default_bayesian"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span></span>
@@ -452,15 +476,13 @@ fresh project so that the comparison state is easy to inspect.</p>
 <span>  inputs <span class="op">=</span> <span class="va">n_source2</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>variant <span class="op">=</span> <span class="st">"baseline"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_8ad43b9f"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_959058e6"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_493a9522"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_8ad43b9f</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_6bf4c762"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_87a8d0c8"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8ad43b9f"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_6bf4c762</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 2</span></span>
 <span></span>
@@ -472,7 +494,7 @@ fresh project so that the comparison state is easy to inspect.</p>
 <span>  label <span class="op">=</span> <span class="st">"Compare alternatives"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"This branch exists to compare two clean fits."</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_7795c883</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_f9c09608</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Set inferential goal</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> Compare alternatives</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> This branch exists to compare two clean fits.</span></span>
@@ -481,15 +503,13 @@ fresh project so that the comparison state is easy to inspect.</p>
 <span>  <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>variant <span class="op">=</span> <span class="st">"alternative"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_5eca0997"</span></span>
-<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span>, targets <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_1ec05569"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_5eca0997"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_1ec05569</span></span>
+<span><span class="co">#&gt; [1] "node_7795c883"</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span>, targets <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_0aa2af03"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7795c883"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_0aa2af03</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span></code></pre></div>
 <p>With two clean fits, project scope now requires an explicit
@@ -497,7 +517,7 @@ comparison step:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_5e160b34 </span></span>
+<span><span class="co">#&gt;                 obl_56063c36 </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -519,14 +539,12 @@ by the workflow action:</p>
 <span>  label <span class="op">=</span> <span class="st">"Compare Fits"</span>,</span>
 <span>  inputs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">n_fit_base</span>, <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span>, targets <span class="op">=</span> <span class="va">comparison_node_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_08de37dd"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_ece6822f"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_08de37dd</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">comparison_handle</span>, targets <span class="op">=</span> <span class="va">comparison_node_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_84bd050a"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_77941047"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_84bd050a</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span>
 <span></span>
@@ -554,7 +572,7 @@ by the workflow action:</p>
 <span>    <span class="st">"comparison_context"</span></span>
 <span>  <span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_3184f92e</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_7f5a4849</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Compare candidate branches</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> prefer_alternative</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> The alternative fit is the preferred clean candidate.</span></span></code></pre></div>
@@ -567,7 +585,7 @@ accept or reject disposition:</p>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_63ea2f19 </span></span>
+<span><span class="co">#&gt;              obl_38f8a6d2 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -592,7 +610,7 @@ accept or reject disposition:</p>
 <span>    comparison_context <span class="op">=</span> <span class="va">disposition_action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">comparison_context</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_d2645068</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_b8528fba</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Accept or reject branch</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> accept</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> Keep the alternative branch as the accepted analysis path.</span></span>

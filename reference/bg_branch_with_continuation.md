@@ -1,9 +1,13 @@
-# Branch a node with downstream continuation
+# Branch a node with downstream continuation (deprecated)
 
-Creates a branch from a node and optionally clones immediate downstream
-nodes to establish a continuation path. This is a narrowly scoped helper
-for guided workflows where a branched fit should flow into downstream
-diagnostic or comparison nodes.
+Deprecated: use
+[`bg_branch()`](https://sims1253.github.io/bayesgrove/reference/bg_branch.md)
+with the `continue` argument instead — `continue = TRUE` clones all
+immediate children, a character vector clones only children of those
+kinds. This wrapper delegates to
+[`bg_branch()`](https://sims1253.github.io/bayesgrove/reference/bg_branch.md)
+and returns the historical `list(branch, continuation_nodes)` shape; it
+warns once per session and will be removed in a future release.
 
 ## Usage
 
@@ -46,9 +50,13 @@ bg_branch_with_continuation(
 - continuation_depth:
 
   How many levels of downstream nodes to clone. Only 1 (immediate
-  children) is supported in v1.
+  children) is supported.
 
 ## Value
 
 A list containing the `branch` record and `continuation_nodes` mapping
 source node IDs to their cloned counterparts.
+
+## See also
+
+[`bg_branch()`](https://sims1253.github.io/bayesgrove/reference/bg_branch.md)

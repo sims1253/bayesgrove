@@ -17,7 +17,7 @@ bg_workflow_packs(project)
 ## Value
 
 A list of active workflow-pack descriptors. The built-in default pack id
-is `bayesguide.default_bayesian`. Additional built-in pack ids are
+is `bayesgrove.default_bayesian`. Additional built-in pack ids are
 `bayesgrove.prior_workflow`, `bayesgrove.model_checks`,
 `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and
 `bayesgrove.pad_scaffold`.

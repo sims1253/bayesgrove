@@ -26,8 +26,7 @@ and `review_decision`.
 
 Built-in templates are intentionally small and explicit. Some create
 nodes directly, while others wrap narrow workflow macros such as
-[`bg_branch_with_continuation()`](https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.md)
-or
+`bg_branch(continue = )` or
 [`bg_record_decision()`](https://sims1253.github.io/bayesgrove/reference/bg_record_decision.md).
 The guided REPL uses the same registry to execute template-backed
 actions.

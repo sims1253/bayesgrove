@@ -1,5 +1,215 @@
 # Changelog
 
+## bayesgrove 0.7.0
+
+### Breaking changes
+
+- Removed the `data_fn_source` and `check_fn_source` node params, which
+  evaluated R source text at run time and so reopened a params-as-code
+  channel. Attach data with the new
+  [`bg_set_node_data()`](https://sims1253.github.io/bayesgrove/reference/bg_set_node_data.md);
+  prior-predictive checking with a custom function now uses the
+  trusted-executor pattern (register a node kind wrapping `prior_fit`
+  via
+  [`bg_register_node_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.md)
+  or `bg_restore_executors(trust = TRUE)`).
+
+### Bug fixes
+
+- `bg_cmdstanr_hmc_metrics()` now reads `num_divergent` /
+  `num_max_treedepth` from `diagnostic_summary()` (was `divergent` /
+  `max_treedepth`, which silently always read zero divergences).
+- E-BFMI handling no longer collapses to `Inf` when a single chain is
+  `NA`; finite chains are filtered before taking the minimum (both
+  cmdstanr and brms backends).
+- `bg_executor_ppc()` computes the posterior-predictive p-value on the
+  per-draw margin (`apply(yrep, 1, ...)`), not the per-observation
+  margin. PPC statistics are restricted to an allowlist (`mean`, `sd`,
+  `median`, `min`, `max`, `mad`).
+- brms `bg_brms_hmc_metrics()` computes real per-chain E-BFMI from the
+  `energy__` sampler parameter (was the raw energy minimum, never
+  comparable to the threshold); treedepth hits compare against the
+  configured `max_treedepth` rather than a hardcoded 10.
+- brms executors build the `brm()` call via `do.call` with NULL args
+  dropped, so a missing `seed` no longer passes `seed = NULL` (brms’
+  default is `NA`).
+- The fingerprint now hashes `stan_file` CONTENTS, not the path, so
+  editing a Stan program invalidates the cache at a fixed path. The
+  dataless
+  [`brms::stancode()`](https://paulbuerkner.com/brms/reference/stancode.html)
+  source-hash branch has been removed.
+- Mid-run summaries are annotated `is_fresh = TRUE`, so freshness-strict
+  workflow packs (fit criticism) see evidence emitted within the same
+  [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
+  call and hold downstream nodes correctly.
+- `bg_executor_compare()` reports the runner-up `elpd_diff` and a
+  plain-data comparison table (was the always-zero best-model value);
+  stacking weights use `loo::loo_model_weights(method = "stacking")` and
+  surface errors in summary metadata instead of being silently dropped.
+- `bg_executor_loo()` computes `r_eff` via
+  [`loo::relative_eff()`](https://mc-stan.org/loo/reference/relative_eff.html)
+  from chain-shaped draws, eliminating the missing-`r_eff` warning.
+
+### New features
+
+- Parallel execution:
+  [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
+  gains a `parallel` argument (`"auto"`/`"never"`/`"always"`). Execution
+  proceeds in topological waves; with active
+  [`mirai::daemons()`](https://mirai.r-lib.org/reference/daemons.html) a
+  wave of independent nodes is dispatched concurrently via
+  [`purrr::in_parallel()`](https://purrr.tidyverse.org/reference/in_parallel.html).
+  Workers write content-addressed blobs only; the main process remains
+  the single writer of the artifact index, summaries, and jobs. Protocol
+  holds and
+  [`bg_pause()`](https://sims1253.github.io/bayesgrove/reference/bg_pause.md)
+  apply at wave boundaries. `mirai`, `carrier`, and `purrr` are soft
+  dependencies; the sequential path works without them.
+- New built-in node kinds `loo_pit` (PSIS-LOO PIT calibration graded by
+  a Kolmogorov-Smirnov distance from uniformity) and `sbc`
+  (simulation-based calibration graded by a chi-squared rank-uniformity
+  test), closing the gap between what the workflow packs ask for and
+  what the shipped executors can produce. The `ppc` executor now stores
+  plot-ready data (observed `y` plus a capped `yrep` subsample) in its
+  artifact.
+- Visualization:
+  [`bg_graph_mermaid()`](https://sims1253.github.io/bayesgrove/reference/bg_graph_mermaid.md)
+  renders the active graph as Mermaid flowchart text with state
+  coloring, and
+  [`bg_plot()`](https://sims1253.github.io/bayesgrove/reference/bg_plot.md)
+  plots a node’s diagnostics (`ppc` density overlay, LOO-PIT ECDF, SBC
+  rank histogram, fit traces) via the soft `bayesplot` dependency.
+  [`bg_export_report()`](https://sims1253.github.io/bayesgrove/reference/bg_export_report.md)
+  embeds the Mermaid graph in both output formats.
+- Practitioner shortcuts
+  [`bg_fit_stan()`](https://sims1253.github.io/bayesgrove/reference/bg_fit_stan.md)
+  and
+  [`bg_fit_brms()`](https://sims1253.github.io/bayesgrove/reference/bg_fit_brms.md)
+  collapse the data-node + fit-node + run sequence into one call
+  (experimental).
+- [`bg_bundle()`](https://sims1253.github.io/bayesgrove/reference/bg_bundle.md)
+  records a reproducibility manifest (R version, platform, package
+  versions, CmdStan version) in the bundle;
+  [`bg_open()`](https://sims1253.github.io/bayesgrove/reference/bg_open.md)
+  warns when a restored bundle was produced in a different environment.
+- [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
+  results and blocked
+  [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
+  handles print as protocol-aware checklists: held nodes show their hold
+  reason, obligations render with severity glyphs and a copy-pasteable
+  resolving call.
+- New `?bayesgrove-concepts` help topic and
+  [`vignette("concepts")`](https://sims1253.github.io/bayesgrove/articles/concepts.md):
+  the node -\> summary -\> obligation -\> decision -\> hold mental model
+  in one place.
+- [`bg_branch()`](https://sims1253.github.io/bayesgrove/reference/bg_branch.md)
+  gains a `continue` argument and absorbs
+  [`bg_branch_with_continuation()`](https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.md):
+  `continue = TRUE` clones all immediate children onto the branch, a
+  character vector clones only children of those kinds, and the returned
+  record always carries `$continuation_nodes`.
+  [`bg_branch_with_continuation()`](https://sims1253.github.io/bayesgrove/reference/bg_branch_with_continuation.md)
+  is deprecated (warns once per session, keeps its legacy return shape,
+  classified `deprecated` in
+  [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md))
+  and will be removed in a future release.
+- [`bg_update_node()`](https://sims1253.github.io/bayesgrove/reference/bg_update_node.md)
+  now merges `params` into the existing set via
+  [`utils::modifyList()`](https://rdrr.io/r/utils/modifyList.html)
+  instead of replacing the whole list; pass `replace = TRUE` for
+  intentional wholesale replacement.
+- Added `inst/CITATION` (package + Gelman et al. 2020, “Bayesian
+  Workflow”).
+- [`bg_set_node_data()`](https://sims1253.github.io/bayesgrove/reference/bg_set_node_data.md)
+  attaches an R data object to a node via the content-addressed store,
+  preserving types that JSON serialization would mangle (e.g. Stan
+  integers).
+- Project-level `workflow_strictness` config key: packs without an
+  explicit per-ref `strictness` inherit the project default
+  (e.g. `"advisory"`).
+
+### Performance
+
+- The jobs log is cached per handle and invalidated by file mtime+size,
+  so a run of N nodes does O(N) full parses of `jobs.jsonl` instead of
+  O(N^2); appends reuse the cached line count for seq stamping.
+- [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
+  reuses its plan seed via an internal plan refresh instead of computing
+  the full plan twice, and protocol hold evaluation threads the
+  already-loaded graph through instead of re-reading it from disk once
+  per executed node.
+
+### Additional bug fixes
+
+- The divergence rate uses the total post-warmup transitions across all
+  chains as its denominator (it was inflated by the chain count), and
+  the ESS warning threshold scales as 100 per chain (Vehtari et
+  al. 2021) when the chain count is known.
+- Draw-variable selection matches Stan’s indexed-variable form exactly
+  (`log_lik` matches `log_lik[1]` but no longer `log_lik_saturated[1]`).
+
+## bayesgrove 0.6.0
+
+### Breaking changes
+
+- Removed the IPC server (`bg_serve()`), async execution (`bg_submit()`,
+  `bg_wait()`, `bg_cancel()`, mirai dispatch), and the backend-plugin
+  machinery (`bg_register_backend()`, `bg_cmdstanr_plugin()`, etc.).
+  Execution is now synchronous and in-process. The job log is retained.
+- [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
+  and
+  [`bg_plan()`](https://sims1253.github.io/bayesgrove/reference/bg_plan.md)
+  no longer accept `mode` or `backend` arguments.
+- [`bg_open()`](https://sims1253.github.io/bayesgrove/reference/bg_open.md)
+  now requires `force = TRUE` to steal a locked project.
+- Pack ids renamed from `bayesguide.*` to `bayesgrove.*` (deprecation
+  alias warns and redirects for one release).
+- Summary records are stamped `schema_version = 2`; fingerprint format
+  bumped to `"2"`, invalidating all 0.x caches.
+
+### New features
+
+- Built-in cmdstanr/brms executors
+  ([`bg_use_cmdstanr()`](https://sims1253.github.io/bayesgrove/reference/bg_use_cmdstanr.md),
+  [`bg_use_brms()`](https://sims1253.github.io/bayesgrove/reference/bg_use_brms.md))
+  that compute HMC, LOO, and PPC diagnostics themselves. Severity rules
+  ([`bg_hmc_severity()`](https://sims1253.github.io/bayesgrove/reference/bg_hmc_severity.md))
+  follow Vehtari et al. (2021) with overridable thresholds.
+- Summary-kind vocabulary
+  ([`bg_summary_vocabulary()`](https://sims1253.github.io/bayesgrove/reference/bg_summary_vocabulary.md),
+  [`bg_register_summary_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_summary_kind.md)):
+  executors emitting an unknown summary kind get a warning with a typo
+  suggestion; malformed summaries abort at write time.
+- Pack composition by `includes`: `bayesgrove.stan_workflow` now
+  includes its constituent packs instead of duplicating providers. Cycle
+  detection and dedup ensure each provider runs at most once.
+- Advisory mode: packs with `config = list(strictness = "advisory")`
+  produce obligations that surface in the REPL but never create blocking
+  holds.
+- Real single-writer project lock (directory-based with pid/host
+  reporting, `force` takeover, GC finalizer, readonly exempt).
+- Opening a project never runs project-supplied code;
+  [`bg_restore_executors()`](https://sims1253.github.io/bayesgrove/reference/bg_restore_executors.md)
+  is the explicit trust gate for persisted executor source.
+- Per-run state object caches decisions/summaries so the external-holds
+  check between nodes is O(1) parses per run, not O(N).
+
+### Improvements
+
+- Fingerprint now includes the executor body (user executors) or
+  executor_ref
+  - package version (built-ins) and the environment manifest (R,
+    bayesgrove, cmdstanr, brms versions).
+- JSONL records carry a monotonic `seq` field; latest-record selection
+  uses `seq` with `created_at` tiebreak.
+- Artifact store temp files are written inside the CAS directory (no
+  cross-device rename failures); cache-hit leak fixed.
+- cmdstanr fit CSV output files are copied into
+  `.bayesgrove/runs/<job_id>/` as a durable record alongside the cached
+  RDS artifact.
+- [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
+  uses a one-shot state cache, avoiding redundant JSONL parses.
+
 ## bayesgrove 0.5.1
 
 - Fixed CodeRabbit review issues: wired unused `choice` param into
@@ -25,9 +235,9 @@
 
 ## bayesgrove 0.4.9
 
-- [`bg_execute_node()`](https://sims1253.github.io/bayesgrove/reference/bg_execute_node.md)
-  now transitions job state to “failed” when no executor is registered
-  for a node kind, preventing stuck “running” jobs.
+- `bg_execute_node()` now transitions job state to “failed” when no
+  executor is registered for a node kind, preventing stuck “running”
+  jobs.
 - `bg_repl_choose_action()` defensively coerces `idx` to integer to
   produce friendly CLI errors on non-numeric input.
 - [`bg_close()`](https://sims1253.github.io/bayesgrove/reference/bg_close.md)
@@ -72,8 +282,8 @@
   protocol schema.
 - `bg_write_gate_specs()` now uses atomic writes for the empty-specs
   case.
-- [`bg_worker_log()`](https://sims1253.github.io/bayesgrove/reference/bg_worker_log.md)
-  now creates the `.bayesgrove/runs` directory if it does not exist.
+- `bg_worker_log()` now creates the `.bayesgrove/runs` directory if it
+  does not exist.
 - `bg_resolve_node_ref()` now uses fixed-string matching for partial
   label lookups to avoid regex metacharacter issues.
 - Added section headers for node update/removal operations in
@@ -213,10 +423,9 @@
   helpers, preserving decoupled CLI state modeling for future GUI
   consumption.
 
-- Added an experimental
-  [`bg_serve()`](https://sims1253.github.io/bayesgrove/reference/bg_serve.md)
-  websocket IPC layer with versioned `GraphSnapshot`, `ProtocolEvent`,
-  `Command`, and `CommandResult` schemas under `inst/protocol/`.
+- Added an experimental `bg_serve()` websocket IPC layer with versioned
+  `GraphSnapshot`, `ProtocolEvent`, `Command`, and `CommandResult`
+  schemas under `inst/protocol/`.
 
 - Marked the bounded remote command/query surface directly in
   [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md)
@@ -392,8 +601,7 @@
 
 - Added the first protocol-facing workflow APIs:
   [`bg_workflow_packs()`](https://sims1253.github.io/bayesgrove/reference/bg_workflow_packs.md),
-  [`bg_workflow_context()`](https://sims1253.github.io/bayesgrove/reference/bg_workflow_context.md),
-  and deterministic
+  `bg_workflow_context()`, and deterministic
   [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md).
 - Added workflow-pack provider dispatch plus canonical runtime-side ID
   generation and deduplication for obligations and curated actions.
@@ -430,11 +638,8 @@
 ## bayesgrove 0.2.0
 
 - **Phase 2 (Async Execution Layer) Implementation**
-- Added `bg_submit()`,
-  [`bg_wait()`](https://sims1253.github.io/bayesgrove/reference/bg_wait.md),
-  and
-  [`bg_cancel()`](https://sims1253.github.io/bayesgrove/reference/bg_cancel.md)
-  to orchestrate true non-blocking background execution of workflows.
+- Added `bg_submit()`, `bg_wait()`, and `bg_cancel()` to orchestrate
+  true non-blocking background execution of workflows.
 - Integrated `callr` and `mirai` execution backends for parallel
   asynchronous job dispatch.
 - Added
@@ -443,8 +648,7 @@
   status, start times, completion, and task progress.
 - Updated
   [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
-  to double as a reconciliation poller
-  ([`bg_reconcile_daemon_jobs()`](https://sims1253.github.io/bayesgrove/reference/bg_reconcile_daemon_jobs.md)),
+  to double as a reconciliation poller (`bg_reconcile_daemon_jobs()`),
   updating crashed or finished daemon jobs automatically without
   blocking the main session.
 - Ensured isolated failure containment: if a single background task
@@ -470,7 +674,5 @@
   a robust local Content-Addressed Storage (CAS) mechanism.
 - **Async & Plugin Foundations**: Synchronous runtime execution
   ([`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md))
-  and backend registry
-  ([`bg_register_backend()`](https://sims1253.github.io/bayesgrove/reference/bg_register_backend.md))
-  are now fully operational, including the initial `cmdstanr` MVP
-  plugin.
+  and backend registry (`bg_register_backend()`) are now fully
+  operational, including the initial `cmdstanr` MVP plugin.

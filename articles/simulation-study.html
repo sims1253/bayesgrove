@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Simulation Study Workflow • bayesgrove</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Simulation Study Workflow">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,10 +33,14 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-get-started" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Get Started</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started">
-<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="../articles/concepts.html">Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
     <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
+    <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
+    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -65,7 +69,7 @@
       <h1>Simulation Study Workflow</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/0.5.1/vignettes/simulation-study.Rmd" class="external-link"><code>vignettes/simulation-study.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/simulation-study.Rmd" class="external-link"><code>vignettes/simulation-study.Rmd</code></a></small>
       <div class="d-none name"><code>simulation-study.Rmd</code></div>
     </div>
 
@@ -319,20 +323,20 @@ gate.</li>
 <p>The comparison nodes are blocked, but the descriptive summaries and
 both model branches can already run.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">first_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_01566f27"</span> with 2 nodes to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8cfeb1ca"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_1e86b9ad"</span>...</span></span>
+<code class="sourceCode R"><span><span class="va">first_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_67e00e8b"</span> with 2 nodes to execute.</span></span>
 <span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7ecd6878"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_cf82482e"</span>...</span></span>
 <span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_12d04737"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_86892a1e"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_2fcde878"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8d060132"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_da036e34"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_28679b29"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_9813439a"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_3607d7ef"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_9b922665"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_2a487687"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_abe165f4"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7d13f8ab"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_e22e00ae"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_95d7b92f"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_0bf76a9f"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_2304d5aa"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_d79763f6"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_22d06b87"</span>...</span></span>
 <span><span class="va">first_run</span><span class="op">$</span><span class="va">summary</span></span>
 <span><span class="co">#&gt; $total_executed</span></span>
 <span><span class="co">#&gt; [1] 12</span></span>
@@ -354,7 +358,7 @@ both model branches can already run.</p>
 <span><span class="co">#&gt; [1] 0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $last_run_id</span></span>
-<span><span class="co">#&gt; [1] "run_01566f27"</span></span>
+<span><span class="co">#&gt; [1] "run_67e00e8b"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $health</span></span>
 <span><span class="co">#&gt; [1] "warning"</span></span>
@@ -459,10 +463,10 @@ continue.</p>
 <h2 id="second-run-execute-the-comparison-nodes">Second run: execute the comparison nodes<a class="anchor" aria-label="anchor" href="#second-run-execute-the-comparison-nodes"></a>
 </h2>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">second_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">second_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_62402479"</span> with 2 nodes to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_dab33fa3"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_066eb3c3"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_da63f1d6"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_c3ae03a7"</span>...</span></span>
 <span><span class="va">second_run</span><span class="op">$</span><span class="va">summary</span></span>
 <span><span class="co">#&gt; $total_executed</span></span>
 <span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
@@ -489,9 +493,9 @@ the computational state.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, path <span class="op">=</span> <span class="st">"simulation-study-report.md"</span>, format <span class="op">=</span> <span class="st">"md"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpDBd7f1/bg-simulation-study/simulation-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpKNVapI/bg-simulation-study/simulation-study-report.md</span></span></span>
 <span><span class="va">report_path</span></span>
-<span><span class="co">#&gt; [1] "/tmp/RtmpDBd7f1/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "/tmp/RtmpKNVapI/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
 <p>The generated report now includes graph topology, decision
 provenance, gate context, evidence nodes, and the artifact index for the
 current run.</p>

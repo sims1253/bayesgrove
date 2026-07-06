@@ -32,7 +32,7 @@ bg_init(
 
   Optional list of active workflow packs. These are normalized and fixed
   at project initialization. The project starts empty by default.
-  Built-in packs such as `bayesguide.default_bayesian` provide
+  Built-in packs such as `bayesgrove.default_bayesian` provide
   computation review, branch-scoped fit criticism, candidate-comparison
   guidance, and explicit branch acceptance or rejection decisions.
   Optional built-in packs add prior rationale and prior predictive

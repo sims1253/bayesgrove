@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Guided Review Loop • bayesgrove</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Guided Review Loop">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,10 +33,14 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-get-started" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Get Started</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started">
-<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="../articles/concepts.html">Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
     <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
+    <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
+    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -65,7 +69,7 @@
       <h1>Guided Review Loop</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/0.5.1/vignettes/guided-review-loop.Rmd" class="external-link"><code>vignettes/guided-review-loop.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/guided-review-loop.Rmd" class="external-link"><code>vignettes/guided-review-loop.Rmd</code></a></small>
       <div class="d-none name"><code>guided-review-loop.Rmd</code></div>
     </div>
 
@@ -87,7 +91,7 @@ reproducible on contributor machines and in CI.</p>
 <li>report export after iteration.</li>
 </ul>
 <p>It intentionally exercises only the narrow
-<code>bayesguide.default_bayesian</code> pack. If you want process
+<code>bayesgrove.default_bayesian</code> pack. If you want process
 guidance, taxonomy review, predictive checks, SBC review, stacking-aware
 model selection, Stan-specific review, or DAG-constrained causal
 selection, add the richer packs described in
@@ -105,7 +109,7 @@ selection, add the richer packs described in
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>  path <span class="op">=</span> <span class="va">project_root</span>,</span>
 <span>  project_name <span class="op">=</span> <span class="st">"Guided Review Loop"</span>,</span>
-<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesguide.default_bayesian"</span><span class="op">)</span></span>
+<span>  workflow_packs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"bayesgrove.default_bayesian"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">node_label</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">node_id</span><span class="op">)</span> <span class="op">{</span></span>
@@ -306,13 +310,13 @@ later.</li>
 <span>  inputs <span class="op">=</span> <span class="va">baseline_fit_id</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">warning_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch_with_continuation.html">bg_branch_with_continuation</a></span><span class="op">(</span></span>
-<span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  node_id <span class="op">=</span> <span class="va">baseline_fit_id</span>,</span>
+<span><span class="va">warning_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span></span>
+<span>  <span class="va">handle</span>,</span>
+<span>  <span class="va">baseline_fit_id</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Centered branch"</span>,</span>
-<span>  continuation_kinds <span class="op">=</span> <span class="st">"ppc"</span></span>
+<span>  continue <span class="op">=</span> <span class="st">"ppc"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">warning_fit_id</span> <span class="op">&lt;-</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
+<span><span class="va">warning_fit_id</span> <span class="op">&lt;-</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
 <span><span class="va">warning_ppc_id</span> <span class="op">&lt;-</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">continuation_nodes</span><span class="op">[[</span><span class="va">baseline_ppc_id</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">clone_id</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span></span>
@@ -324,29 +328,29 @@ later.</li>
 <span>    parametrization <span class="op">=</span> <span class="st">"centered"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_2fcde878"</span></span>
+<span><span class="co">#&gt; [1] "node_e22e00ae"</span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">warning_ppc_id</span>, label <span class="op">=</span> <span class="st">"Centered branch PPC"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_8d060132"</span></span>
+<span><span class="co">#&gt; [1] "node_95d7b92f"</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_set_goal.html">bg_set_goal</a></span><span class="op">(</span></span>
 <span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  branch_id <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  branch_id <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"observable_prediction"</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Repair the centered branch without losing forecast skill"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"This branch explores a questionable fit before accepting it."</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_228cca5b</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_da036e34</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Set inferential goal</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> Repair the centered branch without losing forecast skill</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> This branch explores a questionable fit before accepting it.</span></span>
 <span></span>
-<span><span class="va">robust_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch_with_continuation.html">bg_branch_with_continuation</a></span><span class="op">(</span></span>
-<span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  node_id <span class="op">=</span> <span class="va">baseline_fit_id</span>,</span>
+<span><span class="va">robust_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span></span>
+<span>  <span class="va">handle</span>,</span>
+<span>  <span class="va">baseline_fit_id</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Robust branch"</span>,</span>
-<span>  continuation_kinds <span class="op">=</span> <span class="st">"ppc"</span></span>
+<span>  continue <span class="op">=</span> <span class="st">"ppc"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">robust_fit_id</span> <span class="op">&lt;-</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
+<span><span class="va">robust_fit_id</span> <span class="op">&lt;-</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
 <span><span class="va">robust_ppc_id</span> <span class="op">&lt;-</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">continuation_nodes</span><span class="op">[[</span><span class="va">baseline_ppc_id</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">clone_id</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span></span>
@@ -358,29 +362,29 @@ later.</li>
 <span>    parametrization <span class="op">=</span> <span class="st">"non-centered"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_da036e34"</span></span>
+<span><span class="co">#&gt; [1] "node_0bf76a9f"</span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">robust_ppc_id</span>, label <span class="op">=</span> <span class="st">"Robust branch PPC"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_bf27a6a9"</span></span>
+<span><span class="co">#&gt; [1] "node_dab33fa3"</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_set_goal.html">bg_set_goal</a></span><span class="op">(</span></span>
 <span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  branch_id <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  branch_id <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"observable_prediction"</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Keep a clean alternative for later comparison"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"A second branch lets the project compare explicit alternatives."</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_da63f1d6</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_edb00da8</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Set inferential goal</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> Keep a clean alternative for later comparison</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> A second branch lets the project compare explicit alternatives.</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  branch <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>    <span class="fu">scope_label</span><span class="op">(</span><span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
-<span>    <span class="fu">scope_label</span><span class="op">(</span><span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span></span>
+<span>    <span class="fu">scope_label</span><span class="op">(</span><span class="va">warning_branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
+<span>    <span class="fu">scope_label</span><span class="op">(</span><span class="va">robust_branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  goal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>, <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">warning_branch</span><span class="op">$</span><span class="va">branch_id</span>, <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
 <span>    <span class="kw">function</span><span class="op">(</span><span class="va">branch_id</span><span class="op">)</span> <span class="fu"><a href="../reference/bg_get_goal.html">bg_get_goal</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">branch_id</span><span class="op">)</span><span class="op">$</span><span class="va">label</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span>  <span class="op">)</span>,</span>
@@ -397,15 +401,13 @@ later.</li>
 workflow pack turns that warning into a blocking branch-scoped
 obligation, and downstream work on that branch is held by policy.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">warning_fit_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_edb00da8"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_8cfeb1ca"</span>...</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_2fcde878"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_edb00da8</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">warning_fit_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_68a250c5"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7ecd6878"</span>...</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_e22e00ae"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_68a250c5</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 2</span></span>
 <span></span>
@@ -413,12 +415,12 @@ obligation, and downstream work on that branch is held by policy.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">warning_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                                       obligations</span></span>
 <span><span class="co">#&gt; 1         Project                                              none</span></span>
-<span><span class="co">#&gt; 2   Robust branch                                              none</span></span>
-<span><span class="co">#&gt; 3 Centered branch review_computation_validity, review_fit_criticism</span></span>
+<span><span class="co">#&gt; 2 Centered branch review_computation_validity, review_fit_criticism</span></span>
+<span><span class="co">#&gt; 3   Robust branch                                              none</span></span>
 <span><span class="co">#&gt;                                               actions</span></span>
 <span><span class="co">#&gt; 1                                                none</span></span>
-<span><span class="co">#&gt; 2                                                none</span></span>
-<span><span class="co">#&gt; 3 record_decision, branch_and_modify, record_decision</span></span></code></pre></div>
+<span><span class="co">#&gt; 2 record_decision, branch_and_modify, record_decision</span></span>
+<span><span class="co">#&gt; 3                                                none</span></span></code></pre></div>
 <p>The downstream PPC is structurally ready, but it should not run
 yet:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -445,7 +447,7 @@ criticized fit.</p>
 <code class="sourceCode R"><span><span class="va">warning_branch_protocol</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  scope <span class="op">=</span> <span class="st">"branch"</span>,</span>
-<span>  branch_id <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
+<span>  branch_id <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">criticism_action</span> <span class="op">&lt;-</span> <span class="fu">find_action</span><span class="op">(</span></span>
 <span>  <span class="va">warning_branch_protocol</span><span class="op">$</span><span class="va">actions</span>,</span>
@@ -455,7 +457,7 @@ criticized fit.</p>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
-<span>  scope <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  scope <span class="op">=</span> <span class="va">warning_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  prompt <span class="op">=</span> <span class="st">"How should the centered branch be handled?"</span>,</span>
 <span>  choice <span class="op">=</span> <span class="st">"needs_reparametrization"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span></span>
@@ -465,19 +467,19 @@ criticized fit.</p>
 <span>  kind <span class="op">=</span> <span class="st">"fit_criticism"</span>,</span>
 <span>  metadata <span class="op">=</span> <span class="va">criticism_action</span><span class="op">$</span><span class="va">payload</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"node_ids"</span>, <span class="st">"summary_ids"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_12d04737</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_abe165f4</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> How should the centered branch be handled?</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> needs_reparametrization</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> The warning summary blocks downstream review, so the fit should be</span></span>
 <span><span class="co">#&gt;   repaired before it participates in branch comparison.</span></span>
 <span></span>
-<span><span class="va">repaired_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch_with_continuation.html">bg_branch_with_continuation</a></span><span class="op">(</span></span>
-<span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  node_id <span class="op">=</span> <span class="va">warning_fit_id</span>,</span>
+<span><span class="va">repaired_branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span></span>
+<span>  <span class="va">handle</span>,</span>
+<span>  <span class="va">warning_fit_id</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Repaired branch"</span>,</span>
-<span>  continuation_kinds <span class="op">=</span> <span class="st">"ppc"</span></span>
+<span>  continue <span class="op">=</span> <span class="st">"ppc"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">repaired_fit_id</span> <span class="op">&lt;-</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
+<span><span class="va">repaired_fit_id</span> <span class="op">&lt;-</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">root_node_id</span></span>
 <span><span class="va">repaired_ppc_id</span> <span class="op">&lt;-</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">continuation_nodes</span><span class="op">[[</span><span class="va">warning_ppc_id</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">clone_id</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span></span>
@@ -490,27 +492,27 @@ criticized fit.</p>
 <span>    revision <span class="op">=</span> <span class="fl">1L</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_abe165f4"</span></span>
+<span><span class="co">#&gt; [1] "node_86892a1e"</span></span>
 <span><span class="fu"><a href="../reference/bg_update_node.html">bg_update_node</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">repaired_ppc_id</span>, label <span class="op">=</span> <span class="st">"Repaired branch PPC"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_7d13f8ab"</span></span>
+<span><span class="co">#&gt; [1] "node_28679b29"</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_set_goal.html">bg_set_goal</a></span><span class="op">(</span></span>
 <span>  project <span class="op">=</span> <span class="va">handle</span>,</span>
-<span>  branch_id <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  branch_id <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"observable_prediction"</span>,</span>
 <span>  label <span class="op">=</span> <span class="st">"Resolve the warning and keep the branch comparable"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"This branch is the repaired continuation of the criticism loop."</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_2304d5aa</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_9813439a</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Set inferential goal</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> Resolve the warning and keep the branch comparable</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> This branch is the repaired continuation of the criticism loop.</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  branch <span class="op">=</span> <span class="fu">scope_label</span><span class="op">(</span><span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
+<span>  branch <span class="op">=</span> <span class="fu">scope_label</span><span class="op">(</span><span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
 <span>  lineage <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span></span>
-<span>      <span class="fu"><a href="../reference/bg_branch_lineage.html">bg_branch_lineage</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
+<span>      <span class="fu"><a href="../reference/bg_branch_lineage.html">bg_branch_lineage</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span>,</span>
 <span>      <span class="va">scope_label</span>,</span>
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span>    <span class="op">)</span>,</span>
@@ -530,14 +532,12 @@ parameters. After one run, we update the branched fit, invalidate it,
 and rerun. The old warning summary becomes stale and the new clean
 summary becomes current.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">repaired_fit_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_9813439a"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_abe165f4"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_9813439a</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">repaired_fit_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_d79763f6"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_86892a1e"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_d79763f6</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span>
 <span></span>
@@ -551,23 +551,21 @@ summary becomes current.</p>
 <span>    revision <span class="op">=</span> <span class="fl">2L</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "node_abe165f4"</span></span>
+<span><span class="co">#&gt; [1] "node_86892a1e"</span></span>
 <span><span class="fu"><a href="../reference/bg_invalidate.html">bg_invalidate</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">repaired_fit_id</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Invalidated 2 nodes; superseded 1 cache binding.</span></span>
-<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">repaired_fit_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_3607d7ef"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_abe165f4"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_3607d7ef</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">repaired_fit_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_22d06b87"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_86892a1e"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_22d06b87</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span>
 <span></span>
 <span><span class="va">repaired_summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
-<span>  scope <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
+<span>  scope <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">repaired_summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">node_id</span>, <span class="va">repaired_fit_id</span><span class="op">)</span>,</span>
@@ -584,14 +582,12 @@ summary becomes current.</p>
 <p>The robust branch runs cleanly on the first try. Once both branch
 candidates are clean, project scope surfaces a comparison action.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">robust_fit_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_066eb3c3"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_da036e34"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_066eb3c3</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">robust_fit_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_c3ae03a7"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_0bf76a9f"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_c3ae03a7</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span>
 <span></span>
@@ -599,14 +595,14 @@ candidates are clean, project scope surfaces a comparison action.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">project_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                 obligations</span></span>
 <span><span class="co">#&gt; 1         Project  compare_candidate_branches</span></span>
-<span><span class="co">#&gt; 2   Robust branch                        none</span></span>
+<span><span class="co">#&gt; 2 Centered branch review_computation_validity</span></span>
 <span><span class="co">#&gt; 3 Repaired branch review_computation_validity</span></span>
-<span><span class="co">#&gt; 4 Centered branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 4   Robust branch                        none</span></span>
 <span><span class="co">#&gt;                              actions</span></span>
 <span><span class="co">#&gt; 1          create_node_from_template</span></span>
-<span><span class="co">#&gt; 2                               none</span></span>
+<span><span class="co">#&gt; 2 record_decision, branch_and_modify</span></span>
 <span><span class="co">#&gt; 3 record_decision, branch_and_modify</span></span>
-<span><span class="co">#&gt; 4 record_decision, branch_and_modify</span></span></code></pre></div>
+<span><span class="co">#&gt; 4                               none</span></span></code></pre></div>
 <p>We create the comparison node from the surfaced template payload, run
 it, and inspect the deterministic ranking:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -622,21 +618,19 @@ it, and inspect the deterministic ranking:</p>
 <span>  label <span class="op">=</span> <span class="st">"Compare repaired vs robust branch"</span>,</span>
 <span>  inputs <span class="op">=</span> <span class="va">comparison_action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">inputs</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">comparison_node_id</span>, mode <span class="op">=</span> <span class="st">"sync"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_67e00e8b"</span> with 1 node to execute.</span></span>
-<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_7da2e6bf"</span>...</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_67e00e8b</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">comparison_node_id</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Starting run <span style="color: #0000BB;">"run_7373fff5"</span> with 1 node to execute.</span></span>
+<span><span class="co">#&gt; Running node <span style="color: #0000BB;">"node_b44d27ce"</span>...</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_run_handle&gt;</span> run_7373fff5</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Status:</span> <span style="color: #00BB00;">succeeded</span></span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Mode:</span> sync</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Executed Nodes:</span> 1</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_result.html">bg_result</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">comparison_node_id</span><span class="op">)</span><span class="op">$</span><span class="va">ranking</span></span>
 <span><span class="co">#&gt;             fit expected_elpd</span></span>
-<span><span class="co">#&gt; 1 node_abe165f4          0.95</span></span>
-<span><span class="co">#&gt; 2 node_da036e34          0.91</span></span></code></pre></div>
+<span><span class="co">#&gt; 2 node_86892a1e          0.95</span></span>
+<span><span class="co">#&gt; 1 node_0bf76a9f          0.91</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="record-model-comparison-and-branch-disposition-decisions">Record model comparison and branch disposition decisions<a class="anchor" aria-label="anchor" href="#record-model-comparison-and-branch-disposition-decisions"></a>
@@ -674,7 +668,7 @@ provenance:</p>
 <span>    <span class="st">"comparison_context"</span></span>
 <span>  <span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_250d85b9</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_dfe990f6</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Which branch should anchor the final report?</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> prefer_repaired_branch</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> The repaired branch resolves the diagnostic warning and keeps the</span></span>
@@ -684,7 +678,7 @@ provenance:</p>
 <span>  <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>    <span class="va">handle</span>,</span>
 <span>    scope <span class="op">=</span> <span class="st">"branch"</span>,</span>
-<span>    branch_id <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
+<span>    branch_id <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span>  <span class="op">)</span><span class="op">$</span><span class="va">actions</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"record_decision"</span>,</span>
 <span>  decision_type <span class="op">=</span> <span class="st">"branch_disposition"</span></span>
@@ -692,7 +686,7 @@ provenance:</p>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
-<span>  scope <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  scope <span class="op">=</span> <span class="va">repaired_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  prompt <span class="op">=</span> <span class="st">"Should the repaired branch be accepted?"</span>,</span>
 <span>  choice <span class="op">=</span> <span class="st">"accept"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"This is the clean branch preferred by the comparison step."</span>,</span>
@@ -704,7 +698,7 @@ provenance:</p>
 <span>    comparison_context <span class="op">=</span> <span class="va">repaired_disposition_action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">comparison_context</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_dfe990f6</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_e3453114</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Should the repaired branch be accepted?</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> accept</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> This is the clean branch preferred by the comparison step.</span></span>
@@ -713,7 +707,7 @@ provenance:</p>
 <span>  <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>    <span class="va">handle</span>,</span>
 <span>    scope <span class="op">=</span> <span class="st">"branch"</span>,</span>
-<span>    branch_id <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
+<span>    branch_id <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span>  <span class="op">)</span><span class="op">$</span><span class="va">actions</span>,</span>
 <span>  kind <span class="op">=</span> <span class="st">"record_decision"</span>,</span>
 <span>  decision_type <span class="op">=</span> <span class="st">"branch_disposition"</span></span>
@@ -721,7 +715,7 @@ provenance:</p>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
-<span>  scope <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
+<span>  scope <span class="op">=</span> <span class="va">robust_branch</span><span class="op">$</span><span class="va">branch_id</span>,</span>
 <span>  prompt <span class="op">=</span> <span class="st">"Should the robust branch be accepted?"</span>,</span>
 <span>  choice <span class="op">=</span> <span class="st">"reject"</span>,</span>
 <span>  rationale <span class="op">=</span> <span class="st">"Keep it as a documented alternative, but not the final path."</span>,</span>
@@ -733,7 +727,7 @@ provenance:</p>
 <span>    comparison_context <span class="op">=</span> <span class="va">robust_disposition_action</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">comparison_context</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_e3453114</span></span>
+<span><span class="co">#&gt; <span style="color: #555555;">&lt;bg_decision_record&gt;</span> dec_ad1005cd</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #BBBB00;">Prompt:</span> Should the robust branch be accepted?</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BBBB;">Choice:</span> reject</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #555555;">Rationale:</span> Keep it as a documented alternative, but not the final path.</span></span>
@@ -777,7 +771,7 @@ machines.</p>
 <span>  format <span class="op">=</span> <span class="st">"md"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpM2nQEl/bg-guided-review-loop/case-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpOK34AU/bg-guided-review-loop/case-study-report.md</span></span></span>
 <span></span>
 <span><span class="va">report_path_relative</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"^"</span>, <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span>, <span class="st">"/?"</span><span class="op">)</span>,</span>
@@ -790,16 +784,16 @@ machines.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">report_path</span>, n <span class="op">=</span> <span class="fl">12</span>, warn <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # bayesgrove Workflow Report: Guided Review Loop</span></span>
 <span><span class="co">#&gt; **Project ID:** `proj_79663245`</span></span>
-<span><span class="co">#&gt; **Generated:** 2026-03-15 22:42:03</span></span>
+<span><span class="co">#&gt; **Generated:** 2026-07-06 14:39:13</span></span>
 <span><span class="co">#&gt; **Workflow state:** `blocked`</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ## Graph Topology</span></span>
-<span><span class="co">#&gt; - **node_8cfeb1ca** (`source`): Synthetic cohort</span></span>
-<span><span class="co">#&gt; - **node_7ecd6878** (`fit`): Baseline fit</span></span>
-<span><span class="co">#&gt;   - *Inputs:* node_8cfeb1ca</span></span>
-<span><span class="co">#&gt; - **node_2fcde878** (`fit`): Centered branch</span></span>
-<span><span class="co">#&gt;   - *Inputs:* node_8cfeb1ca</span></span>
-<span><span class="co">#&gt; - **node_da036e34** (`fit`): Robust branch</span></span></code></pre></div>
+<span><span class="co">#&gt; - **node_7ecd6878** (`source`): Synthetic cohort</span></span>
+<span><span class="co">#&gt; - **node_9b922665** (`fit`): Baseline fit</span></span>
+<span><span class="co">#&gt;   - *Inputs:* node_7ecd6878</span></span>
+<span><span class="co">#&gt; - **node_e22e00ae** (`fit`): Centered branch</span></span>
+<span><span class="co">#&gt;   - *Inputs:* node_7ecd6878</span></span>
+<span><span class="co">#&gt; - **node_0bf76a9f** (`fit`): Robust branch</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="what-this-loop-demonstrates">What this loop demonstrates<a class="anchor" aria-label="anchor" href="#what-this-loop-demonstrates"></a>

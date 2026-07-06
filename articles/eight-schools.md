@@ -1,0 +1,166 @@
+# Eight-schools: a real cmdstanr workflow
+
+This vignette walks through the complete Bayesian workflow loop with
+real cmdstanr: fit the eight-schools model, hit a computation-review
+obligation, record a decision, branch to repair, rerun, and compare. It
+uses `eval = FALSE` chunks with committed output so it builds without
+CmdStan on CI.
+
+## Setup
+
+``` r
+
+library(bayesgrove)
+
+handle <- bg_init(
+  path = file.path(tempdir(), "bg-eight-schools"),
+  project_name = "Eight Schools"
+)
+
+# Activate the default review loop and the cmdstanr built-in executors.
+bg_use_workflow_packs(handle, "bayesgrove.default_bayesian")
+bg_use_cmdstanr(handle)
+```
+
+## Build the graph
+
+``` r
+
+# Eight-schools data (Gelman et al., 2003).
+schools_data <- list(
+  J = 8L,
+  y = c(28, 8, -3, 7, -1, 1, 18, 12),
+  sigma = c(15, 10, 16, 11, 9, 11, 10, 18)
+)
+
+# Node params are data, never code. To preserve R types that JSON serialization
+# would mangle (e.g. integers), attach the data object via the content-addressed
+# store with bg_set_node_data().
+n_data <- bg_add_node(
+  handle,
+  kind = "stan_data",
+  label = "Schools data"
+)
+bg_set_node_data(handle, n_data, schools_data)
+```
+
+The centered parameterization is known to produce divergences for this
+dataset. We write the Stan program to a file:
+
+``` r
+
+stan_file <- tempfile(fileext = ".stan")
+writeLines(c(
+  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
+  "parameters { real mu; real<lower=0> tau; vector[J] theta; }",
+  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
+  "        theta ~ normal(mu, tau); y ~ normal(theta, sigma); }"
+), stan_file)
+
+n_fit <- bg_add_node(
+  handle,
+  kind = "cmdstanr_fit",
+  label = "Centered",
+  inputs = n_data,
+  params = list(
+    stan_file = stan_file,
+    chains = 4,
+    iter_warmup = 1000,
+    iter_sampling = 1000,
+    seed = 42
+  )
+)
+```
+
+## Run and hit the obligation
+
+``` r
+
+run <- bg_run(handle, targets = n_fit)
+```
+
+    #> Starting run run_xxx with 2 nodes to execute.
+    #> Running node node_xxx...
+    #> Running node node_yyy...
+    #> Warning: 31 of 2000 (2.0%) transitions ended with a divergence.
+    #> Warning: 3 of 4 chains had an E-BFMI less than 0.3.
+
+``` r
+
+bg_status(handle)
+```
+
+Because the centered parameterization produces divergences, the fit
+emits an `hmc_diagnostics` summary with `severity = "error"`, and the
+`review_computation_validity` obligation becomes blocking:
+
+``` r
+
+actions <- bg_next_actions(handle)
+actions$obligations
+```
+
+## Record a decision and branch
+
+``` r
+
+bg_record_decision(
+  handle,
+  scope = "project",
+  prompt = "Centered parameterization has divergences; switch to non-centered.",
+  choice = "branch_and_repair",
+  rationale = "Divergence rate exceeds 1%."
+)
+
+# Branch from the fit node and switch to the non-centered parameterization.
+branch <- bg_branch(handle, n_fit, label = "Non-centered")
+
+stan_file_nc <- tempfile(fileext = ".stan")
+writeLines(c(
+  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
+  "parameters { real mu; real<lower=0> tau; vector[J] theta_raw; }",
+  "transformed parameters { vector[J] theta = mu + tau * theta_raw; }",
+  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
+  "        theta_raw ~ normal(0, 1); y ~ normal(theta, sigma); }"
+), stan_file_nc)
+
+bg_update_node(
+  handle,
+  branch$root_node_id,
+  params = list(stan_file = stan_file_nc)
+)
+```
+
+## Rerun and compare
+
+``` r
+
+run2 <- bg_run(handle, targets = branch$root_node_id)
+```
+
+The non-centered fit should produce clean diagnostics
+(`severity = "ok"`). With both fits available, the comparison obligation
+fires:
+
+``` r
+
+bg_add_node(
+  handle,
+  kind = "compare",
+  label = "Centered vs non-centered",
+  inputs = c(n_fit, branch$root_node_id)
+)
+
+bg_run(handle)
+bg_next_actions(handle)
+```
+
+## Export a report
+
+``` r
+
+bg_export_report(handle, format = "md", path = "eight-schools-report.md")
+```
+
+The report captures the full decision trail: the initial divergent fit,
+the repair decision, the branch, and the final comparison.

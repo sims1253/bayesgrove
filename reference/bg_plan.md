@@ -9,7 +9,6 @@ bg_plan(
   project,
   targets = NULL,
   external_holds = list(),
-  mode = c("sync", "async"),
   include_inactive = FALSE
 )
 ```
@@ -28,10 +27,6 @@ bg_plan(
 
   Optional named list mapping node ids to external hold reasons. Held
   nodes remain distinct from structural blockers.
-
-- mode:
-
-  Execution mode: 'sync' or 'async'.
 
 - include_inactive:
 

@@ -33,7 +33,7 @@ A `bg_next_actions_result` plain-data list with `context`,
 
 ## Details
 
-For the built-in `bayesguide.default_bayesian` pack, the returned
+For the built-in `bayesgrove.default_bayesian` pack, the returned
 obligations and actions can include:
 
 - `review_computation_validity` and matching `computation_review`

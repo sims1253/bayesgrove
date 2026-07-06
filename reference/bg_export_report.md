@@ -31,3 +31,7 @@ bg_export_report(
 - out_file:
 
   Deprecated alias for `path`.
+
+## Value
+
+The path to the written report file.

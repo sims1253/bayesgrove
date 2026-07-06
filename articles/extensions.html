@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Extending bayesgrove • bayesgrove</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Extending bayesgrove">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bayesgrove</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,10 +33,14 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-get-started" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Get Started</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-get-started">
-<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+<li><a class="dropdown-item" href="../articles/concepts.html">Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
     <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
     <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
+    <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
+    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
@@ -65,7 +69,7 @@
       <h1>Extending bayesgrove</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/0.5.1/vignettes/extensions.Rmd" class="external-link"><code>vignettes/extensions.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/extensions.Rmd" class="external-link"><code>vignettes/extensions.Rmd</code></a></small>
       <div class="d-none name"><code>extensions.Rmd</code></div>
     </div>
 
@@ -104,9 +108,7 @@ selection, and project conventions</td>
 </tr>
 <tr class="even">
 <td>Plugin</td>
-<td>A backend implementation registered with
-<code><a href="../reference/bg_register_backend.html">bg_register_backend()</a></code>
-</td>
+<td>A built-in executor set (e.g. <code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code>)</td>
 </tr>
 <tr class="odd">
 <td>Extension</td>
@@ -114,12 +116,13 @@ selection, and project conventions</td>
 </tr>
 </tbody>
 </table>
-<p>The stable public hooks are node-kind registration, backend
-registration, and summary emission from executors. Workflow-pack
-selection is also public. Authoring brand new workflow-pack providers is
-still an internal extension surface, so external packages should
-currently target the built-in summary contracts instead of reaching into
-unexported provider internals.</p>
+<p>The stable public hooks are node-kind registration, built-in executor
+activation (<code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code> /
+<code><a href="../reference/bg_use_brms.html">bg_use_brms()</a></code>), and summary emission from executors.
+Workflow-pack selection is also public. Authoring brand new
+workflow-pack providers is still an internal extension surface, so
+external packages should currently target the built-in summary contracts
+instead of reaching into unexported provider internals.</p>
 </div>
 <div class="section level2">
 <h2 id="activate-the-built-in-workflow-packs-you-need">Activate the built-in workflow packs you need<a class="anchor" aria-label="anchor" href="#activate-the-built-in-workflow-packs-you-need"></a>
@@ -141,7 +144,7 @@ after creating the project:</p>
 <span><span class="fu"><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>    <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>    <span class="st">"bayesgrove.default_bayesian"</span>,</span>
 <span>    <span class="st">"bayesgrove.process_guidance"</span>,</span>
 <span>    <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>    <span class="st">"bayesgrove.prior_workflow"</span>,</span>
@@ -153,7 +156,7 @@ after creating the project:</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; [[1]]</span></span>
 <span><span class="co">#&gt; [[1]]$pack_id</span></span>
-<span><span class="co">#&gt; [1] "bayesguide.default_bayesian"</span></span>
+<span><span class="co">#&gt; [1] "bayesgrove.default_bayesian"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; [[1]]$version</span></span>
 <span><span class="co">#&gt; [1] "0.2.0"</span></span>
@@ -239,7 +242,7 @@ after creating the project:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_workflow_packs.html">bg_workflow_packs</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">pack</span><span class="op">)</span> <span class="va">pack</span><span class="op">$</span><span class="va">pack_id</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"</span></span>
+<span><span class="co">#&gt; [1] "bayesgrove.default_bayesian" "bayesgrove.process_guidance"</span></span>
 <span><span class="co">#&gt; [3] "bayesgrove.model_taxonomy"   "bayesgrove.prior_workflow"  </span></span>
 <span><span class="co">#&gt; [5] "bayesgrove.model_checks"     "bayesgrove.model_selection" </span></span>
 <span><span class="co">#&gt; [7] "bayesgrove.stan_workflow"    "bayesgrove.causal_dagitty"</span></span></code></pre></div>
@@ -247,7 +250,7 @@ after creating the project:</p>
 engine:</p>
 <ul>
 <li>
-<code>bayesguide.default_bayesian</code>: computation review, fit
+<code>bayesgrove.default_bayesian</code>: computation review, fit
 criticism, candidate comparison, and branch disposition.</li>
 <li>
 <code>bayesgrove.process_guidance</code>: workflow preflight,
@@ -346,6 +349,58 @@ data.</p>
 <li>Emit summaries as plain-data records so workflow packs can react to
 them.</li>
 </ol>
+<div class="section level3">
+<h3 id="opening-a-project-never-runs-project-supplied-code">Opening a project never runs project-supplied code<a class="anchor" aria-label="anchor" href="#opening-a-project-never-runs-project-supplied-code"></a>
+</h3>
+<p>Executors are R functions, and a project’s runtime manifest stores
+their source text so the project can be reopened later. For safety,
+<code><a href="../reference/bg_open.html">bg_open()</a></code> restores persisted node kinds
+<strong>structurally only</strong> — the kind name, input contracts, and
+stored executor source are kept as inert metadata, but the source is
+never evaluated. Opening a project directory from an untrusted source
+therefore executes nothing.</p>
+<p>To restore executable executors after opening, call
+<code><a href="../reference/bg_restore_executors.html">bg_restore_executors()</a></code> explicitly:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="st">"path/to/project"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default: print the stored source for each kind and abort, so you can</span></span>
+<span><span class="co"># review what would run before consenting.</span></span>
+<span><span class="fu"><a href="../reference/bg_restore_executors.html">bg_restore_executors</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Once you have reviewed the source, opt in:</span></span>
+<span><span class="fu"><a href="../reference/bg_restore_executors.html">bg_restore_executors</a></span><span class="op">(</span><span class="va">handle</span>, trust <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>With <code>trust = FALSE</code> (the default) the stored source for
+each kind is printed and the call aborts. With <code>trust = TRUE</code>
+each source is evaluated in a child of the global environment (not
+inside the bayesgrove namespace), and a warning reminds you that
+closures capturing the original environment are not restored.
+Alternatively, re-register executors with
+<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>.</p>
+<p>Built-in executors (shipped with the package) are persisted as stable
+references and restore safely without this opt-in step.</p>
+<div class="section level4">
+<h4 id="params-are-data-never-code">Params are data, never code<a class="anchor" aria-label="anchor" href="#params-are-data-never-code"></a>
+</h4>
+<p>The same trust boundary applies to node <code>params</code>. A node’s
+params carry <strong>data</strong> only — never R source. There is no
+params channel that evaluates arbitrary code at run time, so a hostile
+<code>graph.json</code> cannot smuggle code in through a
+<code>data_fn_source</code> or <code>check_fn_source</code> param (those
+have been removed). To attach a data object that JSON serialization
+would mangle (for example Stan’s typed integers), use
+<code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>, which stores the object in the
+content-addressed store and records a <code>data_ref</code> param
+pointing at it:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, kind <span class="op">=</span> <span class="st">"stan_data"</span>, label <span class="op">=</span> <span class="st">"Data"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_set_node_data.html">bg_set_node_data</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>N <span class="op">=</span> <span class="fl">10L</span>, y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Code enters a project only through the executor gate above — by
+registering a node kind in-session with
+<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>, or by consenting with
+<code>bg_restore_executors(trust = TRUE)</code>.</p>
+</div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="emit-summaries-that-workflow-packs-understand">Emit summaries that workflow packs understand<a class="anchor" aria-label="anchor" href="#emit-summaries-that-workflow-packs-understand"></a>
@@ -457,7 +512,7 @@ the branch’s formulas obey the contract.
 payload into projection-predictive review so a
 <code>projpred</code>-style node can search only inside the admissible
 ranked candidate set.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"causal_selection_contract"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    summaries <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -496,7 +551,7 @@ evidence,</li>
 <p>A domain module is just a reusable setup layer around
 <code><a href="../reference/bg_init.html">bg_init()</a></code> and your node registration helpers. This is the
 easiest way to publish a project-specific extension package.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">init_normal_workflow</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">path</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
 <span>    path <span class="op">=</span> <span class="va">path</span>,</span>
@@ -506,7 +561,7 @@ easiest way to publish a project-specific extension package.</p>
 <span>  <span class="fu"><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs</a></span><span class="op">(</span></span>
 <span>    <span class="va">handle</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>      <span class="st">"bayesguide.default_bayesian"</span>,</span>
+<span>      <span class="st">"bayesgrove.default_bayesian"</span>,</span>
 <span>      <span class="st">"bayesgrove.process_guidance"</span>,</span>
 <span>      <span class="st">"bayesgrove.model_taxonomy"</span>,</span>
 <span>      <span class="st">"bayesgrove.prior_workflow"</span>,</span>
@@ -524,25 +579,26 @@ package, or even a plain project script. The important part is that the
 node set and the selected workflow packs evolve together.</p>
 </div>
 <div class="section level2">
-<h2 id="register-a-backend-plugin">Register a backend plugin<a class="anchor" aria-label="anchor" href="#register-a-backend-plugin"></a>
+<h2 id="built-in-cmdstanr-and-brms-executors">Built-in cmdstanr and brms executors<a class="anchor" aria-label="anchor" href="#built-in-cmdstanr-and-brms-executors"></a>
 </h2>
-<p>When you need a compile-and-fit backend rather than ad hoc executors,
-register a backend plugin. The built-in helpers already cover common
-cases:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"cmdstanr"</span>, <span class="fu"><a href="../reference/bg_cmdstanr_plugin.html">bg_cmdstanr_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"brms"</span>, <span class="fu"><a href="../reference/bg_brms_plugin.html">bg_brms_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/bg_register_backend.html">bg_register_backend</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"diagnostics"</span>, <span class="fu"><a href="../reference/bg_diagnostics_plugin.html">bg_diagnostics_plugin</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>A custom backend is just a named list with these methods:</p>
-<ul>
-<li><code>backend_compile</code></li>
-<li><code>backend_fit</code></li>
-<li><code>backend_source_hash</code></li>
-<li><code>backend_runtime_signature</code></li>
-</ul>
-<p>Keep backend plugins focused on compilation and execution mechanics.
-Workflow semantics should still be expressed through summaries and
-workflow packs, not hardcoded into the backend layer.</p>
+<p>For real model fitting, bayesgrove ships built-in executors that wrap
+cmdstanr and brms and compute diagnostics themselves (divergences,
+R-hat, ESS, Pareto-k, posterior-predictive p-values). Activate them
+with:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_use_brms.html">bg_use_brms</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span></code></pre></div>
+<p>These register node kinds (<code>stan_data</code>,
+<code>cmdstanr_fit</code>, <code>brms_fit</code>, <code>loo</code>,
+<code>compare</code>, <code>ppc</code>, …) whose executors emit the
+validated summary kinds the workflow packs consume. You do not need to
+hand-roll diagnostics: a fit through <code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code>
+emits an <code>hmc_diagnostics</code> summary automatically, and a
+blocking <code>review_computation_validity</code> obligation follows
+when diagnostics are poor.</p>
+<p>Custom executors are still possible via
+<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>; but the built-in executors are the
+documented happy path for cmdstanr and brms.</p>
 </div>
 <div class="section level2">
 <h2 id="what-a-ruleset-means-right-now">What a ruleset means right now<a class="anchor" aria-label="anchor" href="#what-a-ruleset-means-right-now"></a>

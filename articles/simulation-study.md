@@ -29,6 +29,7 @@ omits the confounder?
 ## Setup
 
 ``` r
+
 library(bayesgrove)
 
 project_root <- file.path(tempdir(), "bg-simulation-study")
@@ -49,6 +50,7 @@ resemble a structured workflow:
 - a comparison node ranks the branches after an explicit decision gate.
 
 ``` r
+
 bg_register_node_kind(handle, "scenario", executor = function(node, inputs) {
   node$params
 })
@@ -150,6 +152,7 @@ We construct two branches:
 - a confounded assignment scenario.
 
 ``` r
+
 build_branch <- function(handle, label, confounding, seed) {
   scenario <- bg_add_node(
     handle,
@@ -251,20 +254,21 @@ The comparison nodes are blocked, but the descriptive summaries and both
 model branches can already run.
 
 ``` r
-first_run <- bg_run(handle, mode = "sync")
-#> Starting run "run_01566f27" with 2 nodes to execute.
-#> Running node "node_8cfeb1ca"...
-#> Running node "node_1e86b9ad"...
+
+first_run <- bg_run(handle)
+#> Starting run "run_67e00e8b" with 2 nodes to execute.
 #> Running node "node_7ecd6878"...
-#> Running node "node_cf82482e"...
 #> Running node "node_12d04737"...
-#> Running node "node_86892a1e"...
-#> Running node "node_2fcde878"...
-#> Running node "node_8d060132"...
-#> Running node "node_da036e34"...
-#> Running node "node_28679b29"...
-#> Running node "node_9813439a"...
-#> Running node "node_3607d7ef"...
+#> Running node "node_9b922665"...
+#> Running node "node_2a487687"...
+#> Running node "node_abe165f4"...
+#> Running node "node_7d13f8ab"...
+#> Running node "node_e22e00ae"...
+#> Running node "node_95d7b92f"...
+#> Running node "node_0bf76a9f"...
+#> Running node "node_2304d5aa"...
+#> Running node "node_d79763f6"...
+#> Running node "node_22d06b87"...
 first_run$summary
 #> $total_executed
 #> [1] 12
@@ -286,7 +290,7 @@ bg_status(handle)
 #> [1] 0
 #> 
 #> $last_run_id
-#> [1] "run_01566f27"
+#> [1] "run_67e00e8b"
 #> 
 #> $health
 #> [1] "warning"
@@ -298,6 +302,7 @@ bg_status(handle)
 Inspect the descriptive summaries that motivated the gate answers:
 
 ``` r
+
 bg_result(handle, randomized$descriptive)
 #> $split
 #> [1] "train"
@@ -343,6 +348,7 @@ confounded branch usually does. We record that distinction as an
 explicit decision rather than letting the workflow silently continue.
 
 ``` r
+
 bg_answer_gate(
   handle,
   randomized$gate$id,
@@ -393,10 +399,11 @@ bg_answer_gate(
 ## Second run: execute the comparison nodes
 
 ``` r
-second_run <- bg_run(handle, mode = "sync")
+
+second_run <- bg_run(handle)
 #> Starting run "run_62402479" with 2 nodes to execute.
-#> Running node "node_dab33fa3"...
-#> Running node "node_066eb3c3"...
+#> Running node "node_da63f1d6"...
+#> Running node "node_c3ae03a7"...
 second_run$summary
 #> $total_executed
 #> [1] 2
@@ -405,6 +412,7 @@ second_run$summary
 Now the comparison nodes can summarize the two branches:
 
 ``` r
+
 bg_result(handle, randomized$compare)$ranking
 #>                       model absolute_effect_error predictive_rmse
 #> 2 Randomized adjusted model            0.02457046        0.964850
@@ -425,11 +433,12 @@ the computational state.
 ## Export an audit report
 
 ``` r
+
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpDBd7f1/bg-simulation-study/simulation-study-report.md
+#> /tmp/RtmpKNVapI/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpDBd7f1/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/RtmpKNVapI/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,

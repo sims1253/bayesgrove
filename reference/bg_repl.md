@@ -42,6 +42,8 @@ Supported commands include:
 
 - `guide`: show active obligations and suggested actions
 
+- `explain <n>`: show an obligation's rationale and references
+
 - `actions`: list actionable protocol suggestions with payload details
 
 - [`next`](https://rdrr.io/r/base/Control.html): preview and optionally
@@ -75,9 +77,9 @@ Supported commands include:
 
 - `gates` / `answer`: inspect and answer pending structural gates
 
-- `run` / `submit`: execute or enqueue ready work in the current scope
+- `run`: execute ready work in the current scope
 
-- `jobs` and `cancel <run_id>`: inspect or cancel background work
+- `jobs`: inspect job records
 
 - `export [html|md] [path]`: export a workflow report from the REPL
 

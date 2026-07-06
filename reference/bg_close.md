@@ -1,6 +1,6 @@
 # Close a bayesgrove Project
 
-Close a bayesgrove Project
+Releases the single-writer lock if this handle holds it.
 
 ## Usage
 

@@ -8,20 +8,24 @@ the graph, cache, decision log, and workflow protocol.
 
 This vignette uses the following vocabulary:
 
-| Term          | Meaning in bayesgrove today                                                                                                                |
-|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| Node set      | A group of node kinds plus executors you register on a handle                                                                              |
-| Ruleset       | A chosen set of `workflow_packs` plus the summary vocabulary they consume                                                                  |
-| Domain module | An R helper or package that bundles node registration, pack selection, and project conventions                                             |
-| Plugin        | A backend implementation registered with [`bg_register_backend()`](https://sims1253.github.io/bayesgrove/reference/bg_register_backend.md) |
-| Extension     | Any combination of the four items above                                                                                                    |
+| Term | Meaning in bayesgrove today |
+|----|----|
+| Node set | A group of node kinds plus executors you register on a handle |
+| Ruleset | A chosen set of `workflow_packs` plus the summary vocabulary they consume |
+| Domain module | An R helper or package that bundles node registration, pack selection, and project conventions |
+| Plugin | A built-in executor set (e.g. [`bg_use_cmdstanr()`](https://sims1253.github.io/bayesgrove/reference/bg_use_cmdstanr.md)) |
+| Extension | Any combination of the four items above |
 
-The stable public hooks are node-kind registration, backend
-registration, and summary emission from executors. Workflow-pack
-selection is also public. Authoring brand new workflow-pack providers is
-still an internal extension surface, so external packages should
-currently target the built-in summary contracts instead of reaching into
-unexported provider internals.
+The stable public hooks are node-kind registration, built-in executor
+activation
+([`bg_use_cmdstanr()`](https://sims1253.github.io/bayesgrove/reference/bg_use_cmdstanr.md)
+/
+[`bg_use_brms()`](https://sims1253.github.io/bayesgrove/reference/bg_use_brms.md)),
+and summary emission from executors. Workflow-pack selection is also
+public. Authoring brand new workflow-pack providers is still an internal
+extension surface, so external packages should currently target the
+built-in summary contracts instead of reaching into unexported provider
+internals.
 
 ## Activate the built-in workflow packs you need
 
@@ -30,6 +34,7 @@ review vocabulary, activate and persist the packs you want after
 creating the project:
 
 ``` r
+
 library(bayesgrove)
 
 project_root <- file.path(tempdir(), "bg-extensions")
@@ -43,7 +48,7 @@ handle <- bg_init(
 bg_use_workflow_packs(
   handle,
   c(
-    "bayesguide.default_bayesian",
+    "bayesgrove.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.model_taxonomy",
     "bayesgrove.prior_workflow",
@@ -55,7 +60,7 @@ bg_use_workflow_packs(
 )
 #> [[1]]
 #> [[1]]$pack_id
-#> [1] "bayesguide.default_bayesian"
+#> [1] "bayesgrove.default_bayesian"
 #> 
 #> [[1]]$version
 #> [1] "0.2.0"
@@ -141,7 +146,7 @@ bg_use_workflow_packs(
 #> list()
 
 vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
-#> [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"
+#> [1] "bayesgrove.default_bayesian" "bayesgrove.process_guidance"
 #> [3] "bayesgrove.model_taxonomy"   "bayesgrove.prior_workflow"  
 #> [5] "bayesgrove.model_checks"     "bayesgrove.model_selection" 
 #> [7] "bayesgrove.stan_workflow"    "bayesgrove.causal_dagitty"
@@ -149,7 +154,7 @@ vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
 
 Those packs add review vocabulary without changing the graph engine:
 
-- `bayesguide.default_bayesian`: computation review, fit criticism,
+- `bayesgrove.default_bayesian`: computation review, fit criticism,
   candidate comparison, and branch disposition.
 - `bayesgrove.process_guidance`: workflow preflight, iterative repair
   notes, and out-of-sample stability review.
@@ -183,6 +188,7 @@ kinds for one modeling domain. The only hard contract is that each
 executor receives `(node, inputs)` and returns plain R data.
 
 ``` r
+
 register_normal_model_nodes <- function(handle) {
   bg_register_node_kind(handle, "study_data", executor = function(node, inputs) {
     data.frame(y = rnorm(50), x = rnorm(50))
@@ -239,24 +245,84 @@ Two practical rules make these node sets easy to compose:
 2.  Emit summaries as plain-data records so workflow packs can react to
     them.
 
+### Opening a project never runs project-supplied code
+
+Executors are R functions, and a project’s runtime manifest stores their
+source text so the project can be reopened later. For safety,
+[`bg_open()`](https://sims1253.github.io/bayesgrove/reference/bg_open.md)
+restores persisted node kinds **structurally only** — the kind name,
+input contracts, and stored executor source are kept as inert metadata,
+but the source is never evaluated. Opening a project directory from an
+untrusted source therefore executes nothing.
+
+To restore executable executors after opening, call
+[`bg_restore_executors()`](https://sims1253.github.io/bayesgrove/reference/bg_restore_executors.md)
+explicitly:
+
+``` r
+
+handle <- bg_open("path/to/project")
+
+# Default: print the stored source for each kind and abort, so you can
+# review what would run before consenting.
+bg_restore_executors(handle)
+
+# Once you have reviewed the source, opt in:
+bg_restore_executors(handle, trust = TRUE)
+```
+
+With `trust = FALSE` (the default) the stored source for each kind is
+printed and the call aborts. With `trust = TRUE` each source is
+evaluated in a child of the global environment (not inside the
+bayesgrove namespace), and a warning reminds you that closures capturing
+the original environment are not restored. Alternatively, re-register
+executors with
+[`bg_register_node_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.md).
+
+Built-in executors (shipped with the package) are persisted as stable
+references and restore safely without this opt-in step.
+
+#### Params are data, never code
+
+The same trust boundary applies to node `params`. A node’s params carry
+**data** only — never R source. There is no params channel that
+evaluates arbitrary code at run time, so a hostile `graph.json` cannot
+smuggle code in through a `data_fn_source` or `check_fn_source` param
+(those have been removed). To attach a data object that JSON
+serialization would mangle (for example Stan’s typed integers), use
+[`bg_set_node_data()`](https://sims1253.github.io/bayesgrove/reference/bg_set_node_data.md),
+which stores the object in the content-addressed store and records a
+`data_ref` param pointing at it:
+
+``` r
+
+n_data <- bg_add_node(handle, kind = "stan_data", label = "Data")
+bg_set_node_data(handle, n_data, list(N = 10L, y = as.integer(y)))
+```
+
+Code enters a project only through the executor gate above — by
+registering a node kind in-session with
+[`bg_register_node_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.md),
+or by consenting with `bg_restore_executors(trust = TRUE)`.
+
 ## Emit summaries that workflow packs understand
 
 The optional packs are summary-driven. They do not require special node
 kinds; they only care about summary records attached to fresh results.
 
-| Summary kind                                                   | Consumed by                  | Typical use                                                                               |
-|----------------------------------------------------------------|------------------------------|-------------------------------------------------------------------------------------------|
-| `prior_spec`                                                   | `bayesgrove.prior_workflow`  | Record the current prior specification                                                    |
-| `prior_predictive_check`                                       | `bayesgrove.prior_workflow`  | Review whether priors generate plausible observables                                      |
-| `posterior_predictive_check`                                   | `bayesgrove.model_checks`    | Review fit-to-data mismatch after conditioning                                            |
-| `loo_pit_calibration`                                          | `bayesgrove.model_checks`    | Review leave-one-out predictive calibration                                               |
-| `sbc_result`                                                   | `bayesgrove.model_checks`    | Review parameter recoverability and calibration for `latent_inference` branches           |
-| `comparison_results` / `model_comparison` / `stacking_weights` | `bayesgrove.model_selection` | Compare clean candidates and review weighting evidence                                    |
-| `projpred_selection` / `projection_predictive_selection`       | `bayesgrove.stan_workflow`   | Review submodel compression and refit plans                                               |
-| `dagitty_adjustment`                                           | `bayesgrove.causal_dagitty`  | Review DAG-derived adjustment sets                                                        |
-| `dagitty_implications`                                         | `bayesgrove.causal_dagitty`  | Review implied independencies and falsification targets                                   |
-| `causal_selection_contract`                                    | `bayesgrove.causal_dagitty`  | Lock required terms, exclude forbidden controls, and rank admissible precision candidates |
-| `pad_annotation`                                               | `bayesgrove.model_taxonomy`  | Label a branch with PAD class and utility dimensions                                      |
+| Summary kind | Consumed by | Typical use |
+|----|----|----|
+| `prior_spec` | `bayesgrove.prior_workflow` | Record the current prior specification |
+| `prior_predictive_check` | `bayesgrove.prior_workflow` | Review whether priors generate plausible observables |
+| `posterior_predictive_check` | `bayesgrove.model_checks` | Review fit-to-data mismatch after conditioning |
+| `loo_pit_calibration` | `bayesgrove.model_checks` | Review leave-one-out predictive calibration |
+| `sbc_result` | `bayesgrove.model_checks` | Review parameter recoverability and calibration for `latent_inference` branches |
+| `comparison_results` / `model_comparison` / `stacking_weights` | `bayesgrove.model_selection` | Compare clean candidates and review weighting evidence |
+| `projpred_selection` / `projection_predictive_selection` | `bayesgrove.stan_workflow` | Review submodel compression and refit plans |
+| `dagitty_adjustment` | `bayesgrove.causal_dagitty` | Review DAG-derived adjustment sets |
+| `dagitty_implications` | `bayesgrove.causal_dagitty` | Review implied independencies and falsification targets |
+| `causal_selection_contract` | `bayesgrove.causal_dagitty` | Lock required terms, exclude forbidden controls, and rank admissible precision candidates |
+| `pad_annotation` | `bayesgrove.model_taxonomy` | Label a branch with PAD class and utility dimensions |
 
 ## Causal selection contracts and constrained projpred workflows
 
@@ -280,6 +346,7 @@ same causal payload into projection-predictive review so a
 candidate set.
 
 ``` r
+
 bg_register_node_kind(handle, "causal_selection_contract", executor = function(node, inputs) {
   list(
     summaries = list(list(
@@ -316,6 +383,7 @@ and your node registration helpers. This is the easiest way to publish a
 project-specific extension package.
 
 ``` r
+
 init_normal_workflow <- function(path) {
   handle <- bg_init(
     path = path,
@@ -325,7 +393,7 @@ init_normal_workflow <- function(path) {
   bg_use_workflow_packs(
     handle,
     c(
-      "bayesguide.default_bayesian",
+      "bayesgrove.default_bayesian",
       "bayesgrove.process_guidance",
       "bayesgrove.model_taxonomy",
       "bayesgrove.prior_workflow",
@@ -344,28 +412,32 @@ That helper can live in your analysis package, a lab-internal utility
 package, or even a plain project script. The important part is that the
 node set and the selected workflow packs evolve together.
 
-## Register a backend plugin
+## Built-in cmdstanr and brms executors
 
-When you need a compile-and-fit backend rather than ad hoc executors,
-register a backend plugin. The built-in helpers already cover common
-cases:
+For real model fitting, bayesgrove ships built-in executors that wrap
+cmdstanr and brms and compute diagnostics themselves (divergences,
+R-hat, ESS, Pareto-k, posterior-predictive p-values). Activate them
+with:
 
 ``` r
-bg_register_backend(handle, "cmdstanr", bg_cmdstanr_plugin())
-bg_register_backend(handle, "brms", bg_brms_plugin())
-bg_register_backend(handle, "diagnostics", bg_diagnostics_plugin())
+
+bg_use_cmdstanr(handle)
+bg_use_brms(handle)
 ```
 
-A custom backend is just a named list with these methods:
+These register node kinds (`stan_data`, `cmdstanr_fit`, `brms_fit`,
+`loo`, `compare`, `ppc`, …) whose executors emit the validated summary
+kinds the workflow packs consume. You do not need to hand-roll
+diagnostics: a fit through
+[`bg_use_cmdstanr()`](https://sims1253.github.io/bayesgrove/reference/bg_use_cmdstanr.md)
+emits an `hmc_diagnostics` summary automatically, and a blocking
+`review_computation_validity` obligation follows when diagnostics are
+poor.
 
-- `backend_compile`
-- `backend_fit`
-- `backend_source_hash`
-- `backend_runtime_signature`
-
-Keep backend plugins focused on compilation and execution mechanics.
-Workflow semantics should still be expressed through summaries and
-workflow packs, not hardcoded into the backend layer.
+Custom executors are still possible via
+[`bg_register_node_kind()`](https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.md);
+but the built-in executors are the documented happy path for cmdstanr
+and brms.
 
 ## What a ruleset means right now
 

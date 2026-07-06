@@ -1,6 +1,10 @@
 # Compute the cache fingerprint for a node
 
-Compute the cache fingerprint for a node
+The fingerprint is a SHA-256 over a deterministic JSON payload
+combining: the serialization format version, the node kind, normalized
+params, ordered upstream fingerprints, an environment manifest (R and
+key package versions), the registered executor, and any backend
+signature.
 
 ## Usage
 
@@ -30,7 +34,9 @@ bg_compute_fingerprint(
 
 - environment_manifest:
 
-  Optional list of package versions.
+  Optional list of package versions. When empty, a default manifest (R +
+  bayesgrove version) is used so that reinstalling a new package version
+  invalidates caches.
 
 - graph:
 

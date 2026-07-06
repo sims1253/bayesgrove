@@ -31,6 +31,7 @@ pattern:
 ## Setup
 
 ``` r
+
 library(bayesgrove)
 
 project_root <- file.path(tempdir(), "bg-primed-priors")
@@ -40,7 +41,7 @@ handle <- bg_init(
   path = project_root,
   project_name = "primed-priors",
   workflow_packs = list(
-    "bayesguide.default_bayesian",
+    "bayesgrove.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.prior_workflow",
     "bayesgrove.model_checks",
@@ -52,7 +53,7 @@ handle <- bg_init(
 )
 
 vapply(bg_workflow_packs(handle), function(pack) pack$pack_id, character(1))
-#> [1] "bayesguide.default_bayesian" "bayesgrove.process_guidance"
+#> [1] "bayesgrove.default_bayesian" "bayesgrove.process_guidance"
 #> [3] "bayesgrove.prior_workflow"   "bayesgrove.model_checks"    
 #> [5] "bayesgrove.model_selection"  "bayesgrove.model_taxonomy"  
 #> [7] "bayesgrove.stan_workflow"    "bayesgrove.causal_dagitty"
@@ -74,6 +75,7 @@ In practice, the node executors stay project-specific. The package-level
 contract is only that they return plain R data and summary records.
 
 ``` r
+
 bg_register_node_kind(handle, "model_spec", executor = function(node, inputs) {
   node$params
 })
@@ -155,6 +157,7 @@ branchable object.
 ### A bayesgrove mapping
 
 ``` r
+
 bg_register_node_kind(handle, "bodyfat_reference", executor = function(node, inputs) {
   node$params$data
 })
@@ -248,6 +251,7 @@ genuinely different workflow branches.
 ### A bayesgrove mapping
 
 ``` r
+
 bg_register_node_kind(handle, "shrinkage_scenario", executor = function(node, inputs) {
   node$params
 })
@@ -322,6 +326,7 @@ The third case study is the richest one for `bayesgrove`. It combines:
 ### A bayesgrove mapping
 
 ``` r
+
 bg_register_node_kind(handle, "latent_mediation_spec", executor = function(node, inputs) {
   node$params
 })
@@ -372,6 +377,7 @@ a good fit. It expects nodes that emit `dagitty_adjustment` and
 `dagitty_implications` summaries. One minimal node set looks like this:
 
 ``` r
+
 bg_register_node_kind(handle, "dagitty_adjustment", executor = function(node, inputs) {
   if (!requireNamespace("dagitty", quietly = TRUE)) {
     cli::cli_abort("The {.pkg dagitty} package is required.")
@@ -429,16 +435,15 @@ With that node set in place, `bayesgrove.causal_dagitty` will:
   admissible precision candidates for later formula revisions or
   projection-based reduction.
 
-If you want a plotting layer,
-[`ggdag::tidy_dagitty()`](https://r-causal.github.io/ggdag/reference/tidy_dagitty.html)
-can sit on top of the same `dag_code`, but `dagitty` should stay the
-semantic core.
+If you want a plotting layer, `ggdag::tidy_dagitty()` can sit on top of
+the same `dag_code`, but `dagitty` should stay the semantic core.
 
 For a primed-prior mediation workflow, a useful next node after DAG
 adjustment is a `causal_selection_contract` node whose summary metrics
 look like:
 
 ``` r
+
 list(
   summary_kind = "causal_selection_contract",
   passed = TRUE,
