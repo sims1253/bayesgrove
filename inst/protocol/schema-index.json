@@ -1,17 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "title": "bayesgrove Protocol Schema Index",
-  "description": "Index of schema definitions for bayesgrove protocol surfaces, including websocket IPC messages. All IPC messages include a protocol_version field and version mismatches must be surfaced explicitly to clients.",
+  "description": "Index of schema definitions for bayesgrove protocol surfaces.",
   "version": "0.1.0",
   "schemas": {
     "bg_next_actions_result": "schemas/bg_next_actions_result.json",
     "bg_obligation_item": "schemas/bg_obligation_item.json",
     "bg_action_item": "schemas/bg_action_item.json",
     "bg_partitioned_result": "schemas/bg_partitioned_result.json",
-    "bg_template_descriptor": "schemas/bg_template_descriptor.json",
-    "bg_graph_snapshot": "schemas/bg_graph_snapshot.json",
-    "bg_protocol_event": "schemas/bg_protocol_event.json",
-    "bg_command": "schemas/bg_command.json",
-    "bg_command_result": "schemas/bg_command_result.json"
+    "bg_template_descriptor": "schemas/bg_template_descriptor.json"
   }
 }

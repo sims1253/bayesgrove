@@ -52,7 +52,7 @@ handle <- bg_init(
   path = project_root,
   project_name = "primed-priors",
   workflow_packs = list(
-    "bayesguide.default_bayesian",
+    "bayesgrove.default_bayesian",
     "bayesgrove.process_guidance",
     "bayesgrove.prior_workflow",
     "bayesgrove.model_checks",

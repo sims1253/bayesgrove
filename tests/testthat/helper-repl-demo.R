@@ -84,7 +84,7 @@ test_demo_repl_fixture <- function(
   handle <- bg_init(
     path = tmp,
     project_name = "Hierarchical Analysis",
-    workflow_packs = list("bayesguide.default_bayesian")
+    workflow_packs = list("bayesgrove.default_bayesian")
   )
 
   test_demo_repl_register_kinds(handle)
@@ -108,12 +108,17 @@ test_demo_repl_fixture <- function(
     inputs = n_fit
   )
 
-  bg_run(handle, targets = n_fit, mode = "sync")
+  bg_run(handle, targets = n_fit)
 
-  warning_branch <- bg_branch_with_continuation(
+  warning_record <- bg_branch(
     project = handle,
     node_id = n_fit,
-    label = "Fit Centered Parametrization"
+    label = "Fit Centered Parametrization",
+    continue = TRUE
+  )
+  warning_branch <- list(
+    branch = warning_record,
+    continuation_nodes = warning_record$continuation_nodes
   )
   bg_update_node(
     handle,
@@ -140,18 +145,22 @@ test_demo_repl_fixture <- function(
     label = "Compare parametrizations",
     rationale = "Compare the branch against the clean baseline fit."
   )
-  bg_run(handle, targets = warning_branch$branch$root_node_id, mode = "sync")
+  bg_run(handle, targets = warning_branch$branch$root_node_id)
 
   revised_branch <- NULL
   compare_node_id <- NULL
   initial_scope <- "project"
 
   if (checkpoint %in% c("comparison_ready", "disposition_ready", "healthy")) {
-    revised_branch <- bg_branch_with_continuation(
+    revised_record <- bg_branch(
       project = handle,
       node_id = warning_branch$branch$root_node_id,
       label = "Fit Non-Centered Revision",
-      continuation_kinds = c("ppc")
+      continue = c("ppc")
+    )
+    revised_branch <- list(
+      branch = revised_record,
+      continuation_nodes = revised_record$continuation_nodes
     )
     bg_update_node(
       handle,
@@ -180,7 +189,7 @@ test_demo_repl_fixture <- function(
         template_ref = "branch_and_modify_fit"
       )
     )
-    bg_run(handle, targets = revised_branch$branch$root_node_id, mode = "sync")
+    bg_run(handle, targets = revised_branch$branch$root_node_id)
     bg_retire_node(
       handle,
       warning_branch$branch$root_node_id,
@@ -203,7 +212,7 @@ test_demo_repl_fixture <- function(
       label = "Compare Baseline vs Revision",
       inputs = comparison_action$payload$inputs
     )
-    bg_run(handle, targets = compare_node_id, mode = "sync")
+    bg_run(handle, targets = compare_node_id)
 
     comparison_decision <- Filter(
       function(action) {

@@ -1,33 +1,33 @@
 Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
-Version: 0.5.1
+Version: 0.7.0
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
 Description: Implements the bayesgrove workflow runtime with typed graph
     construction, deterministic fingerprinting, synchronous execution, content-
-    addressed artifact storage, local async execution, decision logging, a
-    baseline cmdstanr backend with separate compile and fit stages, and an
-    optional brms backend plugin.
+    addressed artifact storage, decision logging, a workflow protocol that
+    reads typed diagnostic evidence and derives obligations, and built-in
+    cmdstanr/brms executors that compute HMC, LOO, and PPC diagnostics
+    themselves.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: false
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
-    R (>= 4.2.0)
+    R (>= 4.4.0)
 Imports:
     cli,
     digest,
-    dagriculture (>= 0.1.5),
-    httpuv,
+    dagriculture (>= 0.3.0),
     jsonlite,
-    later,
     rlang,
     S7
-Remotes: 
-    sims1253/dagriculture,
-    stan-dev/cmdstanr
+Remotes:
+    sims1253/dagriculture
+Additional_repositories: https://stan-dev.r-universe.dev
 Suggests:
+    bayesplot,
     brms,
+    carrier,
     cmdstanr,
     dagitty,
     hedgehog,
@@ -35,13 +35,14 @@ Suggests:
     mirai,
     pkgload,
     posterior,
+    purrr,
     loo,
     rmarkdown,
     rstan,
     testthat (>= 3.0.0),
-    websocket,
     withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/sims1253/bayesgrove, https://sims1253.github.io/bayesgrove/
 BugReports: https://github.com/sims1253/bayesgrove/issues
+Config/roxygen2/version: 8.0.0

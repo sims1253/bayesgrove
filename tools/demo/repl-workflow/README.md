@@ -21,18 +21,17 @@ If you want one asset for Twitter/X or the Stan Forums, start with
 `repl-showcase.mp4`.
 
 These demos are intentionally REPL-first. They exercise the guided terminal
-client surface, not the separate experimental `bg_serve()` WebSocket IPC
-boundary used by external clients.
+client surface end to end.
 
-They also intentionally stay on the narrow `bayesguide.default_bayesian`
+They also intentionally stay on the narrow `bayesgrove.default_bayesian`
 workflow pack so the tapes remain short and deterministic. For examples of the
 new prior-workflow, model-check, model-selection, causal, and PAD extension
 surfaces, see `vignette("extensions", package = "bayesgrove")`.
 
 This matches the package's current strengths and the design notes in
-[`design/system-design.md`](/home/m0hawk/Documents/bayesguide/design/system-design.md)
+[`design/system-design.md`](/home/m0hawk/Documents/bayesgrove/design/system-design.md)
 and
-[`design/workflow-protocol.md`](/home/m0hawk/Documents/bayesguide/design/workflow-protocol.md):
+[`design/workflow-protocol.md`](/home/m0hawk/Documents/bayesgrove/design/workflow-protocol.md):
 resume from a checkpoint, inspect protocol guidance, branch to resolve
 diagnostics, execute template-backed comparison/review actions, compare clean
 candidates, and explicitly accept the surviving branch.

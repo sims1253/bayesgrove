@@ -10,7 +10,6 @@
 ^Meta$
 ^README\.Rmd$
 ^archive$
-^\.lintr$
 ^README\.html$
 ^tools/demo($|/)
 ^ROADMAP\.local\.md
@@ -18,3 +17,5 @@
 ^demo$
 ^\.claude$
 ^architecture$
+^PLAN\.md$
+^vignettes/articles$

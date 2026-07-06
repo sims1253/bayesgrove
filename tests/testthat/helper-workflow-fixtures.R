@@ -6,7 +6,7 @@ make_workflow_hold_fixture <- function() {
 
   handle <- bg_init(
     path = tmp,
-    workflow_packs = list("bayesguide.default_bayesian")
+    workflow_packs = list("bayesgrove.default_bayesian")
   )
 
   bg_register_node_kind(handle, "source", executor = function(node, inputs) {

@@ -20,14 +20,22 @@ navbar:
     intro:
       text: "Get Started"
       menu:
+      - text: "Concepts"
+        href: articles/concepts.html
       - text: "Getting Started"
         href: articles/getting-started.html
+      - text: "Case Study: Eight Schools"
+        href: articles/eight-schools.html
       - text: "Simulation Study Workflow"
         href: articles/simulation-study.html
       - text: "Guided Review Loop"
         href: articles/guided-review-loop.html
       - text: "Primed Prior Case Studies"
         href: articles/primed-priors-case-studies.html
+      - text: "Reproducible Research"
+        href: articles/reproducible-research.html
+      - text: "Teaching with bayesgrove"
+        href: articles/teaching.html
       - text: "Extending bayesgrove"
         href: articles/extensions.html
     architecture:
@@ -41,10 +49,10 @@ navbar:
       href: articles/index.html
 
 reference:
-  - title: API Boundary
+  - title: Concepts & API Boundary
     contents:
+      - bayesgrove-concepts
       - bg_api_boundary
-      - bg_serve
   - title: Project Lifecycle
     contents:
       - bg_handle
@@ -57,15 +65,15 @@ reference:
       - bg_connect
       - bg_update_node
       - bg_remove_node
+      - bg_set_node_data
+      - bg_read_graph
+      - bg_commit_graph
   - title: Execution & Orchestration
     contents:
       - bg_repl
       - bg_plan
       - bg_run
-      - bg_wait
-      - bg_cancel
       - bg_jobs
-      - bg_reconcile_daemon_jobs
       - bg_compute_fingerprint
       - bg_status
       - bg_result
@@ -74,13 +82,20 @@ reference:
       - bg_snapshot
       - bg_bundle
       - bg_export_report
+  - title: Practitioner Shortcuts
+    contents:
+      - bg_fit_stan
+      - bg_fit_brms
+  - title: Visualization
+    contents:
+      - bg_graph_mermaid
+      - bg_plot
   - title: Workflow Protocol
     contents:
       - bg_list_templates
       - bg_use_default_workflow
       - bg_use_workflow_packs
       - bg_workflow_packs
-      - bg_workflow_context
       - bg_next_actions
       - bg_execute_action
       - bg_extension_registry
@@ -92,13 +107,13 @@ reference:
       - bg_read_goal_registry
       - bg_list_branches
       - bg_branch_lineage
-      - bg_resolve_node_scope
       - bg_scope_label
       - bg_set_goal
       - bg_get_goal
       - bg_read_summaries
       - bg_write_summaries
-      - bg_summary_is_fresh
+      - bg_summary_vocabulary
+      - bg_register_summary_kind
   - title: Branching & Invalidation
     contents:
       - bg_branch
@@ -114,19 +129,26 @@ reference:
       - bg_record_decision
   - title: Extensions
     contents:
-      - bg_register_backend
       - bg_register_node_kind
-      - bg_cmdstanr_plugin
-      - bg_brms_plugin
-      - bg_diagnostics_plugin
+      - bg_restore_executors
+      - bg_use_cmdstanr
+      - bg_use_brms
+      - bg_hmc_severity
 
 articles:
   - title: "All Vignettes"
     desc: ~
     contents:
+      - "concepts"
       - "dagriculture-boundary"
+      - "eight-schools"
       - "extensions"
       - "getting-started"
       - "guided-review-loop"
       - "primed-priors-case-studies"
       - "simulation-study"
+  - title: "Articles"
+    desc: "pkgdown-only articles (not shipped in the package)."
+    contents:
+      - "articles/reproducible-research"
+      - "articles/teaching"

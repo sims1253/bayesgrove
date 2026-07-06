@@ -1,0 +1,137 @@
+---
+title: "Concepts"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Concepts}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+
+# knitr has no built-in mermaid engine (that is Quarto); register one that
+# emits a client-rendered diagram in HTML output and the raw text elsewhere.
+knitr::knit_engines$set(mermaid = function(options) {
+  code <- paste(options$code, collapse = "\n")
+  if (!knitr::is_html_output()) {
+    return(knitr::engine_output(options, options$code, ""))
+  }
+  knitr::asis_output(paste0(
+    '<pre class="mermaid">\n', code, "\n</pre>\n",
+    '<script type="module">\n',
+    'import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";\n',
+    "mermaid.initialize({ startOnLoad: true });\n",
+    "</script>\n"
+  ))
+})
+```
+
+This vignette is the single mental-model entry point for bayesgrove: it lays
+out the moving parts once and shows how they connect. It is aimed at all
+audiences (practitioners, researchers, students); the case-study and
+reproducibility vignettes build on it.
+
+## The loop in one diagram
+
+```{mermaid}
+flowchart LR
+  N[Node + executor] --> S[Summary]
+  S --> O[Obligation]
+  O --> A[Action]
+  A --> D[Decision]
+  D --> H[Hold]
+  H --> N
+```
+
+Bayesgrove is a *guided* loop, not a fire-and-forget runner:
+
+1. A **node** pairs code (an *executor*) with a place in a dependency graph.
+2. Running a node produces an artifact and one or more **summaries** (typed
+   evidence: an HMC diagnostic, a posterior-predictive check, a LOO-PIT
+   calibration, an SBC rank histogram, ...).
+3. Workflow **packs** scan summaries and raise **obligations** — "this fit
+   has divergences, please review it", "this posterior-predictive p-value is
+   extreme", "this model has not been compared to its alternatives".
+4. Each obligation becomes an **action** the user can take (record a decision,
+   run a comparison node, add a branch).
+5. A **decision** is the user's recorded answer (choice + rationale). Until a
+   decision resolves a *blocking* obligation, the obligation places a **hold**
+   on downstream nodes.
+6. A **hold** stops a node from executing. Resolve the obligation and the hold
+   lifts; the loop advances.
+
+The defining claim of bayesgrove is step 3 → step 5 → step 6: **evidence
+forces a recorded judgment, and the judgment gates execution**. A node cannot
+run "past" a warning its operator never acknowledged.
+
+## What asks, what answers, what blocks
+
+| Concept      | Who produces it          | What it does                                            |
+|:-------------|:-------------------------|:--------------------------------------------------------|
+| **Node**     | The user                 | Pairs code with a graph slot.                           |
+| **Summary**  | A built-in executor      | Typed evidence (HMC, ppc, loo_pit, sbc, ...).           |
+| **Obligation**| A workflow pack         | A demand raised from a summary (severity: info / warning / blocking). |
+| **Action**   | A workflow pack          | A copy-pasteable call resolving the obligation.         |
+| **Decision** | The user                 | The recorded answer (choice + rationale).               |
+| **Hold**     | The engine               | Stops downstream execution until a blocking decision lands. |
+| **Gate**     | The user                 | A pre-planned checkpoint on an edge (distinct from evidence-driven obligations). |
+
+Obligations and gates overlap but are not the same: gates are *pre-planned*
+checkpoints the user authors on an edge ("review before fitting the
+hierarchical model"); obligations are *evidence-driven* and arise
+dynamically from summaries. Both can block.
+
+## Scopes
+
+Decisions and obligations carry a scope:
+
+- `project` — applies to the whole project.
+- `branch:<id>` — applies to a branch.
+
+A decision recorded on a branch does not satisfy a project-scope obligation,
+and vice versa. Use `bg_next_actions(handle)` to see what is outstanding at
+the relevant scope.
+
+## Evidence freshness
+
+A summary is *fresh* when its fingerprint matches the node's current
+configuration; it is *stale* when the node's params, upstream inputs, or
+environment changed since the summary was written. Packs consume fresh
+summaries by default; a stale summary produces no obligation until the node
+is rerun. Fingerprints pin the environment (Stan file hash, package
+versions, seeds) so "same node" is meaningful across sessions and machines.
+
+## Glossary
+
+| Term            | Meaning                                                              |
+|:----------------|:---------------------------------------------------------------------|
+| Artifact        | The persisted (content-addressed) output of running a node.          |
+| Executor        | The function bayesgrove calls with `(node, inputs)` to produce an artifact. |
+| Fingerprint     | A deterministic hash of a node's params + upstream + environment.     |
+| Pack            | A bundle of (matcher, evaluator) pairs that raise obligations.       |
+| Wave            | The set of nodes ready to execute simultaneously (inputs satisfied).  |
+| Hold            | A block on a node from an unresolved blocking obligation.            |
+
+See also: `?bayesgrove-concepts` (the help-topic version of this table),
+`vignette("getting-started")`, and `vignette("guided-review-loop")`.
+
+## Why not targets or workflowr?
+
+Reviewers and instructors ask, so the answer is in writing once:
+
+- **`targets`** caches computation (a build system for R analyses) but records
+  no *decisions*. It will happily re-run a model whose diagnostics you never
+  read. bayesgrove's claim is the enforced link between *evidence* (typed
+  summaries) and *recorded judgment* (decisions), so a node cannot run past a
+  warning its operator never acknowledged.
+
+- **`workflowr`** versions notebooks and renders reproducible HTML, but it
+  does not *read* diagnostics — it organizes a manual workflow. bayesgrove
+  reads the diagnostics, raises obligations from them, and gates execution
+  on the responses.
+
+bayesgrove composes with both (a `targets` pipeline can call `bg_run()`;
+`workflowr` can render a bayesgrove report), but its distinguishing job is
+*decision provenance*: an audit trail that ties every prior change to a
+rationale and every warning to a review.
