@@ -23,6 +23,7 @@ Imports:
     S7
 Remotes:
     sims1253/dagriculture
+Additional_repositories: https://stan-dev.r-universe.dev
 Suggests:
     bayesplot,
     brms,
