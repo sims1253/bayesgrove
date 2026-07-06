@@ -145,8 +145,9 @@ describe("Handoff and Export Layer", {
     manifest <- jsonlite::fromJSON(manifest_path[[1]])
     expect_equal(manifest$schema_name, "bg_bundle_manifest")
     # M8 item 5: reproducibility section captures R version + platform + pkgs.
+    # "^R " covers both "R version 4.x.y" and "R Under development (unstable)".
     expect_true(!is.null(manifest$reproducibility))
-    expect_match(manifest$reproducibility$r_version, "R version")
+    expect_match(manifest$reproducibility$r_version, "^R ")
     expect_true(nzchar(manifest$reproducibility$platform))
     expect_true(is.character(manifest$reproducibility$packages))
     expect_gte(length(manifest$reproducibility$packages), 1L)
