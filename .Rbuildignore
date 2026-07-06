@@ -10,7 +10,6 @@
 ^Meta$
 ^README\.Rmd$
 ^archive$
-^\.lintr$
 ^README\.html$
 ^tools/demo($|/)
 ^ROADMAP\.local\.md
