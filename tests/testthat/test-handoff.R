@@ -151,4 +151,96 @@ describe("Handoff and Export Layer", {
     expect_true(is.character(manifest$reproducibility$packages))
     expect_gte(length(manifest$reproducibility$packages), 1L)
   })
+
+  it("bundles the workflow state (summaries + registries)", {
+    # Regression: bundles used to omit .bayesgrove/workflow entirely, so a
+    # restored project lost its summaries, branches, and goals — the protocol
+    # half of the audit trail.
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      list(
+        result = 1,
+        summaries = list(list(
+          summary_kind = "custom_check",
+          passed = TRUE,
+          severity = "ok",
+          metrics = list(x = 1)
+        ))
+      )
+    })
+    bg_register_summary_kind(handle, "custom_check")
+    bg_add_node(handle, kind = "data", label = "A")
+    bg_run(handle)
+    expect_gte(length(bg_read_summaries(handle)), 1L)
+
+    bundle_path <- file.path(tmp, "wf_bundle.tar.gz")
+    bg_bundle(handle, bundle_path)
+
+    ex <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = ex)
+    summaries_path <- list.files(
+      ex,
+      pattern = "summaries.jsonl$",
+      recursive = TRUE,
+      all.files = TRUE,
+      full.names = TRUE
+    )
+    expect_length(summaries_path, 1L)
+    restored <- bg_open(dirname(dirname(dirname(summaries_path[[1]]))))
+    expect_gte(length(bg_read_summaries(restored)), 1L)
+    bg_close(restored)
+  })
+
+  it("warns on open when the bundle manifest environment mismatches", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_close(handle)
+
+    manifest <- list(
+      schema_name = "bg_bundle_manifest",
+      schema_version = 1,
+      reproducibility = list(
+        r_version = "R version 0.0.1 (1900-01-01)",
+        platform = "imaginary-arch",
+        cmdstan = NULL
+      )
+    )
+    jsonlite::write_json(
+      manifest,
+      file.path(tmp, ".bayesgrove", "bundle_manifest.json"),
+      auto_unbox = TRUE
+    )
+
+    expect_warning(
+      restored <- bg_open(tmp, readonly = TRUE),
+      "different environment"
+    )
+  })
+
+  it("embeds an unescaped mermaid block in the html report", {
+    # Regression: the mermaid <div>/<script> used to be appended before
+    # HTML-escaping, so the diagram rendered as literal text.
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      "data"
+    })
+    bg_add_node(handle, "data", label = "A")
+    bg_run(handle)
+
+    report_path <- bg_export_report(handle, path = "r.html", format = "html")
+    content <- paste(readLines(report_path), collapse = "\n")
+    expect_true(grepl('<div class="mermaid">', content, fixed = TRUE))
+    expect_false(grepl(
+      "&lt;div class=&quot;mermaid&quot;&gt;",
+      content,
+      fixed = TRUE
+    ))
+
+    md_path <- bg_export_report(handle, path = "r.md", format = "md")
+    md <- readLines(md_path)
+    expect_true(any(grepl("^```mermaid$", md)))
+  })
 })

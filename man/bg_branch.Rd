@@ -4,7 +4,13 @@
 \alias{bg_branch}
 \title{Branch a node in the bayesgrove project graph}
 \usage{
-bg_branch(project, node_id, label = NULL, copy_params = TRUE)
+bg_branch(
+  project,
+  node_id,
+  label = NULL,
+  copy_params = TRUE,
+  continue = character()
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
@@ -14,10 +20,22 @@ bg_branch(project, node_id, label = NULL, copy_params = TRUE)
 \item{label}{Optional label for the new branched node.}
 
 \item{copy_params}{Whether to copy the parameters of the branched node (default: TRUE).}
+
+\item{continue}{Downstream continuation: \code{TRUE} clones all immediate
+children of \code{node_id} onto the branch (their inputs remapped to the
+branch root), a character vector clones only children of those node
+kinds (e.g. \code{c("check", "ppc")}), and the default \code{character()} (or
+\code{FALSE}) clones nothing. Only immediate children are cloned.}
 }
 \value{
-A \code{bg_branch_record}.
+A \code{bg_branch_record} list. It always carries a
+\verb{$continuation_nodes} entry: a named list (keyed by source node id) of
+\code{list(source_id, clone_id, kind, label)} records for each cloned child,
+empty when \code{continue} requested none.
 }
 \description{
-Clones an existing node and its upstream dependencies (edges) to create a new branch.
+Clones an existing node and its upstream dependencies (edges) to create a
+new branch. With \code{continue}, immediate downstream nodes are cloned too, so
+a branched fit flows into fresh diagnostic or comparison nodes instead of
+the originals.
 }

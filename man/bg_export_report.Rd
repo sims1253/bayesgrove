@@ -21,6 +21,9 @@ bg_export_report(
 
 \item{out_file}{Deprecated alias for \code{path}.}
 }
+\value{
+The path to the written report file.
+}
 \description{
 Generate a reproducible markdown report of the workflow
 }

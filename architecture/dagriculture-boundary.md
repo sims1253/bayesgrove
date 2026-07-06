@@ -38,3 +38,20 @@ semantics; their bayesgrove tests were duplicate coverage of dagriculture's
 own suite and were slimmed to a single pass-through smoke test. The
 `dagriculture` version pin was raised to `>=0.3.0` to require the moved
 exports.
+
+## Decision note: a generic execution layer? (recorded, not implemented)
+
+The larger open question is whether the execution substrate —
+fingerprinting, the content-addressed artifact store, run-plan state
+derivation, and the jobs log — should also migrate into dagriculture as a
+generic execution layer, leaving bayesgrove purely semantic (summaries,
+obligations, decisions, holds).
+
+Recommendation: **yes, eventually — but only once a second consumer
+exists.** Those subsystems are already graph-generic in shape (nothing in
+the CAS or the fingerprint algebra mentions Bayesian concepts), so the move
+is mechanically feasible. Extracting them today, however, would freeze their
+interfaces against a single consumer's needs and double the release
+coordination cost for no present benefit. The trigger for revisiting is a
+second package that wants cached, fingerprinted graph execution without the
+review protocol.

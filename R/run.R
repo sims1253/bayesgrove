@@ -31,8 +31,8 @@ bg_check_artifact <- function(
 #'
 #' Writes the blob to the content-addressed store and binds it in the artifact
 #' index (superseding prior bindings for the node). Thin wrapper over
-#' [bg_store_cas_blob] (the idempotent, atomic blob write) and
-#' [bg_bind_artifact_index] (the locked index update) so callers that want both
+#' `bg_store_cas_blob` (the idempotent, atomic blob write) and
+#' `bg_bind_artifact_index` (the locked index update) so callers that want both
 #' at once — the sequential execution path — get the historical behavior. The
 #' parallel path splits them: a worker writes the blob; the main process binds
 #' the index (single-writer invariant).
@@ -47,7 +47,7 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
 
 #' Bind an artifact ref in the index, superseding prior node bindings.
 #'
-#' The index-writing half of [bg_store_artifact], split out so the parallel
+#' The index-writing half of `bg_store_artifact`, split out so the parallel
 #' scheduler can have workers write blobs (idempotent, atomic) while the main
 #' process — the single writer of the index — performs this binding after a
 #' wave resolves. Runs under the artifact-index file lock.
@@ -647,37 +647,46 @@ bg_run <- function(
       }
     }
 
-    # Fold summaries into run state + record artifacts into the plan. Abort the
-    # run on the first failed node (mirrors the pre-wave-loop behavior).
+    # Abort the run after this wave if any node failed (mirrors the
+    # pre-wave-loop behavior). Mark every failed parallel job first —
+    # sequential bg_execute_node already updates its own job, but workers do
+    # not, and a wave can contain several failures; none may be left "running".
+    failed_nodes <- Filter(function(id) !isTRUE(results[[id]]$ok), wave)
+    for (node_id in failed_nodes) {
+      res <- results[[node_id]]
+      if (isTRUE(res$worker_origin)) {
+        bg_update_job(
+          project,
+          wave_jobs[[node_id]],
+          status = "failed",
+          error = list(message = res$error$message),
+          finished_at = bg_now_timestamp()
+        )
+      }
+    }
+    if (length(failed_nodes) > 0) {
+      first_error <- results[[failed_nodes[[1]]]]$error
+      return(bg_build_run_handle(
+        run_id = run_id,
+        status = "failed",
+        targets = plan$targets,
+        job_ids = job_ids,
+        submitted_at = run_started_at,
+        started_at = run_started_at,
+        finished_at = bg_now_timestamp(),
+        summary = list(
+          total_executed = num_executed - length(failed_nodes)
+        ),
+        error = list(message = first_error$message),
+        metadata = list(
+          held_by_policy = plan$held_by_policy %||% list()
+        )
+      ))
+    }
+
+    # Fold summaries into run state + record artifacts into the plan.
     for (node_id in wave) {
       res <- results[[node_id]]
-      if (!isTRUE(res$ok)) {
-        # Ensure the job reflects the failure (parallel workers do not update
-        # jobs; sequential bg_execute_node already did).
-        if (isTRUE(res$worker_origin)) {
-          bg_update_job(
-            project,
-            wave_jobs[[node_id]],
-            status = "failed",
-            error = list(message = res$error$message),
-            finished_at = bg_now_timestamp()
-          )
-        }
-        return(bg_build_run_handle(
-          run_id = run_id,
-          status = "failed",
-          targets = plan$targets,
-          job_ids = job_ids,
-          submitted_at = run_started_at,
-          started_at = run_started_at,
-          finished_at = bg_now_timestamp(),
-          summary = list(total_executed = num_executed - 1L),
-          error = list(message = res$error$message),
-          metadata = list(
-            held_by_policy = plan$held_by_policy %||% list()
-          )
-        ))
-      }
 
       plan <- bg_run_plan_record_artifact(plan, node_id, res$ref)
 
@@ -736,7 +745,7 @@ bg_run <- function(
 
 #' Run a node's executor and normalize the result (no persistence).
 #'
-#' Pure executor invocation shared by the sequential [bg_execute_node] path and
+#' Pure executor invocation shared by the sequential `bg_execute_node` path and
 #' the parallel wave worker: given the node (with `$resolved$data` already
 #' attached for `cas:` data refs), the resolved input artifacts, and the kind
 #' registry entry, call the executor and normalize what it returns into

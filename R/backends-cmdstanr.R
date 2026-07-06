@@ -615,8 +615,9 @@ bg_executor_ppc <- function(node, inputs) {
   # in the artifact; the summary carries only the scalar metrics.
   max_yrep_rows <- node$params$max_yrep_rows %||% 100L
   yrep_rows <- if (nrow(yrep) > max_yrep_rows) {
-    # Evenly-spaced row indices across the posterior draws.
-    seq.int(1L, nrow(yrep), length.out = max_yrep_rows)
+    # Evenly-spaced integer row indices across the posterior draws (round,
+    # don't rely on fractional-index truncation).
+    unique(round(seq.int(1L, nrow(yrep), length.out = max_yrep_rows)))
   } else {
     seq_len(nrow(yrep))
   }
@@ -639,7 +640,7 @@ bg_executor_ppc <- function(node, inputs) {
 #' For each observation `y_i`, PIT_i is the value of the leave-one-out
 #' posterior-predictive CDF at `y_i`, computed from the PSIS-LOO weights applied
 #' to the posterior-predictive draws (`yrep`). If the model is well calibrated,
-#' the PIT values are uniformly distributed on [0, 1]. The executor emits a
+#' the PIT values are uniformly distributed on \[0, 1\]. The executor emits a
 #' `loo_pit_calibration` summary whose severity reflects a Kolmogorov–Smirnov
 #' distance of the empirical PIT distribution from Uniformity, and stores the
 #' plot-ready PIT vector + observed `y` in the artifact (for a PIT ECDF or
@@ -673,9 +674,11 @@ bg_executor_loo_pit <- function(node, inputs) {
   }
 
   draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
+  draws_array <- bg_extract_draws(fit_artifact, as = "array")
   log_lik_var <- node$params$log_lik_var %||% "log_lik"
   ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
   ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
+  ll_array <- draws_array[,, ll_cols, drop = FALSE]
   if (ncol(ll_draws) == 0) {
     cli::cli_abort(
       "No draws matching {.val {log_lik_var}} found in the fit for {.field loo_pit}."
@@ -711,7 +714,13 @@ bg_executor_loo_pit <- function(node, inputs) {
 
   # PSIS-LOO weights per observation (draws x observations). loo::psis takes the
   # importance ratios for LOO (=-log_lik) and returns smoothed log weights.
-  psis_obj <- loo::psis(-ll_draws)
+  # r_eff follows loo::loo()'s convention (relative ESS of exp(log_lik) from
+  # chain-shaped draws); without it psis() warns on every run.
+  r_eff <- tryCatch(
+    loo::relative_eff(exp(ll_array)),
+    error = function(e) NULL
+  )
+  psis_obj <- loo::psis(-ll_draws, r_eff = r_eff)
   log_w <- psis_obj$log_weights
   # Normalize columns: exp(log_w - logsumexp) per observation.
   weights <- apply(log_w, 2L, function(col) {
@@ -766,7 +775,7 @@ bg_executor_loo_pit <- function(node, inputs) {
 #' The KS statistic is the maximum absolute difference between the empirical CDF
 #' of the sample and the Uniform(0,1) CDF. Used to grade LOO-PIT calibration: a
 #' well-calibrated model has PIT values ~ Uniform(0,1), so KS near 0.
-#' @param x Numeric vector of values in [0, 1].
+#' @param x Numeric vector of values in \[0, 1\].
 #' @return The KS statistic (numeric scalar).
 #' @keywords internal
 #' @noRd
@@ -787,7 +796,7 @@ bg_ks_uniform_stat <- function(x) {
 
 #' Grade LOO-PIT calibration severity from the KS distance to Uniformity.
 #'
-#' @param pit PIT values in [0,1].
+#' @param pit PIT values in \[0, 1\].
 #' @param ks_warn Warn above this KS distance (default 0.10).
 #' @param ks_error Error above this KS distance (default 0.15).
 #' @return One of "ok", "warning", "error".
@@ -833,7 +842,8 @@ bg_loo_pit_severity <- function(pit, ks_warn = 0.10, ks_error = 0.15) {
 #' @param node Params: `stan_file`, `data_fn` (source text of
 #'   `function(seed) list(theta=<scalar>, data=<list>)`), `theta_name`
 #'   (Stan parameter name to rank, default `"theta"`), `n_sims` (default 20L),
-#'   `chains`, `iter_warmup`, `iter_sampling`, `seed`, `n_bins` (default 20L).
+#'   `chains`, `iter_warmup`, `iter_sampling`, `seed`, `n_bins` (defaults to
+#'   `n_sims`).
 #' @param inputs Unused (the data_fn generator is self-contained source).
 #' @return `list(result=, summaries=)` with an `sbc_result` summary carrying the
 #'   rank histogram counts, chi-squared statistic, and severity.
@@ -888,6 +898,7 @@ bg_executor_sbc <- function(node, inputs) {
   model <- cmdstanr::cmdstan_model(stan_file = stan_file)
 
   ranks <- integer(n_sims)
+  n_draws_per_sim <- rep(NA_integer_, n_sims)
   for (i in seq_len(n_sims)) {
     sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + i else NULL
     gen <- data_fn(sim_seed)
@@ -936,6 +947,7 @@ bg_executor_sbc <- function(node, inputs) {
       next
     }
     # Rank: number of posterior draws <= theta_true (Talts et al. rank stat).
+    n_draws_per_sim[[i]] <- length(theta_draws)
     ranks[[i]] <- as.integer(sum(theta_draws <= theta_true))
   }
 
@@ -961,8 +973,11 @@ bg_executor_sbc <- function(node, inputs) {
     return(list(result = result, summaries = list(summary)))
   }
 
-  # Histogram of ranks into n_bins bins over [0, max_possible_rank].
-  max_rank <- max(valid_ranks)
+  # Histogram of ranks into n_bins bins over the full theoretical support
+  # [0, n_draws] (a rank can be any of 0..n_draws). Binning to the observed
+  # max rank instead would shrink the support and bias the chi-squared
+  # uniformity test anti-conservative.
+  max_rank <- max(n_draws_per_sim[!is.na(n_draws_per_sim)])
   breaks <- seq.int(0L, max_rank + 1L, length.out = n_bins + 1L)
   hist_counts <- as.integer(table(
     cut(valid_ranks, breaks = breaks, include.lowest = TRUE, right = FALSE)

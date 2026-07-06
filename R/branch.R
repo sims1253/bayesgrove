@@ -1,16 +1,34 @@
 #' Branch a node in the bayesgrove project graph
 #'
-#' Clones an existing node and its upstream dependencies (edges) to create a new branch.
+#' Clones an existing node and its upstream dependencies (edges) to create a
+#' new branch. With `continue`, immediate downstream nodes are cloned too, so
+#' a branched fit flows into fresh diagnostic or comparison nodes instead of
+#' the originals.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The ID of the node to branch.
 #' @param label Optional label for the new branched node.
 #' @param copy_params Whether to copy the parameters of the branched node (default: TRUE).
+#' @param continue Downstream continuation: `TRUE` clones all immediate
+#'   children of `node_id` onto the branch (their inputs remapped to the
+#'   branch root), a character vector clones only children of those node
+#'   kinds (e.g. `c("check", "ppc")`), and the default `character()` (or
+#'   `FALSE`) clones nothing. Only immediate children are cloned.
 #'
-#' @return A `bg_branch_record`.
+#' @return A `bg_branch_record` list. It always carries a
+#'   `$continuation_nodes` entry: a named list (keyed by source node id) of
+#'   `list(source_id, clone_id, kind, label)` records for each cloned child,
+#'   empty when `continue` requested none.
 #' @export
-bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
+bg_branch <- function(
+  project,
+  node_id,
+  label = NULL,
+  copy_params = TRUE,
+  continue = character()
+) {
   S7::check_is_S7(project, bg_handle)
+  continuation <- bg_branch_resolve_continue(continue)
 
   graph <- bg_read_graph(project)
 
@@ -58,57 +76,65 @@ bg_branch <- function(project, node_id, label = NULL, copy_params = TRUE) {
     metadata = list(copy_params = isTRUE(copy_params))
   )
 
+  record$continuation_nodes <- if (continuation$clone) {
+    bg_branch_continuation_clones(
+      project,
+      branch = record,
+      node_id = node_id,
+      continuation_kinds = continuation$kinds
+    )
+  } else {
+    list()
+  }
+
   record
 }
 
-#' Branch a node with downstream continuation
+#' Normalize the `continue` argument of [bg_branch].
 #'
-#' Creates a branch from a node and optionally clones immediate downstream
-#' nodes to establish a continuation path. This is a narrowly scoped helper
-#' for guided workflows where a branched fit should flow into downstream
-#' diagnostic or comparison nodes.
+#' @return `list(clone = <logical>, kinds = NULL | character())`; `kinds =
+#'   NULL` means "all immediate children".
+#' @keywords internal
+#' @noRd
+bg_branch_resolve_continue <- function(continue) {
+  if (isTRUE(continue)) {
+    return(list(clone = TRUE, kinds = NULL))
+  }
+  if (is.null(continue) || isFALSE(continue)) {
+    return(list(clone = FALSE, kinds = NULL))
+  }
+  if (is.character(continue)) {
+    if (length(continue) == 0) {
+      return(list(clone = FALSE, kinds = NULL))
+    }
+    return(list(clone = TRUE, kinds = continue))
+  }
+  cli::cli_abort(
+    "{.arg continue} must be TRUE, FALSE, or a character vector of node kinds."
+  )
+}
+
+#' Clone immediate downstream nodes of a freshly created branch.
+#'
+#' The continuation half of [bg_branch]: clones the immediate children of the
+#' branched source node, remapping their inputs from the source lineage to
+#' the branch root (inputs external to the branch are kept as-is).
 #'
 #' @param project A `bg_handle`.
-#' @param node_id The ID of the node to branch.
-#' @param label Optional label for the new branched node.
-#' @param copy_params Whether to copy the parameters of the branched node (default: TRUE).
-#' @param continuation_kinds Character vector of node kinds to clone downstream.
-#'   If NULL (default), clones all immediate children. If empty, behaves like
-#'   `bg_branch()` with no continuation.
-#' @param continuation_depth How many levels of downstream nodes to clone.
-#'   Only 1 (immediate children) is supported in v1.
-#'
-#' @return A list containing the `branch` record and `continuation_nodes`
-#'   mapping source node IDs to their cloned counterparts.
-#' @seealso [bg_branch], which will eventually absorb continuation via a
-#'   `continue = character()` argument. `bg_branch_with_continuation` is
-#'   soft-deprecated for that merge; prefer the long name only while the merge
-#'   is pending.
-#' @export
-bg_branch_with_continuation <- function(
+#' @param branch The just-registered branch record (root + branch id).
+#' @param node_id The source node the branch was created from.
+#' @param continuation_kinds Character vector of node kinds to clone, or NULL
+#'   to clone all immediate children.
+#' @return Named list (by source node id) of continuation records:
+#'   `list(source_id, clone_id, kind, label)`.
+#' @keywords internal
+#' @noRd
+bg_branch_continuation_clones <- function(
   project,
+  branch,
   node_id,
-  label = NULL,
-  copy_params = TRUE,
-  continuation_kinds = NULL,
-  continuation_depth = 1L
+  continuation_kinds = NULL
 ) {
-  S7::check_is_S7(project, bg_handle)
-
-  if (!identical(continuation_depth, 1L)) {
-    cli::cli_abort(
-      "Only {.val continuation_depth = 1} is supported in the current version."
-    )
-  }
-
-  # Create the base branch first
-  branch <- bg_branch(
-    project = project,
-    node_id = node_id,
-    label = label,
-    copy_params = copy_params
-  )
-
   graph <- bg_read_graph(project)
   continuation_nodes <- list()
 
@@ -116,10 +142,7 @@ bg_branch_with_continuation <- function(
   downstream_edges <- bg_dagri_outgoing_edges(graph, node_id)
 
   if (length(downstream_edges) == 0) {
-    return(list(
-      branch = branch,
-      continuation_nodes = continuation_nodes
-    ))
+    return(continuation_nodes)
   }
 
   # Group edges by target node to handle multiple edges to the same node
@@ -137,10 +160,7 @@ bg_branch_with_continuation <- function(
   }
 
   if (length(targets) == 0) {
-    return(list(
-      branch = branch,
-      continuation_nodes = continuation_nodes
-    ))
+    return(continuation_nodes)
   }
 
   # Build a mapping from source node IDs to their cloned counterparts
@@ -219,8 +239,69 @@ bg_branch_with_continuation <- function(
 
   bg_commit_graph(project, graph)
 
+  continuation_nodes
+}
+
+#' Branch a node with downstream continuation (deprecated)
+#'
+#' Deprecated: use [bg_branch()] with the `continue` argument instead —
+#' `continue = TRUE` clones all immediate children, a character vector clones
+#' only children of those kinds. This wrapper delegates to [bg_branch()] and
+#' returns the historical `list(branch, continuation_nodes)` shape; it warns
+#' once per session and will be removed in a future release.
+#'
+#' @param project A `bg_handle`.
+#' @param node_id The ID of the node to branch.
+#' @param label Optional label for the new branched node.
+#' @param copy_params Whether to copy the parameters of the branched node (default: TRUE).
+#' @param continuation_kinds Character vector of node kinds to clone downstream.
+#'   If NULL (default), clones all immediate children. If empty, behaves like
+#'   `bg_branch()` with no continuation.
+#' @param continuation_depth How many levels of downstream nodes to clone.
+#'   Only 1 (immediate children) is supported.
+#'
+#' @return A list containing the `branch` record and `continuation_nodes`
+#'   mapping source node IDs to their cloned counterparts.
+#' @seealso [bg_branch()]
+#' @export
+bg_branch_with_continuation <- function(
+  project,
+  node_id,
+  label = NULL,
+  copy_params = TRUE,
+  continuation_kinds = NULL,
+  continuation_depth = 1L
+) {
+  S7::check_is_S7(project, bg_handle)
+
+  if (!identical(continuation_depth, 1L)) {
+    cli::cli_abort(
+      "Only {.val continuation_depth = 1} is supported in the current version."
+    )
+  }
+
+  cli::cli_warn(
+    c(
+      "!" = "{.fn bg_branch_with_continuation} is deprecated as of bayesgrove 0.7.0.",
+      "i" = "Use {.code bg_branch(project, node_id, continue = )} instead: {.code continue = TRUE} clones all immediate children, a character vector clones matching kinds."
+    ),
+    .frequency = "once",
+    .frequency_id = "bg_branch_with_continuation-deprecated"
+  )
+
+  record <- bg_branch(
+    project = project,
+    node_id = node_id,
+    label = label,
+    copy_params = copy_params,
+    continue = if (is.null(continuation_kinds)) TRUE else continuation_kinds
+  )
+
+  continuation_nodes <- record$continuation_nodes %||% list()
+  record$continuation_nodes <- NULL
+
   list(
-    branch = branch,
+    branch = record,
     continuation_nodes = continuation_nodes
   )
 }

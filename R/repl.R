@@ -24,6 +24,7 @@
 #'   \item `dashboard`: show the guided operator dashboard
 #'   \item `status`: print workflow state and health
 #'   \item `guide`: show active obligations and suggested actions
+#'   \item `explain <n>`: show an obligation's rationale and references
 #'   \item `actions`: list actionable protocol suggestions with payload details
 #'   \item `next`: preview and optionally execute the top suggested action
 #'   \item `do <n>`: execute the nth suggested action
@@ -185,6 +186,18 @@ bg_repl <- function(project, initial_scope = NULL) {
           },
           "guide" = {
             bg_repl_print_guide(project, state$scope)
+          },
+          "explain" = {
+            if (length(args) == 0 || trimws(args) == "") {
+              cli::cli_abort(
+                "Provide an obligation number. Use `guide` to list obligations."
+              )
+            }
+            idx <- as.integer(trimws(args))
+            if (is.na(idx) || idx < 1) {
+              cli::cli_abort("Invalid obligation number.")
+            }
+            bg_repl_explain_obligation(project, state$scope, idx)
           },
           "actions" = {
             bg_repl_print_actions(project, state$scope)

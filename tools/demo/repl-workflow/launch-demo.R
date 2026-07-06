@@ -122,10 +122,15 @@ bg_demo_build_base <- function(project_root) {
 }
 
 bg_demo_warn_branch <- function(handle, n_fit) {
-  centered_branch <- bg_branch_with_continuation(
+  centered_record <- bg_branch(
     project = handle,
     node_id = n_fit,
-    label = "Alternative: Robust Prior"
+    label = "Alternative: Robust Prior",
+    continue = TRUE
+  )
+  centered_branch <- list(
+    branch = centered_record,
+    continuation_nodes = centered_record$continuation_nodes
   )
 
   bg_update_node(
@@ -164,11 +169,15 @@ bg_demo_warn_branch <- function(handle, n_fit) {
 }
 
 bg_demo_revision_branch <- function(handle, warning_branch) {
-  revised <- bg_branch_with_continuation(
+  revised_record <- bg_branch(
     project = handle,
     node_id = warning_branch$branch$root_node_id,
     label = "Alternative: Robust Prior (fixed)",
-    continuation_kinds = c("ppc")
+    continue = c("ppc")
+  )
+  revised <- list(
+    branch = revised_record,
+    continuation_nodes = revised_record$continuation_nodes
   )
 
   bg_update_node(

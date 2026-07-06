@@ -192,9 +192,13 @@ bg_register_node_kind <- function(
       project@registries$node_kinds <- list()
     }
 
+    # Carry the serialized source on the in-memory entry too (not only in the
+    # on-disk manifest), so parallel dispatch can rebuild a daemon-safe closure
+    # from source in the same session the executor was registered.
     project@registries$node_kinds[[kind]] <- list(
       name = kind,
-      executor = executor
+      executor = executor,
+      executor_source = bg_serialize_registration_function(executor)
     )
   }
 

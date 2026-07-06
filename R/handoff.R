@@ -99,8 +99,10 @@ bg_bundle <- function(
   # We do NOT just copy the whole folder because we want to filter large artifacts
   dir.create(file.path(dest_proj_dir, ".bayesgrove"), recursive = TRUE)
 
-  # Copy graph, decisions, runs, and config
-  for (sub in c("graph", "decisions", "runs", "config.json")) {
+  # Copy graph, decisions, runs, workflow state (summaries JSONL + branch and
+  # goal registries — without these a restored bundle loses its protocol
+  # state: obligations, holds, and branches), and config.
+  for (sub in c("graph", "decisions", "runs", "workflow", "config.json")) {
     src_path <- file.path(project@path, ".bayesgrove", sub)
     if (file.exists(src_path)) {
       file.copy(
@@ -140,12 +142,22 @@ bg_bundle <- function(
         })
       )
 
+      # Kinds whose artifacts are large model fits: the generic "fit"/"compile"
+      # kinds from bg_use_default_workflow plus the real backend fit kinds.
+      fit_kinds <- c(
+        "fit",
+        "compile",
+        "cmdstanr_fit",
+        "brms_fit",
+        "prior_fit",
+        "brms_prior_fit"
+      )
       should_include <- TRUE
       if (
         !include_fits &&
           any(vapply(
             bound_graph_nodes,
-            function(node) node$kind %in% c("fit", "compile"),
+            function(node) node$kind %in% fit_kinds,
             logical(1)
           ))
       ) {
@@ -218,6 +230,7 @@ bg_bundle <- function(
 #' @param format Output format: markdown (`"md"`) or html (`"html"`).
 #' @param out_file Deprecated alias for `path`.
 #'
+#' @return The path to the written report file.
 #' @export
 bg_export_report <- function(
   project,
@@ -282,24 +295,16 @@ bg_export_report <- function(
     }
   }
 
-  # Embed the Mermaid flowchart (Milestone 7). In HTML it renders natively via
-  # the mermaid.js <script>; in Markdown it renders on GitHub/Quarto fenced.
-  mermaid <- tryCatch(bg_graph_mermaid(project), error = function(e) NULL)
-  if (!is.null(mermaid)) {
-    if (identical(format, "html")) {
-      lines <- c(
-        lines,
-        "",
-        '<div class="mermaid">',
-        mermaid,
-        "</div>",
-        '<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>',
-        "<script>mermaid.initialize({startOnLoad: true});</script>"
-      )
-    } else {
-      fenced <- c("```{mermaid}", mermaid, "```")
-      lines <- c(lines, "", "## DAG (Mermaid)", "", fenced)
-    }
+  # Embed the Mermaid flowchart (Milestone 7). In Markdown a ```mermaid fence
+  # renders on GitHub (and in Quarto). The HTML embed is appended AFTER the
+  # escaped <pre> block at write time below — it must not go through
+  # bg_escape_html, or the <div>/<script> tags render as literal text.
+  mermaid <- tryCatch(
+    as.character(bg_graph_mermaid(project)),
+    error = function(e) NULL
+  )
+  if (!is.null(mermaid) && !identical(format, "html")) {
+    lines <- c(lines, "", "## DAG (Mermaid)", "", "```mermaid", mermaid, "```")
   }
 
   # Add Decisions
@@ -379,11 +384,25 @@ bg_export_report <- function(
   }
 
   if (identical(format, "html")) {
+    mermaid_html <- if (!is.null(mermaid)) {
+      c(
+        '<h2>DAG (Mermaid)</h2>',
+        '<div class="mermaid">',
+        mermaid,
+        "</div>",
+        '<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>',
+        "<script>mermaid.initialize({startOnLoad: true});</script>"
+      )
+    } else {
+      character()
+    }
     html_lines <- c(
       "<!DOCTYPE html>",
       "<html><head><meta charset=\"utf-8\"><title>bayesgrove Workflow Report</title></head><body><pre>",
       bg_escape_html(paste(lines, collapse = "\n")),
-      "</pre></body></html>"
+      "</pre>",
+      mermaid_html,
+      "</body></html>"
     )
     writeLines(html_lines, path)
   } else {

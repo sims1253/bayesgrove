@@ -13,7 +13,7 @@ bg_jobs_log_path <- function(project) {
 
 #' Read all jobs from disk, bypassing the cache.
 #'
-#' Used by [bg_jobs_cache_get] to (re)populate the cache and as the
+#' Used by `bg_jobs_cache_get` to (re)populate the cache and as the
 #' authoritative fallback when the cache is stale or absent. Returns the
 #' deduplicated, last-record-wins view. The raw on-disk line count (number of
 #' append events) is read separately by the cache layer to avoid the O(lines)
@@ -45,12 +45,13 @@ bg_jobs_read_disk <- function(project) {
   jobs
 }
 
-#' Count non-blank lines in the jobs log (the number of append events).
+#' Count lines in the jobs log (the number of append events).
 #'
 #' This is the value passed to `bg_append_jsonl(known_line_count =)` so the
 #' next append's seq stamp skips its own O(lines) recount. Called only when the
 #' cache is (re)populated from disk, so it runs O(N) times total across a run
-#' rather than O(N^2).
+#' rather than O(N^2). Uses `readLines` (not `count.fields`) because JSON
+#' escapes quotes as `\"`, which field-based counting misparses.
 #' @param project A `bg_handle`.
 #' @return Integer line count (0 if the file does not exist).
 #' @keywords internal
@@ -60,7 +61,7 @@ bg_jobs_count_lines <- function(project) {
   if (!file.exists(log_path)) {
     return(0L)
   }
-  length(count.fields(log_path, sep = "\n", blank.lines.skip = FALSE))
+  length(readLines(log_path, warn = FALSE))
 }
 
 #' Read or refresh the per-handle jobs cache.
@@ -187,9 +188,14 @@ bg_log_job <- function(project, job_record) {
     cache$jobs
   }
   jobs[[job_record$job_id]] <- job_record
+  # bg_append_jsonl stamps seq = <lines before append> + 1, so the returned seq
+  # IS the new total line count. Using it here (instead of known_lines + 1)
+  # keeps the count correct when the cache was cold on a file that already had
+  # records: known_lines was NULL, the append recounted from disk, and seq
+  # reflects that authoritative count.
   state$jobs_cache <- list(
     jobs = jobs,
-    line_count = (known_lines %||% 0L) + 1L,
+    line_count = as.integer(seq),
     mtime = fi$mtime,
     size = as.numeric(fi$size)
   )

@@ -25,6 +25,18 @@ describe("bg_graph_mermaid (Milestone 7)", {
     text <- bg_graph_mermaid(handle, direction = "LR")
     expect_match(text, "^flowchart LR")
   })
+
+  it("returns a classed string whose print method emits the raw text", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) 1)
+    bg_add_node(handle, kind = "data", label = "A")
+
+    text <- bg_graph_mermaid(handle)
+    expect_s3_class(text, "bg_mermaid")
+    printed <- utils::capture.output(print(text))
+    expect_true(any(grepl("^flowchart TD", printed)))
+  })
 })
 
 describe("bg_plot dispatch (Milestone 7)", {

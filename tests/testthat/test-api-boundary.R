@@ -75,7 +75,7 @@ describe("API boundary registry completeness", {
 describe("API boundary registry integrity", {
   it("has only valid classification values", {
     registry <- bg_api_boundary()
-    valid_class <- c("stable", "experimental", "internal")
+    valid_class <- c("stable", "experimental", "internal", "deprecated")
     invalid <- setdiff(registry$classification, valid_class)
     expect_equal(
       length(invalid),

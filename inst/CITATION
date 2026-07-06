@@ -5,7 +5,7 @@ bibentry(
   title = "bayesgrove: Enforced Decision Tracking for Bayesian Workflows",
   author = person("Maximilian", "Scholz"),
   year = format(Sys.Date(), "%Y"),
-  note = "R package version {metaVersion}",
+  note = paste("R package version", meta$Version),
   url = "https://github.com/sims1253/bayesgrove"
 )
 
@@ -16,16 +16,17 @@ bibentry(
     person("Andrew", "Gelman"),
     person("Aki", "Vehtari"),
     person("Daniel", "Simpson"),
-    person("Daniel", "Bafumi"),
-    person("Charles-Carlier", "Berger"),
-    person("Houjun", "Sui"),
-    person("Lei", "Zheng"),
+    person(c("Charles", "C."), "Margossian"),
+    person("Bob", "Carpenter"),
+    person("Yuling", "Yao"),
     person("Lauren", "Kennedy"),
-    person("Rajesh", "Kumar"),
-    person("Yuling", "Yao")
+    person("Jonah", "Gabry"),
+    person("Paul-Christian", "Bürkner"),
+    person("Martin", "Modrák")
   ),
   year = "2020",
   journal = "arXiv preprint arXiv:2011.01808",
+  doi = "10.48550/arXiv.2011.01808",
   textVersion = paste(
     "Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B.,",
     "Yao, Y., Kennedy, L., Gabry, J., Buerkner, P.-C., & Modrak, M. (2020).",

@@ -24,12 +24,18 @@ navbar:
         href: articles/concepts.html
       - text: "Getting Started"
         href: articles/getting-started.html
+      - text: "Case Study: Eight Schools"
+        href: articles/eight-schools.html
       - text: "Simulation Study Workflow"
         href: articles/simulation-study.html
       - text: "Guided Review Loop"
         href: articles/guided-review-loop.html
       - text: "Primed Prior Case Studies"
         href: articles/primed-priors-case-studies.html
+      - text: "Reproducible Research"
+        href: articles/reproducible-research.html
+      - text: "Teaching with bayesgrove"
+        href: articles/teaching.html
       - text: "Extending bayesgrove"
         href: articles/extensions.html
     architecture:
@@ -43,8 +49,9 @@ navbar:
       href: articles/index.html
 
 reference:
-  - title: API Boundary
+  - title: Concepts & API Boundary
     contents:
+      - bayesgrove-concepts
       - bg_api_boundary
   - title: Project Lifecycle
     contents:
@@ -58,6 +65,9 @@ reference:
       - bg_connect
       - bg_update_node
       - bg_remove_node
+      - bg_set_node_data
+      - bg_read_graph
+      - bg_commit_graph
   - title: Execution & Orchestration
     contents:
       - bg_repl
@@ -72,6 +82,14 @@ reference:
       - bg_snapshot
       - bg_bundle
       - bg_export_report
+  - title: Practitioner Shortcuts
+    contents:
+      - bg_fit_stan
+      - bg_fit_brms
+  - title: Visualization
+    contents:
+      - bg_graph_mermaid
+      - bg_plot
   - title: Workflow Protocol
     contents:
       - bg_list_templates
@@ -121,6 +139,7 @@ articles:
   - title: "All Vignettes"
     desc: ~
     contents:
+      - "concepts"
       - "dagriculture-boundary"
       - "eight-schools"
       - "extensions"
@@ -128,3 +147,8 @@ articles:
       - "guided-review-loop"
       - "primed-priors-case-studies"
       - "simulation-study"
+  - title: "Articles"
+    desc: "pkgdown-only articles (not shipped in the package)."
+    contents:
+      - "articles/reproducible-research"
+      - "articles/teaching"

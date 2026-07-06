@@ -109,11 +109,15 @@ describe("Guided review loop case study", {
       inputs = baseline_fit_id
     )
 
-    warning_branch <- bg_branch_with_continuation(
+    warning_record <- bg_branch(
       project = handle,
       node_id = baseline_fit_id,
       label = "Centered branch",
-      continuation_kinds = "ppc"
+      continue = "ppc"
+    )
+    warning_branch <- list(
+      branch = warning_record,
+      continuation_nodes = warning_record$continuation_nodes
     )
     warning_fit_id <- warning_branch$branch$root_node_id
     warning_ppc_id <- warning_branch$continuation_nodes[[
@@ -139,11 +143,15 @@ describe("Guided review loop case study", {
       rationale = "This branch explores a questionable fit before accepting it."
     )
 
-    robust_branch <- bg_branch_with_continuation(
+    robust_record <- bg_branch(
       project = handle,
       node_id = baseline_fit_id,
       label = "Robust branch",
-      continuation_kinds = "ppc"
+      continue = "ppc"
+    )
+    robust_branch <- list(
+      branch = robust_record,
+      continuation_nodes = robust_record$continuation_nodes
     )
     robust_fit_id <- robust_branch$branch$root_node_id
     robust_ppc_id <- robust_branch$continuation_nodes[[
@@ -244,11 +252,15 @@ describe("Guided review loop case study", {
       metadata = criticism_action$payload[c("node_ids", "summary_ids")]
     )
 
-    repaired_branch <- bg_branch_with_continuation(
+    repaired_record <- bg_branch(
       project = handle,
       node_id = fixture$warning_fit_id,
       label = "Repaired branch",
-      continuation_kinds = "ppc"
+      continue = "ppc"
+    )
+    repaired_branch <- list(
+      branch = repaired_record,
+      continuation_nodes = repaired_record$continuation_nodes
     )
     repaired_fit_id <- repaired_branch$branch$root_node_id
 

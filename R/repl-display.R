@@ -494,6 +494,7 @@ bg_repl_help_lines <- function() {
     "dashboard   Show full workflow dashboard (status, guide, holds, decisions, gates)",
     "status      Show workflow state and key counts",
     "guide       Show active obligations and suggested actions",
+    "explain <n> Show an obligation's rationale and literature references",
     "actions     List suggested actions with details",
     "next        Preview and execute the top recommended action",
     "do <n>      Execute action by number",

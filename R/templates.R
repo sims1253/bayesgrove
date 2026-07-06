@@ -10,7 +10,7 @@
 #'
 #' @details Built-in templates are intentionally small and explicit. Some
 #'   create nodes directly, while others wrap narrow workflow macros such as
-#'   `bg_branch_with_continuation()` or `bg_record_decision()`. The guided REPL
+#'   `bg_branch(continue = )` or `bg_record_decision()`. The guided REPL
 #'   uses the same registry to execute template-backed actions.
 #' @export
 bg_list_templates <- function(template_ref = NULL) {
@@ -602,14 +602,13 @@ bg_execute_template_branch_and_modify_fit <- function(
     interactive = interactive
   )
 
-  result <- bg_branch_with_continuation(
+  branch <- bg_branch(
     project = project,
     node_id = source_node_id,
     label = label,
-    continuation_kinds = continuation_kinds
+    continue = if (is.null(continuation_kinds)) TRUE else continuation_kinds
   )
-  branch <- result$branch
-  continuation_nodes <- result$continuation_nodes
+  continuation_nodes <- branch$continuation_nodes %||% list()
   branch_root_id <- branch$root_node_id
 
   bg_update_branch_metadata(

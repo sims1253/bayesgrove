@@ -15,23 +15,25 @@
 #'
 #' @param project A `bg_handle`.
 #' @param direction Mermaid graph direction (default `"TD"`; also `"LR"`).
-#' @return Character scalar of Mermaid flowchart text (invisibly; also printed
-#'   via [cat]).
+#' @return A character scalar of Mermaid flowchart text with class
+#'   `bg_mermaid`, whose print method renders the raw text (so the result is
+#'   copy-pasteable at the console and embeddable as a string).
 #' @export
 bg_graph_mermaid <- function(project, direction = "TD") {
   S7::check_is_S7(project, bg_handle)
 
-  # The graph carries recomputed state (cached/ready/blocked) plus any plan
-  # holds. Pull a status snapshot so the per-node class reflects the current
-  # wave/hold state without a separate plan computation for a render.
+  # The graph carries recomputed state (cached/ready/failed); protocol holds
+  # and structural blockers come from the refreshed run plan. The workflow
+  # bundle computes graph + plan + holds once (same cost as one bg_status()
+  # call, which builds the same bundle internally).
   graph <- bg_dagri_recompute_state(bg_read_graph(project))
-  status <- tryCatch(bg_status(project), error = function(e) NULL)
+  bundle <- tryCatch(bg_workflow_bundle(project), error = function(e) NULL)
 
   held_nodes <- character()
   blocked_nodes <- character()
-  if (!is.null(status)) {
-    held_nodes <- names(status$held_by_policy %||% list())
-    blocked_nodes <- status$blocked_nodes %||% character()
+  if (!is.null(bundle)) {
+    held_nodes <- names(bundle$plan$held_by_policy %||% list())
+    blocked_nodes <- names(bundle$plan$blocked %||% list())
   }
 
   node_label <- function(node) {
@@ -65,27 +67,35 @@ bg_graph_mermaid <- function(project, direction = "TD") {
     direction = direction
   )
 
-  cat(text)
-  invisible(text)
+  structure(text, class = c("bg_mermaid", "character"))
+}
+
+#' @method print bg_mermaid
+#' @export
+print.bg_mermaid <- function(x, ...) {
+  cat(x, sep = "\n")
+  invisible(x)
 }
 
 #' Plot a node's artifact or diagnostics
 #'
-#' S3-dispatches on the node's artifact/summary kind to a [bayesplot] method
-#' (a soft dependency). Methods shipped:
-#' - `ppc`: `bayesplot::ppc_dens_overlay` on the stored plot-ready data.
-#' - `loo_pit`: an empirical-CDF PIT plot.
-#' - `sbc`: a rank histogram.
-#' - `cmdstanr_fit` / `brms_fit` with a warning-severity HMC summary:
-#'   `bayesplot::mcmc_trace` over the draws.
+#' Selects a plot based on the node's kind:
+#' - `ppc`: [bayesplot::ppc_dens_overlay()] on the stored plot-ready data.
+#' - `loo_pit`: a base-graphics PIT ECDF plot against the Uniform CDF.
+#' - `sbc`: a base-graphics rank histogram.
+#' - `cmdstanr_fit` / `brms_fit`: [bayesplot::mcmc_trace()] over the draws.
 #'
-#' Aborts with an informative message when bayesplot is missing or the node
-#' kind has no plot method.
+#' The bayesplot-backed kinds need the `bayesplot` package (a soft
+#' dependency); the function aborts with an informative message when it is
+#' missing or the node kind has no plot.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The node to plot.
-#' @param ... Passed to the underlying bayesplot method.
-#' @return Invisibly, the bayesplot object (a ggplot).
+#' @param ... Passed to the underlying bayesplot function (ignored for the
+#'   base-graphics kinds).
+#' @return For `ppc` and fit kinds, the bayesplot ggplot object. For
+#'   `loo_pit` and `sbc`, `NULL` invisibly (the plot is drawn as a side
+#'   effect).
 #' @export
 bg_plot <- function(project, node_id, ...) {
   S7::check_is_S7(project, bg_handle)
@@ -162,8 +172,6 @@ bg_plot <- function(project, node_id, ...) {
     pit <- sort(plot_data$pit_values)
     n <- length(pit)
     emp <- seq_len(n) / n
-    old_par <- graphics::par(no.readonly = TRUE)
-    on.exit(graphics::par(old_par))
     graphics::plot(
       pit,
       emp,
@@ -183,8 +191,6 @@ bg_plot <- function(project, node_id, ...) {
     if (is.null(plot_data)) {
       cli::cli_abort("Node {.val {node_id}} has no plot-ready SBC rank data.")
     }
-    old_par <- graphics::par(no.readonly = TRUE)
-    on.exit(graphics::par(old_par))
     graphics::barplot(
       plot_data$rank_histogram,
       main = "SBC rank histogram",

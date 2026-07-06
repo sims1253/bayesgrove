@@ -2,6 +2,7 @@
 
 S3method(print,bg_decision_record)
 S3method(print,bg_handle)
+S3method(print,bg_mermaid)
 S3method(print,bg_next_actions_result)
 S3method(print,bg_run_handle)
 S3method(print,dagriculture_graph)

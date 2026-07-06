@@ -11,7 +11,7 @@ NULL
 #' classification.
 #'
 #' @return A data.frame with columns: `fn` (function name) and `classification`
-#'   (`stable`, `experimental`, or `internal`).
+#'   (`stable`, `experimental`, `internal`, or `deprecated`).
 #'
 #' @keywords internal
 bg_build_api_boundary_registry <- function() {
@@ -35,7 +35,7 @@ bg_build_api_boundary_registry <- function() {
 
     # === Stable: Branching ===
     list(fn = "bg_branch", classification = "stable"),
-    list(fn = "bg_branch_with_continuation", classification = "experimental"),
+    list(fn = "bg_branch_with_continuation", classification = "deprecated"),
     list(fn = "bg_branch_lineage", classification = "stable"),
     list(fn = "bg_list_branches", classification = "stable"),
     list(fn = "bg_retire_node", classification = "stable"),
@@ -121,14 +121,15 @@ bg_build_api_boundary_registry <- function() {
 #' Query the bayesgrove API boundary
 #'
 #' Returns the API classification registry for all exported `bg_*` functions.
-#' Each function is classified as `stable`, `experimental`, or `internal`.
+#' Each function is classified as `stable`, `experimental`, `internal`, or
+#' `deprecated`.
 #'
 #' @param fn Optional function name to filter by. If `NULL`, returns all entries.
 #'
 #' @return A data.frame with columns:
 #' \describe{
 #'   \item{fn}{Function name (character)}
-#'   \item{classification}{One of `stable`, `experimental`, or `internal`}
+#'   \item{classification}{One of `stable`, `experimental`, `internal`, or `deprecated`}
 #' }
 #'
 #' @details
@@ -140,10 +141,13 @@ bg_build_api_boundary_registry <- function() {
 #'     execution control, status/results, and established workflow entry points.
 #'   \item `experimental`: Newer or provisional APIs that may evolve.
 #'     Includes workflow protocol/context/template surfaces, REPL, and
-#'     newer branch continuation helpers.
+#'     practitioner sugar helpers.
 #'   \item `internal`: Technically exported for worker/process reasons
 #'     but not intended as ergonomic user-facing API. Includes artifact helpers,
 #'     job primitives, and backend registration.
+#'   \item `deprecated`: Kept for backward compatibility for one release;
+#'     warns on use and names its replacement. Currently
+#'     `bg_branch_with_continuation()` (use `bg_branch(continue = )`).
 #' }
 #'
 #' @export
@@ -179,7 +183,7 @@ bg_api_boundary <- function(fn = NULL) {
 #' @return Character vector of valid classifications.
 #' @keywords internal
 bg_valid_classifications <- function() {
-  c("stable", "experimental", "internal")
+  c("stable", "experimental", "internal", "deprecated")
 }
 
 #' Validate API boundary registry integrity

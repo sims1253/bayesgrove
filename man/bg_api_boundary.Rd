@@ -13,12 +13,13 @@ bg_api_boundary(fn = NULL)
 A data.frame with columns:
 \describe{
 \item{fn}{Function name (character)}
-\item{classification}{One of \code{stable}, \code{experimental}, or \code{internal}}
+\item{classification}{One of \code{stable}, \code{experimental}, \code{internal}, or \code{deprecated}}
 }
 }
 \description{
 Returns the API classification registry for all exported \verb{bg_*} functions.
-Each function is classified as \code{stable}, \code{experimental}, or \code{internal}.
+Each function is classified as \code{stable}, \code{experimental}, \code{internal}, or
+\code{deprecated}.
 }
 \details{
 \subsection{Classification Meanings}{
@@ -29,10 +30,13 @@ Includes project lifecycle, graph editing, branching, decisions,
 execution control, status/results, and established workflow entry points.
 \item \code{experimental}: Newer or provisional APIs that may evolve.
 Includes workflow protocol/context/template surfaces, REPL, and
-newer branch continuation helpers.
+practitioner sugar helpers.
 \item \code{internal}: Technically exported for worker/process reasons
 but not intended as ergonomic user-facing API. Includes artifact helpers,
 job primitives, and backend registration.
+\item \code{deprecated}: Kept for backward compatibility for one release;
+warns on use and names its replacement. Currently
+\code{bg_branch_with_continuation()} (use \code{bg_branch(continue = )}).
 }
 }
 }

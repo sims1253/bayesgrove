@@ -182,6 +182,24 @@ describe("bg_prepare_executor_for_ship (crating)", {
     expect_identical(out$fn, fn)
   })
 
+  it("registry entries from bg_register_node_kind carry executor_source", {
+    # Regression: the in-memory registry entry used to hold only (name,
+    # executor), so parallel dispatch could never rebuild from source in the
+    # session the executor was registered and warned on every wave.
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      list(x = 1)
+    })
+    entry <- handle@registries$node_kinds[["data"]]
+    expect_true(is.character(entry$executor_source))
+    expect_true(nzchar(entry$executor_source))
+    out <- expect_no_warning(
+      bayesgrove:::bg_prepare_executor_for_ship(entry, "data")
+    )
+    expect_true(isTRUE(out$rebuilt_from_source))
+  })
+
   it("rebuilds a user executor from its persisted source when available", {
     # A self-contained executor defined as source text (as bg_register_node_kind
     # would persist it). Rebuilding from source yields a daemon-safe closure

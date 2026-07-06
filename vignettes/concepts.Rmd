@@ -9,6 +9,22 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+
+# knitr has no built-in mermaid engine (that is Quarto); register one that
+# emits a client-rendered diagram in HTML output and the raw text elsewhere.
+knitr::knit_engines$set(mermaid = function(options) {
+  code <- paste(options$code, collapse = "\n")
+  if (!knitr::is_html_output()) {
+    return(knitr::engine_output(options, options$code, ""))
+  }
+  knitr::asis_output(paste0(
+    '<pre class="mermaid">\n', code, "\n</pre>\n",
+    '<script type="module">\n',
+    'import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";\n',
+    "mermaid.initialize({ startOnLoad: true });\n",
+    "</script>\n"
+  ))
+})
 ```
 
 This vignette is the single mental-model entry point for bayesgrove: it lays

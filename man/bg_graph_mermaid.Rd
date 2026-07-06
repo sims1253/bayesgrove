@@ -12,8 +12,9 @@ bg_graph_mermaid(project, direction = "TD")
 \item{direction}{Mermaid graph direction (default \code{"TD"}; also \code{"LR"}).}
 }
 \value{
-Character scalar of Mermaid flowchart text (invisibly; also printed
-via \link{cat}).
+A character scalar of Mermaid flowchart text with class
+\code{bg_mermaid}, whose print method renders the raw text (so the result is
+copy-pasteable at the console and embeddable as a string).
 }
 \description{
 Emits Mermaid flowchart text for the active graph: node label + kind, state

@@ -162,7 +162,7 @@ Finally, export the whole trail — graph, diagnostics, decisions,
 rationales — as a report or a portable bundle:
 
 ``` r
-bg_export_report(handle, format = "md", out_file = "eight-schools-report.md")
+bg_export_report(handle, format = "md", path = "eight-schools-report.md")
 ```
 
 The `eight-schools` vignette walks this exact loop with real captured
@@ -236,15 +236,23 @@ classifies every export as stable, experimental, or internal.
 
 ## Vignettes
 
-| Vignette                     | What it covers                                                             |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `getting-started`            | Full project lifecycle: gates, caching, branching, comparison, disposition |
-| `eight-schools`              | The real cmdstanr loop shown above, with captured output                   |
-| `guided-review-loop`         | Complete criticism-and-repair cycle with deterministic executors           |
-| `simulation-study`           | Simulation-based workflow with confounded treatment and gate decisions     |
-| `primed-priors-case-studies` | Mapping the primed-priors SBC case studies onto workflow graphs            |
-| `extensions`                 | Writing node sets, backend plugins, and summary-driven extensions          |
-| `dagriculture-boundary`      | How the graph primitives relate to workflow semantics                      |
+| Vignette                     | What it covers                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `concepts`                   | The mental model: node -\> summary -\> obligation -\> decision -\> hold, scopes, freshness, gates vs obligations |
+| `getting-started`            | Full project lifecycle: gates, caching, branching, comparison, disposition                                       |
+| `eight-schools`              | The real cmdstanr loop shown above, with captured output                                                         |
+| `guided-review-loop`         | Complete criticism-and-repair cycle with deterministic executors                                                 |
+| `simulation-study`           | Simulation-based workflow with confounded treatment and gate decisions                                           |
+| `primed-priors-case-studies` | Mapping the primed-priors SBC case studies onto workflow graphs                                                  |
+| `extensions`                 | Writing node sets, backend plugins, and summary-driven extensions                                                |
+| `dagriculture-boundary`      | How the graph primitives relate to workflow semantics                                                            |
+
+The [pkgdown site](https://sims1253.github.io/bayesgrove/) additionally
+carries two articles: *Reproducible research with bayesgrove* (what a
+bundle contains, how the decision log and summaries serve as a
+machine-readable audit trail, running SBC at scale) and *Teaching with
+bayesgrove* (running a course assignment on the decision log, with a
+grading checklist).
 
 ## Background
 

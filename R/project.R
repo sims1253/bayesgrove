@@ -187,6 +187,12 @@ bg_write_project_config_path <- function(path, config) {
   )
 }
 
+#' @keywords internal
+#' @noRd
+bg_is_valid_kind_name <- function(kind) {
+  is.character(kind) && length(kind) == 1 && nzchar(kind)
+}
+
 #' Restore persisted node-kind registrations structurally (no code execution).
 #'
 #' On open, persisted node kinds are restored structurally only: the kind
@@ -196,11 +202,6 @@ bg_write_project_config_path <- function(path, config) {
 #' Use [bg_restore_executors()] to opt into restoring executable executors.
 #' @keywords internal
 #' @noRd
-#' @keywords internal
-bg_is_valid_kind_name <- function(kind) {
-  is.character(kind) && length(kind) == 1 && nzchar(kind)
-}
-
 bg_restore_runtime_manifest <- function(project) {
   config <- bg_read_project_config(project)
   entries <- config$runtime_manifest$node_kinds %||% list()
@@ -577,7 +578,70 @@ bg_open <- function(path = ".", readonly = FALSE, force = FALSE) {
   }
 
   bg_restore_runtime_manifest(handle)
+  bg_warn_on_bundle_manifest_mismatch(handle)
   handle
+}
+
+#' Warn when an unpacked bundle was produced in a different environment.
+#'
+#' A project restored from [bg_bundle()] carries
+#' `.bayesgrove/bundle_manifest.json` with the reproducibility manifest of the
+#' machine that produced it. On open, compare the recorded R version, platform,
+#' and CmdStan version against the current session and warn on mismatch — the
+#' cache stays valid (fingerprints decide reruns), but the user should know the
+#' environment differs before trusting bit-level reproducibility.
+#' @keywords internal
+#' @noRd
+bg_warn_on_bundle_manifest_mismatch <- function(handle) {
+  manifest_path <- file.path(
+    handle@path,
+    ".bayesgrove",
+    "bundle_manifest.json"
+  )
+  if (!file.exists(manifest_path)) {
+    return(invisible(FALSE))
+  }
+
+  manifest <- tryCatch(
+    jsonlite::read_json(manifest_path, simplifyVector = FALSE),
+    error = function(e) NULL
+  )
+  recorded <- manifest$reproducibility %||% NULL
+  if (is.null(recorded)) {
+    return(invisible(FALSE))
+  }
+
+  current <- bg_reproducibility_manifest()
+  mismatches <- character()
+  compare <- function(field, label) {
+    rec <- recorded[[field]] %||% NULL
+    cur <- current[[field]] %||% NULL
+    if (
+      is.character(rec) &&
+        is.character(cur) &&
+        !is.na(rec) &&
+        !is.na(cur) &&
+        !identical(rec, cur)
+    ) {
+      sprintf("%s: bundle has %s, this machine has %s", label, rec, cur)
+    } else {
+      character()
+    }
+  }
+  mismatches <- c(
+    compare("r_version", "R version"),
+    compare("platform", "Platform"),
+    compare("cmdstan", "CmdStan version")
+  )
+
+  if (length(mismatches) > 0) {
+    cli::cli_warn(c(
+      "This project was bundled in a different environment.",
+      stats::setNames(mismatches, rep("*", length(mismatches))),
+      "i" = "Cached artifacts remain usable; fingerprints decide what reruns. See {.path {manifest_path}} for the full manifest."
+    ))
+  }
+  invisible(length(mismatches) > 0)
 }
 
 #' Register a finalizer that releases the project lock on GC.

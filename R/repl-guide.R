@@ -180,7 +180,8 @@ bg_repl_print_guide_state <- function(guide_state, project) {
     cli::cli_alert_success("No active obligations. The workflow is healthy.")
   } else {
     cli::cli_text("{.strong Active Obligations:}")
-    for (obl in actions$obligations) {
+    for (i in seq_along(actions$obligations)) {
+      obl <- actions$obligations[[i]]
       style <- bg_obligation_severity_style(obl$severity)
       color <- style$color
       icon <- style$icon
@@ -193,12 +194,15 @@ bg_repl_print_guide_state <- function(guide_state, project) {
         ""
       }
       cli::cli_bullets(c(
-        "*" = "{color(icon)} {color(obl$title)}{cli::col_grey(scope_note)}"
+        "*" = "{color(icon)} [{i}] {color(obl$title)}{cli::col_grey(scope_note)}"
       ))
       if (!is.null(obl$explanation$why)) {
         cli::cli_bullets(c(" " = "{cli::col_grey(obl$explanation$why)}"))
       }
     }
+    cli::cli_text(
+      "{cli::col_grey('Type')} explain <n> {cli::col_grey('to see the rationale and references behind an obligation.')}"
+    )
   }
 
   if (length(actions$actions) > 0) {
@@ -238,6 +242,52 @@ bg_repl_print_guide_state <- function(guide_state, project) {
 #' @keywords internal
 bg_repl_print_guide <- function(project, scope = "project") {
   bg_repl_print_guide_state(bg_repl_guide_state(project, scope), project)
+}
+
+#' Print one obligation's rationale and literature references.
+#'
+#' Backs the REPL `explain <n>` command: `n` indexes the numbered obligation
+#' list printed by `guide`. The references carried on every obligation (via
+#' `bg_workflow_references`) are the teaching hook — they say WHY the
+#' protocol asks, with citations to follow up on.
+#' @keywords internal
+#' @noRd
+bg_repl_explain_obligation <- function(project, scope, idx) {
+  actions <- bg_repl_guide_state(project, scope)$actions
+  obligations <- actions$obligations %||% list()
+  if (length(obligations) == 0) {
+    cli::cli_inform("No active obligations to explain.")
+    return(invisible(NULL))
+  }
+  if (is.na(idx) || idx < 1 || idx > length(obligations)) {
+    cli::cli_abort(
+      "Obligation {idx} not found. Use {.code guide} to list the {length(obligations)} active obligation{?s}."
+    )
+  }
+
+  obl <- obligations[[idx]]
+  style <- bg_obligation_severity_style(obl$severity %||% "advisory")
+  cli::cli_h2("{style$color(style$icon)} {obl$title %||% obl$kind}")
+  cli::cli_text(
+    "{cli::col_grey('Kind:')} {obl$kind %||% 'unknown'}   {cli::col_grey('Severity:')} {style$color(obl$severity %||% 'advisory')}   {cli::col_grey('Scope:')} {bg_scope_label(project, obl$scope %||% 'project')}"
+  )
+
+  why <- obl$explanation$why %||% obl$description %||% NULL
+  if (!is.null(why) && nzchar(why)) {
+    cli::cli_text("")
+    cli::cli_text("{.strong Why:} {why}")
+  }
+
+  refs <- obl$explanation$references %||% character()
+  if (length(refs) > 0) {
+    cli::cli_text("")
+    cli::cli_text("{.strong References:}")
+    for (ref in refs) {
+      cli::cli_bullets(c("*" = "{ref}"))
+    }
+  }
+
+  invisible(obl)
 }
 
 #' @keywords internal

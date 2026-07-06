@@ -246,13 +246,13 @@ baseline_ppc_id <- bg_add_node(
   inputs = baseline_fit_id
 )
 
-warning_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = baseline_fit_id,
+warning_branch <- bg_branch(
+  handle,
+  baseline_fit_id,
   label = "Centered branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-warning_fit_id <- warning_branch$branch$root_node_id
+warning_fit_id <- warning_branch$root_node_id
 warning_ppc_id <- warning_branch$continuation_nodes[[baseline_ppc_id]]$clone_id
 
 bg_update_node(
@@ -268,19 +268,19 @@ bg_update_node(handle, warning_ppc_id, label = "Centered branch PPC")
 
 bg_set_goal(
   project = handle,
-  branch_id = warning_branch$branch$branch_id,
+  branch_id = warning_branch$branch_id,
   kind = "observable_prediction",
   label = "Repair the centered branch without losing forecast skill",
   rationale = "This branch explores a questionable fit before accepting it."
 )
 
-robust_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = baseline_fit_id,
+robust_branch <- bg_branch(
+  handle,
+  baseline_fit_id,
   label = "Robust branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-robust_fit_id <- robust_branch$branch$root_node_id
+robust_fit_id <- robust_branch$root_node_id
 robust_ppc_id <- robust_branch$continuation_nodes[[baseline_ppc_id]]$clone_id
 
 bg_update_node(
@@ -296,7 +296,7 @@ bg_update_node(handle, robust_ppc_id, label = "Robust branch PPC")
 
 bg_set_goal(
   project = handle,
-  branch_id = robust_branch$branch$branch_id,
+  branch_id = robust_branch$branch_id,
   kind = "observable_prediction",
   label = "Keep a clean alternative for later comparison",
   rationale = "A second branch lets the project compare explicit alternatives."
@@ -304,11 +304,11 @@ bg_set_goal(
 
 data.frame(
   branch = c(
-    scope_label(warning_branch$branch$branch_id),
-    scope_label(robust_branch$branch$branch_id)
+    scope_label(warning_branch$branch_id),
+    scope_label(robust_branch$branch_id)
   ),
   goal = vapply(
-    c(warning_branch$branch$branch_id, robust_branch$branch$branch_id),
+    c(warning_branch$branch_id, robust_branch$branch_id),
     function(branch_id) bg_get_goal(handle, branch_id)$label,
     character(1)
   ),
@@ -353,7 +353,7 @@ record that decision before creating a repair branch from the criticized fit.
 warning_branch_protocol <- bg_next_actions(
   handle,
   scope = "branch",
-  branch_id = warning_branch$branch$branch_id
+  branch_id = warning_branch$branch_id
 )
 criticism_action <- find_action(
   warning_branch_protocol$actions,
@@ -363,7 +363,7 @@ criticism_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = warning_branch$branch$branch_id,
+  scope = warning_branch$branch_id,
   prompt = "How should the centered branch be handled?",
   choice = "needs_reparametrization",
   rationale = paste(
@@ -374,13 +374,13 @@ bg_record_decision(
   metadata = criticism_action$payload[c("node_ids", "summary_ids")]
 )
 
-repaired_branch <- bg_branch_with_continuation(
-  project = handle,
-  node_id = warning_fit_id,
+repaired_branch <- bg_branch(
+  handle,
+  warning_fit_id,
   label = "Repaired branch",
-  continuation_kinds = "ppc"
+  continue = "ppc"
 )
-repaired_fit_id <- repaired_branch$branch$root_node_id
+repaired_fit_id <- repaired_branch$root_node_id
 repaired_ppc_id <- repaired_branch$continuation_nodes[[warning_ppc_id]]$clone_id
 
 bg_update_node(
@@ -397,17 +397,17 @@ bg_update_node(handle, repaired_ppc_id, label = "Repaired branch PPC")
 
 bg_set_goal(
   project = handle,
-  branch_id = repaired_branch$branch$branch_id,
+  branch_id = repaired_branch$branch_id,
   kind = "observable_prediction",
   label = "Resolve the warning and keep the branch comparable",
   rationale = "This branch is the repaired continuation of the criticism loop."
 )
 
 data.frame(
-  branch = scope_label(repaired_branch$branch$branch_id),
+  branch = scope_label(repaired_branch$branch_id),
   lineage = paste(
     vapply(
-      bg_branch_lineage(handle, repaired_branch$branch$branch_id),
+      bg_branch_lineage(handle, repaired_branch$branch_id),
       scope_label,
       character(1)
     ),
@@ -441,7 +441,7 @@ bg_run(handle, targets = repaired_fit_id)
 
 repaired_summaries <- bg_read_summaries(
   handle,
-  scope = repaired_branch$branch$branch_id
+  scope = repaired_branch$branch_id
 )
 repaired_summaries <- Filter(
   function(x) identical(x$node_id, repaired_fit_id),
@@ -522,7 +522,7 @@ repaired_disposition_action <- find_action(
   bg_next_actions(
     handle,
     scope = "branch",
-    branch_id = repaired_branch$branch$branch_id
+    branch_id = repaired_branch$branch_id
   )$actions,
   kind = "record_decision",
   decision_type = "branch_disposition"
@@ -530,7 +530,7 @@ repaired_disposition_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = repaired_branch$branch$branch_id,
+  scope = repaired_branch$branch_id,
   prompt = "Should the repaired branch be accepted?",
   choice = "accept",
   rationale = "This is the clean branch preferred by the comparison step.",
@@ -547,7 +547,7 @@ robust_disposition_action <- find_action(
   bg_next_actions(
     handle,
     scope = "branch",
-    branch_id = robust_branch$branch$branch_id
+    branch_id = robust_branch$branch_id
   )$actions,
   kind = "record_decision",
   decision_type = "branch_disposition"
@@ -555,7 +555,7 @@ robust_disposition_action <- find_action(
 
 bg_record_decision(
   handle,
-  scope = robust_branch$branch$branch_id,
+  scope = robust_branch$branch_id,
   prompt = "Should the robust branch be accepted?",
   choice = "reject",
   rationale = "Keep it as a documented alternative, but not the final path.",

@@ -2,7 +2,7 @@
 % Please edit documentation in R/branch.R
 \name{bg_branch_with_continuation}
 \alias{bg_branch_with_continuation}
-\title{Branch a node with downstream continuation}
+\title{Branch a node with downstream continuation (deprecated)}
 \usage{
 bg_branch_with_continuation(
   project,
@@ -27,21 +27,19 @@ If NULL (default), clones all immediate children. If empty, behaves like
 \code{bg_branch()} with no continuation.}
 
 \item{continuation_depth}{How many levels of downstream nodes to clone.
-Only 1 (immediate children) is supported in v1.}
+Only 1 (immediate children) is supported.}
 }
 \value{
 A list containing the \code{branch} record and \code{continuation_nodes}
 mapping source node IDs to their cloned counterparts.
 }
 \description{
-Creates a branch from a node and optionally clones immediate downstream
-nodes to establish a continuation path. This is a narrowly scoped helper
-for guided workflows where a branched fit should flow into downstream
-diagnostic or comparison nodes.
+Deprecated: use \code{\link[=bg_branch]{bg_branch()}} with the \code{continue} argument instead —
+\code{continue = TRUE} clones all immediate children, a character vector clones
+only children of those kinds. This wrapper delegates to \code{\link[=bg_branch]{bg_branch()}} and
+returns the historical \code{list(branch, continuation_nodes)} shape; it warns
+once per session and will be removed in a future release.
 }
 \seealso{
-\link{bg_branch}, which will eventually absorb continuation via a
-\code{continue = character()} argument. \code{bg_branch_with_continuation} is
-soft-deprecated for that merge; prefer the long name only while the merge
-is pending.
+\code{\link[=bg_branch]{bg_branch()}}
 }

@@ -22,6 +22,6 @@ List built-in workflow templates
 \details{
 Built-in templates are intentionally small and explicit. Some
 create nodes directly, while others wrap narrow workflow macros such as
-\code{bg_branch_with_continuation()} or \code{bg_record_decision()}. The guided REPL
+\code{bg_branch(continue = )} or \code{bg_record_decision()}. The guided REPL
 uses the same registry to execute template-backed actions.
 }

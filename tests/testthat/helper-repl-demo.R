@@ -110,10 +110,15 @@ test_demo_repl_fixture <- function(
 
   bg_run(handle, targets = n_fit)
 
-  warning_branch <- bg_branch_with_continuation(
+  warning_record <- bg_branch(
     project = handle,
     node_id = n_fit,
-    label = "Fit Centered Parametrization"
+    label = "Fit Centered Parametrization",
+    continue = TRUE
+  )
+  warning_branch <- list(
+    branch = warning_record,
+    continuation_nodes = warning_record$continuation_nodes
   )
   bg_update_node(
     handle,
@@ -147,11 +152,15 @@ test_demo_repl_fixture <- function(
   initial_scope <- "project"
 
   if (checkpoint %in% c("comparison_ready", "disposition_ready", "healthy")) {
-    revised_branch <- bg_branch_with_continuation(
+    revised_record <- bg_branch(
       project = handle,
       node_id = warning_branch$branch$root_node_id,
       label = "Fit Non-Centered Revision",
-      continuation_kinds = c("ppc")
+      continue = c("ppc")
+    )
+    revised_branch <- list(
+      branch = revised_record,
+      continuation_nodes = revised_record$continuation_nodes
     )
     bg_update_node(
       handle,

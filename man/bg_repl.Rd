@@ -32,6 +32,7 @@ Supported commands include:
 \item \code{dashboard}: show the guided operator dashboard
 \item \code{status}: print workflow state and health
 \item \code{guide}: show active obligations and suggested actions
+\item \verb{explain <n>}: show an obligation's rationale and references
 \item \code{actions}: list actionable protocol suggestions with payload details
 \item \code{next}: preview and optionally execute the top suggested action
 \item \verb{do <n>}: execute the nth suggested action

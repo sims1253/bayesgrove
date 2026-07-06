@@ -42,11 +42,71 @@
 
 ## New features
 
+* Parallel execution: `bg_run()` gains a `parallel` argument
+  (`"auto"`/`"never"`/`"always"`). Execution proceeds in topological waves;
+  with active `mirai::daemons()` a wave of independent nodes is dispatched
+  concurrently via `purrr::in_parallel()`. Workers write content-addressed
+  blobs only; the main process remains the single writer of the artifact
+  index, summaries, and jobs. Protocol holds and `bg_pause()` apply at wave
+  boundaries. `mirai`, `carrier`, and `purrr` are soft dependencies; the
+  sequential path works without them.
+* New built-in node kinds `loo_pit` (PSIS-LOO PIT calibration graded by a
+  Kolmogorov-Smirnov distance from uniformity) and `sbc` (simulation-based
+  calibration graded by a chi-squared rank-uniformity test), closing the gap
+  between what the workflow packs ask for and what the shipped executors can
+  produce. The `ppc` executor now stores plot-ready data (observed `y` plus a
+  capped `yrep` subsample) in its artifact.
+* Visualization: `bg_graph_mermaid()` renders the active graph as Mermaid
+  flowchart text with state coloring, and `bg_plot()` plots a node's
+  diagnostics (`ppc` density overlay, LOO-PIT ECDF, SBC rank histogram, fit
+  traces) via the soft `bayesplot` dependency. `bg_export_report()` embeds
+  the Mermaid graph in both output formats.
+* Practitioner shortcuts `bg_fit_stan()` and `bg_fit_brms()` collapse the
+  data-node + fit-node + run sequence into one call (experimental).
+* `bg_bundle()` records a reproducibility manifest (R version, platform,
+  package versions, CmdStan version) in the bundle; `bg_open()` warns when a
+  restored bundle was produced in a different environment.
+* `bg_next_actions()` results and blocked `bg_run()` handles print as
+  protocol-aware checklists: held nodes show their hold reason, obligations
+  render with severity glyphs and a copy-pasteable resolving call.
+* New `?bayesgrove-concepts` help topic and `vignette("concepts")`: the
+  node -> summary -> obligation -> decision -> hold mental model in one
+  place.
+* `bg_branch()` gains a `continue` argument and absorbs
+  `bg_branch_with_continuation()`: `continue = TRUE` clones all immediate
+  children onto the branch, a character vector clones only children of those
+  kinds, and the returned record always carries `$continuation_nodes`.
+  `bg_branch_with_continuation()` is deprecated (warns once per session,
+  keeps its legacy return shape, classified `deprecated` in
+  `bg_api_boundary()`) and will be removed in a future release.
+* `bg_update_node()` now merges `params` into the existing set via
+  `utils::modifyList()` instead of replacing the whole list; pass
+  `replace = TRUE` for intentional wholesale replacement.
+* Added `inst/CITATION` (package + Gelman et al. 2020, "Bayesian Workflow").
 * `bg_set_node_data()` attaches an R data object to a node via the
   content-addressed store, preserving types that JSON serialization would
   mangle (e.g. Stan integers).
 * Project-level `workflow_strictness` config key: packs without an explicit
   per-ref `strictness` inherit the project default (e.g. `"advisory"`).
+
+## Performance
+
+* The jobs log is cached per handle and invalidated by file mtime+size, so a
+  run of N nodes does O(N) full parses of `jobs.jsonl` instead of O(N^2);
+  appends reuse the cached line count for seq stamping.
+* `bg_status()` reuses its plan seed via an internal plan refresh instead of
+  computing the full plan twice, and protocol hold evaluation threads the
+  already-loaded graph through instead of re-reading it from disk once per
+  executed node.
+
+## Additional bug fixes
+
+* The divergence rate uses the total post-warmup transitions across all
+  chains as its denominator (it was inflated by the chain count), and the
+  ESS warning threshold scales as 100 per chain (Vehtari et al. 2021) when
+  the chain count is known.
+* Draw-variable selection matches Stan's indexed-variable form exactly
+  (`log_lik` matches `log_lik[1]` but no longer `log_lik_saturated[1]`).
 
 # bayesgrove 0.6.0
 

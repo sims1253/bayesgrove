@@ -11,23 +11,25 @@ bg_plot(project, node_id, ...)
 
 \item{node_id}{The node to plot.}
 
-\item{...}{Passed to the underlying bayesplot method.}
+\item{...}{Passed to the underlying bayesplot function (ignored for the
+base-graphics kinds).}
 }
 \value{
-Invisibly, the bayesplot object (a ggplot).
+For \code{ppc} and fit kinds, the bayesplot ggplot object. For
+\code{loo_pit} and \code{sbc}, \code{NULL} invisibly (the plot is drawn as a side
+effect).
 }
 \description{
-S3-dispatches on the node's artifact/summary kind to a \link[bayesplot:bayesplot]{bayesplot} method
-(a soft dependency). Methods shipped:
+Selects a plot based on the node's kind:
 \itemize{
-\item \code{ppc}: \code{bayesplot::ppc_dens_overlay} on the stored plot-ready data.
-\item \code{loo_pit}: an empirical-CDF PIT plot.
-\item \code{sbc}: a rank histogram.
-\item \code{cmdstanr_fit} / \code{brms_fit} with a warning-severity HMC summary:
-\code{bayesplot::mcmc_trace} over the draws.
+\item \code{ppc}: \code{\link[bayesplot:ppc_dens_overlay]{bayesplot::ppc_dens_overlay()}} on the stored plot-ready data.
+\item \code{loo_pit}: a base-graphics PIT ECDF plot against the Uniform CDF.
+\item \code{sbc}: a base-graphics rank histogram.
+\item \code{cmdstanr_fit} / \code{brms_fit}: \code{\link[bayesplot:mcmc_trace]{bayesplot::mcmc_trace()}} over the draws.
 }
 }
 \details{
-Aborts with an informative message when bayesplot is missing or the node
-kind has no plot method.
+The bayesplot-backed kinds need the \code{bayesplot} package (a soft
+dependency); the function aborts with an informative message when it is
+missing or the node kind has no plot.
 }

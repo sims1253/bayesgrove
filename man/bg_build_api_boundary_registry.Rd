@@ -8,7 +8,7 @@ bg_build_api_boundary_registry()
 }
 \value{
 A data.frame with columns: \code{fn} (function name) and \code{classification}
-(\code{stable}, \code{experimental}, or \code{internal}).
+(\code{stable}, \code{experimental}, \code{internal}, or \code{deprecated}).
 }
 \description{
 Returns a data frame containing all exported \verb{bg_*} functions with their

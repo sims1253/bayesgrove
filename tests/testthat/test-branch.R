@@ -45,15 +45,47 @@ describe("Branch with continuation", {
     bg_commit_graph(handle, graph)
 
     n1 <- bg_add_node(handle, kind = "fit", label = "Fit")
-    result <- bg_branch_with_continuation(
+    record <- bg_branch(
       project = handle,
       node_id = n1,
-      label = "Branched Fit"
+      label = "Branched Fit",
+      continue = TRUE
     )
 
-    expect_true(!is.null(result$branch))
-    expect_true(startsWith(result$branch$branch_id, "branch:"))
-    expect_equal(length(result$continuation_nodes), 0)
+    expect_true(startsWith(record$branch_id, "branch:"))
+    expect_equal(length(record$continuation_nodes), 0)
+  })
+
+  it("always carries a continuation_nodes field (empty by default)", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "fit", label = "Fit")
+    record <- bg_branch(handle, n1, label = "Plain branch")
+
+    expect_true("continuation_nodes" %in% names(record))
+    expect_equal(length(record$continuation_nodes), 0)
+  })
+
+  it("rejects invalid continue arguments", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "fit", label = "Fit")
+    expect_error(
+      bg_branch(handle, n1, continue = 42),
+      class = "rlang_error"
+    )
   })
 
   it("creates a branch with cloned downstream nodes", {
@@ -88,22 +120,21 @@ describe("Branch with continuation", {
       inputs = n_fit
     )
 
-    # Branch with continuation
-    result <- bg_branch_with_continuation(
+    # Branch with continuation (all immediate children)
+    record <- bg_branch(
       project = handle,
       node_id = n_fit,
       label = "Branched Fit",
-      continuation_kinds = NULL
+      continue = TRUE
     )
 
-    expect_true(!is.null(result$branch))
-    expect_equal(length(result$continuation_nodes), 2)
+    expect_equal(length(record$continuation_nodes), 2)
 
     g2 <- bg_read_graph(handle)
 
     # Check that continuation nodes exist and have correct structure
-    check_cont <- result$continuation_nodes[[n_check]]
-    ppc_cont <- result$continuation_nodes[[n_ppc]]
+    check_cont <- record$continuation_nodes[[n_check]]
+    ppc_cont <- record$continuation_nodes[[n_ppc]]
 
     expect_true(!is.null(check_cont))
     expect_true(!is.null(ppc_cont))
@@ -125,9 +156,9 @@ describe("Branch with continuation", {
     )
 
     expect_equal(length(edges_to_check), 1)
-    expect_equal(edges_to_check[[1]]$from, result$branch$root_node_id)
+    expect_equal(edges_to_check[[1]]$from, record$root_node_id)
     expect_equal(length(edges_to_ppc), 1)
-    expect_equal(edges_to_ppc[[1]]$from, result$branch$root_node_id)
+    expect_equal(edges_to_ppc[[1]]$from, record$root_node_id)
   })
 
   it("filters continuation by node kind", {
@@ -163,16 +194,16 @@ describe("Branch with continuation", {
     )
 
     # Branch with continuation filtered to only 'check'
-    result <- bg_branch_with_continuation(
+    record <- bg_branch(
       project = handle,
       node_id = n_fit,
       label = "Branched Fit",
-      continuation_kinds = c("check")
+      continue = c("check")
     )
 
-    expect_equal(length(result$continuation_nodes), 1)
-    expect_true(n_check %in% names(result$continuation_nodes))
-    expect_false(n_ppc %in% names(result$continuation_nodes))
+    expect_equal(length(record$continuation_nodes), 1)
+    expect_true(n_check %in% names(record$continuation_nodes))
+    expect_false(n_ppc %in% names(record$continuation_nodes))
   })
 
   it("preserves branch provenance on continuation nodes", {
@@ -193,19 +224,53 @@ describe("Branch with continuation", {
       inputs = n_fit
     )
 
-    result <- bg_branch_with_continuation(
+    record <- bg_branch(
       project = handle,
       node_id = n_fit,
-      label = "Branched Fit"
+      label = "Branched Fit",
+      continue = TRUE
     )
 
     g2 <- bg_read_graph(handle)
-    check_cont <- result$continuation_nodes[[n_check]]
+    check_cont <- record$continuation_nodes[[n_check]]
     cloned_node <- g2$nodes[[check_cont$clone_id]]
 
     # Verify provenance metadata
     expect_equal(cloned_node$metadata$branched_from, n_check)
-    expect_equal(cloned_node$metadata$branch_id, result$branch$branch_id)
+    expect_equal(cloned_node$metadata$branch_id, record$branch_id)
+  })
+
+  it("deprecated bg_branch_with_continuation delegates and keeps its shape", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
+    graph$registry$kinds[["check"]] <- dagriculture::dagri_kind("check")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n_fit <- bg_add_node(handle, kind = "fit", label = "Fit")
+    n_check <- bg_add_node(
+      handle,
+      kind = "check",
+      label = "Diagnostics",
+      inputs = n_fit
+    )
+
+    # The wrapper warns (once per session) and returns the legacy
+    # list(branch, continuation_nodes) shape.
+    result <- suppressWarnings(withCallingHandlers(
+      bg_branch_with_continuation(handle, n_fit, label = "Legacy"),
+      warning = function(w) {
+        expect_match(conditionMessage(w), "deprecated")
+      }
+    ))
+    expect_named(result, c("branch", "continuation_nodes"))
+    expect_true(startsWith(result$branch$branch_id, "branch:"))
+    expect_true(n_check %in% names(result$continuation_nodes))
+    # The legacy branch record does not carry the new field.
+    expect_false("continuation_nodes" %in% names(result$branch))
   })
 
   it("allows running downstream nodes on the branched path", {
@@ -253,31 +318,31 @@ describe("Branch with continuation", {
     bg_run(handle, targets = n_fit)
 
     # Branch with continuation and set non-centered parametrization
-    result <- bg_branch_with_continuation(
+    record <- bg_branch(
       project = handle,
       node_id = n_fit,
       label = "Fit Non-Centered",
-      continuation_kinds = c("check")
+      continue = c("check")
     )
 
     bg_update_node(
       handle,
-      result$branch$root_node_id,
+      record$root_node_id,
       params = list(parametrization = "non-centered")
     )
 
     # Set goal on the branch to avoid goal-blocking obligation
     bg_set_goal(
       project = handle,
-      branch_id = result$branch$branch_id,
+      branch_id = record$branch_id,
       kind = "observable_prediction",
       label = "Branch goal",
       rationale = "Testing branch continuation"
     )
 
     # Run the branch fit first
-    check_cont <- result$continuation_nodes[[n_check]]
-    bg_run(handle, targets = result$branch$root_node_id)
+    check_cont <- record$continuation_nodes[[n_check]]
+    bg_run(handle, targets = record$root_node_id)
 
     # Now run the check continuation (downstream)
     bg_run(handle, targets = check_cont$clone_id)
@@ -290,7 +355,7 @@ describe("Branch with continuation", {
     # Verify the branch fit has clean diagnostics
     summaries <- bg_read_summaries(handle)
     branch_summaries <- Filter(
-      function(s) s$node_id == result$branch$root_node_id && isTRUE(s$is_fresh),
+      function(s) s$node_id == record$root_node_id && isTRUE(s$is_fresh),
       summaries
     )
     expect_length(branch_summaries, 1)
@@ -337,29 +402,30 @@ describe("Branch with continuation", {
     bg_run(handle, targets = n_fit1)
 
     # Branch to create second fit
-    result <- bg_branch_with_continuation(
+    record <- bg_branch(
       project = handle,
       node_id = n_fit1,
-      label = "Fit Non-Centered"
+      label = "Fit Non-Centered",
+      continue = TRUE
     )
 
     bg_update_node(
       handle,
-      result$branch$root_node_id,
+      record$root_node_id,
       params = list(parametrization = "non-centered")
     )
 
     # Set goal on branch
     bg_set_goal(
       project = handle,
-      branch_id = result$branch$branch_id,
+      branch_id = record$branch_id,
       kind = "observable_prediction",
       label = "Comparison goal",
       rationale = "Compare parametrizations"
     )
 
     # Run the branch fit
-    bg_run(handle, targets = result$branch$root_node_id)
+    bg_run(handle, targets = record$root_node_id)
 
     # Check that both fits exist and can be compared
     next_actions <- bg_next_actions(handle, scope = "project")
@@ -385,7 +451,7 @@ describe("Branch with continuation", {
     # The comparison should include both fits
     compare_action <- compare_actions[[1]]
     expect_true(n_fit1 %in% compare_action$payload$inputs)
-    expect_true(result$branch$root_node_id %in% compare_action$payload$inputs)
+    expect_true(record$root_node_id %in% compare_action$payload$inputs)
   })
 
   it("errors on unsupported continuation depth", {
@@ -451,39 +517,40 @@ describe("Branch with continuation", {
     )
     bg_run(handle, targets = n_fit)
 
-    branch <- bg_branch_with_continuation(
+    branch <- bg_branch(
       project = handle,
       node_id = n_fit,
-      label = "Problematic branch"
+      label = "Problematic branch",
+      continue = TRUE
     )
     bg_update_node(
       handle,
-      branch$branch$root_node_id,
+      branch$root_node_id,
       params = list(parametrization = "centered")
     )
-    bg_run(handle, targets = branch$branch$root_node_id)
+    bg_run(handle, targets = branch$root_node_id)
 
     before_retire <- bg_next_actions(handle, scope = "project")
     expect_true(any(vapply(
       before_retire$obligations,
-      function(o) identical(o$scope, branch$branch$branch_id),
+      function(o) identical(o$scope, branch$branch_id),
       logical(1)
     )))
 
-    expect_no_error(bg_result(handle, branch$branch$root_node_id))
+    expect_no_error(bg_result(handle, branch$root_node_id))
 
-    bg_retire_branch(handle, branch$branch$branch_id)
+    bg_retire_branch(handle, branch$branch_id)
 
     after_retire <- bg_next_actions(handle, scope = "project")
     expect_false(any(vapply(
       after_retire$obligations,
-      function(o) identical(o$scope, branch$branch$branch_id),
+      function(o) identical(o$scope, branch$branch_id),
       logical(1)
     )))
 
     plan <- bg_plan(handle)
-    expect_false(branch$branch$root_node_id %in% plan$graph_plan$topo_order)
-    expect_no_error(bg_result(handle, branch$branch$root_node_id))
+    expect_false(branch$root_node_id %in% plan$graph_plan$topo_order)
+    expect_no_error(bg_result(handle, branch$root_node_id))
   })
 
   it("retire command semantics prevent rerunning retired lineages", {

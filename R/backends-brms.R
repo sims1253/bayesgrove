@@ -228,10 +228,10 @@ bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
 
 #' Derive HMC counts/divergences/E-BFMI from a brms::nuts_params() data frame.
 #'
-#' Pure helper split out of [bg_brms_hmc_metrics] so it can be unit-tested
+#' Pure helper split out of `bg_brms_hmc_metrics` so it can be unit-tested
 #' against a synthetic data frame without faking a brmsfit. Expects columns
-#' `Chain`, `Parameter`, `Value`. Returns NULL-valued/zero metrics when `np`
-#' is NULL.
+#' `Chain`, `Iteration`, `Parameter`, `Value` (the `brms::nuts_params()`
+#' shape). Returns zero/`Inf` metrics when `np` is NULL.
 #' @keywords internal
 #' @noRd
 bg_brms_nuts_metrics <- function(np, max_treedepth = 10) {

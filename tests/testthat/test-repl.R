@@ -776,16 +776,19 @@ describe("Interactive REPL", {
       )
     )
 
-    # Execute via bg_branch_with_continuation (simulating REPL execution)
-    result <- bg_branch_with_continuation(
+    # Execute via bg_branch(continue = ) (simulating REPL execution)
+    record <- bg_branch(
       project = handle,
       node_id = n_fit,
       label = action$payload$default_label,
-      continuation_kinds = action$payload$continuation_kinds
+      continue = action$payload$continuation_kinds
+    )
+    result <- list(
+      branch = record,
+      continuation_nodes = record$continuation_nodes
     )
 
     # Verify branch was created
-    expect_true(!is.null(result$branch))
     expect_true(startsWith(result$branch$branch_id, "branch:"))
 
     # Verify continuation nodes were created
@@ -1044,7 +1047,7 @@ describe("Interactive REPL", {
     )
   })
 
-  it("executes branch_and_modify_fit through bg_branch_with_continuation", {
+  it("executes branch_and_modify_fit through bg_branch(continue = )", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
 
@@ -1069,7 +1072,7 @@ describe("Interactive REPL", {
       )
     )
 
-    branch_with_continuation <- repl_ns("bg_branch_with_continuation")
+    branch_fn <- repl_ns("bg_branch")
     state <- new.env(parent = emptyenv())
 
     result <- testthat::with_mocked_bindings(
@@ -1083,33 +1086,31 @@ describe("Interactive REPL", {
           answers[[state$idx]]
         }
       }),
-      bg_branch_with_continuation = function(
+      bg_branch = function(
         project,
         node_id,
         label = NULL,
         copy_params = TRUE,
-        continuation_kinds = NULL,
-        continuation_depth = 1L
+        continue = character()
       ) {
         state$called <- list(
           node_id = node_id,
           label = label,
-          continuation_kinds = continuation_kinds
+          continue = continue
         )
-        branch_with_continuation(
+        branch_fn(
           project = project,
           node_id = node_id,
           label = label,
           copy_params = copy_params,
-          continuation_kinds = continuation_kinds,
-          continuation_depth = continuation_depth
+          continue = continue
         )
       },
       .package = "bayesgrove"
     )
 
     expect_equal(state$called$node_id, fit_id)
-    expect_equal(state$called$continuation_kinds, c("check", "ppc"))
+    expect_equal(state$called$continue, c("check", "ppc"))
     expect_true(startsWith(result$branch$branch_id, "branch:"))
   })
 

@@ -36,7 +36,6 @@ print.bg_run_handle <- function(x, ...) {
 
   cli::cli_bullets(c(
     "*" = "{cli::col_grey('Status:')} {status_color(status_text)}",
-    "*" = "{cli::col_grey('Mode:')} {x$mode}",
     "*" = "{cli::col_grey(summary_label, ':')} {summary_value}"
   ))
 

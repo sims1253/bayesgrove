@@ -23,7 +23,7 @@
 #' only when every upstream `artifact_ref` is available, so presence in
 #' `names(plan$input_bindings)` is the ready signal.
 #'
-#' @param plan A run plan (from [bg_plan] / [bg_refresh_run_plan]).
+#' @param plan A run plan (from `bg_plan` / `bg_refresh_run_plan`).
 #' @return Character vector of node IDs ready to execute now, in topological
 #'   order. Empty when nothing is ready (run done, or remaining nodes are all
 #'   held/blocked).
@@ -109,14 +109,15 @@ bg_mirai_daemons_active <- function() {
 #' Pre-resolves everything the worker cannot reach without a live handle: the
 #' fetched upstream artifacts (`resolved_inputs`) and the `node$resolved$data`
 #' for `cas:` data refs. The node, kind registry entry, fingerprint, and project
-#' path travel to the daemon; the worker runs [bg_run_executor] and
-#' [bg_store_cas_blob] and returns the result shape.
+#' path travel to the daemon; the worker runs `bg_run_executor` and
+#' `bg_store_cas_blob` and returns the result shape.
 #'
-#' Built-in executors are NOT shipped across (they resolve by `builtin:` ref on
-#' the daemon after `library(bayesgrove)`); user executors are crated with
-#' `carrier::crate()` by [bg_prepare_executor_for_ship] (Step 4).
-#' @return A list suitable as the worker payload, or NULL if the kind has no
-#'   usable executor (the caller records a failed job).
+#' Built-in executors are NOT shipped across (they resolve by `builtin:` ref
+#' on the daemon); user executors are prepared by
+#' `bg_prepare_executor_for_ship`, which rebuilds them from persisted source
+#' when available. Aborts (via that helper) when the kind has no usable
+#' executor.
+#' @return A list suitable as the worker payload.
 #' @keywords internal
 #' @noRd
 bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
@@ -267,22 +268,22 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 #' The wave worker: run one node's executor and write its CAS blob.
 #'
 #' Runs on a mirai daemon. Loads bayesgrove, resolves the executor (built-in by
-#' ref, or uses the crated user function), calls [bg_run_executor], and writes
-#' the artifact blob via [bg_store_cas_blob] (idempotent + atomic, safe under
+#' ref, or uses the crated user function), calls `bg_run_executor`, and writes
+#' the artifact blob via `bg_store_cas_blob` (idempotent + atomic, safe under
 #' concurrent writes). Does NOT touch the artifact index, summaries JSONL, or
 #' jobs JSONL — the main process owns those (single-writer invariant). Returns
 #' `list(node_id, ref, summaries, ok, error)`; `ref`/`summaries` are populated
 #' on success, `error` on failure.
-#' @param task A worker task bundle from [bg_build_worker_task].
+#' @param task A worker task bundle from `bg_build_worker_task`.
 #' @return Result list for the main process to finalize.
 #' @keywords internal
 #' @noRd
 bg_wave_worker <- function(task) {
-  # Daemons should have bayesgrove loaded; if not, the executor / CAS helpers
-  # will not resolve. Require it quietly so a missing install surfaces cleanly.
-  # (The body below uses unqualified calls — they resolve in bayesgrove's own
-  # namespace because this function's defining environment is the package, even
-  # when invoked via ::: on a daemon.)
+  # Daemons need bayesgrove installed; require it quietly so a missing install
+  # surfaces as a clean per-node failure. (The body below uses unqualified
+  # calls — they resolve in bayesgrove's own namespace because this function's
+  # defining environment is the package, even when the daemon looked it up via
+  # getFromNamespace.)
   if (!requireNamespace("bayesgrove", quietly = TRUE)) {
     return(list(
       node_id = task$node_id,
