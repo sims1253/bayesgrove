@@ -63,7 +63,11 @@ bg_parallel_active <- function(parallel) {
     if (identical(parallel, "always")) {
       cli::cli_abort(c(
         "{.arg parallel = \"always\"} requires the {.pkg mirai} package.",
-        "i" = "Install it with {.run install.packages(\"mirai\")}, or use {.arg parallel = \"auto\"} to fall back to sequential execution when mirai is absent."
+        "i" = paste0(
+          "Install it with {.run install.packages(\"mirai\")}, or use ",
+          "{.arg parallel = \"auto\"} to fall back to sequential ",
+          "execution when mirai is absent."
+        )
       ))
     }
     return(FALSE)
@@ -186,7 +190,11 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
   fn <- kind_reg$executor
   if (!is.function(fn)) {
     cli::cli_abort(
-      "Executor for kind {.val {kind}} is not a registered function; call {.fn bg_restore_executors} or {.fn bg_register_node_kind} before running in parallel."
+      paste0(
+        "Executor for kind {.val {kind}} is not a registered function; ",
+        "call {.fn bg_restore_executors} or {.fn bg_register_node_kind} ",
+        "before running in parallel."
+      )
     )
   }
 
@@ -211,7 +219,11 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
   # Fall back to shipping the registered function object directly. mirai
   # serializes it; warn that a non-self-contained closure may not survive.
   cli::cli_warn(
-    "Shipping the {.val {kind}} executor to daemons without rebuilding from source. Make it self-contained (avoid capturing non-package objects) for robust parallel dispatch."
+    paste0(
+      "Shipping the {.val {kind}} executor to daemons without rebuilding ",
+      "from source. Make it self-contained (avoid capturing non-package ",
+      "objects) for robust parallel dispatch."
+    )
   )
   list(mode = "function", fn = fn, rebuilt_from_source = FALSE)
 }

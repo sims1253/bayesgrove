@@ -43,13 +43,19 @@ bg_acquire_lock <- function(path, force = FALSE) {
       # dead-end error, since the project is validly locked, just not by us.
       cli::cli_abort(c(
         "Project at {.path {path}} was locked by another writer during the steal.",
-        "i" = "Lock holder: pid {.val {holder$pid}}, host {.val {holder$hostname}}, acquired {.val {holder$acquired_at}}.",
+        "i" = paste0(
+          "Lock holder: pid {.val {holder$pid}}, host ",
+          "{.val {holder$hostname}}, acquired {.val {holder$acquired_at}}."
+        ),
         "i" = "Retry {.code bg_open(path, force = TRUE)} if that holder is also stale."
       ))
     }
     cli::cli_abort(c(
       "Project at {.path {path}} is locked by another writer.",
-      "i" = "Lock holder: pid {.val {holder$pid}}, host {.val {holder$hostname}}, acquired {.val {holder$acquired_at}}.",
+      "i" = paste0(
+        "Lock holder: pid {.val {holder$pid}}, host ",
+        "{.val {holder$hostname}}, acquired {.val {holder$acquired_at}}."
+      ),
       "i" = "Open with {.code bg_open(path, force = TRUE)} to steal the lock if the holder is stale."
     ))
   }
@@ -318,7 +324,10 @@ bg_restore_executors <- function(project, trust = FALSE) {
 
   cli::cli_warn(c(
     "Restoring persisted executors by evaluating stored source text.",
-    "i" = "Executors are evaluated in a child of the global environment; closures over the original environment are not restored."
+    "i" = paste0(
+      "Executors are evaluated in a child of the global environment; ",
+      "closures over the original environment are not restored."
+    )
   ))
 
   target_env <- new.env(parent = globalenv())
@@ -638,7 +647,10 @@ bg_warn_on_bundle_manifest_mismatch <- function(handle) {
     cli::cli_warn(c(
       "This project was bundled in a different environment.",
       stats::setNames(mismatches, rep("*", length(mismatches))),
-      "i" = "Cached artifacts remain usable; fingerprints decide what reruns. See {.path {manifest_path}} for the full manifest."
+      "i" = paste0(
+        "Cached artifacts remain usable; fingerprints decide what reruns. ",
+        "See {.path {manifest_path}} for the full manifest."
+      )
     ))
   }
   invisible(length(mismatches) > 0)

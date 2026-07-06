@@ -97,7 +97,11 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
   valid_severities <- c("ok", "warning", "error")
   if (!severity %in% valid_severities) {
     cli::cli_abort(
-      "Summary {.val {kind}} for node {.val {node_id}} has invalid {.field severity} {.val {severity}} (must be one of {.val {valid_severities}})."
+      paste0(
+        "Summary {.val {kind}} for node {.val {node_id}} has invalid ",
+        "{.field severity} {.val {severity}} ",
+        "(must be one of {.val {valid_severities}})."
+      )
     )
   }
 

@@ -296,7 +296,11 @@ bg_executor_cmdstanr_fit <- function(node, inputs) {
   if (!requireNamespace("cmdstanr", quietly = TRUE)) {
     cli::cli_abort(c(
       "The {.pkg cmdstanr} package is required for cmdstanr_fit nodes.",
-      "i" = "Install it with {.code install.packages('cmdstanr', repos = c('https://stan-dev.r-universe.dev', getOption('repos')))} and run {.code cmdstanr::install_cmdstan()}."
+      "i" = paste0(
+        "Install it with {.code install.packages('cmdstanr', repos = ",
+        "c('https://stan-dev.r-universe.dev', getOption('repos')))} and ",
+        "run {.code cmdstanr::install_cmdstan()}."
+      )
     ))
   }
 
@@ -519,7 +523,10 @@ bg_executor_compare <- function(node, inputs) {
 bg_executor_ppc <- function(node, inputs) {
   if (length(inputs) < 2) {
     cli::cli_abort(
-      "{.field ppc} requires two inputs: a fit node and a data node supplying the observed {.field {node$params$y_var %||% 'y'}}."
+      paste0(
+        "{.field ppc} requires two inputs: a fit node and a data node ",
+        "supplying the observed {.field {node$params$y_var %||% 'y'}}."
+      )
     )
   }
 
@@ -656,7 +663,10 @@ bg_executor_loo_pit <- function(node, inputs) {
   }
   if (length(inputs) < 2) {
     cli::cli_abort(
-      "{.field loo_pit} requires two inputs: a fit node and a data node supplying the observed {.field {node$params$y_var %||% 'y'}}."
+      paste0(
+        "{.field loo_pit} requires two inputs: a fit node and a data node ",
+        "supplying the observed {.field {node$params$y_var %||% 'y'}}."
+      )
     )
   }
 
@@ -871,7 +881,11 @@ bg_executor_sbc <- function(node, inputs) {
   ) {
     cli::cli_abort(c(
       "{.field data_fn} must be the source text of a generator function for sbc.",
-      "i" = "Define it as {.code function(seed) list(theta = <scalar>, data = <stan data list>)}; it is evaluated in a child of the global environment (same trust model as {.fn bg_restore_executors})."
+      "i" = paste0(
+        "Define it as {.code function(seed) list(theta = <scalar>, ",
+        "data = <stan data list>)}; it is evaluated in a child of the ",
+        "global environment (same trust model as {.fn bg_restore_executors})."
+      )
     ))
   }
 

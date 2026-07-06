@@ -81,8 +81,8 @@ describe("Project Status and Results", {
 
     call_count <- 0L
     original_plan <- bayesgrove::bg_plan
-    testthat::with_mocked_bindings(
-      st <- bg_status(handle),
+    st <- testthat::with_mocked_bindings(
+      bg_status(handle),
       bg_plan = function(...) {
         call_count <<- call_count + 1L
         original_plan(...)

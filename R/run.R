@@ -555,7 +555,11 @@ bg_run <- function(
   # (Step 3 wires the parallel branch). Holds and pause are checked at wave
   # boundaries, so a mid-run hold from a fresh summary applies before the next
   # wave — never mid-wave.
-  while (length(wave <- bg_compute_wave(plan)) > 0) {
+  repeat {
+    wave <- bg_compute_wave(plan)
+    if (length(wave) == 0) {
+      break
+    }
     if (bg_workflow_paused(project)) {
       bg_cli_inform(
         "Workflow paused mid-run after {num_executed} node{?s}; call {.fn bg_resume} then {.fn bg_run} to continue."

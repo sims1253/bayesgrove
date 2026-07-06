@@ -214,7 +214,7 @@ describe("Handoff and Export Layer", {
     )
 
     expect_warning(
-      restored <- bg_open(tmp, readonly = TRUE),
+      bg_open(tmp, readonly = TRUE),
       "different environment"
     )
   })

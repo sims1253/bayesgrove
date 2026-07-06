@@ -191,11 +191,6 @@ bg_builtin_workflow_registry <- local({
 # --- Pack Resolution & Lookup ---
 
 #' @keywords internal
-bg_default_workflow_pack_refs <- function() {
-  list()
-}
-
-#' @keywords internal
 bg_lookup_workflow_pack <- function(pack_id) {
   bg_builtin_workflow_registry()[[pack_id]] %||% NULL
 }
@@ -953,43 +948,4 @@ bg_default_bayesian_summary_actions <- function(
   }
 
   actions
-}
-
-# --- Branch Registry from Context ---
-
-#' @keywords internal
-bg_read_branch_registry_from_context <- function(context) {
-  branches <- list()
-
-  for (node_id in names(context$structural$nodes %||% list())) {
-    node <- context$structural$nodes[[node_id]]
-    if (!is.null(node$metadata$branch_id)) {
-      branch_id <- node$metadata$branch_id
-      branches[[branch_id]] <- list(
-        branch_id = branch_id,
-        root_node_id = node_id,
-        label = node$label %||% branch_id,
-        source_node_id = node$metadata$source_node_id %||% NULL
-      )
-    }
-  }
-
-  if (length(context$scope_context$branch_lineage %||% list()) > 0) {
-    scope <- context$scope
-    if (!scope %in% names(branches) && startsWith(scope, "branch:")) {
-      root <- context$scope_context$branch_root
-      if (!is.null(root)) {
-        branches[[scope]] <- list(
-          branch_id = scope,
-          root_node_id = root,
-          label = scope
-        )
-      }
-    }
-  }
-
-  list(
-    schema_name = "bg_branch_registry",
-    branches = branches
-  )
 }

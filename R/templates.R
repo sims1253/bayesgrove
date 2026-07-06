@@ -606,7 +606,7 @@ bg_execute_template_branch_and_modify_fit <- function(
     project = project,
     node_id = source_node_id,
     label = label,
-    continue = if (is.null(continuation_kinds)) TRUE else continuation_kinds
+    continue = continuation_kinds %||% TRUE
   )
   continuation_nodes <- branch$continuation_nodes %||% list()
   branch_root_id <- branch$root_node_id

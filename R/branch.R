@@ -283,7 +283,11 @@ bg_branch_with_continuation <- function(
   cli::cli_warn(
     c(
       "!" = "{.fn bg_branch_with_continuation} is deprecated as of bayesgrove 0.7.0.",
-      "i" = "Use {.code bg_branch(project, node_id, continue = )} instead: {.code continue = TRUE} clones all immediate children, a character vector clones matching kinds."
+      "i" = paste0(
+        "Use {.code bg_branch(project, node_id, continue = )} instead: ",
+        "{.code continue = TRUE} clones all immediate children, a ",
+        "character vector clones matching kinds."
+      )
     ),
     .frequency = "once",
     .frequency_id = "bg_branch_with_continuation-deprecated"
@@ -294,7 +298,7 @@ bg_branch_with_continuation <- function(
     node_id = node_id,
     label = label,
     copy_params = copy_params,
-    continue = if (is.null(continuation_kinds)) TRUE else continuation_kinds
+    continue = continuation_kinds %||% TRUE
   )
 
   continuation_nodes <- record$continuation_nodes %||% list()

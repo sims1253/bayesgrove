@@ -95,13 +95,12 @@ bg_append_jsonl <- function(path, record, known_line_count = NULL) {
     # readLines, not count.fields: JSON escapes quotes as \", which
     # field-based counting misparses (an unbalanced-looking quote merges
     # lines and undercounts, corrupting the seq order).
-    existing_lines <- if (!is.null(known_line_count)) {
-      known_line_count
-    } else if (file.exists(path)) {
-      length(readLines(path, warn = FALSE))
-    } else {
-      0L
-    }
+    existing_lines <- known_line_count %||%
+      if (file.exists(path)) {
+        length(readLines(path, warn = FALSE))
+      } else {
+        0L
+      }
     record$seq <- existing_lines + 1L
 
     json_line <- jsonlite::toJSON(
@@ -311,15 +310,6 @@ bg_artifact_binding <- function(index, fingerprint, node_id) {
     return(NULL)
   }
   entry$bindings[[node_id]] %||% NULL
-}
-
-#' @keywords internal
-bg_any_active_artifact_binding <- function(entry) {
-  any(vapply(
-    entry$bindings %||% list(),
-    function(binding) identical(binding$status, "active"),
-    logical(1)
-  ))
 }
 
 #' @keywords internal

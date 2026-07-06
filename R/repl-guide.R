@@ -269,7 +269,13 @@ bg_repl_explain_obligation <- function(project, scope, idx) {
   style <- bg_obligation_severity_style(obl$severity %||% "advisory")
   cli::cli_h2("{style$color(style$icon)} {obl$title %||% obl$kind}")
   cli::cli_text(
-    "{cli::col_grey('Kind:')} {obl$kind %||% 'unknown'}   {cli::col_grey('Severity:')} {style$color(obl$severity %||% 'advisory')}   {cli::col_grey('Scope:')} {bg_scope_label(project, obl$scope %||% 'project')}"
+    paste0(
+      "{cli::col_grey('Kind:')} {obl$kind %||% 'unknown'}   ",
+      "{cli::col_grey('Severity:')} ",
+      "{style$color(obl$severity %||% 'advisory')}   ",
+      "{cli::col_grey('Scope:')} ",
+      "{bg_scope_label(project, obl$scope %||% 'project')}"
+    )
   )
 
   why <- obl$explanation$why %||% obl$description %||% NULL
@@ -452,12 +458,6 @@ bg_repl_print_action_preview <- function(action, heading = "Action Preview") {
   }
 
   invisible(preview)
-}
-
-#' @keywords internal
-bg_repl_print_held_nodes <- function(project, scope = "project", limit = 5L) {
-  rows <- bg_repl_held_node_rows(project, scope, limit = limit)
-  bg_repl_print_held_node_rows(rows)
 }
 
 #' @keywords internal

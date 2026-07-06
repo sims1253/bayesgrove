@@ -386,7 +386,7 @@ bg_export_report <- function(
   if (identical(format, "html")) {
     mermaid_html <- if (!is.null(mermaid)) {
       c(
-        '<h2>DAG (Mermaid)</h2>',
+        "<h2>DAG (Mermaid)</h2>",
         '<div class="mermaid">',
         mermaid,
         "</div>",
