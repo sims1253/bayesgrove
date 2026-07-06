@@ -69,7 +69,7 @@
       <h1>Getting Started with bayesgrove</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/getting-started.Rmd" class="external-link"><code>vignettes/getting-started.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/vignettes/getting-started.Rmd" class="external-link"><code>vignettes/getting-started.Rmd</code></a></small>
       <div class="d-none name"><code>getting-started.Rmd</code></div>
     </div>
 
@@ -202,9 +202,9 @@ inside a <code>.bayesgrove/</code> directory.</p>
 <span><span class="fu"><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;bayesgrove::bg_handle&gt;</span></span>
-<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55d173c24708&gt; </span></span>
+<span><span class="co">#&gt;  @ .state              :&lt;environment: 0x55d8c412ba98&gt; </span></span>
 <span><span class="co">#&gt;  @ project_id          : chr "proj_79663245"</span></span>
-<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpBlKXUd/bg-quickstart"</span></span>
+<span><span class="co">#&gt;  @ path                : chr "/tmp/RtmpOsp9Et/bg-quickstart"</span></span>
 <span><span class="co">#&gt;  @ readonly            : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ closed              : logi FALSE</span></span>
 <span><span class="co">#&gt;  @ loaded_graph_version: int 4</span></span>
@@ -335,7 +335,7 @@ graph is blocked by an unresolved gate:</p>
 <span><span class="co">#&gt; list()</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_e22e00ae$created_at</span></span>
-<span><span class="co">#&gt; [1] "2026-07-06T14:39:02Z"</span></span>
+<span><span class="co">#&gt; [1] "2026-07-06T14:44:06Z"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $gate_e22e00ae$metadata</span></span>
 <span><span class="co">#&gt; list()</span></span>
@@ -517,7 +517,7 @@ comparison step:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">comparison_handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">comparison_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 obl_56063c36 </span></span>
+<span><span class="co">#&gt;                 obl_3d690b8b </span></span>
 <span><span class="co">#&gt; "compare_candidate_branches"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"create_node_from_template"</span><span class="op">)</span>,</span>
@@ -585,7 +585,7 @@ accept or reject disposition:</p>
 <span>  branch_id <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">branch_id</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">branch_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;              obl_38f8a6d2 </span></span>
+<span><span class="co">#&gt;              obl_72351de6 </span></span>
 <span><span class="co">#&gt; "accept_or_reject_branch"</span></span>
 <span></span>
 <span><span class="va">disposition_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>

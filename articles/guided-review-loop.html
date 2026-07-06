@@ -69,7 +69,7 @@
       <h1>Guided Review Loop</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/guided-review-loop.Rmd" class="external-link"><code>vignettes/guided-review-loop.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/vignettes/guided-review-loop.Rmd" class="external-link"><code>vignettes/guided-review-loop.Rmd</code></a></small>
       <div class="d-none name"><code>guided-review-loop.Rmd</code></div>
     </div>
 
@@ -415,12 +415,12 @@ obligation, and downstream work on that branch is held by policy.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">warning_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                                       obligations</span></span>
 <span><span class="co">#&gt; 1         Project                                              none</span></span>
-<span><span class="co">#&gt; 2 Centered branch review_computation_validity, review_fit_criticism</span></span>
-<span><span class="co">#&gt; 3   Robust branch                                              none</span></span>
+<span><span class="co">#&gt; 2   Robust branch                                              none</span></span>
+<span><span class="co">#&gt; 3 Centered branch review_computation_validity, review_fit_criticism</span></span>
 <span><span class="co">#&gt;                                               actions</span></span>
 <span><span class="co">#&gt; 1                                                none</span></span>
-<span><span class="co">#&gt; 2 record_decision, branch_and_modify, record_decision</span></span>
-<span><span class="co">#&gt; 3                                                none</span></span></code></pre></div>
+<span><span class="co">#&gt; 2                                                none</span></span>
+<span><span class="co">#&gt; 3 record_decision, branch_and_modify, record_decision</span></span></code></pre></div>
 <p>The downstream PPC is structurally ready, but it should not run
 yet:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -595,14 +595,14 @@ candidates are clean, project scope surfaces a comparison action.</p>
 <span><span class="fu">protocol_overview</span><span class="op">(</span><span class="va">project_protocol</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             scope                 obligations</span></span>
 <span><span class="co">#&gt; 1         Project  compare_candidate_branches</span></span>
-<span><span class="co">#&gt; 2 Centered branch review_computation_validity</span></span>
+<span><span class="co">#&gt; 2   Robust branch                        none</span></span>
 <span><span class="co">#&gt; 3 Repaired branch review_computation_validity</span></span>
-<span><span class="co">#&gt; 4   Robust branch                        none</span></span>
+<span><span class="co">#&gt; 4 Centered branch review_computation_validity</span></span>
 <span><span class="co">#&gt;                              actions</span></span>
 <span><span class="co">#&gt; 1          create_node_from_template</span></span>
-<span><span class="co">#&gt; 2 record_decision, branch_and_modify</span></span>
+<span><span class="co">#&gt; 2                               none</span></span>
 <span><span class="co">#&gt; 3 record_decision, branch_and_modify</span></span>
-<span><span class="co">#&gt; 4                               none</span></span></code></pre></div>
+<span><span class="co">#&gt; 4 record_decision, branch_and_modify</span></span></code></pre></div>
 <p>We create the comparison node from the surfaced template payload, run
 it, and inspect the deterministic ranking:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -771,7 +771,7 @@ machines.</p>
 <span>  format <span class="op">=</span> <span class="st">"md"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpOK34AU/bg-guided-review-loop/case-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpiUVONE/bg-guided-review-loop/case-study-report.md</span></span></span>
 <span></span>
 <span><span class="va">report_path_relative</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"^"</span>, <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span>, <span class="st">"/?"</span><span class="op">)</span>,</span>
@@ -784,7 +784,7 @@ machines.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">report_path</span>, n <span class="op">=</span> <span class="fl">12</span>, warn <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # bayesgrove Workflow Report: Guided Review Loop</span></span>
 <span><span class="co">#&gt; **Project ID:** `proj_79663245`</span></span>
-<span><span class="co">#&gt; **Generated:** 2026-07-06 14:39:13</span></span>
+<span><span class="co">#&gt; **Generated:** 2026-07-06 14:44:17</span></span>
 <span><span class="co">#&gt; **Workflow state:** `blocked`</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ## Graph Topology</span></span>
