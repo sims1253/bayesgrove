@@ -254,7 +254,7 @@ bg_normalize_workflow_pack_refs <- function(specs) {
 #'   summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 #'   requires project-scoped comparison decisions when multiple fit candidates
 #'   are clean, and asks each candidate branch to be explicitly accepted or
-#'   rejected after a current comparison exists. The optional phase-10 packs
+#'   rejected after a current comparison exists. The optional packs
 #'   extend that vocabulary with prior rationale and prior predictive review,
 #'   posterior predictive and SBC review, model-selection evidence including
 #'   stacking weights, minimal causal framing, and PAD annotations with utility
@@ -515,7 +515,7 @@ bg_workflow_external_holds <- function(
 #' - `accept_or_reject_branch` plus `branch_disposition` actions after a
 #'   current comparison exists for an active candidate set.
 #'
-#' When the optional phase-10 packs are active, the result can also include
+#' When the optional packs are active, the result can also include
 #' prior-rationale recording, prior and posterior predictive review,
 #' simulation-based calibration review, model-selection review keyed to
 #' `model_comparison` and `stacking_weights` summaries, causal-question

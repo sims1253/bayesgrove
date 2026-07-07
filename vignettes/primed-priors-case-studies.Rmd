@@ -369,7 +369,7 @@ an SBC script.
 
 ## Adding the DAG layer with `bayesgrove.causal_dagitty`
 
-For this mediation example, the new `bayesgrove.causal_dagitty` pack is a good
+For this mediation example, the `bayesgrove.causal_dagitty` pack is a good
 fit. It expects nodes that emit `dagitty_adjustment` and `dagitty_implications`
 summaries. One minimal node set looks like this:
 

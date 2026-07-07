@@ -62,10 +62,12 @@ bg_default_bayesian_fit_criticism_summary <- function(summary, node = NULL) {
 
 #' @keywords internal
 bg_default_bayesian_decision_summary_ids <- function(decision) {
-  unique(sort(c(
+  # Decisions read back from JSONL carry list-typed metadata fields
+  # (simplifyVector = FALSE), so coerce before sorting.
+  sort(unique(as.character(c(
     decision$metadata$summary_ids %||% character(),
     decision$metadata$summary_id %||% character()
-  )))
+  ))))
 }
 
 #' @keywords internal

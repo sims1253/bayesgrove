@@ -75,7 +75,7 @@ print(handle)
 
 New projects start empty, so `bg_use_default_workflow(handle)` is the quickest
 way to opt into the built-in starter pack plus the starter node kinds.
-If you want the richer phase-10 review vocabulary, persist the optional packs
+If you want the richer review vocabulary, persist the optional packs
 after initialization:
 
 ```{r advanced-packs, eval = FALSE}
@@ -126,7 +126,7 @@ bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
   # Extract the upstream data
   raw_data <- inputs[[1]]
   list(
-    result = sprintf("Fitted model on %d rows of data!", nrow(raw_data)),
+    result = sprintf("Fitted model on %d rows of data.", nrow(raw_data)),
     summaries = list(list(
       summary_kind = "optimizer_diagnostics",
       passed = FALSE,
@@ -415,7 +415,7 @@ For the built-in default pack, that means you can move through the full loop
 without leaving the runtime contract: review the computation, review branch
 criticism when needed, compare clean candidates, and explicitly accept or
 reject the surviving branch. When you are ready to grow beyond that loop, emit
-the richer phase-10 summary kinds (`prior_spec`, `prior_predictive_check`,
+the richer summary kinds (`prior_spec`, `prior_predictive_check`,
 `posterior_predictive_check`, `sbc_result`, `comparison_results`,
 `model_comparison`, `stacking_weights`, `causal_framing`, and
 `pad_annotation`) and see `vignette("extensions", package = "bayesgrove")`

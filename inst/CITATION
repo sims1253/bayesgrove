@@ -2,7 +2,7 @@ citHeader("To cite bayesgrove in publications use:")
 
 bibentry(
   bibtype = "Manual",
-  title = "bayesgrove: Enforced Decision Tracking for Bayesian Workflows",
+  title = "bayesgrove: Graph-Based Bayesian Workflow Scaffolding",
   author = person("Maximilian", "Scholz"),
   year = format(Sys.Date(), "%Y"),
   note = paste("R package version", meta$Version),

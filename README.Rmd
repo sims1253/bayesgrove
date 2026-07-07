@@ -109,38 +109,52 @@ n_fit <- bg_add_node(
 
 ```{r run}
 bg_run(handle, targets = n_fit)
+#> Warning: 81 of 4000 (2.0%) transitions ended with a divergence.
+#> Warning: 2 of 4 chains had an E-BFMI less than 0.3.
 ```
 
-The funnel geometry produces divergent transitions. The executor emits an
-`hmc_diagnostics` summary, the protocol converts it into a blocking
-obligation, and downstream work is held:
+The centered parameterization cannot explore the funnel between `tau` and
+`theta`, and HMC reports divergent transitions. The executor stores the
+diagnostics as an `hmc_diagnostics` summary, the protocol converts it into a
+blocking obligation, and downstream work is held:
 
 ```{r protocol}
 guide <- bg_next_actions(handle)
 vapply(guide$obligations, `[[`, character(1), "kind")
-#>                  obl_bff2a185
+#>                  obl_ef958c36
 #> "review_computation_validity"
 
-bg_read_summaries(handle)[[1]]$metrics[c("divergences", "max_rhat")]
+bg_read_summaries(handle)[[1]]$metrics[c("divergences", "e_bfmi", "max_rhat")]
 #> $divergences
-#> [1] 291
+#> [1] 81
+#>
+#> $e_bfmi
+#> [1] 0.1574
 #>
 #> $max_rhat
-#> [1] 1.39
+#> [1] 1.0401
 ```
 
-You cannot proceed past this by rerunning harder. You resolve it by recording
-the criticism and branching to a repair — and the original fit, its
-diagnostics, and your rationale all stay in the record:
+Rerunning the same fit does not clear the obligation. It is resolved by
+recording a review decision that references the summaries under scrutiny (the
+suggested action carries their ids in its payload), and the repair happens on
+a branch — so the original fit, its diagnostics, and your rationale all stay
+in the record:
 
 ```{r repair}
+review <- Filter(
+  function(a) identical(a$payload$decision_type, "computation_review"),
+  guide$actions
+)[[1]]
+
 bg_record_decision(
   handle,
   scope = "project",
-  prompt = "How should the centered fit be handled?",
-  choice = "reparametrize_to_non_centered",
-  rationale = "Divergences indicate the funnel is poorly explored.",
-  kind = "fit_criticism"
+  prompt = "Is the centered fit acceptable for downstream use?",
+  choice = "reject_and_reparametrize",
+  rationale = "Divergences indicate the funnel is not explored.",
+  kind = "computation_review",
+  metadata = review$payload[c("node_ids", "summary_ids")]
 )
 
 branch <- bg_branch(handle, n_fit, label = "Non-centered")
@@ -152,17 +166,18 @@ bg_update_node(
 bg_run(handle, targets = branch$root_node_id)
 ```
 
-Once two candidates are clean, the protocol requires an explicit comparison
-decision and an accept-or-reject disposition for each branch before the loop
-closes. The full lineage remains visible:
+When a project holds several genuinely distinct clean candidates, the default
+pack additionally asks for an explicit comparison decision and an
+accept-or-reject disposition for each branch before the loop closes. The full
+lineage remains visible throughout:
 
 ```{r lineage}
 print(bg_read_graph(handle))
 #> ── Execution Graph ──
 #>
-#> └── Schools data <stan_data> [cached]
-#>     ├── Centered fit <cmdstanr_fit> [cached]
-#>     └── Non-centered <cmdstanr_fit> [cached]
+#> └── Schools data <stan_data> [new]
+#> ├── Centered fit <cmdstanr_fit> [new]
+#> └── Non-centered <cmdstanr_fit> [new]
 ```
 
 Finally, export the whole trail — graph, diagnostics, decisions, rationales —

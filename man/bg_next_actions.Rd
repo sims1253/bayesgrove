@@ -38,7 +38,7 @@ exist, and
 current comparison exists for an active candidate set.
 }
 
-When the optional phase-10 packs are active, the result can also include
+When the optional packs are active, the result can also include
 prior-rationale recording, prior and posterior predictive review,
 simulation-based calibration review, model-selection review keyed to
 \code{model_comparison} and \code{stacking_weights} summaries, causal-question
