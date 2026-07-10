@@ -108,6 +108,23 @@ describe("HMC severity rules (Phase 4.5)", {
     expect_equal(bg_hmc_severity(metrics), "warning")
   })
 
+  it("does not treat a missing transition count as a zero divergence rate", {
+    metrics <- list(
+      divergences = 2L,
+      max_treedepth_hits = 0L,
+      max_rhat = 1.0,
+      min_bulk_ess = 1000,
+      min_tail_ess = 1000,
+      e_bfmi = 0.5,
+      num_transitions = NA_integer_
+    )
+
+    rate <- bayesgrove:::bg_hmc_divergence_rate(metrics)
+    expect_false(rate$available)
+    expect_true(is.na(rate$value))
+    expect_equal(bg_hmc_severity(metrics), "warning")
+  })
+
   it("returns warning when treedepth saturation occurs", {
     metrics <- list(
       divergences = 0L,

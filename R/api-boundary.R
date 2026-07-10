@@ -58,6 +58,7 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_status", classification = "stable"),
     list(fn = "bg_result", classification = "stable"),
     list(fn = "bg_jobs", classification = "stable"),
+    list(fn = "bg_compact_jobs", classification = "experimental"),
     list(fn = "bg_fit_stan", classification = "experimental"),
     list(fn = "bg_fit_brms", classification = "experimental"),
     list(fn = "bg_graph_mermaid", classification = "stable"),

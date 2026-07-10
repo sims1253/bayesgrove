@@ -91,4 +91,22 @@ describe("params-as-code channel is closed (Phase 5)", {
     expect_equal(typeof(fetched$result$y), "integer")
     expect_equal(typeof(fetched$result$N), "integer")
   })
+
+  it("an sbc node refuses persisted generator source without evaluating it", {
+    sentinel <- withr::local_tempfile()
+    hostile_source <- paste0(
+      "function(seed) { file.create('",
+      sentinel,
+      "'); list(theta = 0, data = list()) }"
+    )
+
+    expect_error(
+      bayesgrove:::bg_executor_sbc(
+        list(params = list(data_fn = hostile_source)),
+        list()
+      ),
+      "must not contain executable source"
+    )
+    expect_false(file.exists(sentinel))
+  })
 })

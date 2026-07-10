@@ -484,14 +484,18 @@ bg_workflow_external_holds <- function(
     return(bg_protocol_named_list())
   }
 
-  bg_next_actions_impl(
+  protocol <- bg_workflow_obligations_impl(
     project,
     resolved_scope = "project",
     plan = plan,
     state = state,
     graph = graph
-  )$metadata$external_holds %||%
-    bg_protocol_named_list()
+  )
+  bg_protocol_named_list(bg_blocking_obligation_holds(
+    project,
+    protocol$obligations,
+    graph = graph
+  ))
 }
 
 # --- Next Actions Engine ---
@@ -547,27 +551,17 @@ bg_next_actions_impl <- function(
   state = NULL,
   graph = NULL
 ) {
-  active_packs <- bg_resolve_pack_includes(bg_workflow_packs(project))
-  contexts <- bg_collect_workflow_contexts(
+  protocol <- bg_workflow_obligations_impl(
     project,
     resolved_scope,
     plan = plan,
     state = state,
     graph = graph
   )
-
-  obligation_items <- list()
-  for (context in contexts) {
-    for (pack_ref in active_packs) {
-      obligation_items <- c(
-        obligation_items,
-        bg_dispatch_obligation_providers(context, pack_ref)
-      )
-    }
-  }
-  obligations <- bg_merge_protocol_items(obligation_items, "obligation_id")
+  active_packs <- protocol$active_packs
+  contexts <- protocol$contexts
   obligations <- bg_protocol_named_list(lapply(
-    obligations,
+    protocol$obligations,
     bg_enrich_protocol_obligation,
     project = project
   ))
@@ -606,6 +600,46 @@ bg_next_actions_impl <- function(
   # Add a class so a print method can render the obligations as a numbered
   # checklist; the underlying structure stays a plain-data list.
   structure(result, class = c("bg_next_actions_result", "list"))
+}
+
+#' Evaluate only workflow obligations.
+#'
+#' The run loop needs blocking holds at every wave boundary, not suggested
+#' actions or display enrichment. Keeping that hot path obligation-only avoids
+#' executing arbitrary action providers and enrichment work during planning.
+#' @keywords internal
+#' @noRd
+bg_workflow_obligations_impl <- function(
+  project,
+  resolved_scope,
+  plan = NULL,
+  state = NULL,
+  graph = NULL
+) {
+  active_packs <- bg_resolve_pack_includes(bg_workflow_packs(project))
+  contexts <- bg_collect_workflow_contexts(
+    project,
+    resolved_scope,
+    plan = plan,
+    state = state,
+    graph = graph
+  )
+
+  obligation_items <- list()
+  for (context in contexts) {
+    for (pack_ref in active_packs) {
+      obligation_items <- c(
+        obligation_items,
+        bg_dispatch_obligation_providers(context, pack_ref)
+      )
+    }
+  }
+  obligations <- bg_merge_protocol_items(obligation_items, "obligation_id")
+  list(
+    active_packs = active_packs,
+    contexts = contexts,
+    obligations = bg_protocol_named_list(obligations)
+  )
 }
 
 # --- Protocol Result Partitioning ---

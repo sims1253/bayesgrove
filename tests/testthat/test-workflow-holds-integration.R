@@ -34,10 +34,10 @@ describe("Workflow holds end-to-end", {
     )
     expect_equal(
       call_state$plan_calls,
-      2L,
+      1L,
       info = paste(
-        "Sync runs should keep the initial planning passes but avoid",
-        "a full `bg_plan()` after each successful node."
+        "Explicit targets should reuse the full-project plan and avoid",
+        "a second fingerprinting pass."
       )
     )
     expect_equal(

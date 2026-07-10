@@ -66,16 +66,15 @@ bg_set_node_data(handle, n_data, schools_data)
 The centered parameterization of the hierarchical model is a standard example
 of funnel geometry: as `tau` approaches zero, the conditional distribution of
 `theta` contracts sharply, and HMC produces divergent transitions
-(Betancourt and Girolami, 2015). We write the Stan program to a file:
+(Betancourt and Girolami, 2015). The package ships the example programs so the
+code below runs as pasted:
 
 ```{r stan-file}
-stan_file <- tempfile(fileext = ".stan")
-writeLines(c(
-  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
-  "parameters { real mu; real<lower=0> tau; vector[J] theta; }",
-  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
-  "        theta ~ normal(mu, tau); y ~ normal(theta, sigma); }"
-), stan_file)
+stan_file <- system.file(
+  "stan/eight_schools_centered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
 
 n_fit <- bg_add_node(
   handle,
@@ -190,14 +189,11 @@ bg_set_goal(
   rationale = "Same model; reparameterized so HMC can explore the posterior."
 )
 
-stan_file_nc <- tempfile(fileext = ".stan")
-writeLines(c(
-  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
-  "parameters { real mu; real<lower=0> tau; vector[J] theta_raw; }",
-  "transformed parameters { vector[J] theta = mu + tau * theta_raw; }",
-  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
-  "        theta_raw ~ normal(0, 1); y ~ normal(theta, sigma); }"
-), stan_file_nc)
+stan_file_nc <- system.file(
+  "stan/eight_schools_noncentered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
 
 bg_update_node(
   handle,

@@ -39,6 +39,18 @@
   summary metadata instead of being silently dropped.
 * `bg_executor_loo()` computes `r_eff` via `loo::relative_eff()` from
   chain-shaped draws, eliminating the missing-`r_eff` warning.
+* The built-in `sbc` executor no longer evaluates persisted `data_fn` source.
+  Simulation cases are plain data supplied by an upstream generator executor,
+  so project code remains behind `bg_restore_executors(trust = TRUE)`.
+* LOO-PIT now uses weighted `posterior::pit()` (including reproducible
+  randomized PIT for discrete outcomes) and the dependence-aware PIET
+  uniformity test. SBC ranks are bounded by bulk ESS and are graded only when
+  every chi-squared bin has at least five expected observations.
+* Graph tree output preserves child indentation, and the README's eight-schools
+  example now uses Stan programs shipped with the package.
+* Parallel dispatch validates minimum versions of mirai, purrr, and carrier
+  before starting. Parallel fit waves warn when daemon-local sampler CSV files
+  may not be durable.
 
 ## New features
 
@@ -51,7 +63,7 @@
   boundaries. `mirai`, `carrier`, and `purrr` are soft dependencies; the
   sequential path works without them.
 * New built-in node kinds `loo_pit` (PSIS-LOO PIT calibration graded by a
-  Kolmogorov-Smirnov distance from uniformity) and `sbc` (simulation-based
+  dependence-aware uniformity test) and `sbc` (simulation-based
   calibration graded by a chi-squared rank-uniformity test), closing the gap
   between what the workflow packs ask for and what the shipped executors can
   produce. The `ppc` executor now stores plot-ready data (observed `y` plus a

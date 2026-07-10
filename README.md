@@ -87,10 +87,20 @@ schools_data <- list(
   sigma = c(15, 10, 16, 11, 9, 11, 10, 18)
 )
 
+stan_file <- system.file(
+  "stan/eight_schools_centered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
+ncp_stan_file <- system.file(
+  "stan/eight_schools_noncentered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
+
 n_data <- bg_add_node(handle, "stan_data", label = "Schools data")
 bg_set_node_data(handle, n_data, schools_data)
 
-# `stan_file` points at the centered eight-schools program.
 n_fit <- bg_add_node(
   handle,
   "cmdstanr_fit",
@@ -169,8 +179,8 @@ print(bg_read_graph(handle))
 #> ── Execution Graph ──
 #>
 #> └── Schools data <stan_data> [new]
-#> ├── Centered fit <cmdstanr_fit> [new]
-#> └── Non-centered <cmdstanr_fit> [new]
+#>     ├── Centered fit <cmdstanr_fit> [new]
+#>     └── Non-centered <cmdstanr_fit> [new]
 ```
 
 Finally, export the whole trail — graph, diagnostics, decisions,
@@ -207,7 +217,9 @@ bg_use_workflow_packs(
     "bayesgrove.model_checks", # posterior predictive, SBC, LOO-PIT review
     "bayesgrove.model_selection", # comparison evidence, stacking weights
     "bayesgrove.stan_workflow", # bundle of the above + Stan-specific review
-    "bayesgrove.causal_dagitty" # DAG-backed adjustment and selection contracts
+    "bayesgrove.causal_minimal", # lightweight causal framing
+    "bayesgrove.causal_dagitty", # DAG-backed adjustment and selection contracts
+    "bayesgrove.pad_scaffold" # PAD taxonomy and utility annotations
   )
 )
 ```
@@ -221,6 +233,12 @@ you emit the same summary kinds and the protocol treats your evidence
 like the built-ins’. Opening a project never runs project-supplied code;
 `bg_restore_executors(handle, trust = TRUE)` is the explicit opt-in. See
 `vignette("extensions", package = "bayesgrove")`.
+
+Pack semantics are part of the documented review protocol, while the
+newer helper signatures are still classified as experimental. To keep
+the record and recommendations without execution holds, set project
+config `workflow_strictness = "advisory"` (or use a pack ref with
+`config = list(strictness = "advisory")`).
 
 ## How it relates to targets and workflowr
 

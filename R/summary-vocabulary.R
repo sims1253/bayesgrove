@@ -24,8 +24,8 @@
 #' | `prior_predictive_check`| `prior_fit` / `brms_prior_fit`| prior-predictive draws         |
 #' | `posterior_predictive_check` | `ppc`                    | observed y + capped yrep draws |
 #' | `loo_diagnostics`       | `loo`                         | PSIS-LOO Pareto-k              |
-#' | `loo_pit_calibration`   | `loo_pit`                     | LOO-PIT values + KS severity   |
-#' | `sbc_result`            | `sbc`                         | SBC ranks + chi-sq severity    |
+#' | `loo_pit_calibration`   | `loo_pit`                     | randomized PIT + PIET severity|
+#' | `sbc_result`            | `sbc`                         | ESS-bounded ranks + valid bins |
 #' | `comparison_results` / `stacking_weights` | `compare`        | model comparison               |
 #' | `prior_spec`            | user executor                 | bring your own (record prior)  |
 #' | `projpred_selection`    | user executor                 | bring your own (`projpred`)    |

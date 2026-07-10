@@ -9,22 +9,6 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
-
-# knitr has no built-in mermaid engine (that is Quarto); register one that
-# emits a client-rendered diagram in HTML output and the raw text elsewhere.
-knitr::knit_engines$set(mermaid = function(options) {
-  code <- paste(options$code, collapse = "\n")
-  if (!knitr::is_html_output()) {
-    return(knitr::engine_output(options, options$code, ""))
-  }
-  knitr::asis_output(paste0(
-    '<pre class="mermaid">\n', code, "\n</pre>\n",
-    '<script type="module">\n',
-    'import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";\n',
-    "mermaid.initialize({ startOnLoad: true });\n",
-    "</script>\n"
-  ))
-})
 ```
 
 This vignette is the single mental-model entry point for bayesgrove: it lays
@@ -34,15 +18,25 @@ reproducibility vignettes build on it.
 
 ## The loop in one diagram
 
-```{mermaid}
-flowchart LR
-  N[Node + executor] --> S[Summary]
-  S --> O[Obligation]
-  O --> A[Action]
-  A --> D[Decision]
-  D --> H[Hold]
-  H --> N
-```
+<svg viewBox="0 0 900 150" role="img" aria-labelledby="loop-title loop-desc" style="width:100%;max-width:900px">
+  <title id="loop-title">The bayesgrove review loop</title>
+  <desc id="loop-desc">Node and executor produce a summary, which produces an obligation and action. A recorded decision resolves the hold and allows execution to continue.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#506070"/></marker>
+  </defs>
+  <g fill="#f3f6f8" stroke="#506070" stroke-width="2" font-family="sans-serif" font-size="16" text-anchor="middle">
+    <rect x="10" y="35" width="130" height="50" rx="8"/><text x="75" y="65" fill="#1f2933" stroke="none">Node + executor</text>
+    <rect x="165" y="35" width="110" height="50" rx="8"/><text x="220" y="65" fill="#1f2933" stroke="none">Summary</text>
+    <rect x="300" y="35" width="120" height="50" rx="8"/><text x="360" y="65" fill="#1f2933" stroke="none">Obligation</text>
+    <rect x="445" y="35" width="100" height="50" rx="8"/><text x="495" y="65" fill="#1f2933" stroke="none">Action</text>
+    <rect x="570" y="35" width="110" height="50" rx="8"/><text x="625" y="65" fill="#1f2933" stroke="none">Decision</text>
+    <rect x="705" y="35" width="90" height="50" rx="8"/><text x="750" y="65" fill="#1f2933" stroke="none">Hold</text>
+  </g>
+  <g fill="none" stroke="#506070" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M140 60 H165"/><path d="M275 60 H300"/><path d="M420 60 H445"/><path d="M545 60 H570"/><path d="M680 60 H705"/>
+    <path d="M750 85 V125 H75 V85"/>
+  </g>
+</svg>
 
 Bayesgrove is a *guided* loop, not a fire-and-forget runner:
 

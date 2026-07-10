@@ -237,4 +237,11 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
     # 'auto' with no daemons -> FALSE (graceful fallback).
     expect_false(bayesgrove:::bg_parallel_active("auto"))
   })
+
+  it("declares the complete dependency contract for parallel dispatch", {
+    requirements <- bayesgrove:::bg_parallel_requirements()
+
+    expect_equal(names(requirements), c("mirai", "purrr", "carrier"))
+    expect_true(utils::compareVersion(requirements[["purrr"]], "1.1.0") >= 0)
+  })
 })

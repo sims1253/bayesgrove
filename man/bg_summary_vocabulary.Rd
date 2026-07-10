@@ -26,8 +26,8 @@ kind that produces them:\tabular{lll}{
    \code{prior_predictive_check} \tab \code{prior_fit} / \code{brms_prior_fit} \tab prior-predictive draws \cr
    \code{posterior_predictive_check} \tab \code{ppc} \tab observed y + capped yrep draws \cr
    \code{loo_diagnostics} \tab \code{loo} \tab PSIS-LOO Pareto-k \cr
-   \code{loo_pit_calibration} \tab \code{loo_pit} \tab LOO-PIT values + KS severity \cr
-   \code{sbc_result} \tab \code{sbc} \tab SBC ranks + chi-sq severity \cr
+   \code{loo_pit_calibration} \tab \code{loo_pit} \tab randomized PIT + PIET severity \cr
+   \code{sbc_result} \tab \code{sbc} \tab ESS-bounded ranks + valid bins \cr
    \code{comparison_results} / \code{stacking_weights} \tab \code{compare} \tab model comparison \cr
    \code{prior_spec} \tab user executor \tab bring your own (record prior) \cr
    \code{projpred_selection} \tab user executor \tab bring your own (\code{projpred}) \cr

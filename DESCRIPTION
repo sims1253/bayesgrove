@@ -2,12 +2,12 @@ Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
 Version: 0.7.0
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
-Description: Implements the bayesgrove workflow runtime with typed graph
-    construction, deterministic fingerprinting, synchronous execution, content-
-    addressed artifact storage, decision logging, a workflow protocol that
-    reads typed diagnostic evidence and derives obligations, and built-in
-    cmdstanr/brms executors that compute HMC, LOO, and PPC diagnostics
-    themselves.
+Description: Keeps Bayesian model reviews honest: diagnostics create recorded
+    obligations that can block downstream computation until a justified
+    decision is recorded. Provides typed graph construction, deterministic
+    fingerprinting, content-addressed artifact storage, decision logging, a
+    summary-driven workflow protocol, and built-in cmdstanr/brms executors for
+    HMC, LOO, and posterior-predictive diagnostics.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: false
@@ -27,15 +27,15 @@ Additional_repositories: https://stan-dev.r-universe.dev
 Suggests:
     bayesplot,
     brms,
-    carrier,
+    carrier (>= 0.3.0),
     cmdstanr,
     dagitty,
     hedgehog,
     knitr,
-    mirai,
+    mirai (>= 2.5.1),
     pkgload,
-    posterior,
-    purrr,
+    posterior (>= 1.7.0),
+    purrr (>= 1.1.0),
     loo,
     rmarkdown,
     rstan,

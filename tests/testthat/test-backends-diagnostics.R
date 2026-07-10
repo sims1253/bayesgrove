@@ -14,14 +14,39 @@ describe("LOO-PIT helpers", {
     expect_true(is.na(bg_ks_uniform_stat(c(NA_real_, NA_real_))))
   })
 
-  it("bg_loo_pit_severity grades by KS thresholds and respects overrides", {
-    # KS ~0 for uniform => ok; large => error.
-    uniform <- runif(2000)
-    skewed <- rep(0.99, 100) # degenerate near 1
-    expect_equal(bg_loo_pit_severity(uniform), "ok")
-    expect_equal(bg_loo_pit_severity(skewed), "error")
-    # Override thresholds: a large KS can downgrade to warning.
-    expect_equal(bg_loo_pit_severity(skewed, ks_error = 1.5), "warning")
+  it("bg_loo_pit_diagnostics grades with a calibrated uniformity p-value", {
+    uniform <- (seq_len(200) - 0.5) / 200
+    skewed <- rep(0.99, 100)
+
+    uniform_diag <- bayesgrove:::bg_loo_pit_diagnostics(uniform)
+    skewed_diag <- bayesgrove:::bg_loo_pit_diagnostics(skewed)
+
+    expect_equal(uniform_diag$severity, "ok")
+    expect_equal(skewed_diag$severity, "error")
+    expect_true(uniform_diag$p_value > skewed_diag$p_value)
+    expect_equal(uniform_diag$test, "PIET")
+  })
+
+  it("SBC histogram defaults keep every expected bin count at least five", {
+    ranks <- rep(0:20, length.out = 20)
+    histogram <- bayesgrove:::bg_sbc_rank_histogram(ranks, n_draws = 20)
+
+    expect_lte(histogram$n_bins, 4L)
+    expect_gte(histogram$n_bins, 2L)
+    expect_true(all(histogram$expected >= 5))
+    expect_true(histogram$graded)
+  })
+
+  it("SBC histogram marks underpowered custom grading as ungraded", {
+    ranks <- rep(0:20, length.out = 20)
+    histogram <- bayesgrove:::bg_sbc_rank_histogram(
+      ranks,
+      n_draws = 20,
+      n_bins = 20
+    )
+
+    expect_false(histogram$graded)
+    expect_true(any(histogram$expected < 5))
   })
 })
 
@@ -60,6 +85,28 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     # Plot-ready data carries observed y and the PIT vector.
     expect_equal(res$result$plot_data$observed_y, y)
     expect_equal(length(res$result$plot_data$pit_values), n_obs)
+    expect_true(is.numeric(res$summaries[[1]]$metrics$p_value))
+    expect_equal(res$summaries[[1]]$metrics$uniformity_test, "PIET")
+  })
+
+  it("uses reproducible randomized PIT for discrete outcomes", {
+    n_draws <- 100L
+    y <- c(0L, 1L)
+    yrep <- cbind(rep(c(0L, 1L), each = n_draws / 2), rep(1L, n_draws))
+    log_lik <- matrix(0, nrow = n_draws, ncol = 2)
+    draws <- cbind(log_lik, yrep)
+    colnames(draws) <- c("log_lik[1]", "log_lik[2]", "yrep[1]", "yrep[2]")
+    dm <- posterior::as_draws_matrix(draws)
+    fit <- list(draws = function() dm)
+    class(fit) <- c("CmdStanMCMC", class(fit))
+    node <- list(params = list(pit_seed = 123L))
+
+    first <- bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
+    second <- bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
+
+    expect_equal(first$result$pit_values, second$result$pit_values)
+    expect_true(first$summaries[[1]]$metrics$discrete)
+    expect_equal(first$summaries[[1]]$metrics$pit_method, "randomized")
   })
 
   it("ignores decoy variables whose name merely contains log_lik_var", {
