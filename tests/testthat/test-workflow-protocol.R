@@ -6,6 +6,7 @@ describe("Workflow protocol APIs", {
       sort(names(templates)),
       sort(c(
         "diagnostic_check",
+        "sbc_check",
         "branch_comparison",
         "branch_and_modify_fit",
         "review_decision"
