@@ -719,15 +719,43 @@ bg_pack_checks_actions <- function(
     scope = context$scope
   )
   if (!is.null(sbc_obligation)) {
-    action <- bg_pack_check_action(
+    source_node_id <- bg_pack_source_node_id(
+      context,
+      sbc_obligation$basis$node_ids
+    )
+    source_node <- (context$structural$nodes %||% list())[[source_node_id]] %||%
+      list()
+    action <- bg_pack_action(
       context = context,
-      obligation = sbc_obligation,
+      kind = "create_node_from_template",
       title = "Create SBC check",
-      node_kind = pack_config$sbc_node_kind %||% "sbc",
-      default_label_prefix = "SBC:",
       why_now = paste0(
         "Create an SBC node so the workflow can record calibration summaries ",
         "for the current approximation strategy."
+      ),
+      basis = list(
+        obligation_refs = list(list(
+          kind = sbc_obligation$kind,
+          scope = sbc_obligation$scope
+        )),
+        node_ids = sbc_obligation$basis$node_ids %||% source_node_id
+      ),
+      payload = list(
+        template_ref = "sbc_check",
+        source_node_id = source_node_id,
+        node_kind = pack_config$sbc_node_kind %||% "sbc",
+        generator_node_id = pack_config$sbc_generator_node_id %||% NULL,
+        stan_file = pack_config$sbc_stan_file %||%
+          source_node$params$stan_file %||%
+          NULL,
+        default_label = paste(
+          "SBC:",
+          bg_pack_node_label(context, source_node_id)
+        )
+      ),
+      metadata = list(
+        source_keys = sbc_obligation$metadata$source_keys %||% character(),
+        references = sbc_obligation$explanation$references %||% character()
       )
     )
     if (!is.null(action)) {

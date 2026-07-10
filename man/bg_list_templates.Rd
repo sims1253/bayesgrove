@@ -13,7 +13,7 @@ matching descriptor or \code{NULL}.}
 \value{
 Either a list of built-in template descriptors keyed by
 \code{template_ref}, or a single descriptor when \code{template_ref} is supplied.
-Built-in refs are \code{diagnostic_check}, \code{branch_comparison},
+Built-in refs are \code{diagnostic_check}, \code{sbc_check}, \code{branch_comparison},
 \code{branch_and_modify_fit}, and \code{review_decision}.
 }
 \description{

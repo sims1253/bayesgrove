@@ -351,6 +351,11 @@ describe("Phase 10 Bayesian semantics packs", {
       function(obligation) identical(obligation$kind, "run_sbc"),
       logical(1)
     )))
+    sbc_setup_actions <- Filter(
+      function(action) identical(action$payload$template_ref, "sbc_check"),
+      initial$actions
+    )
+    expect_length(sbc_setup_actions, 1L)
 
     sbc_id <- bg_add_node(
       handle,

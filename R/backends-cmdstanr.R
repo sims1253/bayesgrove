@@ -977,6 +977,7 @@ bg_executor_sbc <- function(node, inputs) {
   theta_draws_by_sim <- vector("list", n_sims)
   theta_true_by_sim <- rep(NA_real_, n_sims)
   effective_draws <- rep(NA_integer_, n_sims)
+  ess_available <- rep(FALSE, n_sims)
   for (i in seq_len(n_sims)) {
     sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + i else NULL
     theta_true <- cases[[i]]$theta
@@ -1020,7 +1021,8 @@ bg_executor_sbc <- function(node, inputs) {
     theta_draws_by_sim[[i]] <- theta_draws
     theta_true_by_sim[[i]] <- theta_true
     ess <- tryCatch(posterior::ess_bulk(theta_draws), error = function(e) NA)
-    effective_draws[[i]] <- if (is.finite(ess) && ess >= 1) {
+    ess_available[[i]] <- is.finite(ess) && ess >= 1
+    effective_draws[[i]] <- if (ess_available[[i]]) {
       as.integer(floor(ess))
     } else {
       length(theta_draws)
@@ -1079,6 +1081,8 @@ bg_executor_sbc <- function(node, inputs) {
     n_draws = rank_draws,
     n_bins = node$params$n_bins %||% NULL
   )
+  histogram$graded <- histogram$graded &&
+    all(ess_available[valid_simulations])
   chi_sq <- if (histogram$graded) {
     sum((histogram$counts - histogram$expected)^2 / histogram$expected)
   } else {
@@ -1113,6 +1117,7 @@ bg_executor_sbc <- function(node, inputs) {
       n_bins = histogram$n_bins,
       expected_per_bin = as.numeric(histogram$expected),
       graded = histogram$graded,
+      ess_available = all(ess_available[valid_simulations]),
       smoke_test = n_valid < 100L,
       rank_draws = rank_draws,
       chi_sq = as.numeric(chi_sq),
