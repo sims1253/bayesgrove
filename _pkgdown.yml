@@ -74,6 +74,7 @@ reference:
       - bg_plan
       - bg_run
       - bg_jobs
+      - bg_compact_jobs
       - bg_compute_fingerprint
       - bg_status
       - bg_result

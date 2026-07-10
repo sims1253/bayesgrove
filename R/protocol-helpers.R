@@ -197,7 +197,8 @@ bg_assert_protocol_item <- function(item, type = c("obligation", "action")) {
     "summary_ids",
     "decision_ids",
     "branch_ids",
-    "obligation_refs"
+    "obligation_refs",
+    "comparison_signature"
   )
   unexpected_basis <- setdiff(names(item$basis) %||% character(), basis_fields)
   if (length(unexpected_basis) > 0L) {

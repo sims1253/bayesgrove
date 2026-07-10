@@ -1065,7 +1065,7 @@ bg_executor_sbc <- function(node, inputs) {
   rank_draws <- min(c(
     rank_draws_target,
     effective_draws[valid_simulations],
-    vapply(theta_draws_by_sim[valid_simulations], length, integer(1))
+    lengths(theta_draws_by_sim[valid_simulations])
   ))
   rank_draws <- as.integer(max(1L, floor(rank_draws)))
   for (i in valid_simulations) {
