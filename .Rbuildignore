@@ -19,3 +19,8 @@
 ^architecture$
 ^PLAN\.md$
 ^vignettes/articles$
+^inst/stan/roaches_poisson$
+^inst/stan/roaches_negbinomial$
+^inst/stan/roaches_zinb$
+^REVIEW\.md$
+^ROADMAP\.md$

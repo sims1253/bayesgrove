@@ -268,7 +268,7 @@ No model comparison is needed here: the two fits target the same posterior,
 and the reparameterization is a computational repair rather than a change of
 model. For a loop with genuinely distinct candidates — where the default pack
 requires an explicit comparison decision and an accept-or-reject disposition
-for each branch — see `vignette("guided-review-loop")`.
+for each branch — see `vignette("case-study-roaches")`.
 
 ## Export a report
 

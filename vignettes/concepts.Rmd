@@ -108,7 +108,22 @@ versions, seeds) so "same node" is meaningful across sessions and machines.
 | Hold            | A block on a node from an unresolved blocking obligation.            |
 
 See also: `?bayesgrove-concepts` (the help-topic version of this table),
-`vignette("getting-started")`, and `vignette("guided-review-loop")`.
+`vignette("getting-started")`, and `vignette("eight-schools")`.
+
+## Where bayesgrove ends and dagriculture begins
+
+bayesgrove does not implement its own graph engine. Node and edge storage,
+state recomputation, and the structural planning primitives live in the
+`dagriculture` package, behind a thin internal adapter layer. Everything in
+this vignette that carries *meaning* — branches, goals, scopes, summaries,
+obligations, decisions, holds, gates, freshness — is bayesgrove's own layer
+on top: those are analysis-workflow concepts, not graph concepts, and
+pushing them down into a generic graph package would leak Bayesian review
+policy into structural machinery. The public editing verbs (`bg_add_node()`,
+`bg_connect()`) stay in bayesgrove because API shape, persistence, and
+project commit semantics belong here even when the structural mutation is
+delegated. Contributors can find the full ownership table in
+`architecture/dagriculture-boundary.md` in the source repository.
 
 ## Why not targets or workflowr?
 
