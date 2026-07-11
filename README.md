@@ -116,10 +116,10 @@ bg_run(handle, targets = n_fit)
 #> Warning: 2 of 4 chains had an E-BFMI less than 0.3.
 ```
 
-The centered parameterization cannot explore the funnel between `tau`
-and `theta`, and HMC reports divergent transitions. The executor stores
-the diagnostics as an `hmc_diagnostics` summary, the protocol converts
-it into a blocking obligation, and downstream work is held:
+The centered parametrization cannot explore the funnel between `tau` and
+`theta`, and HMC reports divergent transitions. The executor stores the
+diagnostics as an `hmc_diagnostics` summary, the protocol converts it
+into a blocking obligation, and downstream work is held:
 
 ``` r
 guide <- bg_next_actions(handle)
@@ -191,8 +191,8 @@ bg_export_report(handle, format = "md", path = "eight-schools-report.md")
 ```
 
 The `eight-schools` vignette walks this exact loop with real captured
-output; the `guided-review-loop` vignette covers the complete
-criticism–repair–compare–accept cycle.
+output; the `case-study-roaches` vignette covers the complete
+criticism–repair–compare–accept cycle on real trial data.
 
 ## Guided terminal client
 
@@ -269,16 +269,14 @@ classifies every export as stable, experimental, or internal.
 
 ## Vignettes
 
-| Vignette                     | What it covers                                                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `concepts`                   | The mental model: node -\> summary -\> obligation -\> decision -\> hold, scopes, freshness, gates vs obligations |
-| `getting-started`            | Full project lifecycle: gates, caching, branching, comparison, disposition                                       |
-| `eight-schools`              | The real cmdstanr loop shown above, with captured output                                                         |
-| `guided-review-loop`         | Complete criticism-and-repair cycle with deterministic executors                                                 |
-| `simulation-study`           | Simulation-based workflow with confounded treatment and gate decisions                                           |
-| `primed-priors-case-studies` | Mapping the primed-priors SBC case studies onto workflow graphs                                                  |
-| `extensions`                 | Writing node sets, backend plugins, and summary-driven extensions                                                |
-| `dagriculture-boundary`      | How the graph primitives relate to workflow semantics                                                            |
+| Vignette             | What it covers                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `concepts`           | The mental model: node -\> summary -\> obligation -\> decision -\> hold, scopes, freshness, gates vs obligations |
+| `getting-started`    | The smallest real loop: one fit, a failing predictive check, the obligation, the decision, the repair branch     |
+| `eight-schools`      | The real cmdstanr computation-review loop shown above, with captured output                                      |
+| `case-study-roaches` | Flagship case study: enforced criticism, branching, comparison, and disposition on real trial data               |
+| `simulation-study`   | Simulation-based workflow with confounded treatment and gate decisions                                           |
+| `extensions`         | Writing node sets, backend plugins, and summary-driven extensions                                                |
 
 The [pkgdown site](https://sims1253.github.io/bayesgrove/) additionally
 carries two articles: *Reproducible research with bayesgrove* (what a

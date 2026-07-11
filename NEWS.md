@@ -54,6 +54,25 @@
 
 ## New features
 
+* `bg_use_default_workflow()`, `bg_use_workflow_packs()`, and
+  `bg_next_actions()` are reclassified as stable in `bg_api_boundary()`.
+* `bg_read_decisions()` is exported: the read-only accessor for the
+  decision log, completing the reader family alongside `bg_read_summaries()`
+  and the registry readers.
+* Workflow packs recognize fit nodes by the `*_fit` naming convention
+  (`bg_pack_is_fit_node()`), so `cmdstanr_fit` and `brms_fit` nodes
+  participate in comparison candidacy and criticism review; previously only
+  the literal kind `fit` did, which meant the comparison loop never fired
+  for real backends. Prior-predictive fit kinds are excluded from
+  candidacy. LOO diagnostic summaries are reviewed as computation evidence
+  rather than fit criticism.
+* The `ppc` node kind supports `prop_zero` (proportion of zeros) as a test
+  statistic, the standard posterior-predictive check for zero-heavy count
+  data. Statistics remain an allowlist resolved to internal functions;
+  params stay data, never code.
+* Registering brms support via `bg_use_brms()` now also provides a neutral
+  `data` node kind (an alias of the `stan_data` executor), and
+  `bg_fit_brms()` labels its data node with it.
 * Parallel execution: `bg_run()` gains a `parallel` argument
   (`"auto"`/`"never"`/`"always"`). Execution proceeds in topological waves;
   with active `mirai::daemons()` a wave of independent nodes is dispatched
@@ -119,6 +138,25 @@
   the chain count is known.
 * Draw-variable selection matches Stan's indexed-variable form exactly
   (`log_lik` matches `log_lik[1]` but no longer `log_lik_saturated[1]`).
+
+## Documentation
+
+* New flagship case study `vignette("case-study-roaches")`: the full review
+  loop on the Gelman-and-Hill roaches trial, from a cleanly sampling but
+  badly misfitting Poisson model through an enforced criticism, branch,
+  comparison, and disposition cycle to an exported report. The dataset and
+  all three Stan programs ship with the package.
+* `vignette("getting-started")` was rewritten around a real cmdstanr
+  lifecycle: one small fit, a failing posterior-predictive check, the
+  obligation it raises, and the branch that repairs it — with captured
+  output. Mock-executor material moved to `vignette("extensions")`.
+* Removed the `guided-review-loop` vignette (superseded by the reworked
+  getting-started and the case study) and the `primed-priors-case-studies`
+  vignette (a workflow mapping, superseded by the real case study). The
+  `dagriculture-boundary` page was folded into `vignette("concepts")`.
+* PPC documentation now states explicitly that posterior-predictive p-values
+  are conservative tripwires and that graphical checks via `bg_plot()` are
+  the primary posterior-predictive diagnostic.
 
 # bayesgrove 0.6.0
 
