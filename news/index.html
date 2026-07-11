@@ -22,13 +22,10 @@
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul></li>
-<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -43,7 +40,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
     <div class="section level2">
@@ -67,11 +64,22 @@
 <code>bg_executor_compare()</code> reports the runner-up <code>elpd_diff</code> and a plain-data comparison table (was the always-zero best-model value); stacking weights use <code>loo::loo_model_weights(method = "stacking")</code> and surface errors in summary metadata instead of being silently dropped.</li>
 <li>
 <code>bg_executor_loo()</code> computes <code>r_eff</code> via <code><a href="https://mc-stan.org/loo/reference/relative_eff.html" class="external-link">loo::relative_eff()</a></code> from chain-shaped draws, eliminating the missing-<code>r_eff</code> warning.</li>
+<li>The built-in <code>sbc</code> executor no longer evaluates persisted <code>data_fn</code> source. Simulation cases are plain data supplied by an upstream generator executor, so project code remains behind <code>bg_restore_executors(trust = TRUE)</code>.</li>
+<li>LOO-PIT now uses weighted <code><a href="https://mc-stan.org/posterior/reference/pit.html" class="external-link">posterior::pit()</a></code> (including reproducible randomized PIT for discrete outcomes) and the dependence-aware PIET uniformity test. SBC ranks are bounded by bulk ESS and are graded only when every chi-squared bin has at least five expected observations.</li>
+<li>Graph tree output preserves child indentation, and the README’s eight-schools example now uses Stan programs shipped with the package.</li>
+<li>Parallel dispatch validates minimum versions of mirai, purrr, and carrier before starting. Parallel fit waves warn when daemon-local sampler CSV files may not be durable.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-features-0-7-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-7-0"></a></h3>
-<ul><li>Parallel execution: <code><a href="../reference/bg_run.html">bg_run()</a></code> gains a <code>parallel</code> argument (<code>"auto"</code>/<code>"never"</code>/<code>"always"</code>). Execution proceeds in topological waves; with active <code><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">mirai::daemons()</a></code> a wave of independent nodes is dispatched concurrently via <code><a href="https://purrr.tidyverse.org/reference/in_parallel.html" class="external-link">purrr::in_parallel()</a></code>. Workers write content-addressed blobs only; the main process remains the single writer of the artifact index, summaries, and jobs. Protocol holds and <code><a href="../reference/bg_pause.html">bg_pause()</a></code> apply at wave boundaries. <code>mirai</code>, <code>carrier</code>, and <code>purrr</code> are soft dependencies; the sequential path works without them.</li>
-<li>New built-in node kinds <code>loo_pit</code> (PSIS-LOO PIT calibration graded by a Kolmogorov-Smirnov distance from uniformity) and <code>sbc</code> (simulation-based calibration graded by a chi-squared rank-uniformity test), closing the gap between what the workflow packs ask for and what the shipped executors can produce. The <code>ppc</code> executor now stores plot-ready data (observed <code>y</code> plus a capped <code>yrep</code> subsample) in its artifact.</li>
+<ul><li>
+<code><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow()</a></code>, <code><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs()</a></code>, and <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> are reclassified as stable in <code><a href="../reference/bg_api_boundary.html">bg_api_boundary()</a></code>.</li>
+<li>
+<code><a href="../reference/bg_read_decisions.html">bg_read_decisions()</a></code> is exported: the read-only accessor for the decision log, completing the reader family alongside <code><a href="../reference/bg_read_summaries.html">bg_read_summaries()</a></code> and the registry readers.</li>
+<li>Workflow packs recognize fit nodes by the <code>*_fit</code> naming convention (<code>bg_pack_is_fit_node()</code>), so <code>cmdstanr_fit</code> and <code>brms_fit</code> nodes participate in comparison candidacy and criticism review; previously only the literal kind <code>fit</code> did, which meant the comparison loop never fired for real backends. Prior-predictive fit kinds are excluded from candidacy. LOO diagnostic summaries are reviewed as computation evidence rather than fit criticism.</li>
+<li>The <code>ppc</code> node kind supports <code>prop_zero</code> (proportion of zeros) as a test statistic, the standard posterior-predictive check for zero-heavy count data. Statistics remain an allowlist resolved to internal functions; params stay data, never code.</li>
+<li>Registering brms support via <code><a href="../reference/bg_use_brms.html">bg_use_brms()</a></code> now also provides a neutral <code>data</code> node kind (an alias of the <code>stan_data</code> executor), and <code><a href="../reference/bg_fit_brms.html">bg_fit_brms()</a></code> labels its data node with it.</li>
+<li>Parallel execution: <code><a href="../reference/bg_run.html">bg_run()</a></code> gains a <code>parallel</code> argument (<code>"auto"</code>/<code>"never"</code>/<code>"always"</code>). Execution proceeds in topological waves; with active <code><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">mirai::daemons()</a></code> a wave of independent nodes is dispatched concurrently via <code><a href="https://purrr.tidyverse.org/reference/in_parallel.html" class="external-link">purrr::in_parallel()</a></code>. Workers write content-addressed blobs only; the main process remains the single writer of the artifact index, summaries, and jobs. Protocol holds and <code><a href="../reference/bg_pause.html">bg_pause()</a></code> apply at wave boundaries. <code>mirai</code>, <code>carrier</code>, and <code>purrr</code> are soft dependencies; the sequential path works without them.</li>
+<li>New built-in node kinds <code>loo_pit</code> (PSIS-LOO PIT calibration graded by a dependence-aware uniformity test) and <code>sbc</code> (simulation-based calibration graded by a chi-squared rank-uniformity test), closing the gap between what the workflow packs ask for and what the shipped executors can produce. The <code>ppc</code> executor now stores plot-ready data (observed <code>y</code> plus a capped <code>yrep</code> subsample) in its artifact.</li>
 <li>Visualization: <code><a href="../reference/bg_graph_mermaid.html">bg_graph_mermaid()</a></code> renders the active graph as Mermaid flowchart text with state coloring, and <code><a href="../reference/bg_plot.html">bg_plot()</a></code> plots a node’s diagnostics (<code>ppc</code> density overlay, LOO-PIT ECDF, SBC rank histogram, fit traces) via the soft <code>bayesplot</code> dependency. <code><a href="../reference/bg_export_report.html">bg_export_report()</a></code> embeds the Mermaid graph in both output formats.</li>
 <li>Practitioner shortcuts <code><a href="../reference/bg_fit_stan.html">bg_fit_stan()</a></code> and <code><a href="../reference/bg_fit_brms.html">bg_fit_brms()</a></code> collapse the data-node + fit-node + run sequence into one call (experimental).</li>
 <li>
@@ -98,6 +106,14 @@
 <h3 id="additional-bug-fixes-0-7-0">Additional bug fixes<a class="anchor" aria-label="anchor" href="#additional-bug-fixes-0-7-0"></a></h3>
 <ul><li>The divergence rate uses the total post-warmup transitions across all chains as its denominator (it was inflated by the chain count), and the ESS warning threshold scales as 100 per chain (Vehtari et al. 2021) when the chain count is known.</li>
 <li>Draw-variable selection matches Stan’s indexed-variable form exactly (<code>log_lik</code> matches <code>log_lik[1]</code> but no longer <code>log_lik_saturated[1]</code>).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-0-7-0">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-7-0"></a></h3>
+<ul><li>New flagship case study <code><a href="../articles/case-study-roaches.html">vignette("case-study-roaches")</a></code>: the full review loop on the Gelman-and-Hill roaches trial, from a cleanly sampling but badly misfitting Poisson model through an enforced criticism, branch, comparison, and disposition cycle to an exported report. The dataset and all three Stan programs ship with the package.</li>
+<li>
+<code><a href="../articles/getting-started.html">vignette("getting-started")</a></code> was rewritten around a real cmdstanr lifecycle: one small fit, a failing posterior-predictive check, the obligation it raises, and the branch that repairs it — with captured output. Mock-executor material moved to <code><a href="../articles/extensions.html">vignette("extensions")</a></code>.</li>
+<li>Removed the <code>guided-review-loop</code> vignette (superseded by the reworked getting-started and the case study) and the <code>primed-priors-case-studies</code> vignette (a workflow mapping, superseded by the real case study). The <code>dagriculture-boundary</code> page was folded into <code><a href="../articles/concepts.html">vignette("concepts")</a></code>.</li>
+<li>PPC documentation now states explicitly that posterior-predictive p-values are conservative tripwires and that graphical checks via <code><a href="../reference/bg_plot.html">bg_plot()</a></code> are the primary posterior-predictive diagnostic.</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -326,28 +342,22 @@
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="bayesgrove-020">bayesgrove 0.2.0<a class="anchor" aria-label="anchor" href="#bayesgrove-020"></a></h2>
-<ul><li><strong>Phase 2 (Async Execution Layer) Implementation</strong></li>
-<li>Added <code>bg_submit()</code>, <code>bg_wait()</code>, and <code>bg_cancel()</code> to orchestrate true non-blocking background execution of workflows.</li>
-<li>Integrated <code>callr</code> and <code>mirai</code> execution backends for parallel asynchronous job dispatch.</li>
-<li>Added <code><a href="../reference/bg_jobs.html">bg_jobs()</a></code> and JSONL logging (<code>.bayesgrove/runs/jobs.jsonl</code>) to durably track job status, start times, completion, and task progress.</li>
-<li>Updated <code><a href="../reference/bg_status.html">bg_status()</a></code> to double as a reconciliation poller (<code>bg_reconcile_daemon_jobs()</code>), updating crashed or finished daemon jobs automatically without blocking the main session.</li>
-<li>Ensured isolated failure containment: if a single background task fails, other independent node jobs continue executing.</li>
+<ul><li>Added <code>bg_submit()</code>, <code>bg_wait()</code>, and <code>bg_cancel()</code> for non-blocking background execution of workflows (removed again in 0.6.0).</li>
+<li>Integrated <code>callr</code> and <code>mirai</code> execution backends for parallel job dispatch.</li>
+<li>Added <code><a href="../reference/bg_jobs.html">bg_jobs()</a></code> and JSONL logging (<code>.bayesgrove/runs/jobs.jsonl</code>) to track job status, start times, completion, and task progress.</li>
+<li>
+<code><a href="../reference/bg_status.html">bg_status()</a></code> doubles as a reconciliation poller (<code>bg_reconcile_daemon_jobs()</code>), updating crashed or finished daemon jobs without blocking the main session.</li>
+<li>A failing background task no longer stops other independent node jobs.</li>
 <li>Exported internal artifact/caching methods conditionally to support the standalone worker contract across process boundaries.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.1" id="bayesgrove-011">bayesgrove 0.1.1<a class="anchor" aria-label="anchor" href="#bayesgrove-011"></a></h2>
-<ul><li>
-<strong>Greenfield Architecture Rewrite</strong>: The <code>bayesguide</code> prototype has been renamed and completely rebuilt as <code>bayesgrove</code>.</li>
-<li>
-<strong>Graph Engine Split</strong>: The pure graph execution logic has been moved to a separate, foundational package called <code>dagriculture</code> (<code>sims1253/dagriculture</code>), ensuring strict separation of computation from Bayesian semantics.</li>
-<li>
-<strong>S7 Object Model</strong>: Core workflow states are now backed by explicit reference-semantic <code>S7</code> classes (like <code>bg_handle</code>).</li>
-<li>
-<strong>Decision Provenance Layer</strong>: Decisions, alternative choices, and rationales are now explicitly captured through semantic “gates” layered over the topological graph.</li>
-<li>
-<strong>Deterministic Fingerprinting &amp; Caching</strong>: Cache keys are now built from upstream fingerprints and structured backend signatures, creating a robust local Content-Addressed Storage (CAS) mechanism.</li>
-<li>
-<strong>Async &amp; Plugin Foundations</strong>: Synchronous runtime execution (<code><a href="../reference/bg_run.html">bg_run()</a></code>) and backend registry (<code>bg_register_backend()</code>) are now fully operational, including the initial <code>cmdstanr</code> MVP plugin.</li>
+<ul><li>Renamed and rewrote the <code>bayesguide</code> prototype as <code>bayesgrove</code>.</li>
+<li>Moved the pure graph execution logic to a separate package, <code>dagriculture</code> (<code>sims1253/dagriculture</code>), separating computation from Bayesian semantics.</li>
+<li>Core workflow state is backed by reference-semantic <code>S7</code> classes (e.g. <code>bg_handle</code>).</li>
+<li>Decisions, alternative choices, and rationales are captured through “gates” layered over the graph.</li>
+<li>Cache keys are built from upstream fingerprints and structured backend signatures, backing a local content-addressed store.</li>
+<li>Synchronous execution (<code><a href="../reference/bg_run.html">bg_run()</a></code>) and a backend registry (<code>bg_register_backend()</code>, removed in 0.6.0), including an initial <code>cmdstanr</code> plugin.</li>
 </ul></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
@@ -358,7 +368,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

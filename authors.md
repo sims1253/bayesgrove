@@ -7,14 +7,14 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/sims1253/bayesgrove/blob/v0.7.0/inst/CITATION)
+[`inst/CITATION`](https://github.com/sims1253/bayesgrove/blob/master/inst/CITATION)
 
-Scholz M (2026). *bayesgrove: Enforced Decision Tracking for Bayesian
-Workflows*. R package version 0.7.0,
+Scholz M (2026). *bayesgrove: Graph-Based Bayesian Workflow
+Scaffolding*. R package version 0.7.0,
 <https://github.com/sims1253/bayesgrove>.
 
     @Manual{,
-      title = {bayesgrove: Enforced Decision Tracking for Bayesian Workflows},
+      title = {bayesgrove: Graph-Based Bayesian Workflow Scaffolding},
       author = {Maximilian Scholz},
       year = {2026},
       note = {R package version 0.7.0},

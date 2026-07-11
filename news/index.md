@@ -49,9 +49,52 @@
 - `bg_executor_loo()` computes `r_eff` via
   [`loo::relative_eff()`](https://mc-stan.org/loo/reference/relative_eff.html)
   from chain-shaped draws, eliminating the missing-`r_eff` warning.
+- The built-in `sbc` executor no longer evaluates persisted `data_fn`
+  source. Simulation cases are plain data supplied by an upstream
+  generator executor, so project code remains behind
+  `bg_restore_executors(trust = TRUE)`.
+- LOO-PIT now uses weighted
+  [`posterior::pit()`](https://mc-stan.org/posterior/reference/pit.html)
+  (including reproducible randomized PIT for discrete outcomes) and the
+  dependence-aware PIET uniformity test. SBC ranks are bounded by bulk
+  ESS and are graded only when every chi-squared bin has at least five
+  expected observations.
+- Graph tree output preserves child indentation, and the README’s
+  eight-schools example now uses Stan programs shipped with the package.
+- Parallel dispatch validates minimum versions of mirai, purrr, and
+  carrier before starting. Parallel fit waves warn when daemon-local
+  sampler CSV files may not be durable.
 
 ### New features
 
+- [`bg_use_default_workflow()`](https://sims1253.github.io/bayesgrove/reference/bg_use_default_workflow.md),
+  [`bg_use_workflow_packs()`](https://sims1253.github.io/bayesgrove/reference/bg_use_workflow_packs.md),
+  and
+  [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
+  are reclassified as stable in
+  [`bg_api_boundary()`](https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.md).
+- [`bg_read_decisions()`](https://sims1253.github.io/bayesgrove/reference/bg_read_decisions.md)
+  is exported: the read-only accessor for the decision log, completing
+  the reader family alongside
+  [`bg_read_summaries()`](https://sims1253.github.io/bayesgrove/reference/bg_read_summaries.md)
+  and the registry readers.
+- Workflow packs recognize fit nodes by the `*_fit` naming convention
+  (`bg_pack_is_fit_node()`), so `cmdstanr_fit` and `brms_fit` nodes
+  participate in comparison candidacy and criticism review; previously
+  only the literal kind `fit` did, which meant the comparison loop never
+  fired for real backends. Prior-predictive fit kinds are excluded from
+  candidacy. LOO diagnostic summaries are reviewed as computation
+  evidence rather than fit criticism.
+- The `ppc` node kind supports `prop_zero` (proportion of zeros) as a
+  test statistic, the standard posterior-predictive check for zero-heavy
+  count data. Statistics remain an allowlist resolved to internal
+  functions; params stay data, never code.
+- Registering brms support via
+  [`bg_use_brms()`](https://sims1253.github.io/bayesgrove/reference/bg_use_brms.md)
+  now also provides a neutral `data` node kind (an alias of the
+  `stan_data` executor), and
+  [`bg_fit_brms()`](https://sims1253.github.io/bayesgrove/reference/bg_fit_brms.md)
+  labels its data node with it.
 - Parallel execution:
   [`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
   gains a `parallel` argument (`"auto"`/`"never"`/`"always"`). Execution
@@ -66,12 +109,11 @@
   apply at wave boundaries. `mirai`, `carrier`, and `purrr` are soft
   dependencies; the sequential path works without them.
 - New built-in node kinds `loo_pit` (PSIS-LOO PIT calibration graded by
-  a Kolmogorov-Smirnov distance from uniformity) and `sbc`
-  (simulation-based calibration graded by a chi-squared rank-uniformity
-  test), closing the gap between what the workflow packs ask for and
-  what the shipped executors can produce. The `ppc` executor now stores
-  plot-ready data (observed `y` plus a capped `yrep` subsample) in its
-  artifact.
+  a dependence-aware uniformity test) and `sbc` (simulation-based
+  calibration graded by a chi-squared rank-uniformity test), closing the
+  gap between what the workflow packs ask for and what the shipped
+  executors can produce. The `ppc` executor now stores plot-ready data
+  (observed `y` plus a capped `yrep` subsample) in its artifact.
 - Visualization:
   [`bg_graph_mermaid()`](https://sims1253.github.io/bayesgrove/reference/bg_graph_mermaid.md)
   renders the active graph as Mermaid flowchart text with state
@@ -147,6 +189,32 @@
   al. 2021) when the chain count is known.
 - Draw-variable selection matches Stan’s indexed-variable form exactly
   (`log_lik` matches `log_lik[1]` but no longer `log_lik_saturated[1]`).
+
+### Documentation
+
+- New flagship case study
+  [`vignette("case-study-roaches")`](https://sims1253.github.io/bayesgrove/articles/case-study-roaches.md):
+  the full review loop on the Gelman-and-Hill roaches trial, from a
+  cleanly sampling but badly misfitting Poisson model through an
+  enforced criticism, branch, comparison, and disposition cycle to an
+  exported report. The dataset and all three Stan programs ship with the
+  package.
+- [`vignette("getting-started")`](https://sims1253.github.io/bayesgrove/articles/getting-started.md)
+  was rewritten around a real cmdstanr lifecycle: one small fit, a
+  failing posterior-predictive check, the obligation it raises, and the
+  branch that repairs it — with captured output. Mock-executor material
+  moved to
+  [`vignette("extensions")`](https://sims1253.github.io/bayesgrove/articles/extensions.md).
+- Removed the `guided-review-loop` vignette (superseded by the reworked
+  getting-started and the case study) and the
+  `primed-priors-case-studies` vignette (a workflow mapping, superseded
+  by the real case study). The `dagriculture-boundary` page was folded
+  into
+  [`vignette("concepts")`](https://sims1253.github.io/bayesgrove/articles/concepts.md).
+- PPC documentation now states explicitly that posterior-predictive
+  p-values are conservative tripwires and that graphical checks via
+  [`bg_plot()`](https://sims1253.github.io/bayesgrove/reference/bg_plot.md)
+  are the primary posterior-predictive diagnostic.
 
 ## bayesgrove 0.6.0
 
@@ -637,42 +705,35 @@
 
 ## bayesgrove 0.2.0
 
-- **Phase 2 (Async Execution Layer) Implementation**
-- Added `bg_submit()`, `bg_wait()`, and `bg_cancel()` to orchestrate
-  true non-blocking background execution of workflows.
-- Integrated `callr` and `mirai` execution backends for parallel
-  asynchronous job dispatch.
+- Added `bg_submit()`, `bg_wait()`, and `bg_cancel()` for non-blocking
+  background execution of workflows (removed again in 0.6.0).
+- Integrated `callr` and `mirai` execution backends for parallel job
+  dispatch.
 - Added
   [`bg_jobs()`](https://sims1253.github.io/bayesgrove/reference/bg_jobs.md)
-  and JSONL logging (`.bayesgrove/runs/jobs.jsonl`) to durably track job
-  status, start times, completion, and task progress.
-- Updated
-  [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
-  to double as a reconciliation poller (`bg_reconcile_daemon_jobs()`),
-  updating crashed or finished daemon jobs automatically without
-  blocking the main session.
-- Ensured isolated failure containment: if a single background task
-  fails, other independent node jobs continue executing.
+  and JSONL logging (`.bayesgrove/runs/jobs.jsonl`) to track job status,
+  start times, completion, and task progress.
+- [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
+  doubles as a reconciliation poller (`bg_reconcile_daemon_jobs()`),
+  updating crashed or finished daemon jobs without blocking the main
+  session.
+- A failing background task no longer stops other independent node jobs.
 - Exported internal artifact/caching methods conditionally to support
   the standalone worker contract across process boundaries.
 
 ## bayesgrove 0.1.1
 
-- **Greenfield Architecture Rewrite**: The `bayesguide` prototype has
-  been renamed and completely rebuilt as `bayesgrove`.
-- **Graph Engine Split**: The pure graph execution logic has been moved
-  to a separate, foundational package called `dagriculture`
-  (`sims1253/dagriculture`), ensuring strict separation of computation
-  from Bayesian semantics.
-- **S7 Object Model**: Core workflow states are now backed by explicit
-  reference-semantic `S7` classes (like `bg_handle`).
-- **Decision Provenance Layer**: Decisions, alternative choices, and
-  rationales are now explicitly captured through semantic “gates”
-  layered over the topological graph.
-- **Deterministic Fingerprinting & Caching**: Cache keys are now built
-  from upstream fingerprints and structured backend signatures, creating
-  a robust local Content-Addressed Storage (CAS) mechanism.
-- **Async & Plugin Foundations**: Synchronous runtime execution
+- Renamed and rewrote the `bayesguide` prototype as `bayesgrove`.
+- Moved the pure graph execution logic to a separate package,
+  `dagriculture` (`sims1253/dagriculture`), separating computation from
+  Bayesian semantics.
+- Core workflow state is backed by reference-semantic `S7` classes
+  (e.g. `bg_handle`).
+- Decisions, alternative choices, and rationales are captured through
+  “gates” layered over the graph.
+- Cache keys are built from upstream fingerprints and structured backend
+  signatures, backing a local content-addressed store.
+- Synchronous execution
   ([`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md))
-  and backend registry (`bg_register_backend()`) are now fully
-  operational, including the initial `cmdstanr` MVP plugin.
+  and a backend registry (`bg_register_backend()`, removed in 0.6.0),
+  including an initial `cmdstanr` plugin.

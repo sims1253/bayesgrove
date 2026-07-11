@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Graph-Based Bayesian Workflow Scaffolding">
-<meta name="description" content="Implements the bayesgrove workflow runtime with typed graph construction, deterministic fingerprinting, synchronous execution, content- addressed artifact storage, decision logging, a workflow protocol that reads typed diagnostic evidence and derives obligations, and built-in cmdstanr/brms executors that compute HMC, LOO, and PPC diagnostics themselves.">
-<meta property="og:description" content="Implements the bayesgrove workflow runtime with typed graph construction, deterministic fingerprinting, synchronous execution, content- addressed artifact storage, decision logging, a workflow protocol that reads typed diagnostic evidence and derives obligations, and built-in cmdstanr/brms executors that compute HMC, LOO, and PPC diagnostics themselves.">
+<meta name="description" content="Keeps Bayesian model reviews honest: diagnostics create recorded obligations that can block downstream computation until a justified decision is recorded. Provides typed graph construction, deterministic fingerprinting, content-addressed artifact storage, decision logging, a summary-driven workflow protocol, and built-in cmdstanr/brms executors for HMC, LOO, and posterior-predictive diagnostics.">
+<meta property="og:description" content="Keeps Bayesian model reviews honest: diagnostics create recorded obligations that can block downstream computation until a justified decision is recorded. Provides typed graph construction, deterministic fingerprinting, content-addressed artifact storage, decision logging, a summary-driven workflow protocol, and built-in cmdstanr/brms executors for HMC, LOO, and posterior-predictive diagnostics.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -39,14 +39,11 @@
     <li><a class="dropdown-item" href="articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="articles/index.html">Articles</a></li>
       </ul>
@@ -109,10 +106,20 @@
 <span>  sigma <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">15</span>, <span class="fl">10</span>, <span class="fl">16</span>, <span class="fl">11</span>, <span class="fl">9</span>, <span class="fl">11</span>, <span class="fl">10</span>, <span class="fl">18</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
+<span><span class="va">stan_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span></span>
+<span>  <span class="st">"stan/eight_schools_centered.stan"</span>,</span>
+<span>  package <span class="op">=</span> <span class="st">"bayesgrove"</span>,</span>
+<span>  mustWork <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">ncp_stan_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span></span>
+<span>  <span class="st">"stan/eight_schools_noncentered.stan"</span>,</span>
+<span>  package <span class="op">=</span> <span class="st">"bayesgrove"</span>,</span>
+<span>  mustWork <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
 <span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"stan_data"</span>, label <span class="op">=</span> <span class="st">"Schools data"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/bg_set_node_data.html">bg_set_node_data</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_data</span>, <span class="va">schools_data</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># `stan_file` points at the centered eight-schools program.</span></span>
 <span><span class="va">n_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  <span class="st">"cmdstanr_fit"</span>,</span>
@@ -121,29 +128,40 @@
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>stan_file <span class="op">=</span> <span class="va">stan_file</span>, chains <span class="op">=</span> <span class="fl">4</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_fit</span><span class="op">)</span></span></code></pre></div>
-<p>The funnel geometry produces divergent transitions. The executor emits an <code>hmc_diagnostics</code> summary, the protocol converts it into a blocking obligation, and downstream work is held:</p>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_fit</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: 81 of 4000 (2.0%) transitions ended with a divergence.</span></span>
+<span><span class="co">#&gt; Warning: 2 of 4 chains had an E-BFMI less than 0.3.</span></span></code></pre></div>
+<p>The centered parametrization cannot explore the funnel between <code>tau</code> and <code>theta</code>, and HMC reports divergent transitions. The executor stores the diagnostics as an <code>hmc_diagnostics</code> summary, the protocol converts it into a blocking obligation, and downstream work is held:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                  obl_bff2a185</span></span>
+<span><span class="co">#&gt;                  obl_ef958c36</span></span>
 <span><span class="co">#&gt; "review_computation_validity"</span></span>
 <span></span>
-<span><span class="fu"><a href="reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">metrics</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"divergences"</span>, <span class="st">"max_rhat"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="fu"><a href="reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">metrics</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"divergences"</span>, <span class="st">"e_bfmi"</span>, <span class="st">"max_rhat"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $divergences</span></span>
-<span><span class="co">#&gt; [1] 291</span></span>
+<span><span class="co">#&gt; [1] 81</span></span>
+<span><span class="co">#&gt;</span></span>
+<span><span class="co">#&gt; $e_bfmi</span></span>
+<span><span class="co">#&gt; [1] 0.1574</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; $max_rhat</span></span>
-<span><span class="co">#&gt; [1] 1.39</span></span></code></pre></div>
-<p>You cannot proceed past this by rerunning harder. You resolve it by recording the criticism and branching to a repair — and the original fit, its diagnostics, and your rationale all stay in the record:</p>
+<span><span class="co">#&gt; [1] 1.0401</span></span></code></pre></div>
+<p>Rerunning the same fit does not clear the obligation. It is resolved by recording a review decision that references the summaries under scrutiny (the suggested action carries their ids in its payload), and the repair happens on a branch — so the original fit, its diagnostics, and your rationale all stay in the record:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">review</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
+<span>  <span class="kw">function</span><span class="op">(</span><span class="va">a</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">payload</span><span class="op">$</span><span class="va">decision_type</span>, <span class="st">"computation_review"</span><span class="op">)</span>,</span>
+<span>  <span class="va">guide</span><span class="op">$</span><span class="va">actions</span></span>
+<span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/bg_record_decision.html">bg_record_decision</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
 <span>  scope <span class="op">=</span> <span class="st">"project"</span>,</span>
-<span>  prompt <span class="op">=</span> <span class="st">"How should the centered fit be handled?"</span>,</span>
-<span>  choice <span class="op">=</span> <span class="st">"reparametrize_to_non_centered"</span>,</span>
-<span>  rationale <span class="op">=</span> <span class="st">"Divergences indicate the funnel is poorly explored."</span>,</span>
-<span>  kind <span class="op">=</span> <span class="st">"fit_criticism"</span></span>
+<span>  prompt <span class="op">=</span> <span class="st">"Is the centered fit acceptable for downstream use?"</span>,</span>
+<span>  choice <span class="op">=</span> <span class="st">"reject_and_reparametrize"</span>,</span>
+<span>  rationale <span class="op">=</span> <span class="st">"Divergences indicate the funnel is not explored."</span>,</span>
+<span>  kind <span class="op">=</span> <span class="st">"computation_review"</span>,</span>
+<span>  metadata <span class="op">=</span> <span class="va">review</span><span class="op">$</span><span class="va">payload</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"node_ids"</span>, <span class="st">"summary_ids"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/bg_branch.html">bg_branch</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_fit</span>, label <span class="op">=</span> <span class="st">"Non-centered"</span><span class="op">)</span></span>
@@ -153,18 +171,18 @@
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>stan_file <span class="op">=</span> <span class="va">ncp_stan_file</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span><span class="op">)</span></span></code></pre></div>
-<p>Once two candidates are clean, the protocol requires an explicit comparison decision and an accept-or-reject disposition for each branch before the loop closes. The full lineage remains visible:</p>
+<p>When a project holds several genuinely distinct clean candidates, the default pack additionally asks for an explicit comparison decision and an accept-or-reject disposition for each branch before the loop closes. The full lineage remains visible throughout:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; ── Execution Graph ──</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; └── Schools data &lt;stan_data&gt; [cached]</span></span>
-<span><span class="co">#&gt;     ├── Centered fit &lt;cmdstanr_fit&gt; [cached]</span></span>
-<span><span class="co">#&gt;     └── Non-centered &lt;cmdstanr_fit&gt; [cached]</span></span></code></pre></div>
+<span><span class="co">#&gt; └── Schools data &lt;stan_data&gt; [new]</span></span>
+<span><span class="co">#&gt;     ├── Centered fit &lt;cmdstanr_fit&gt; [new]</span></span>
+<span><span class="co">#&gt;     └── Non-centered &lt;cmdstanr_fit&gt; [new]</span></span></code></pre></div>
 <p>Finally, export the whole trail — graph, diagnostics, decisions, rationales — as a report or a portable bundle:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, format <span class="op">=</span> <span class="st">"md"</span>, path <span class="op">=</span> <span class="st">"eight-schools-report.md"</span><span class="op">)</span></span></code></pre></div>
-<p>The <code>eight-schools</code> vignette walks this exact loop with real captured output; the <code>guided-review-loop</code> vignette covers the complete criticism–repair–compare–accept cycle.</p>
+<p>The <code>eight-schools</code> vignette walks this exact loop with real captured output; the <code>case-study-roaches</code> vignette covers the complete criticism–repair–compare–accept cycle on real trial data.</p>
 </div>
 <div class="section level2">
 <h2 id="guided-terminal-client">Guided terminal client<a class="anchor" aria-label="anchor" href="#guided-terminal-client"></a>
@@ -186,11 +204,14 @@
 <span>    <span class="st">"bayesgrove.model_checks"</span>, <span class="co"># posterior predictive, SBC, LOO-PIT review</span></span>
 <span>    <span class="st">"bayesgrove.model_selection"</span>, <span class="co"># comparison evidence, stacking weights</span></span>
 <span>    <span class="st">"bayesgrove.stan_workflow"</span>, <span class="co"># bundle of the above + Stan-specific review</span></span>
-<span>    <span class="st">"bayesgrove.causal_dagitty"</span> <span class="co"># DAG-backed adjustment and selection contracts</span></span>
+<span>    <span class="st">"bayesgrove.causal_minimal"</span>, <span class="co"># lightweight causal framing</span></span>
+<span>    <span class="st">"bayesgrove.causal_dagitty"</span>, <span class="co"># DAG-backed adjustment and selection contracts</span></span>
+<span>    <span class="st">"bayesgrove.pad_scaffold"</span> <span class="co"># PAD taxonomy and utility annotations</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Every obligation a pack raises carries an explanation and citations into the workflow literature (Gelman et al. 2020; Vehtari et al. 2021; Talts et al. 2018; and more), so the guidance doubles as teaching material.</p>
 <p>All packs read plain-data summaries. If you register your own executors, you emit the same summary kinds and the protocol treats your evidence like the built-ins’. Opening a project never runs project-supplied code; <code>bg_restore_executors(handle, trust = TRUE)</code> is the explicit opt-in. See <code><a href="articles/extensions.html">vignette("extensions", package = "bayesgrove")</a></code>.</p>
+<p>Pack semantics are part of the documented review protocol, while the newer helper signatures are still classified as experimental. To keep the record and recommendations without execution holds, set project config <code>workflow_strictness = "advisory"</code> (or use a pack ref with <code>config = list(strictness = "advisory")</code>).</p>
 </div>
 <div class="section level2">
 <h2 id="how-it-relates-to-targets-and-workflowr">How it relates to targets and workflowr<a class="anchor" aria-label="anchor" href="#how-it-relates-to-targets-and-workflowr"></a>
@@ -232,8 +253,8 @@
 </h2>
 <table class="table">
 <colgroup>
-<col width="20%">
-<col width="80%">
+<col width="15%">
+<col width="84%">
 </colgroup>
 <thead><tr>
 <th>Vignette</th>
@@ -246,31 +267,23 @@
 </tr>
 <tr>
 <td><code>getting-started</code></td>
-<td>Full project lifecycle: gates, caching, branching, comparison, disposition</td>
+<td>The smallest real loop: one fit, a failing predictive check, the obligation, the decision, the repair branch</td>
 </tr>
 <tr>
 <td><code>eight-schools</code></td>
-<td>The real cmdstanr loop shown above, with captured output</td>
+<td>The real cmdstanr computation-review loop shown above, with captured output</td>
 </tr>
 <tr>
-<td><code>guided-review-loop</code></td>
-<td>Complete criticism-and-repair cycle with deterministic executors</td>
+<td><code>case-study-roaches</code></td>
+<td>Flagship case study: enforced criticism, branching, comparison, and disposition on real trial data</td>
 </tr>
 <tr>
 <td><code>simulation-study</code></td>
 <td>Simulation-based workflow with confounded treatment and gate decisions</td>
 </tr>
 <tr>
-<td><code>primed-priors-case-studies</code></td>
-<td>Mapping the primed-priors SBC case studies onto workflow graphs</td>
-</tr>
-<tr>
 <td><code>extensions</code></td>
 <td>Writing node sets, backend plugins, and summary-driven extensions</td>
-</tr>
-<tr>
-<td><code>dagriculture-boundary</code></td>
-<td>How the graph primitives relate to workflow semantics</td>
 </tr>
 </tbody>
 </table>
@@ -324,7 +337,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

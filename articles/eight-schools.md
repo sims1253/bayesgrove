@@ -1,10 +1,11 @@
 # Eight-schools: a real cmdstanr workflow
 
-This vignette walks through the complete Bayesian workflow loop with
-real cmdstanr: fit the eight-schools model, hit a computation-review
-obligation, record a decision, branch to repair, rerun, and compare. It
-uses `eval = FALSE` chunks with committed output so it builds without
-CmdStan on CI.
+This vignette walks through one round of the review loop with real
+cmdstanr: fit the eight-schools model in its centered parameterization,
+hit a computation-review obligation, record the decision, branch to a
+non-centered repair, and rerun. The chunks use `eval = FALSE` with
+output captured from a real run, so the vignette builds without CmdStan
+on CI.
 
 ## Setup
 
@@ -26,7 +27,7 @@ bg_use_cmdstanr(handle)
 
 ``` r
 
-# Eight-schools data (Gelman et al., 2003).
+# Eight-schools data (Rubin, 1981; Gelman et al., 2013).
 schools_data <- list(
   J = 8L,
   y = c(28, 8, -3, 7, -1, 1, 18, 12),
@@ -44,18 +45,19 @@ n_data <- bg_add_node(
 bg_set_node_data(handle, n_data, schools_data)
 ```
 
-The centered parameterization is known to produce divergences for this
-dataset. We write the Stan program to a file:
+The centered parameterization of the hierarchical model is a standard
+example of funnel geometry: as `tau` approaches zero, the conditional
+distribution of `theta` contracts sharply, and HMC produces divergent
+transitions (Betancourt and Girolami, 2015). The package ships the
+example programs so the code below runs as pasted:
 
 ``` r
 
-stan_file <- tempfile(fileext = ".stan")
-writeLines(c(
-  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
-  "parameters { real mu; real<lower=0> tau; vector[J] theta; }",
-  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
-  "        theta ~ normal(mu, tau); y ~ normal(theta, sigma); }"
-), stan_file)
+stan_file <- system.file(
+  "stan/eight_schools_centered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
 
 n_fit <- bg_add_node(
   handle,
@@ -79,50 +81,107 @@ n_fit <- bg_add_node(
 run <- bg_run(handle, targets = n_fit)
 ```
 
-    #> Starting run run_xxx with 2 nodes to execute.
-    #> Running node node_xxx...
-    #> Running node node_yyy...
-    #> Warning: 31 of 2000 (2.0%) transitions ended with a divergence.
-    #> Warning: 3 of 4 chains had an E-BFMI less than 0.3.
+    #> Starting run "run_179e87ae" with 1 node to execute.
+    #> Running node "node_9f8f0f45"...
+    #> Running node "node_55624d87"...
+    #> Running MCMC with 4 sequential chains...
+    #> All 4 chains finished successfully.
+    #> Warning: 81 of 4000 (2.0%) transitions ended with a divergence.
+    #> Warning: 2 of 4 chains had an E-BFMI less than 0.3.
+
+The executor stores these diagnostics as a typed `hmc_diagnostics`
+summary:
 
 ``` r
 
-bg_status(handle)
+summaries <- bg_read_summaries(handle)
+summaries[[1]]$severity
+#> [1] "error"
+summaries[[1]]$metrics[c("divergences", "e_bfmi", "max_rhat")]
+#> $divergences
+#> [1] 81
+#>
+#> $e_bfmi
+#> [1] 0.1574
+#>
+#> $max_rhat
+#> [1] 1.0401
 ```
 
-Because the centered parameterization produces divergences, the fit
-emits an `hmc_diagnostics` summary with `severity = "error"`, and the
-`review_computation_validity` obligation becomes blocking:
+Because the summary carries `severity = "error"`, the default pack
+raises a blocking `review_computation_validity` obligation and suggests
+two actions: record the review decision, or branch and modify the fit.
 
 ``` r
 
-actions <- bg_next_actions(handle)
-actions$obligations
+guide <- bg_next_actions(handle)
+vapply(guide$obligations, `[[`, character(1), "kind")
+#>                  obl_ef958c36
+#> "review_computation_validity"
+vapply(guide$actions, `[[`, character(1), "kind")
+#>        act_2260dedb        act_663128f1
+#>   "record_decision" "branch_and_modify"
 ```
 
-## Record a decision and branch
+## Record the review decision
+
+The suggested `record_decision` action carries the decision kind and the
+ids of the summaries under review in its payload. Recording a
+`computation_review` decision with those ids resolves the obligation; a
+decision of another kind, or one that does not reference the summaries,
+does not.
 
 ``` r
+
+review <- Filter(
+  function(a) identical(a$payload$decision_type, "computation_review"),
+  guide$actions
+)[[1]]
 
 bg_record_decision(
   handle,
   scope = "project",
-  prompt = "Centered parameterization has divergences; switch to non-centered.",
-  choice = "branch_and_repair",
-  rationale = "Divergence rate exceeds 1%."
+  prompt = "Is the centered fit acceptable for downstream use?",
+  choice = "reject_and_reparametrize",
+  rationale = paste(
+    "81 of 4000 transitions diverged and E-BFMI is low: the sampler cannot",
+    "explore the funnel between tau and theta. Switch to the non-centered",
+    "parameterization."
+  ),
+  kind = "computation_review",
+  metadata = review$payload[c("node_ids", "summary_ids")]
 )
 
-# Branch from the fit node and switch to the non-centered parameterization.
+vapply(bg_next_actions(handle)$obligations, `[[`, character(1), "kind")
+#> named character(0)
+```
+
+## Branch to the non-centered parameterization
+
+The repair is a branch from the criticized fit. The branch keeps the
+original fit and its diagnostics in the record; we give it an
+inferential goal (the default pack asks for one on every active branch)
+and swap in the non-centered program.
+[`bg_update_node()`](https://sims1253.github.io/bayesgrove/reference/bg_update_node.md)
+merges params, so the chains, iteration, and seed settings carry over.
+
+``` r
+
 branch <- bg_branch(handle, n_fit, label = "Non-centered")
 
-stan_file_nc <- tempfile(fileext = ".stan")
-writeLines(c(
-  "data { int<lower=1> J; vector[J] y; vector<lower=0>[J] sigma; }",
-  "parameters { real mu; real<lower=0> tau; vector[J] theta_raw; }",
-  "transformed parameters { vector[J] theta = mu + tau * theta_raw; }",
-  "model { mu ~ normal(0, 5); tau ~ cauchy(0, 5);",
-  "        theta_raw ~ normal(0, 1); y ~ normal(theta, sigma); }"
-), stan_file_nc)
+bg_set_goal(
+  project = handle,
+  branch_id = branch$branch_id,
+  kind = "latent_inference",
+  label = "School effects, non-centered",
+  rationale = "Same model; reparameterized so HMC can explore the posterior."
+)
+
+stan_file_nc <- system.file(
+  "stan/eight_schools_noncentered.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
 
 bg_update_node(
   handle,
@@ -131,36 +190,90 @@ bg_update_node(
 )
 ```
 
-## Rerun and compare
+## Rerun and close the loop
 
 ``` r
 
 run2 <- bg_run(handle, targets = branch$root_node_id)
 ```
 
-The non-centered fit should produce clean diagnostics
-(`severity = "ok"`). With both fits available, the comparison obligation
-fires:
+    #> Starting run "run_a26583a8" with 1 node to execute.
+    #> Running node "node_4c430039"...
+    #> Running MCMC with 4 sequential chains...
+    #> All 4 chains finished successfully.
+
+The non-centered fit samples cleanly. Both fits remain in the record:
+the criticized centered fit with its error summary, and the repaired fit
+with a clean one.
 
 ``` r
 
-bg_add_node(
+for (s in bg_read_summaries(handle, include_stale = FALSE)) {
+  cat(s$node_id, "-", s$severity, "- divergences:", s$metrics$divergences, "\n")
+}
+#> node_55624d87 - error - divergences: 81
+#> node_4c430039 - ok - divergences: 0
+```
+
+One obligation remains. Decisions are scope-specific (see
+[`vignette("concepts")`](https://sims1253.github.io/bayesgrove/articles/concepts.md)):
+the project-scope review recorded above does not cover the new branch,
+so the branch asks for its own review of the centered error summary in
+its lineage.
+
+``` r
+
+branch_guide <- bg_next_actions(
   handle,
-  kind = "compare",
-  label = "Centered vs non-centered",
-  inputs = c(n_fit, branch$root_node_id)
+  scope = "branch",
+  branch_id = branch$branch_id
+)
+vapply(branch_guide$obligations, `[[`, character(1), "kind")
+#>                  obl_e02b096b
+#> "review_computation_validity"
+
+review_nc <- Filter(
+  function(a) identical(a$payload$decision_type, "computation_review"),
+  branch_guide$actions
+)[[1]]
+
+bg_record_decision(
+  handle,
+  scope = branch$branch_id,
+  prompt = "Is the centered fit acceptable as this branch's baseline?",
+  choice = "superseded_by_non_centered",
+  rationale = paste(
+    "The centered fit's divergences are the reason this branch exists;",
+    "the non-centered fit replaces it."
+  ),
+  kind = "computation_review",
+  metadata = review_nc$payload[c("node_ids", "summary_ids")]
 )
 
-bg_run(handle)
-bg_next_actions(handle)
+bg_next_actions(handle)$obligations
+#> named list()
 ```
+
+No model comparison is needed here: the two fits target the same
+posterior, and the reparameterization is a computational repair rather
+than a change of model. For a loop with genuinely distinct candidates —
+where the default pack requires an explicit comparison decision and an
+accept-or-reject disposition for each branch — see
+[`vignette("case-study-roaches")`](https://sims1253.github.io/bayesgrove/articles/case-study-roaches.md).
 
 ## Export a report
 
 ``` r
 
+print(bg_read_graph(handle))
+#> ── Execution Graph ──
+#>
+#> └── Schools data <stan_data> [new]
+#> ├── Centered <cmdstanr_fit> [new]
+#> └── Non-centered <cmdstanr_fit> [new]
+
 bg_export_report(handle, format = "md", path = "eight-schools-report.md")
 ```
 
-The report captures the full decision trail: the initial divergent fit,
-the repair decision, the branch, and the final comparison.
+The report captures the full trail: both fits, the diagnostics that
+fired, the review decisions at each scope, and the branch lineage.

@@ -22,3 +22,13 @@ bg_use_cmdstanr(project)
 ## Value
 
 Invisibly, the project handle.
+
+## Details
+
+The `ppc` kind's posterior-predictive p-values are conservative
+tripwires: an extreme value flags gross misfit, but an unremarkable
+value is weak evidence that the model is adequate. Treat the graphical
+check via
+[`bg_plot()`](https://sims1253.github.io/bayesgrove/reference/bg_plot.md)
+as the primary posterior-predictive diagnostic and the p-values as its
+alarm layer.

@@ -19,8 +19,8 @@ bg_list_templates(template_ref = NULL)
 
 Either a list of built-in template descriptors keyed by `template_ref`,
 or a single descriptor when `template_ref` is supplied. Built-in refs
-are `diagnostic_check`, `branch_comparison`, `branch_and_modify_fit`,
-and `review_decision`.
+are `diagnostic_check`, `sbc_check`, `branch_comparison`,
+`branch_and_modify_fit`, and `review_decision`.
 
 ## Details
 

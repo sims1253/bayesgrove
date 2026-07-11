@@ -2,18 +2,18 @@
 
 ## Motivation
 
-This vignette shows how the current bayesgrove MVP can support a small
-simulation study with explicit workflow state, branching, cached
-execution, and decision logging.
+This vignette shows how bayesgrove can support a small simulation study
+with explicit workflow state, branching, cached execution, and decision
+logging.
 
 It focuses on structural branching and explicit gate decisions.
 Summary-driven workflow guidance is also available in the current
 package through
 [`bg_next_actions()`](https://sims1253.github.io/bayesgrove/reference/bg_next_actions.md)
-and `bg_plan(..., external_holds = ...)`, including the optional
-phase-10 packs for prior workflow, model checks, model selection, causal
-framing, and PAD annotations, but that layer is kept out of this
-vignette so the simulation example stays focused.
+and `bg_plan(..., external_holds = ...)`, including the optional packs
+for prior workflow, model checks, model selection, causal framing, and
+PAD annotations, but that layer is kept out of this vignette so the
+simulation example stays focused.
 
 It is intentionally modest relative to the full vision for the package.
 The workflow is inspired by the simulation-oriented perspective of
@@ -383,8 +383,8 @@ bg_answer_gate(
   evidence = confounded$descriptive,
   refs = list(
     list(
-      citekey = "fazio2025primedpriors",
-      url = "https://arxiv.org/abs/2408.06504"
+      citekey = "scholz2024causalproxy",
+      url = "https://arxiv.org/abs/2210.06927"
     )
   )
 )
@@ -436,9 +436,9 @@ the computational state.
 
 report_path <- bg_export_report(handle, path = "simulation-study-report.md", format = "md")
 #> Report exported to
-#> /tmp/RtmpuLww4L/bg-simulation-study/simulation-study-report.md
+#> /tmp/Rtmp0YttWA/bg-simulation-study/simulation-study-report.md
 report_path
-#> [1] "/tmp/RtmpuLww4L/bg-simulation-study/simulation-study-report.md"
+#> [1] "/tmp/Rtmp0YttWA/bg-simulation-study/simulation-study-report.md"
 ```
 
 The generated report now includes graph topology, decision provenance,

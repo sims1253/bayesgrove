@@ -45,3 +45,8 @@ For `ppc` and fit kinds, the bayesplot ggplot object. For `loo_pit` and
 The bayesplot-backed kinds need the `bayesplot` package (a soft
 dependency); the function aborts with an informative message when it is
 missing or the node kind has no plot.
+
+For posterior-predictive checking, this graphical view is the primary
+diagnostic: the p-values in a `ppc` node's summary are conservative
+tripwires that flag gross misfit, and an unremarkable p-value is weak
+evidence of adequacy. Read the overlay, not just the numbers.

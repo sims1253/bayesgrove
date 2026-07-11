@@ -45,6 +45,8 @@
   : Run a project workflow
 - [`bg_jobs()`](https://sims1253.github.io/bayesgrove/reference/bg_jobs.md)
   : Read current state of all jobs
+- [`bg_compact_jobs()`](https://sims1253.github.io/bayesgrove/reference/bg_compact_jobs.md)
+  : Compact the append-only jobs log
 - [`bg_compute_fingerprint()`](https://sims1253.github.io/bayesgrove/reference/bg_compute_fingerprint.md)
   : Compute the cache fingerprint for a node
 - [`bg_status()`](https://sims1253.github.io/bayesgrove/reference/bg_status.md)
@@ -145,6 +147,8 @@
   : List pending decision gates
 - [`bg_record_decision()`](https://sims1253.github.io/bayesgrove/reference/bg_record_decision.md)
   : Record an explicit decision
+- [`bg_read_decisions()`](https://sims1253.github.io/bayesgrove/reference/bg_read_decisions.md)
+  : Read the project decision log
 
 ## Extensions
 

@@ -116,7 +116,21 @@ mirai::daemons(0)
 The built-in `sbc` node kind runs the Talts et al. (2018) rank-statistic
 loop and emits an `sbc_result` summary (rank histogram plus a
 chi-squared uniformity check) that the SBC review pack turns into an
-obligation like any other piece of evidence. See
+obligation like any other piece of evidence. Its input is plain data
+from an upstream generator
+executor—`list(simulations = list(list(theta = ..., data = ...), ...))`—so
+generator code follows the same explicit executor trust gate as other
+project-defined code. The executor thins each fit to a common number
+bounded by bulk ESS before ranking, and refuses to grade histograms
+whose expected bin counts are below five. Twenty simulations are a smoke
+test; use hundreds for a substantive calibration study.
+
+Parallel workers always preserve the content-addressed R fit artifact.
+Raw sampler CSV paths can point into daemon-local temporary directories,
+however, so
+[`bg_run()`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
+warns when a parallel wave contains fit nodes. Use `parallel = "never"`
+when durable raw CSV files are required. See
 [`?bg_run`](https://sims1253.github.io/bayesgrove/reference/bg_run.md)
 for the wave semantics and
 [`vignette("simulation-study")`](https://sims1253.github.io/bayesgrove/articles/simulation-study.md)

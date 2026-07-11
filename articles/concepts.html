@@ -37,14 +37,11 @@
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul>
@@ -69,7 +66,7 @@
       <h1>Concepts</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/vignettes/concepts.Rmd" class="external-link"><code>vignettes/concepts.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/concepts.Rmd" class="external-link"><code>vignettes/concepts.Rmd</code></a></small>
       <div class="d-none name"><code>concepts.Rmd</code></div>
     </div>
 
@@ -82,19 +79,13 @@ case-study and reproducibility vignettes build on it.</p>
 <div class="section level2">
 <h2 id="the-loop-in-one-diagram">The loop in one diagram<a class="anchor" aria-label="anchor" href="#the-loop-in-one-diagram"></a>
 </h2>
-<pre class="mermaid">
-flowchart LR
-  N[Node + executor] --&gt; S[Summary]
-  S --&gt; O[Obligation]
-  O --&gt; A[Action]
-  A --&gt; D[Decision]
-  D --&gt; H[Hold]
-  H --&gt; N
-</pre>
-<script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
-mermaid.initialize({ startOnLoad: true });
-</script><p>Bayesgrove is a <em>guided</em> loop, not a fire-and-forget
+<svg viewbox="0 0 900 150" role="img" aria-labelledby="loop-title loop-desc" style="width:100%;max-width:900px"><title id="loop-title">
+The bayesgrove review loop
+</title>
+<desc id="loop-desc">Node and executor produce a summary, which produces
+an obligation and action. A recorded decision resolves the hold and
+allows execution to continue.</desc><defs><marker id="arrow" viewbox="0 0 10 10" refx="9" refy="5" markerwidth="6" markerheight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#506070"></path></marker></defs><g fill="#f3f6f8" stroke="#506070" stroke-width="2" font-family="sans-serif" font-size="16" text-anchor="middle"><rect x="10" y="35" width="130" height="50" rx="8"></rect><text x="75" y="65" fill="#1f2933" stroke="none">Node
++ executor</text><rect x="165" y="35" width="110" height="50" rx="8"></rect><text x="220" y="65" fill="#1f2933" stroke="none">Summary</text><rect x="300" y="35" width="120" height="50" rx="8"></rect><text x="360" y="65" fill="#1f2933" stroke="none">Obligation</text><rect x="445" y="35" width="100" height="50" rx="8"></rect><text x="495" y="65" fill="#1f2933" stroke="none">Action</text><rect x="570" y="35" width="110" height="50" rx="8"></rect><text x="625" y="65" fill="#1f2933" stroke="none">Decision</text><rect x="705" y="35" width="90" height="50" rx="8"></rect><text x="750" y="65" fill="#1f2933" stroke="none">Hold</text></g><g fill="none" stroke="#506070" stroke-width="2" marker-end="url(#arrow)"><path d="M140 60 H165"></path><path d="M275 60 H300"></path><path d="M420 60 H445"></path><path d="M545 60 H570"></path><path d="M680 60 H705"></path><path d="M750 85 V125 H75 V85"></path></g></svg><p>Bayesgrove is a <em>guided</em> loop, not a fire-and-forget
 runner:</p>
 <ol style="list-style-type: decimal">
 <li>A <strong>node</strong> pairs code (an <em>executor</em>) with a
@@ -142,14 +133,14 @@ never acknowledged.</p>
 </tr>
 <tr class="even">
 <td align="left"><strong>Summary</strong></td>
-<td align="left">A built-in executor</td>
+<td align="left">An executor (built-in or user-registered)</td>
 <td align="left">Typed evidence (HMC, ppc, loo_pit, sbc, …).</td>
 </tr>
 <tr class="odd">
 <td align="left"><strong>Obligation</strong></td>
 <td align="left">A workflow pack</td>
-<td align="left">A demand raised from a summary (severity: info /
-warning / blocking).</td>
+<td align="left">A demand raised from a summary (severity: advisory or
+blocking).</td>
 </tr>
 <tr class="even">
 <td align="left"><strong>Action</strong></td>
@@ -253,12 +244,31 @@ obligation.</td>
 </table>
 <p>See also: <code>?bayesgrove-concepts</code> (the help-topic version
 of this table), <code><a href="../articles/getting-started.html">vignette("getting-started")</a></code>, and
-<code><a href="../articles/guided-review-loop.html">vignette("guided-review-loop")</a></code>.</p>
+<code><a href="../articles/eight-schools.html">vignette("eight-schools")</a></code>.</p>
+</div>
+<div class="section level2">
+<h2 id="where-bayesgrove-ends-and-dagriculture-begins">Where bayesgrove ends and dagriculture begins<a class="anchor" aria-label="anchor" href="#where-bayesgrove-ends-and-dagriculture-begins"></a>
+</h2>
+<p>bayesgrove does not implement its own graph engine. Node and edge
+storage, state recomputation, and the structural planning primitives
+live in the <code>dagriculture</code> package, behind a thin internal
+adapter layer. Everything in this vignette that carries <em>meaning</em>
+— branches, goals, scopes, summaries, obligations, decisions, holds,
+gates, freshness — is bayesgrove’s own layer on top: those are
+analysis-workflow concepts, not graph concepts, and pushing them down
+into a generic graph package would leak Bayesian review policy into
+structural machinery. The public editing verbs
+(<code><a href="../reference/bg_add_node.html">bg_add_node()</a></code>, <code><a href="../reference/bg_connect.html">bg_connect()</a></code>) stay in
+bayesgrove because API shape, persistence, and project commit semantics
+belong here even when the structural mutation is delegated. Contributors
+can find the full ownership table in
+<code>architecture/dagriculture-boundary.md</code> in the source
+repository.</p>
 </div>
 <div class="section level2">
 <h2 id="why-not-targets-or-workflowr">Why not targets or workflowr?<a class="anchor" aria-label="anchor" href="#why-not-targets-or-workflowr"></a>
 </h2>
-<p>Reviewers and instructors ask, so the answer is in writing once:</p>
+<p>A common question, answered here once:</p>
 <ul>
 <li><p><strong><code>targets</code></strong> caches computation (a build
 system for R analyses) but records no <em>decisions</em>. It will
@@ -288,7 +298,7 @@ rationale and every warning to a review.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

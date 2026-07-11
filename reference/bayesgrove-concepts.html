@@ -26,13 +26,10 @@ vignette(&quot;concepts&quot;) article carries the full narrative and diagram.">
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul></li>
-<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -47,7 +44,7 @@ vignette(&quot;concepts&quot;) article carries the full narrative and diagram.">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Concepts: what asks, what answers, what blocks</h1>
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/R/concepts-doc.R" class="external-link"><code>R/concepts-doc.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/R/concepts-doc.R" class="external-link"><code>R/concepts-doc.R</code></a></small>
       <div class="d-none name"><code>bayesgrove-concepts.Rd</code></div>
     </div>
 
@@ -61,7 +58,7 @@ overlap by design. This topic is the one-table disambiguation; the
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
 
-<table class="table table"><tr><td>Concept</td><td>Who produces it</td><td>What it does</td></tr><tr><td><strong>Node</strong></td><td>The user</td><td>Pairs code with a graph slot.</td></tr><tr><td><strong>Summary</strong></td><td>A built-in executor</td><td>Typed evidence (HMC, ppc, loo_pit, sbc, ...).</td></tr><tr><td><strong>Obligation</strong></td><td>A workflow pack</td><td>A demand raised from a summary (severity: info / warning / blocking).</td></tr><tr><td><strong>Action</strong></td><td>A workflow pack</td><td>A copy-pasteable call resolving the obligation.</td></tr><tr><td><strong>Decision</strong></td><td>The user</td><td>The recorded answer (choice + rationale).</td></tr><tr><td><strong>Hold</strong></td><td>The engine</td><td>Stops downstream execution until a blocking decision lands.</td></tr><tr><td><strong>Gate</strong></td><td>The user</td><td>A pre-planned checkpoint on an edge.</td></tr></table><p>Obligations and gates both block, but they are not the same: gates are
+<table class="table table"><tr><td>Concept</td><td>Who produces it</td><td>What it does</td></tr><tr><td><strong>Node</strong></td><td>The user</td><td>Pairs code with a graph slot.</td></tr><tr><td><strong>Summary</strong></td><td>An executor (built-in or user-registered)</td><td>Typed evidence (HMC, ppc, loo_pit, sbc, ...).</td></tr><tr><td><strong>Obligation</strong></td><td>A workflow pack</td><td>A demand raised from a summary (severity: advisory or blocking).</td></tr><tr><td><strong>Action</strong></td><td>A workflow pack</td><td>A copy-pasteable call resolving the obligation.</td></tr><tr><td><strong>Decision</strong></td><td>The user</td><td>The recorded answer (choice + rationale).</td></tr><tr><td><strong>Hold</strong></td><td>The engine</td><td>Stops downstream execution until a blocking decision lands.</td></tr><tr><td><strong>Gate</strong></td><td>The user</td><td>A pre-planned checkpoint on an edge.</td></tr></table><p>Obligations and gates both block, but they are not the same: gates are
 <em>pre-planned</em> checkpoints the user authors on an edge ("review before
 fitting the hierarchical model"); obligations are <em>evidence-driven</em> and
 arise dynamically from summaries.</p>
@@ -99,7 +96,7 @@ default; a stale summary produces no obligation until the node is rerun.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

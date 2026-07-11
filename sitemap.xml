@@ -3,14 +3,14 @@
 <url><loc>https://sims1253.github.io/bayesgrove/LICENSE-text.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/LICENSE.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/PLAN.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/REVIEW.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/ROADMAP.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/articles/case-study-roaches.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/concepts.html</loc></url>
-<url><loc>https://sims1253.github.io/bayesgrove/articles/dagriculture-boundary.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/eight-schools.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/extensions.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/getting-started.html</loc></url>
-<url><loc>https://sims1253.github.io/bayesgrove/articles/guided-review-loop.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/index.html</loc></url>
-<url><loc>https://sims1253.github.io/bayesgrove/articles/primed-priors-case-studies.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/reproducible-research.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/simulation-study.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/teaching.html</loc></url>
@@ -33,6 +33,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_bundle.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_close.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_commit_graph.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_compact_jobs.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_compute_fingerprint.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_connect.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_execute_action.html</loc></url>
@@ -60,6 +61,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_plan.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_plot.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_branch_registry.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_decisions.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_goal_registry.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_graph.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_summaries.html</loc></url>

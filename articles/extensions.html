@@ -37,14 +37,11 @@
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul>
@@ -69,7 +66,7 @@
       <h1>Extending bayesgrove</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/vignettes/extensions.Rmd" class="external-link"><code>vignettes/extensions.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/extensions.Rmd" class="external-link"><code>vignettes/extensions.Rmd</code></a></small>
       <div class="d-none name"><code>extensions.Rmd</code></div>
     </div>
 
@@ -127,9 +124,9 @@ instead of reaching into unexported provider internals.</p>
 <div class="section level2">
 <h2 id="activate-the-built-in-workflow-packs-you-need">Activate the built-in workflow packs you need<a class="anchor" aria-label="anchor" href="#activate-the-built-in-workflow-packs-you-need"></a>
 </h2>
-<p>Projects now start empty by default. If your workflow needs the
-built-in review vocabulary, activate and persist the packs you want
-after creating the project:</p>
+<p>Projects start empty by default. If your workflow needs the built-in
+review vocabulary, activate and persist the packs you want after
+creating the project:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/sims1253/bayesgrove" class="external-link">bayesgrove</a></span><span class="op">)</span></span>
 <span></span>
@@ -489,8 +486,8 @@ precision candidates</td>
 <div class="section level2">
 <h2 id="causal-selection-contracts-and-constrained-projpred-workflows">Causal selection contracts and constrained projpred workflows<a class="anchor" aria-label="anchor" href="#causal-selection-contracts-and-constrained-projpred-workflows"></a>
 </h2>
-<p>The new causal-DAG path is meant to guide model construction, not
-only review it after the fact. A causal branch can now emit a
+<p>The causal-DAG path is meant to guide model construction, not only
+review it after the fact. A causal branch can now emit a
 <code>causal_selection_contract</code> summary with fields such as:</p>
 <ul>
 <li>
@@ -651,7 +648,7 @@ and review state while your package owns the domain logic.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -29,7 +29,7 @@ internals.
 
 ## Activate the built-in workflow packs you need
 
-Projects now start empty by default. If your workflow needs the built-in
+Projects start empty by default. If your workflow needs the built-in
 review vocabulary, activate and persist the packs you want after
 creating the project:
 
@@ -326,7 +326,7 @@ kinds; they only care about summary records attached to fresh results.
 
 ## Causal selection contracts and constrained projpred workflows
 
-The new causal-DAG path is meant to guide model construction, not only
+The causal-DAG path is meant to guide model construction, not only
 review it after the fact. A causal branch can now emit a
 `causal_selection_contract` summary with fields such as:
 

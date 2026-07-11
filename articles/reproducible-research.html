@@ -37,14 +37,11 @@
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
     <li><a class="dropdown-item" href="../articles/eight-schools.html">Case Study: Eight Schools</a></li>
     <li><a class="dropdown-item" href="../articles/simulation-study.html">Simulation Study Workflow</a></li>
-    <li><a class="dropdown-item" href="../articles/guided-review-loop.html">Guided Review Loop</a></li>
-    <li><a class="dropdown-item" href="../articles/primed-priors-case-studies.html">Primed Prior Case Studies</a></li>
     <li><a class="dropdown-item" href="../articles/reproducible-research.html">Reproducible Research</a></li>
     <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with bayesgrove</a></li>
     <li><a class="dropdown-item" href="../articles/extensions.html">Extending bayesgrove</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../articles/dagriculture-boundary.html">Architecture</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
       </ul>
@@ -69,7 +66,7 @@
       <h1>Reproducible research with bayesgrove</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/v0.7.0/vignettes/articles/reproducible-research.Rmd" class="external-link"><code>vignettes/articles/reproducible-research.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/sims1253/bayesgrove/blob/master/vignettes/articles/reproducible-research.Rmd" class="external-link"><code>vignettes/articles/reproducible-research.Rmd</code></a></small>
       <div class="d-none name"><code>reproducible-research.Rmd</code></div>
     </div>
 
@@ -210,9 +207,21 @@ content-addressed:</p>
 <p>The built-in <code>sbc</code> node kind runs the Talts et al. (2018)
 rank-statistic loop and emits an <code>sbc_result</code> summary (rank
 histogram plus a chi-squared uniformity check) that the SBC review pack
-turns into an obligation like any other piece of evidence. See
-<code><a href="../reference/bg_run.html">?bg_run</a></code> for the wave semantics and
-<code><a href="../articles/simulation-study.html">vignette("simulation-study")</a></code> for a full design.</p>
+turns into an obligation like any other piece of evidence. Its input is
+plain data from an upstream generator
+executor—<code>list(simulations = list(list(theta = ..., data = ...), ...))</code>—so
+generator code follows the same explicit executor trust gate as other
+project-defined code. The executor thins each fit to a common number
+bounded by bulk ESS before ranking, and refuses to grade histograms
+whose expected bin counts are below five. Twenty simulations are a smoke
+test; use hundreds for a substantive calibration study.</p>
+<p>Parallel workers always preserve the content-addressed R fit
+artifact. Raw sampler CSV paths can point into daemon-local temporary
+directories, however, so <code><a href="../reference/bg_run.html">bg_run()</a></code> warns when a parallel
+wave contains fit nodes. Use <code>parallel = "never"</code> when
+durable raw CSV files are required. See <code><a href="../reference/bg_run.html">?bg_run</a></code> for the
+wave semantics and <code><a href="../articles/simulation-study.html">vignette("simulation-study")</a></code> for a full
+design.</p>
 </div>
 <div class="section level2">
 <h2 id="reporting-template">Reporting template<a class="anchor" aria-label="anchor" href="#reporting-template"></a>
@@ -244,7 +253,7 @@ are surfaced on open.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
