@@ -27,7 +27,10 @@ describe("bg_executor_loo and bg_executor_compare (cmdstanr backend)", {
     loo_b <- loo::loo(ll_b)
 
     node <- list(params = list())
-    res <- bayesgrove:::bg_executor_compare(node, list(loo_a, loo_b))
+    res <- bayesgrove:::bg_executor_compare(
+      node,
+      list(node_a = loo_a, node_b = loo_b)
+    )
 
     comparison_summary <- Filter(
       function(s) identical(s$summary_kind, "comparison_results"),
@@ -38,6 +41,7 @@ describe("bg_executor_loo and bg_executor_compare (cmdstanr backend)", {
     expect_true(comparison_summary$metrics$elpd_diff != 0)
     # Full comparison table is plain data.
     tbl <- comparison_summary$metrics$comparison_table
+    expect_setequal(tbl$model, c("node_a", "node_b"))
     expect_length(tbl$model, 2)
     expect_length(tbl$elpd_diff, 2)
     expect_length(tbl$se_diff, 2)

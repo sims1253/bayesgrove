@@ -7,7 +7,7 @@
 bg_read_decisions(project)
 }
 \arguments{
-\item{project}{A \code{bg_project} handle.}
+\item{project}{A \code{bg_handle}.}
 }
 \value{
 A named list of \code{bg_decision_record} objects.

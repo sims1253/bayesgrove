@@ -14,7 +14,9 @@ model {
 }
 generated quantities {
   array[N] real yrep;
+  vector[N] log_lik;
   for (n in 1:N) {
     yrep[n] = normal_rng(mu, sigma);
+    log_lik[n] = normal_lpdf(y[n] | mu, sigma);
   }
 }

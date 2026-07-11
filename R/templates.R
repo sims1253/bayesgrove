@@ -488,7 +488,7 @@ bg_execute_template_sbc_check <- function(
     action$basis$node_ids[[1]] %||%
     NULL
   source <- bg_template_resolve_source_node(project, source_node_id)
-  if (!identical(source$node$kind, "fit")) {
+  if (!bg_pack_is_fit_node(source$node)) {
     cli::cli_abort(
       "SBC setup requires a source node of kind {.val fit}; node {.val {source_node_id}} has kind {.val {source$node$kind}}."
     )

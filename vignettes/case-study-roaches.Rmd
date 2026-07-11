@@ -586,7 +586,7 @@ Running node "node_cd6c137c"...
 • Executed Nodes: 4
 $comparison_table
 $comparison_table$model
-[1] "1" "2" "3"
+[1] "node_f41a3306" "node_4c2b165d" "node_daa4f4b9"
 
 $comparison_table$elpd_diff
 [1]     0.0000000    -0.5972503 -5350.1325212
@@ -852,7 +852,11 @@ every diagnostic summary, every decision with its rationale, and the branch
 lineage:
 
 ```{r report}
-bg_export_report(handle, format = "md", path = "roaches-report.md")
+bg_export_report(
+  handle,
+  format = "md",
+  path = file.path(tempdir(), "roaches-report.md")
+)
 ```
 
 An excerpt of the decision trail as it appears in the report:

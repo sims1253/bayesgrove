@@ -1,6 +1,7 @@
 describe("brms integration (Phase 4.5)", {
   skip_on_cran()
   skip_if_not_installed("brms")
+  skip_if_not_installed("loo")
   skip_if_not_installed("posterior")
 
   it("fits a simple linear model and emits an hmc_diagnostics summary", {
@@ -44,6 +45,19 @@ describe("brms integration (Phase 4.5)", {
     expect_gte(length(hmc), 1)
     expect_equal(hmc[[1]]$summary_kind, "hmc_diagnostics")
     expect_true(hmc[[1]]$severity %in% c("ok", "warning", "error"))
+
+    fit <- bg_result(handle, n_fit)
+    loo_result <- bayesgrove:::bg_executor_loo(
+      list(params = list()),
+      list(fit)
+    )
+    expect_s3_class(loo_result$result, "loo")
+
+    ppc_result <- bayesgrove:::bg_executor_ppc(
+      list(params = list(stats = "mean")),
+      list(fit, df)
+    )
+    expect_equal(ncol(ppc_result$result$plot_data$yrep), nrow(df))
   })
 
   it("brms family param is respected (not silently dropped)", {

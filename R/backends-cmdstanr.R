@@ -427,15 +427,28 @@ bg_executor_loo <- function(node, inputs) {
   }
 
   fit_artifact <- inputs[[1]]
-  draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
-  draws_array <- bg_extract_draws(fit_artifact, as = "array")
-
-  log_lik_var <- node$params$log_lik_var %||% "log_lik"
-  ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
-  ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
-  ll_array <- draws_array[,, ll_cols, drop = FALSE]
+  is_brms_fit <- inherits(fit_artifact, "brmsfit")
+  if (is_brms_fit) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      cli::cli_abort(
+        "The {.pkg brms} package is required for brmsfit loo nodes."
+      )
+    }
+    ll_draws <- as.matrix(brms::log_lik(fit_artifact))
+    chain_id <- posterior::as_draws_df(
+      posterior::as_draws(fit_artifact)
+    )$.chain
+  } else {
+    draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
+    draws_array <- bg_extract_draws(fit_artifact, as = "array")
+    log_lik_var <- node$params$log_lik_var %||% "log_lik"
+    ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
+    ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
+    ll_array <- draws_array[,, ll_cols, drop = FALSE]
+  }
 
   if (ncol(ll_draws) == 0) {
+    log_lik_var <- node$params$log_lik_var %||% "log_lik"
     cli::cli_abort(
       "No draws matching {.val {log_lik_var}} found in the fit for {.field loo}."
     )
@@ -445,7 +458,11 @@ bg_executor_loo <- function(node, inputs) {
   # from the chain-shaped draws_array so per-chain effective sample sizes are
   # used; loo::relative_eff expects the pointwise log-lik on the exp scale.
   r_eff <- tryCatch(
-    loo::relative_eff(exp(ll_array)),
+    if (is_brms_fit) {
+      loo::relative_eff(exp(ll_draws), chain_id = chain_id)
+    } else {
+      loo::relative_eff(exp(ll_array))
+    },
     error = function(e) NULL
   )
   loo_obj <- loo::loo(ll_draws, r_eff = r_eff)
@@ -487,11 +504,11 @@ bg_executor_compare <- function(node, inputs) {
     cli::cli_abort("{.field compare} requires at least two loo input nodes.")
   }
 
-  comparison <- do.call(loo::loo_compare, unname(loo_objs))
+  comparison <- loo::loo_compare(loo_objs)
   comparison_df <- as.data.frame(comparison)
   class(comparison_df) <- "data.frame"
   comparison_table <- list(
-    model = rownames(comparison_df),
+    model = comparison_df$model,
     elpd_diff = unname(comparison_df$elpd_diff),
     se_diff = unname(comparison_df$se_diff)
   )
@@ -576,8 +593,6 @@ bg_executor_ppc <- function(node, inputs) {
     inputs[[2]]
   }
 
-  draws <- bg_extract_draws(fit_artifact)
-
   y_var <- node$params$y_var %||% "y"
   yrep_var <- node$params$yrep_var %||% "yrep"
   stats <- node$params$stats %||% c("mean", "sd", "min", "max")
@@ -596,8 +611,18 @@ bg_executor_ppc <- function(node, inputs) {
   }
 
   # Posterior-predictive draws (yrep) come from the fit.
-  yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws))
-  yrep <- draws[, yrep_cols, drop = FALSE]
+  if (inherits(fit_artifact, "brmsfit")) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      cli::cli_abort(
+        "The {.pkg brms} package is required for brmsfit ppc nodes."
+      )
+    }
+    yrep <- as.matrix(brms::posterior_predict(fit_artifact))
+  } else {
+    draws <- bg_extract_draws(fit_artifact)
+    yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws))
+    yrep <- draws[, yrep_cols, drop = FALSE]
+  }
 
   if (ncol(yrep) == 0) {
     cli::cli_abort(
