@@ -67,10 +67,12 @@ describe("computation_review decisions with multiple summary ids", {
     bg_run(handle, targets = fit_id)
 
     guide <- bg_next_actions(handle)
-    obligation <- Filter(
+    obligations <- Filter(
       function(o) identical(o$kind, "review_computation_validity"),
       guide$obligations
-    )[[1]]
+    )
+    expect_length(obligations, 1L)
+    obligation <- obligations[[1]]
     summary_ids <- unlist(obligation$basis$summary_ids)
     expect_gte(length(summary_ids), 2L)
 

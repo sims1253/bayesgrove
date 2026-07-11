@@ -1010,6 +1010,33 @@ describe("Interactive REPL", {
     expect_equal(edges[[1]]$from, fit_id)
   })
 
+  it("rejects SBC templates whose source is not a fit", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "source")
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    action <- list(
+      action_id = "test_sbc_check",
+      kind = "create_node_from_template",
+      scope = "project",
+      title = "Create SBC check",
+      basis = list(node_ids = source_id),
+      payload = list(
+        template_ref = "sbc_check",
+        source_node_id = source_id
+      )
+    )
+
+    expect_error(
+      bg_apply_template_action(
+        handle,
+        action,
+        scope = "project",
+        interactive = FALSE
+      ),
+      "SBC setup requires a source node of kind"
+    )
+  })
+
   it("preserves backward compatibility for branch_comparison template actions", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)

@@ -11,7 +11,7 @@ bg_pack_sort_ids <- function(x) {
 
 bg_pack_fit_nodes <- function(context) {
   Filter(
-    function(node) identical(node$kind %||% NULL, "fit"),
+    bg_pack_is_fit_node,
     context$structural$nodes %||% list()
   )
 }

@@ -420,7 +420,7 @@ bg_execute_template_diagnostic_check <- function(
 
   source <- bg_template_resolve_source_node(project, source_node_id)
   source_node <- source$node
-  if (!identical(source_node$kind %||% NULL, "fit")) {
+  if (!bg_pack_is_fit_node(source_node)) {
     cli::cli_abort("Diagnostic check template requires a fit source node.")
   }
 
@@ -488,6 +488,11 @@ bg_execute_template_sbc_check <- function(
     action$basis$node_ids[[1]] %||%
     NULL
   source <- bg_template_resolve_source_node(project, source_node_id)
+  if (!identical(source$node$kind, "fit")) {
+    cli::cli_abort(
+      "SBC setup requires a source node of kind {.val fit}; node {.val {source_node_id}} has kind {.val {source$node$kind}}."
+    )
+  }
 
   generator_node_id <- overrides$generator_node_id %||%
     payload$generator_node_id %||%

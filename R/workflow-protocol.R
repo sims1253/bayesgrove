@@ -465,6 +465,13 @@ bg_blocking_obligation_holds <- function(project, obligations, graph = NULL) {
 
       reason <- obligation$title %||% obligation$kind
       for (descendant in descendants) {
+        source_kind <- graph$nodes[[node_id]]$kind %||% NULL
+        descendant_kind <- graph$nodes[[descendant]]$kind %||% NULL
+        if (
+          identical(source_kind, "loo") && identical(descendant_kind, "compare")
+        ) {
+          next
+        }
         holds[[descendant]] <- reason
       }
     }
@@ -809,6 +816,24 @@ bg_default_bayesian_summary_obligations <- function(
     return(list())
   }
 
+  # LOO warnings are evidence about a model comparison, so allow the compare
+  # node to aggregate them before requiring the review decision. Other warning
+  # summaries continue to hold descendants of their producing nodes.
+  pending_node_ids <- unique(vapply(
+    pending,
+    `[[`,
+    character(1),
+    "node_id"
+  ))
+  nodes <- context$structural$nodes %||% list()
+  hold_node_ids <- Filter(
+    function(node_id) {
+      node <- nodes[[node_id]] %||% list()
+      !identical(node$kind %||% NULL, "loo")
+    },
+    pending_node_ids
+  )
+
   list(list(
     kind = "review_computation_validity",
     scope = context$scope,
@@ -828,6 +853,7 @@ bg_default_bayesian_summary_obligations <- function(
     ),
     metadata = list(
       source_keys = c("workflow_core", "stan_diagnostics"),
+      hold_node_ids = as.character(hold_node_ids),
       summary_kinds = unique(vapply(
         pending,
         `[[`,

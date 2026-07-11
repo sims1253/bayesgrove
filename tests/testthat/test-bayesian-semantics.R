@@ -400,6 +400,26 @@ describe("Phase 10 Bayesian semantics packs", {
     )))
   })
 
+  it("skips SBC action creation without a source node", {
+    obligation <- list(
+      kind = "run_sbc",
+      scope = "project",
+      basis = list(node_ids = character()),
+      metadata = list(),
+      explanation = list()
+    )
+    actions <- bg_pack_checks_actions(
+      context = list(
+        scope = "project",
+        structural = list(nodes = list()),
+        scope_context = list()
+      ),
+      obligations = list(obligation)
+    )
+
+    expect_length(actions, 0L)
+  })
+
   it("uses model comparison and stacking summaries for explicit review decisions", {
     fixture <- make_branch_fit_project("bayesgrove.model_selection")
     handle <- fixture$handle

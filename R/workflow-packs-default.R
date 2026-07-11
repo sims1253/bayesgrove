@@ -153,7 +153,7 @@ bg_default_bayesian_clean_fit_candidates <- function(context) {
   decisions <- bg_default_bayesian_all_decisions(context)
 
   fit_nodes <- Filter(
-    function(node) identical(node$kind %||% NULL, "fit"),
+    bg_pack_is_fit_node,
     nodes
   )
   if (length(fit_nodes) == 0 || length(summaries) == 0) {
@@ -332,7 +332,25 @@ bg_default_bayesian_comparison_evidence <- function(context, candidate_basis) {
       "from"
     )))
 
-    if (!identical(input_node_ids, fit_node_ids)) {
+    resolved_fit_node_ids <- sort(unique(vapply(
+      input_node_ids,
+      function(input_id) {
+        input_node <- nodes[[input_id]] %||% list()
+        if (!identical(input_node$kind %||% NULL, "loo")) {
+          return(input_id)
+        }
+        loo_inputs <- vapply(
+          Filter(function(edge) identical(edge$to %||% NULL, input_id), edges),
+          `[[`,
+          character(1),
+          "from"
+        )
+        if (length(loo_inputs) == 1L) loo_inputs[[1L]] else input_id
+      },
+      character(1)
+    )))
+
+    if (!identical(resolved_fit_node_ids, fit_node_ids)) {
       next
     }
 
@@ -561,11 +579,14 @@ bg_default_bayesian_fit_criticism_obligations <- function(
     return(list())
   }
 
-  list(list(
+  list(bg_pack_obligation(
+    context = context,
     kind = "review_fit_criticism",
-    scope = context$scope,
-    severity = "blocking",
     title = "Review fit criticism",
+    why = paste0(
+      "Fresh warning or error summaries from fit or diagnostic nodes ",
+      "need an explicit fit-criticism review."
+    ),
     basis = list(
       summary_ids = sort(unique(vapply(
         pending,
@@ -579,20 +600,11 @@ bg_default_bayesian_fit_criticism_obligations <- function(
         character(1),
         "node_id"
       ))),
-      decision_ids = character()
-    ),
-    explanation = list(
-      why = paste0(
-        "Fresh warning or error summaries from fit or diagnostic nodes ",
-        "need an explicit fit-criticism review."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "stan_diagnostics"
-      ))
+      branch_ids = NULL
     ),
     metadata = list(
       source_keys = c("workflow_core", "stan_diagnostics"),
+      hold_node_ids = NULL,
       summary_kinds = sort(unique(vapply(
         pending,
         `[[`,
@@ -631,27 +643,18 @@ bg_default_bayesian_comparison_obligations <- function(
     return(list())
   }
 
-  list(list(
+  list(bg_pack_obligation(
+    context = context,
     kind = "compare_candidate_branches",
-    scope = "project",
-    severity = "blocking",
     title = "Compare candidate branches",
+    why = paste0(
+      "At least two fit candidates are clean and comparable. ",
+      "Run or review a comparison, then record a model comparison decision."
+    ),
     basis = list(
       node_ids = candidate_basis$node_ids,
       branch_ids = candidate_basis$branch_ids,
-      summary_ids = candidate_basis$summary_ids,
-      decision_ids = character()
-    ),
-    explanation = list(
-      why = paste0(
-        "At least two fit candidates are clean and comparable. ",
-        "Run or review a comparison, then record a model comparison decision."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "model_comparison",
-        "stacking"
-      ))
+      summary_ids = candidate_basis$summary_ids
     ),
     metadata = list(
       source_keys = c("workflow_core", "model_comparison", "stacking"),
@@ -710,11 +713,14 @@ bg_default_bayesian_disposition_obligations <- function(
     candidate_basis$candidates
   )
 
-  list(list(
+  list(bg_pack_obligation(
+    context = context,
     kind = "accept_or_reject_branch",
-    scope = context$scope,
-    severity = "blocking",
     title = "Accept or reject branch",
+    why = paste0(
+      "A current comparison exists for this branch's candidate set. ",
+      "Record whether the branch is accepted or rejected."
+    ),
     basis = list(
       branch_ids = context$scope,
       node_ids = sort(unique(vapply(
@@ -730,19 +736,7 @@ bg_default_bayesian_disposition_obligations <- function(
         ),
         use.names = FALSE
       ))),
-      decision_ids = character(),
       comparison_signature = comparison_context$comparison_signature %||% NULL
-    ),
-    explanation = list(
-      why = paste0(
-        "A current comparison exists for this branch's candidate set. ",
-        "Record whether the branch is accepted or rejected."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "model_comparison",
-        "stacking"
-      ))
     ),
     metadata = list(
       source_keys = c("workflow_core", "model_comparison", "stacking"),
@@ -767,10 +761,14 @@ bg_default_bayesian_fit_criticism_actions <- function(
   node_ids <- obligation$basis$node_ids %||% character()
   summary_ids <- obligation$basis$summary_ids %||% character()
 
-  actions <- list(list(
+  actions <- list(bg_pack_action(
+    context = context,
     kind = "record_decision",
-    scope = context$scope,
     title = "Record a fit criticism review",
+    why_now = paste0(
+      "The current fit or diagnostic warnings need an explicit criticism ",
+      "decision tied to the fresh summaries."
+    ),
     basis = list(
       obligation_refs = list(list(
         kind = "review_fit_criticism",
@@ -784,16 +782,6 @@ bg_default_bayesian_fit_criticism_actions <- function(
       decision_type = "fit_criticism",
       node_ids = node_ids,
       summary_ids = summary_ids
-    ),
-    explanation = list(
-      why_now = paste0(
-        "The current fit or diagnostic warnings need an explicit criticism ",
-        "decision tied to the fresh summaries."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "stan_diagnostics"
-      ))
     ),
     metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
   ))
@@ -819,10 +807,11 @@ bg_default_bayesian_fit_criticism_actions <- function(
 
   actions <- c(
     actions,
-    list(list(
+    list(bg_pack_action(
+      context = context,
       kind = "branch_and_modify",
-      scope = context$scope,
       title = "Branch and modify to resolve diagnostics",
+      why_now = "A new branch keeps the diagnostic revision loop explicit.",
       basis = list(
         obligation_refs = list(list(
           kind = "review_fit_criticism",
@@ -845,13 +834,6 @@ bg_default_bayesian_fit_criticism_actions <- function(
         ),
         continuation_kinds = c("check", "ppc"),
         auto_run = TRUE
-      ),
-      explanation = list(
-        why_now = "A new branch keeps the diagnostic revision loop explicit.",
-        references = bg_workflow_references(c(
-          "workflow_core",
-          "stan_diagnostics"
-        ))
       ),
       metadata = list(source_keys = c("workflow_core", "stan_diagnostics"))
     ))
@@ -891,10 +873,14 @@ bg_default_bayesian_comparison_decision_actions <- function(
       character(1)
     )
 
-    return(list(list(
+    return(list(bg_pack_action(
+      context = context,
       kind = "create_node_from_template",
-      scope = "project",
       title = "Create comparison node",
+      why_now = paste0(
+        "These fit candidates are ready for formal comparison. ",
+        "Create the comparison node before recording the project decision."
+      ),
       basis = list(
         node_ids = candidate_basis$node_ids
       ),
@@ -902,17 +888,6 @@ bg_default_bayesian_comparison_decision_actions <- function(
         template_ref = "branch_comparison",
         inputs = candidate_basis$node_ids,
         default_label = paste("Compare:", paste(fit_labels, collapse = " vs "))
-      ),
-      explanation = list(
-        why_now = paste0(
-          "These fit candidates are ready for formal comparison. ",
-          "Create the comparison node before recording the project decision."
-        ),
-        references = bg_workflow_references(c(
-          "workflow_core",
-          "model_comparison",
-          "stacking"
-        ))
       ),
       metadata = list(
         source_keys = c("workflow_core", "model_comparison", "stacking")
@@ -925,10 +900,14 @@ bg_default_bayesian_comparison_decision_actions <- function(
     comparison_evidence
   )
 
-  list(list(
+  list(bg_pack_action(
+    context = context,
     kind = "record_decision",
-    scope = "project",
     title = "Record model comparison decision",
+    why_now = paste0(
+      "A current comparison exists for the clean candidate set. ",
+      "Record the explicit model comparison decision."
+    ),
     basis = list(
       obligation_refs = list(list(
         kind = "compare_candidate_branches",
@@ -952,17 +931,6 @@ bg_default_bayesian_comparison_decision_actions <- function(
       comparison_context = comparison_context,
       comparison_signature = comparison_context$comparison_signature,
       candidate_signature = comparison_context$candidate_signature
-    ),
-    explanation = list(
-      why_now = paste0(
-        "A current comparison exists for the clean candidate set. ",
-        "Record the explicit model comparison decision."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "model_comparison",
-        "stacking"
-      ))
     ),
     metadata = list(
       source_keys = c("workflow_core", "model_comparison", "stacking")
@@ -1000,10 +968,14 @@ bg_default_bayesian_disposition_actions <- function(
     comparison_context = comparison_context
   )
 
-  list(list(
+  list(bg_pack_action(
+    context = context,
     kind = "record_decision",
-    scope = context$scope,
     title = "Record branch disposition",
+    why_now = paste0(
+      "The branch is part of a current comparison context. ",
+      "Record an explicit accept or reject disposition."
+    ),
     basis = list(
       obligation_refs = list(list(
         kind = "accept_or_reject_branch",
@@ -1021,17 +993,6 @@ bg_default_bayesian_disposition_actions <- function(
       branch_ids = obligation$basis$branch_ids %||% character(),
       comparison_context = comparison_context,
       comparison_signature = comparison_signature
-    ),
-    explanation = list(
-      why_now = paste0(
-        "The branch is part of a current comparison context. ",
-        "Record an explicit accept or reject disposition."
-      ),
-      references = bg_workflow_references(c(
-        "workflow_core",
-        "model_comparison",
-        "stacking"
-      ))
     ),
     metadata = list(
       source_keys = c("workflow_core", "model_comparison", "stacking")

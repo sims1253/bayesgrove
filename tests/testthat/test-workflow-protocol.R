@@ -1096,7 +1096,7 @@ describe("Workflow protocol APIs", {
     expect_true("review_computation_validity" %in% obligation_kinds)
   })
 
-  it("emits compare_candidate_branches obligation with two clean fits", {
+  it("compares two clean cmdstanr_fit branch candidates", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(
       path = tmp,
@@ -1106,25 +1106,29 @@ describe("Workflow protocol APIs", {
     bg_register_node_kind(handle, "source", executor = function(node, inputs) {
       list(rows = 10L)
     })
-    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-      variant <- node$params$variant %||% "baseline"
-      list(
-        result = list(ok = TRUE, variant = variant),
-        summaries = list(
-          list(
-            summary_kind = "hmc_diagnostics",
-            passed = TRUE,
-            severity = "ok",
-            metrics = list(divergences = 0, variant = variant)
+    bg_register_node_kind(
+      handle,
+      "cmdstanr_fit",
+      executor = function(node, inputs) {
+        variant <- node$params$variant %||% "baseline"
+        list(
+          result = list(ok = TRUE, variant = variant),
+          summaries = list(
+            list(
+              summary_kind = "hmc_diagnostics",
+              passed = TRUE,
+              severity = "ok",
+              metrics = list(divergences = 0, variant = variant)
+            )
           )
         )
-      )
-    })
+      }
+    )
 
     source_id <- bg_add_node(handle, kind = "source", label = "Data")
     fit1_id <- bg_add_node(
       handle,
-      kind = "fit",
+      kind = "cmdstanr_fit",
       label = "Fit 1",
       inputs = source_id,
       params = list(variant = "baseline")
@@ -1155,6 +1159,41 @@ describe("Workflow protocol APIs", {
     expect_length(comparison_obl, 1)
     expect_equal(comparison_obl[[1]]$severity, "blocking")
     expect_length(comparison_obl[[1]]$basis$node_ids, 2)
+  })
+
+  it("recognizes brms fits and excludes prior fits from candidacy", {
+    nodes <- list(
+      brms = list(kind = "brms_fit"),
+      prior = list(kind = "prior_fit"),
+      brms_prior = list(kind = "brms_prior_fit")
+    )
+    context <- list(structural = list(nodes = nodes))
+
+    expect_named(bg_pack_fit_nodes(context), "brms")
+  })
+
+  it("recognizes fit node kinds by naming convention", {
+    fit_kinds <- c("fit", "cmdstanr_fit", "brms_fit", "my_custom_fit")
+    non_fit_kinds <- c(
+      "prior_fit",
+      "brms_prior_fit",
+      "loo",
+      "compare",
+      "ppc",
+      "stan_data",
+      "fitness"
+    )
+
+    expect_true(all(vapply(
+      fit_kinds,
+      function(kind) bg_pack_is_fit_node(list(kind = kind)),
+      logical(1)
+    )))
+    expect_false(any(vapply(
+      non_fit_kinds,
+      function(kind) bg_pack_is_fit_node(list(kind = kind)),
+      logical(1)
+    )))
   })
 
   it("does not emit comparison obligation when a candidate has blocking review", {
