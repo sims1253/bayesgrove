@@ -10,7 +10,6 @@ navbar:
     left:
     - home
     - intro
-    - architecture
     - reference
     - articles
   components:
@@ -28,19 +27,12 @@ navbar:
         href: articles/eight-schools.html
       - text: "Simulation Study Workflow"
         href: articles/simulation-study.html
-      - text: "Guided Review Loop"
-        href: articles/guided-review-loop.html
-      - text: "Primed Prior Case Studies"
-        href: articles/primed-priors-case-studies.html
       - text: "Reproducible Research"
         href: articles/reproducible-research.html
       - text: "Teaching with bayesgrove"
         href: articles/teaching.html
       - text: "Extending bayesgrove"
         href: articles/extensions.html
-    architecture:
-      text: "Architecture"
-      href: articles/dagriculture-boundary.html
     reference:
       text: "Reference"
       href: reference/index.html
@@ -74,6 +66,7 @@ reference:
       - bg_plan
       - bg_run
       - bg_jobs
+      - bg_compact_jobs
       - bg_compute_fingerprint
       - bg_status
       - bg_result
@@ -127,6 +120,7 @@ reference:
       - bg_answer_gate
       - bg_pending_gates
       - bg_record_decision
+      - bg_read_decisions
   - title: Extensions
     contents:
       - bg_register_node_kind
@@ -140,12 +134,10 @@ articles:
     desc: ~
     contents:
       - "concepts"
-      - "dagriculture-boundary"
       - "eight-schools"
       - "extensions"
       - "getting-started"
-      - "guided-review-loop"
-      - "primed-priors-case-studies"
+      - "case-study-roaches"
       - "simulation-study"
   - title: "Articles"
     desc: "pkgdown-only articles (not shipped in the package)."

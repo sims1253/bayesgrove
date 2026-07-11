@@ -45,13 +45,8 @@ bg_hmc_severity <- function(metrics, thresholds = list()) {
   )
   t <- utils::modifyList(defaults, thresholds %||% list())
 
-  num_transitions <- metrics$num_transitions %||% NA_integer_
   divergences <- metrics$divergences %||% 0L
-  divergence_rate <- if (!is.na(num_transitions) && num_transitions > 0) {
-    divergences / num_transitions
-  } else {
-    0
-  }
+  divergence_rate <- bg_hmc_divergence_rate(metrics)$value
 
   max_rhat <- metrics$max_rhat %||% 1.0
   min_bulk_ess <- metrics$min_bulk_ess %||% Inf
@@ -60,7 +55,9 @@ bg_hmc_severity <- function(metrics, thresholds = list()) {
 
   if (
     max_rhat > t$rhat_error ||
-      (divergences > 0 && divergence_rate > t$divergence_rate_error)
+      (divergences > 0 &&
+        !is.na(divergence_rate) &&
+        divergence_rate > t$divergence_rate_error)
   ) {
     return("error")
   }
@@ -76,6 +73,26 @@ bg_hmc_severity <- function(metrics, thresholds = list()) {
   }
 
   "ok"
+}
+
+#' Compute the divergence rate without inventing a zero denominator.
+#'
+#' @keywords internal
+#' @noRd
+bg_hmc_divergence_rate <- function(metrics) {
+  num_transitions <- metrics$num_transitions %||% NA_integer_
+  available <- length(num_transitions) == 1L &&
+    !is.na(num_transitions) &&
+    num_transitions > 0
+
+  list(
+    value = if (available) {
+      (metrics$divergences %||% 0L) / num_transitions
+    } else {
+      NA_real_
+    },
+    available = available
+  )
 }
 
 #' Extract HMC diagnostic metrics from a CmdStanMCMC fit.
@@ -119,7 +136,7 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
     error = function(e) NA_integer_
   )
 
-  list(
+  metrics <- list(
     divergences = as.integer(divergences),
     max_treedepth_hits = as.integer(max_treedepth_hits),
     max_rhat = max_rhat,
@@ -129,6 +146,10 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
     num_transitions = as.integer(num_transitions),
     n_chains = as.integer(fit$num_chains() %||% NA_integer_)
   )
+  rate <- bg_hmc_divergence_rate(metrics)
+  metrics$divergence_rate <- rate$value
+  metrics$divergence_rate_available <- rate$available
+  metrics
 }
 
 #' Register cmdstanr node kinds on a project.
@@ -139,6 +160,12 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
 #' persisted). The fit executors compute HMC diagnostics themselves and emit
 #' `hmc_diagnostics`
 #' summaries with severity rules; no user-written diagnostic code is required.
+#'
+#' The `ppc` kind's posterior-predictive p-values are conservative tripwires:
+#' an extreme value flags gross misfit, but an unremarkable value is weak
+#' evidence that the model is adequate. Treat the graphical check via
+#' [bg_plot()] as the primary posterior-predictive diagnostic and the
+#' p-values as its alarm layer.
 #'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
@@ -382,13 +409,11 @@ bg_executor_cmdstanr_prior_fit <- function(node, inputs) {
   # trusted-executor pattern: users register their own node kind wrapping
   # prior_fit, which goes through the bg_restore_executors trust gate. The
   # former check_fn_source params-as-code channel has been removed.
-  severity <- "ok"
-
   summary <- list(
     summary_kind = "prior_predictive_check",
-    passed = identical(severity, "ok"),
-    severity = severity,
-    metrics = list(draws_summary = draws_summary)
+    passed = NA,
+    severity = "ok",
+    metrics = list(draws_summary = draws_summary, graded = FALSE)
   )
 
   list(result = fit, summaries = list(summary))
@@ -402,15 +427,28 @@ bg_executor_loo <- function(node, inputs) {
   }
 
   fit_artifact <- inputs[[1]]
-  draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
-  draws_array <- bg_extract_draws(fit_artifact, as = "array")
-
-  log_lik_var <- node$params$log_lik_var %||% "log_lik"
-  ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
-  ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
-  ll_array <- draws_array[,, ll_cols, drop = FALSE]
+  is_brms_fit <- inherits(fit_artifact, "brmsfit")
+  if (is_brms_fit) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      cli::cli_abort(
+        "The {.pkg brms} package is required for brmsfit loo nodes."
+      )
+    }
+    ll_draws <- as.matrix(brms::log_lik(fit_artifact))
+    chain_id <- posterior::as_draws_df(
+      posterior::as_draws(fit_artifact)
+    )$.chain
+  } else {
+    draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
+    draws_array <- bg_extract_draws(fit_artifact, as = "array")
+    log_lik_var <- node$params$log_lik_var %||% "log_lik"
+    ll_cols <- bg_indexed_var_cols(log_lik_var, colnames(draws_matrix))
+    ll_draws <- draws_matrix[, ll_cols, drop = FALSE]
+    ll_array <- draws_array[,, ll_cols, drop = FALSE]
+  }
 
   if (ncol(ll_draws) == 0) {
+    log_lik_var <- node$params$log_lik_var %||% "log_lik"
     cli::cli_abort(
       "No draws matching {.val {log_lik_var}} found in the fit for {.field loo}."
     )
@@ -420,7 +458,11 @@ bg_executor_loo <- function(node, inputs) {
   # from the chain-shaped draws_array so per-chain effective sample sizes are
   # used; loo::relative_eff expects the pointwise log-lik on the exp scale.
   r_eff <- tryCatch(
-    loo::relative_eff(exp(ll_array)),
+    if (is_brms_fit) {
+      loo::relative_eff(exp(ll_draws), chain_id = chain_id)
+    } else {
+      loo::relative_eff(exp(ll_array))
+    },
     error = function(e) NULL
   )
   loo_obj <- loo::loo(ll_draws, r_eff = r_eff)
@@ -464,8 +506,9 @@ bg_executor_compare <- function(node, inputs) {
 
   comparison <- loo::loo_compare(loo_objs)
   comparison_df <- as.data.frame(comparison)
+  class(comparison_df) <- "data.frame"
   comparison_table <- list(
-    model = rownames(comparison_df),
+    model = comparison_df$model,
     elpd_diff = unname(comparison_df$elpd_diff),
     se_diff = unname(comparison_df$se_diff)
   )
@@ -515,7 +558,10 @@ bg_executor_compare <- function(node, inputs) {
     ))
   )
 
-  list(result = comparison, summaries = summaries)
+  list(
+    result = list(comparison_table = comparison_table),
+    summaries = summaries
+  )
 }
 
 #' @keywords internal
@@ -547,11 +593,9 @@ bg_executor_ppc <- function(node, inputs) {
     inputs[[2]]
   }
 
-  draws <- bg_extract_draws(fit_artifact)
-
   y_var <- node$params$y_var %||% "y"
   yrep_var <- node$params$yrep_var %||% "yrep"
-  stats <- node$params$stats %||% c("mean", "sd")
+  stats <- node$params$stats %||% c("mean", "sd", "min", "max")
 
   # Observed y comes from the data node, not from the fit's draws.
   y <- observed_data[[y_var]] %||% NULL
@@ -567,8 +611,18 @@ bg_executor_ppc <- function(node, inputs) {
   }
 
   # Posterior-predictive draws (yrep) come from the fit.
-  yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws))
-  yrep <- draws[, yrep_cols, drop = FALSE]
+  if (inherits(fit_artifact, "brmsfit")) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      cli::cli_abort(
+        "The {.pkg brms} package is required for brmsfit ppc nodes."
+      )
+    }
+    yrep <- as.matrix(brms::posterior_predict(fit_artifact))
+  } else {
+    draws <- bg_extract_draws(fit_artifact)
+    yrep_cols <- bg_indexed_var_cols(yrep_var, colnames(draws))
+    yrep <- draws[, yrep_cols, drop = FALSE]
+  }
 
   if (ncol(yrep) == 0) {
     cli::cli_abort(
@@ -576,19 +630,27 @@ bg_executor_ppc <- function(node, inputs) {
     )
   }
 
-  # Restrict ppc statistics to an allowlist. Custom statistics wait for the
-  # trusted-hook mechanism; params are data, never code, so match.fun over an
-  # unbounded search path would reopen a params-as-code channel.
-  allowed_stats <- c("mean", "sd", "median", "min", "max", "mad")
+  # Restrict ppc statistics to an internal registry. Custom statistics wait for
+  # the trusted-hook mechanism; params are data, never code, so function lookup
+  # must remain bounded to this registry.
+  allowed_stats <- list(
+    mean = mean,
+    sd = stats::sd,
+    median = stats::median,
+    min = min,
+    max = max,
+    mad = stats::mad,
+    prop_zero = function(x) mean(x == 0)
+  )
 
   p_values <- list()
   for (stat_name in stats) {
-    if (!stat_name %in% allowed_stats) {
+    if (!stat_name %in% names(allowed_stats)) {
       cli::cli_abort(
-        "Unsupported ppc statistic {.val {stat_name}}. Allowed: {.val {allowed_stats}}."
+        "Unsupported ppc statistic {.val {stat_name}}. Allowed: {.val {names(allowed_stats)}}."
       )
     }
-    stat_fn <- match.fun(stat_name)
+    stat_fn <- allowed_stats[[stat_name]]
     y_stat <- stat_fn(y)
     # One statistic per draw, computed across observations (rows are draws in a
     # posterior draws matrix). Margin 2 would give the per-observation
@@ -648,8 +710,9 @@ bg_executor_ppc <- function(node, inputs) {
 #' posterior-predictive CDF at `y_i`, computed from the PSIS-LOO weights applied
 #' to the posterior-predictive draws (`yrep`). If the model is well calibrated,
 #' the PIT values are uniformly distributed on \[0, 1\]. The executor emits a
-#' `loo_pit_calibration` summary whose severity reflects a Kolmogorov–Smirnov
-#' distance of the empirical PIT distribution from Uniformity, and stores the
+#' `loo_pit_calibration` summary whose severity reflects posterior's
+#' dependence-aware PIET uniformity test (with the KS distance retained as an
+#' effect-size metric), and stores the
 #' plot-ready PIT vector + observed `y` in the artifact (for a PIT ECDF or
 #' histogram plot).
 #'
@@ -742,29 +805,43 @@ bg_executor_loo_pit <- function(node, inputs) {
     weights <- matrix(weights, ncol = 1L)
   }
 
-  # PIT_i = sum_j w[j,i] * I(yrep[j,i] <= y_i): the LOO predictive CDF at y_i.
+  # posterior::pit() is the maintained weighted-PIT implementation. It uses
+  # Pr(yrep < y) for continuous outcomes and randomized PIT for discrete ones,
+  # avoiding the upward bias from the former unconditional `<=` calculation.
+  # A fixed default seed keeps the executor deterministic when callers do not
+  # supply one; node params remain data, not executable code.
   n_obs <- length(y)
-  pit <- vapply(
-    seq_len(n_obs),
-    function(i) {
-      sum(weights[, i] * (yrep[, i] <= y[[i]]))
-    },
-    numeric(1)
+  discrete <- bg_is_discrete_pit_data(y, yrep)
+  pit_seed <- as.integer(node$params$pit_seed %||% node$params$seed %||% 1L)
+  pit <- bg_with_preserved_seed(
+    pit_seed,
+    posterior::pit(
+      posterior::as_draws_matrix(yrep),
+      y,
+      weights = weights
+    )
   )
 
-  severity <- bg_loo_pit_severity(
+  diagnostics <- bg_loo_pit_diagnostics(
     pit,
-    ks_warn = node$params$ks_warn %||% 0.10,
-    ks_error = node$params$ks_error %||% 0.15
+    p_warn = node$params$pit_p_warn %||% 0.05,
+    p_error = node$params$pit_p_error %||% 0.025
   )
+  severity <- diagnostics$severity
 
   summary <- list(
     summary_kind = "loo_pit_calibration",
-    passed = identical(severity, "ok"),
+    passed = if (diagnostics$graded) identical(severity, "ok") else NA,
     severity = severity,
     metrics = list(
-      ks_statistic = bg_ks_uniform_stat(pit),
-      n_obs = as.integer(n_obs)
+      ks_statistic = diagnostics$ks_statistic,
+      p_value = diagnostics$p_value,
+      uniformity_test = diagnostics$test,
+      graded = diagnostics$graded,
+      n_obs = as.integer(n_obs),
+      discrete = discrete,
+      pit_method = if (discrete) "randomized" else "continuous",
+      pit_seed = pit_seed
     )
   )
 
@@ -804,26 +881,82 @@ bg_ks_uniform_stat <- function(x) {
   max(abs(d_plus), abs(d_minus))
 }
 
-#' Grade LOO-PIT calibration severity from the KS distance to Uniformity.
+#' Run a dependence-aware uniformity diagnostic for LOO-PIT values.
 #'
 #' @param pit PIT values in \[0, 1\].
-#' @param ks_warn Warn above this KS distance (default 0.10).
-#' @param ks_error Error above this KS distance (default 0.15).
-#' @return One of "ok", "warning", "error".
+#' @param p_warn Warn below this p-value (default 0.05).
+#' @param p_error Error below this p-value (default 0.025).
+#' @return Diagnostic list with severity, p-value, test, and KS effect size.
 #' @keywords internal
 #' @noRd
-bg_loo_pit_severity <- function(pit, ks_warn = 0.10, ks_error = 0.15) {
+bg_loo_pit_diagnostics <- function(pit, p_warn = 0.05, p_error = 0.025) {
+  pit <- pit[is.finite(pit)]
   ks <- bg_ks_uniform_stat(pit)
-  if (is.na(ks)) {
-    return("ok")
+  if (length(pit) == 0L) {
+    return(list(
+      severity = "ok",
+      p_value = NA_real_,
+      test = "PIET",
+      ks_statistic = ks,
+      graded = FALSE
+    ))
   }
-  if (ks >= ks_error) {
+
+  test_result <- tryCatch(
+    posterior::uniformity_test(pit, test = "PIET"),
+    error = function(e) NULL
+  )
+  p_value <- test_result$pvalue %||% NA_real_
+  graded <- length(p_value) == 1L && is.finite(p_value)
+  severity <- if (!graded) {
+    "ok"
+  } else if (p_value < p_error) {
     "error"
-  } else if (ks >= ks_warn) {
+  } else if (p_value < p_warn) {
     "warning"
   } else {
     "ok"
   }
+
+  list(
+    severity = severity,
+    p_value = as.numeric(p_value),
+    test = "PIET",
+    ks_statistic = ks,
+    graded = graded
+  )
+}
+
+#' Detect outcomes for which randomized PIT is required.
+#' @keywords internal
+#' @noRd
+bg_is_discrete_pit_data <- function(y, yrep) {
+  values <- c(y, yrep)
+  length(values) > 0L &&
+    all(is.finite(values)) &&
+    all(values == round(values))
+}
+
+#' Evaluate an expression under a deterministic seed without leaking RNG state.
+#' @keywords internal
+#' @noRd
+bg_with_preserved_seed <- function(seed, code) {
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  if (had_seed) {
+    old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  }
+  on.exit(
+    {
+      if (had_seed) {
+        assign(".Random.seed", old_seed, envir = .GlobalEnv)
+      } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+        rm(".Random.seed", envir = .GlobalEnv)
+      }
+    },
+    add = TRUE
+  )
+  set.seed(seed)
+  eval.parent(substitute(code))
 }
 
 # Simulation-based calibration (SBC) ----------------------------------------
@@ -834,32 +967,30 @@ bg_loo_pit_severity <- function(pit, ks_warn = 0.10, ks_error = 0.15) {
 # uniformly distributed. The executor runs the SBC loop, bin-aggregates ranks,
 # and grades calibration with a chi-squared uniformity test.
 #
-# Two input modes:
-#   (a) generator-source: a trusted `data_fn` source param of the form
-#       function(seed) list(theta = <true value>, data = <stan data list>),
-#       plus `stan_file`, `theta_name` (the Stan parameter to rank), and
-#       `n_sims`. Each sim draws theta_true + data, fits the model, ranks.
-#   (b) prior_fit upstream: the prior_fit node's Stan program generates theta
-#       and y_sim under fixed_param; SBC re-uses it. (Future: mode detection by
-#       inspecting the upstream artifact; mode (a) is the explicit, testable
-#       path and is what the executor implements directly.)
+# Simulation cases arrive as plain data from an upstream generator executor:
+# `list(simulations = list(list(theta = <scalar>, data = <Stan data>), ...))`.
+# Project-defined generator code therefore executes only through the ordinary
+# executor registry and its explicit `bg_restore_executors(trust = TRUE)` gate;
+# no persisted node param is ever parsed or evaluated by this built-in.
 #
 # Cost: this fits n_sims models. Run it under mirai daemons (Milestone 3) for
 # scale — each sim is independent and the whole loop parallelizes cleanly.
 
 #' Run simulation-based calibration.
 #'
-#' @param node Params: `stan_file`, `data_fn` (source text of
-#'   `function(seed) list(theta=<scalar>, data=<list>)`), `theta_name`
-#'   (Stan parameter name to rank, default `"theta"`), `n_sims` (default 20L),
-#'   `chains`, `iter_warmup`, `iter_sampling`, `seed`, `n_bins` (defaults to
-#'   `n_sims`).
-#' @param inputs Unused (the data_fn generator is self-contained source).
+#' @param node Params: `stan_file`, `theta_name` (Stan parameter name to rank,
+#'   default `"theta"`), optional `generator_input`, `n_sims` (defaults to all
+#'   supplied cases), `chains`, `iter_warmup`, `iter_sampling`, `seed`,
+#'   `rank_draws` (default 100), and optional `n_bins`.
+#' @param inputs An upstream plain-data artifact containing `simulations`, a
+#'   list of `list(theta=<scalar>, data=<Stan data list>)` cases.
 #' @return `list(result=, summaries=)` with an `sbc_result` summary carrying the
 #'   rank histogram counts, chi-squared statistic, and severity.
 #' @keywords internal
 #' @noRd
 bg_executor_sbc <- function(node, inputs) {
+  cases <- bg_sbc_simulation_cases(node, inputs)
+
   if (!requireNamespace("cmdstanr", quietly = TRUE)) {
     cli::cli_abort(
       "The {.pkg cmdstanr} package is required for sbc nodes. Run it under mirai daemons for scale (Milestone 3)."
@@ -873,56 +1004,27 @@ bg_executor_sbc <- function(node, inputs) {
     )
   }
 
-  data_fn_src <- node$params$data_fn %||% NULL
-  if (
-    !is.character(data_fn_src) ||
-      length(data_fn_src) != 1L ||
-      !nzchar(data_fn_src)
-  ) {
-    cli::cli_abort(c(
-      "{.field data_fn} must be the source text of a generator function for sbc.",
-      "i" = paste0(
-        "Define it as {.code function(seed) list(theta = <scalar>, ",
-        "data = <stan data list>)}; it is evaluated in a child of the ",
-        "global environment (same trust model as {.fn bg_restore_executors})."
-      )
-    ))
-  }
-
-  data_fn <- tryCatch(
-    eval(parse(text = data_fn_src), envir = new.env(parent = globalenv())),
-    error = function(e) {
-      cli::cli_abort(
-        "Failed to parse {.field data_fn} source for sbc: {.err {conditionMessage(e)}}"
-      )
-    }
-  )
-  if (!is.function(data_fn)) {
-    cli::cli_abort("{.field data_fn} source must evaluate to a function.")
-  }
-
   theta_name <- node$params$theta_name %||% "theta"
-  n_sims <- as.integer(node$params$n_sims %||% 20L)
-  if (n_sims < 1L) {
-    cli::cli_abort("{.field n_sims} must be a positive integer.")
+  n_sims <- as.integer(node$params$n_sims %||% length(cases))
+  if (n_sims < 1L || n_sims > length(cases)) {
+    cli::cli_abort(
+      "{.field n_sims} must be between 1 and the {length(cases)} supplied simulation case{?s}."
+    )
   }
-  n_bins <- as.integer(node$params$n_bins %||% n_sims)
+  cases <- cases[seq_len(n_sims)]
   base_seed <- node$params$seed %||% NULL
 
   model <- cmdstanr::cmdstan_model(stan_file = stan_file)
 
-  ranks <- integer(n_sims)
-  n_draws_per_sim <- rep(NA_integer_, n_sims)
+  ranks <- rep(NA_integer_, n_sims)
+  theta_draws_by_sim <- vector("list", n_sims)
+  theta_true_by_sim <- rep(NA_real_, n_sims)
+  effective_draws <- rep(NA_integer_, n_sims)
+  ess_available <- rep(FALSE, n_sims)
   for (i in seq_len(n_sims)) {
     sim_seed <- if (!is.null(base_seed)) as.integer(base_seed) + i else NULL
-    gen <- data_fn(sim_seed)
-    theta_true <- gen$theta
-    sim_data <- gen$data
-    if (is.null(theta_true) || length(theta_true) != 1L) {
-      cli::cli_abort(
-        "{.field data_fn} must return a single numeric {.val theta} for each simulation."
-      )
-    }
+    theta_true <- cases[[i]]$theta
+    sim_data <- cases[[i]]$data
 
     sampler_args <- list(
       data = sim_data,
@@ -957,17 +1059,25 @@ bg_executor_sbc <- function(node, inputs) {
     )
     theta_draws <- theta_draws[is.finite(theta_draws)]
     if (length(theta_draws) == 0L) {
-      ranks[[i]] <- NA_integer_
       next
     }
-    # Rank: number of posterior draws <= theta_true (Talts et al. rank stat).
-    n_draws_per_sim[[i]] <- length(theta_draws)
-    ranks[[i]] <- as.integer(sum(theta_draws <= theta_true))
+    theta_draws_by_sim[[i]] <- theta_draws
+    theta_true_by_sim[[i]] <- theta_true
+    ess <- tryCatch(posterior::ess_bulk(theta_draws), error = function(e) NA)
+    ess_available[[i]] <- is.finite(ess) && ess >= 1
+    effective_draws[[i]] <- if (ess_available[[i]]) {
+      as.integer(floor(ess))
+    } else {
+      length(theta_draws)
+    }
   }
 
-  valid_ranks <- ranks[!is.na(ranks)]
-  n_valid <- length(valid_ranks)
-  if (n_valid == 0L) {
+  valid_simulations <- which(vapply(
+    theta_draws_by_sim,
+    function(draws) length(draws) > 0L,
+    logical(1)
+  ))
+  if (length(valid_simulations) == 0L) {
     summary <- list(
       summary_kind = "sbc_result",
       passed = FALSE,
@@ -976,39 +1086,63 @@ bg_executor_sbc <- function(node, inputs) {
         n_sims = n_sims,
         n_valid = 0L,
         chi_sq = NA_real_,
-        n_bins = n_bins
+        n_bins = 0L,
+        graded = FALSE
       )
     )
     result <- list(
       ranks = ranks,
-      rank_histogram = integer(n_bins),
+      rank_histogram = integer(),
       n_sims = n_sims
     )
     return(list(result = result, summaries = list(summary)))
   }
 
-  # Histogram of ranks into n_bins bins over the full theoretical support
-  # [0, n_draws] (a rank can be any of 0..n_draws). Binning to the observed
-  # max rank instead would shrink the support and bias the chi-squared
-  # uniformity test anti-conservative.
-  max_rank <- max(n_draws_per_sim[!is.na(n_draws_per_sim)])
-  breaks <- seq.int(0L, max_rank + 1L, length.out = n_bins + 1L)
-  hist_counts <- as.integer(table(
-    cut(valid_ranks, breaks = breaks, include.lowest = TRUE, right = FALSE)
+  # Raw MCMC draws are autocorrelated. Use a common number no larger than the
+  # minimum bulk ESS, then deterministically spread those draws across each
+  # chain history. Every rank consequently has the same support 0..rank_draws.
+  rank_draws_target <- as.integer(node$params$rank_draws %||% 100L)
+  if (rank_draws_target < 1L) {
+    cli::cli_abort("{.field rank_draws} must be a positive integer.")
+  }
+  rank_draws <- min(c(
+    rank_draws_target,
+    effective_draws[valid_simulations],
+    lengths(theta_draws_by_sim[valid_simulations])
   ))
-  # Chi-squared uniformity test: expected count = n_valid / n_bins per bin.
-  expected <- rep(n_valid / length(hist_counts), length(hist_counts))
-  chi_sq <- sum((hist_counts - expected)^2 / expected)
-  dof <- length(hist_counts) - 1L
-  p_value <- tryCatch(
-    stats::pchisq(chi_sq, df = dof, lower.tail = FALSE),
-    error = function(e) NA_real_
+  rank_draws <- as.integer(max(1L, floor(rank_draws)))
+  for (i in valid_simulations) {
+    draws <- theta_draws_by_sim[[i]]
+    keep <- unique(round(seq.int(1L, length(draws), length.out = rank_draws)))
+    ranks[[i]] <- as.integer(sum(draws[keep] <= theta_true_by_sim[[i]]))
+  }
+
+  valid_ranks <- ranks[!is.na(ranks)]
+  n_valid <- length(valid_ranks)
+  histogram <- bg_sbc_rank_histogram(
+    valid_ranks,
+    n_draws = rank_draws,
+    n_bins = node$params$n_bins %||% NULL
   )
+  histogram$graded <- histogram$graded &&
+    all(ess_available[valid_simulations])
+  chi_sq <- if (histogram$graded) {
+    sum((histogram$counts - histogram$expected)^2 / histogram$expected)
+  } else {
+    NA_real_
+  }
+  p_value <- if (histogram$graded) {
+    stats::pchisq(chi_sq, df = histogram$n_bins - 1L, lower.tail = FALSE)
+  } else {
+    NA_real_
+  }
 
   # Severity: warn/error by p-value thresholds (low p => poor calibration).
   p_warn <- node$params$sbc_p_warn %||% 0.05
   p_error <- node$params$sbc_p_error %||% 0.01
-  severity <- if (!is.na(p_value) && p_value < p_error) {
+  severity <- if (!histogram$graded) {
+    "ok"
+  } else if (!is.na(p_value) && p_value < p_error) {
     "error"
   } else if (!is.na(p_value) && p_value < p_warn) {
     "warning"
@@ -1018,12 +1152,17 @@ bg_executor_sbc <- function(node, inputs) {
 
   summary <- list(
     summary_kind = "sbc_result",
-    passed = identical(severity, "ok"),
+    passed = if (histogram$graded) identical(severity, "ok") else NA,
     severity = severity,
     metrics = list(
       n_sims = n_sims,
       n_valid = as.integer(n_valid),
-      n_bins = as.integer(length(hist_counts)),
+      n_bins = histogram$n_bins,
+      expected_per_bin = as.numeric(histogram$expected),
+      graded = histogram$graded,
+      ess_available = all(ess_available[valid_simulations]),
+      smoke_test = n_valid < 100L,
+      rank_draws = rank_draws,
       chi_sq = as.numeric(chi_sq),
       p_value = as.numeric(p_value)
     )
@@ -1031,14 +1170,123 @@ bg_executor_sbc <- function(node, inputs) {
 
   result <- list(
     ranks = ranks,
-    rank_histogram = hist_counts,
+    rank_histogram = histogram$counts,
     theta_name = theta_name,
     n_sims = n_sims,
     plot_data = list(
-      rank_histogram = hist_counts,
-      breaks = breaks[-length(breaks)]
+      rank_histogram = histogram$counts,
+      breaks = histogram$breaks
     )
   )
 
   list(result = result, summaries = list(summary))
+}
+
+#' Resolve and validate plain-data SBC simulation cases.
+#' @keywords internal
+#' @noRd
+bg_sbc_simulation_cases <- function(node, inputs) {
+  if (!is.null(node$params$data_fn)) {
+    cli::cli_abort(c(
+      "SBC node params must not contain executable source in {.field data_fn}.",
+      "i" = paste0(
+        "Register a project-specific generator node, connect it upstream, ",
+        "and have it return {.code list(simulations = list(...))}. Restored ",
+        "generator executors require {.code bg_restore_executors(trust = TRUE)}."
+      )
+    ))
+  }
+
+  input_name <- node$params$generator_input %||% NULL
+  artifact <- if (!is.null(input_name) && input_name %in% names(inputs)) {
+    inputs[[input_name]]
+  } else if (length(inputs) > 0L) {
+    inputs[[1]]
+  } else {
+    node$params$simulations %||% NULL
+  }
+  cases <- if (
+    is.list(artifact) &&
+      !is.null(names(artifact)) &&
+      "simulations" %in% names(artifact)
+  ) {
+    artifact$simulations
+  } else {
+    artifact
+  }
+  if (!is.list(cases) || length(cases) == 0L) {
+    cli::cli_abort(c(
+      "An sbc node requires plain simulation cases from an upstream input.",
+      "i" = "Return {.code list(simulations = list(list(theta = 0, data = list(...)), ...))} from a trusted generator executor."
+    ))
+  }
+  if (!is.null(cases$theta) && !is.null(cases$data)) {
+    cases <- list(cases)
+  }
+
+  for (i in seq_along(cases)) {
+    case <- cases[[i]]
+    valid <- is.list(case) &&
+      is.numeric(case$theta) &&
+      length(case$theta) == 1L &&
+      is.finite(case$theta) &&
+      is.list(case$data)
+    if (!valid) {
+      cli::cli_abort(
+        "SBC simulation case {i} must contain a finite numeric scalar {.field theta} and a named-list {.field data}."
+      )
+    }
+  }
+  cases
+}
+
+#' Bin discrete SBC ranks with their exact null probabilities.
+#' @keywords internal
+#' @noRd
+bg_sbc_rank_histogram <- function(ranks, n_draws, n_bins = NULL) {
+  ranks <- as.integer(ranks[is.finite(ranks)])
+  n_draws <- as.integer(n_draws)
+  if (is.null(n_bins)) {
+    n_bins <- min(n_draws + 1L, max(1L, floor(length(ranks) / 5L)))
+    repeat {
+      support_bins <- floor((0:n_draws) * n_bins / (n_draws + 1L)) + 1L
+      expected <- length(ranks) *
+        tabulate(support_bins, nbins = n_bins) /
+        (n_draws + 1L)
+      if (n_bins <= 1L || all(expected >= 5)) {
+        break
+      }
+      n_bins <- n_bins - 1L
+    }
+  } else {
+    n_bins <- as.integer(n_bins)
+  }
+  if (n_bins < 1L || n_bins > n_draws + 1L) {
+    cli::cli_abort(
+      "{.field n_bins} must be between 1 and the {n_draws + 1L} possible ranks."
+    )
+  }
+
+  support <- 0:n_draws
+  support_bins <- floor(support * n_bins / (n_draws + 1L)) + 1L
+  observed_bins <- floor(ranks * n_bins / (n_draws + 1L)) + 1L
+  counts <- tabulate(observed_bins, nbins = n_bins)
+  expected <- length(ranks) *
+    tabulate(support_bins, nbins = n_bins) /
+    (n_draws + 1L)
+  breaks <- vapply(
+    seq_len(n_bins),
+    function(bin) {
+      min(support[support_bins == bin])
+    },
+    integer(1)
+  )
+
+  list(
+    counts = as.integer(counts),
+    expected = as.numeric(expected),
+    n_bins = as.integer(n_bins),
+    breaks = breaks,
+    graded = n_bins >= 2L && length(ranks) > 0L && all(expected >= 5)
+  )
 }

@@ -5,7 +5,7 @@
 #'
 #' @return Either a list of built-in template descriptors keyed by
 #'   `template_ref`, or a single descriptor when `template_ref` is supplied.
-#'   Built-in refs are `diagnostic_check`, `branch_comparison`,
+#'   Built-in refs are `diagnostic_check`, `sbc_check`, `branch_comparison`,
 #'   `branch_and_modify_fit`, and `review_decision`.
 #'
 #' @details Built-in templates are intentionally small and explicit. Some
@@ -66,6 +66,24 @@ bg_builtin_template_registry <- function() {
         "Create a downstream diagnostic check node from a single fit node."
       ),
       executor = bg_execute_template_diagnostic_check
+    ),
+    "sbc_check" = list(
+      template_ref = "sbc_check",
+      title = "Create simulation-based calibration check",
+      operation_type = "create_node",
+      default_label = "SBC: {source_label}",
+      required_basis = list(
+        action_kind = "create_node_from_template",
+        source_node_id = "exactly one fit node",
+        generator_node_id = "one trusted plain-data generator node",
+        stan_file = "an existing Stan program"
+      ),
+      parameter_suggestions = list(node_kind = "sbc"),
+      description = paste0(
+        "Create an SBC node from a trusted upstream generator whose artifact ",
+        "contains plain simulation cases."
+      ),
+      executor = bg_execute_template_sbc_check
     ),
     "branch_comparison" = list(
       template_ref = "branch_comparison",
@@ -402,7 +420,7 @@ bg_execute_template_diagnostic_check <- function(
 
   source <- bg_template_resolve_source_node(project, source_node_id)
   source_node <- source$node
-  if (!identical(source_node$kind %||% NULL, "fit")) {
+  if (!bg_pack_is_fit_node(source_node)) {
     cli::cli_abort("Diagnostic check template requires a fit source node.")
   }
 
@@ -452,6 +470,117 @@ bg_execute_template_diagnostic_check <- function(
     node_id = check_node_id,
     label = label,
     inputs = source_node_id,
+    decision = decision
+  ))
+}
+
+#' @keywords internal
+bg_execute_template_sbc_check <- function(
+  project,
+  action,
+  scope,
+  template,
+  overrides = list(),
+  interactive = TRUE
+) {
+  payload <- action$payload %||% list()
+  source_node_id <- payload$source_node_id %||%
+    action$basis$node_ids[[1]] %||%
+    NULL
+  source <- bg_template_resolve_source_node(project, source_node_id)
+  if (!bg_pack_is_fit_node(source$node)) {
+    cli::cli_abort(
+      "SBC setup requires a source node of kind {.val fit}; node {.val {source_node_id}} has kind {.val {source$node$kind}}."
+    )
+  }
+
+  generator_node_id <- overrides$generator_node_id %||%
+    payload$generator_node_id %||%
+    NULL
+  if (is.null(generator_node_id) && isTRUE(interactive)) {
+    candidates <- setdiff(names(source$graph$nodes), source_node_id)
+    cli::cli_bullets(stats::setNames(
+      vapply(
+        candidates,
+        function(id) {
+          node <- source$graph$nodes[[id]]
+          paste0(node$label %||% id, " [", id, "]")
+        },
+        character(1)
+      ),
+      rep("*", length(candidates))
+    ))
+    generator_node_id <- trimws(bg_repl_readline(
+      "Upstream SBC generator node id: "
+    ))
+  }
+  if (
+    is.null(generator_node_id) ||
+      !nzchar(generator_node_id) ||
+      is.null(source$graph$nodes[[generator_node_id]])
+  ) {
+    cli::cli_abort(c(
+      "SBC setup requires an existing upstream generator node id.",
+      "i" = paste0(
+        "The generator executor must return plain data shaped as ",
+        "{.code list(simulations = list(list(theta = ..., data = ...), ...))}."
+      )
+    ))
+  }
+
+  stan_file <- overrides$stan_file %||%
+    payload$stan_file %||%
+    source$node$params$stan_file %||%
+    NULL
+  if (is.null(stan_file) && isTRUE(interactive)) {
+    stan_file <- trimws(bg_repl_readline("Stan program path for SBC: "))
+  }
+  if (
+    is.null(stan_file) ||
+      !is.character(stan_file) ||
+      length(stan_file) != 1L ||
+      !file.exists(stan_file)
+  ) {
+    cli::cli_abort(
+      "SBC setup requires {.field stan_file} to name an existing Stan program."
+    )
+  }
+
+  label <- bg_template_resolve_label(
+    "Label for SBC node (press Enter for default): ",
+    payload$default_label %||%
+      paste("SBC:", source$node$label %||% source_node_id),
+    overrides = overrides,
+    interactive = interactive
+  )
+  sbc_node_id <- bg_add_node(
+    project,
+    kind = payload$node_kind %||% "sbc",
+    label = label,
+    inputs = generator_node_id,
+    params = utils::modifyList(
+      list(stan_file = stan_file),
+      payload$sbc_params %||% list()
+    )
+  )
+  decision <- bg_repl_record_action_note(
+    project = project,
+    scope = scope,
+    action = action,
+    choice = paste0("Created SBC check ", label),
+    rationale = "Guided SBC template connected a trusted plain-data generator.",
+    metadata = list(
+      node_id = sbc_node_id,
+      source_node_id = source_node_id,
+      generator_node_id = generator_node_id,
+      template_ref = template$template_ref
+    )
+  )
+
+  invisible(list(
+    node_id = sbc_node_id,
+    label = label,
+    inputs = generator_node_id,
     decision = decision
   ))
 }

@@ -101,3 +101,27 @@ describe("Graph Node Management", {
     expect_equal(g4$nodes[[n1]]$metadata$version, 2L)
   })
 })
+
+describe("Graph tree printing", {
+  it("indents child nodes beneath their parent", {
+    graph <- list(
+      nodes = list(
+        root = list(label = "Root", kind = "data", state = "new"),
+        child = list(label = "Child", kind = "fit", state = "new")
+      ),
+      edges = list(list(from = "root", to = "child"))
+    )
+
+    output <- withr::with_options(
+      list(cli.num_colors = 1L, cli.unicode = TRUE),
+      utils::capture.output(
+        bayesgrove:::bg_print_graph_tree(graph),
+        type = "message"
+      )
+    )
+    child_line <- output[grepl("Child", output, fixed = TRUE)]
+
+    expect_length(child_line, 1L)
+    expect_match(child_line, "^    └── Child")
+  })
+})

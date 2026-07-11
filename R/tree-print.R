@@ -40,9 +40,11 @@ bg_print_graph_tree <- function(graph) {
     if (exists(node_id, envir = printed)) {
       label <- (nodes[[node_id]] %||% list())$label %||% node_id
       connector <- if (is_last) "\u2514\u2500\u2500 " else "\u251c\u2500\u2500 "
-      cli::cli_text(
-        "{prefix}{connector}{cli::col_yellow('[already shown: ', label, ']')}"
-      )
+      cli::cli_verbatim(paste0(
+        prefix,
+        connector,
+        cli::col_yellow("[already shown: ", label, "]")
+      ))
       return()
     }
 
@@ -65,9 +67,15 @@ bg_print_graph_tree <- function(graph) {
     kind_str <- node$kind %||% "unknown"
     lbl <- cli::col_white(label)
     knd <- cli::col_grey("<", kind_str, ">")
-    cli::cli_text(
-      "{prefix}{connector}{lbl} {knd} {state_color('[', state_str, ']')}"
-    )
+    cli::cli_verbatim(paste0(
+      prefix,
+      connector,
+      lbl,
+      " ",
+      knd,
+      " ",
+      state_color("[", state_str, "]")
+    ))
 
     children <- adj[[node_id]] %||% character(0)
     if (length(children) > 0) {

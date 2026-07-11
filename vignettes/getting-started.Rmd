@@ -10,413 +10,549 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  eval = FALSE
 )
 ```
 
-# Introduction
+<!-- The pasted output blocks below were captured from a real run via
+     tools/precompute-vignettes.R (sampler progress lines and repeated
+     warnings trimmed). Regenerate and refresh the blocks when bayesgrove or
+     CmdStan changes; outputs are version-dependent.
+     Last refreshed against bayesgrove 0.7.0 / CmdStan 2.39.0. -->
 
-**bayesgrove** manages the path between an initial model fit and the final analysis. It separates two layers:
+bayesgrove records a Bayesian analysis as a graph of computations plus a log
+of decisions. The graph part is familiar from build tools: nodes hold code,
+edges hold dependencies, results are cached. The part that makes it
+bayesgrove is the review loop on top: fits and checks emit typed diagnostic
+*summaries*, summaries raise *obligations*, and a blocking obligation holds
+downstream work until you record a *decision* — a choice plus a rationale —
+that resolves it. The analysis cannot quietly run past evidence you never
+looked at.
 
-1. **The execution graph**. `dagriculture` tracks data preparation, fitting, diagnostics, comparison, and export.
-2. **The decision layer**. Gates and decisions record why the workflow changed: a revised prior, a rejected branch, an accepted comparison, or a data exclusion.
+This vignette walks the smallest real version of that loop with cmdstanr:
+one fit, one posterior-predictive check that fails, the obligation it
+raises, the decision that answers it, and the branch that repairs the model.
+The chunks use `eval = FALSE` with output pasted from a real run, so the
+vignette builds without CmdStan on CI. For the mental model behind the
+moving parts, see `vignette("concepts")`; this vignette shows them in
+motion.
 
-This separation ensures computations remain reproducible while preserving the rationale behind them. The workflow-protocol layer operates on top of the graph: executors emit summaries, and `bg_next_actions()` converts these summaries into obligations and suggested actions. Callers pass the resulting holds back into `bg_plan()`. This keeps workflow guidance distinct from structural graph blockers.
+## A project and a first fit
 
-The built-in `bayesgrove.default_bayesian` pack implements a baseline review loop: computation review, branch-scoped fit criticism, candidate comparison, and explicit branch acceptance or rejection. Optional packs extend this loop with process guidance, PAD taxonomy, prior rationale, predictive checks, SBC, LOO-PIT calibration, model-selection review, Stan-specific review, and DAG-backed causal selection contracts.
-
-A built-in template registry exposes this review loop. The registry defines common next steps rather than hardcoding REPL behaviors:
-
-```{r templates}
-library(bayesgrove)
-
-names(bg_list_templates())
-bg_list_templates("branch_comparison")$operation_type
-```
-
-The package also makes its public boundary explicit. `bg_api_boundary()`
-distinguishes stable, experimental, and internal-but-exported functions.
-
-```{r boundary}
-boundary <- bg_api_boundary()
-subset(boundary, classification == "stable")
-```
-
-The workflow protocol powers the interactive terminal client. `bg_repl()` provides a dashboard view of the workflow state, active obligations, held nodes, branch-scoped gates, recent decisions, and branch lineage.
-
-```{r repl-client, eval = FALSE}
-bg_repl(handle)
-```
-
-The main guided REPL commands are:
-
-- `dashboard` to refresh the full operator view
-- `next` to preview and optionally execute the top recommended action
-- `do <n>` to execute a specific suggested action
-- `lineage` to inspect the current branch and its ancestors
-- `export md workflow_report.md` to write a report from the same session
-
-## 1. Initializing a Project
-
-Every bayesgrove analysis lives inside an explicitly initialized project handle. This handle manages state, cache, and decision logs inside a `.bayesgrove/` directory.
+Every analysis lives in an initialized project: a directory with a
+`.bayesgrove/` folder holding the graph, the cache, and the decision log.
+`bg_use_cmdstanr()` registers the Stan-backed node kinds, and
+`bg_use_default_workflow()` opts into the built-in review pack (register
+the backend first, so the pack sees the real node kinds rather than its
+generic placeholders).
 
 ```{r setup}
-# Use a temporary directory for this vignette
-project_root <- file.path(tempdir(), "bg-quickstart")
-unlink(project_root, recursive = TRUE)
+library(bayesgrove)
 
 handle <- bg_init(
-  path = project_root,
-  project_name = "Quickstart"
+  path = file.path(tempdir(), "bg-getting-started"),
+  project_name = "Getting Started"
 )
+bg_use_cmdstanr(handle)
 bg_use_default_workflow(handle)
-print(handle)
 ```
 
-New projects start empty, so `bg_use_default_workflow(handle)` is the quickest
-way to opt into the built-in starter pack plus the starter node kinds.
-If you want the richer phase-10 review vocabulary, persist the optional packs
-after initialization:
+The data are 50 skewed, strictly positive measurements. We will do what
+analysts do all the time: start with a normal model anyway.
 
-```{r advanced-packs, eval = FALSE}
-handle <- bg_init(
-  path = project_root,
-  project_name = "Quickstart"
+```{r data}
+set.seed(31)
+y <- round(rlnorm(50, meanlog = 0, sdlog = 0.8), 3)
+```
+
+`bg_fit_stan()` collapses the minimal lifecycle into one call: it creates a
+data node, attaches the data, creates a fit node consuming it, and runs the
+fit. The package ships the example Stan programs, so the code below runs as
+pasted.
+
+```{r fit}
+normal_program <- system.file(
+  "stan/normal_iid.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
 )
 
-bg_use_workflow_packs(
+n_fit <- bg_fit_stan(
   handle,
-  c(
-    "bayesgrove.default_bayesian",
-    "bayesgrove.process_guidance",
-    "bayesgrove.model_taxonomy",
-    "bayesgrove.prior_workflow",
-    "bayesgrove.model_checks",
-    "bayesgrove.model_selection",
-    "bayesgrove.stan_workflow",
-    "bayesgrove.causal_dagitty"
-  )
+  stan_file = normal_program,
+  data = list(N = length(y), y = y),
+  label = "Normal model",
+  seed = 21,
+  chains = 4
 )
 ```
 
-Those packs stay summary-driven: your node executors keep returning plain-data
-summaries, and the protocol layer decides whether that evidence creates prior
-review, posterior-check, SBC, calibration, stacking, causal, taxonomy, or
-Stan-review obligations. A few of those triggers are scope-sensitive. SBC and
-causal-DAG obligations appear on branches whose inferential goal is
-`latent_inference`; `bayesgrove.model_taxonomy` starts asking for PAD and
-utility annotations once a branch has a goal; and a reviewed
-`causal_selection_contract` can then constrain formulas or projection-based
-selection to keep required terms, exclude forbidden controls, and rank the
-remaining admissible precision candidates.
-
-## 2. Defining the Workflow Structure
-
-In bayesgrove, everything is a node. For this demo, let's register some mock executors to simulate the workflow.
-
-```{r register}
-# Register a simple data provider
-bg_register_node_kind(handle, "data", executor = function(node, inputs) {
-  # In a real workflow, this would read from disk or a database
-  data.frame(x = rnorm(100), y = rnorm(100))
-})
-
-# Register a simple model fitter
-bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
-  # Extract the upstream data
-  raw_data <- inputs[[1]]
-  list(
-    result = sprintf("Fitted model on %d rows of data!", nrow(raw_data)),
-    summaries = list(list(
-      summary_kind = "optimizer_diagnostics",
-      passed = FALSE,
-      severity = "warning",
-      metrics = list(max_gradient = 0.1)
-    ))
-  )
-})
-
-bg_register_node_kind(handle, "compare", executor = function(node, inputs) {
-  sprintf("Compared downstream artifact: %s", inputs[[1]])
-})
+```
+#> Starting run "run_dfbdc04b" with 1 node to execute.
+#> Running node "node_66f87a33"...
+#> Running node "node_7bd2286f"...
+#> <bg_run_handle> run_dfbdc04b
+#> • Status: succeeded
+#> • Executed Nodes: 2
 ```
 
-Now we build the graph:
+The sampler is happy — no divergences, good R-hats. `bg_status()` shows the
+project state, and `bg_next_actions()` asks the workflow pack whether any
+evidence demands attention:
 
-```{r build_graph}
-n_data <- bg_add_node(handle, kind = "data", label = "Simulated Dataset")
-n_model <- bg_add_node(handle, kind = "fit", label = "Baseline Fit", inputs = n_data)
-n_compare <- bg_add_node(
+```{r first-guidance}
+bg_status(handle)
+```
+
+```
+#> $workflow_state
+#> [1] "idle"
+#>
+#> $runnable_nodes
+#> [1] 0
+#>
+#> $blocked_nodes
+#> [1] 0
+#>
+#> $pending_gates
+#> [1] 0
+#>
+#> $active_jobs
+#> [1] 0
+#>
+#> $last_run_id
+#> [1] "run_dfbdc04b"
+#>
+#> $health
+#> [1] "ok"
+#>
+#> $messages
+#> character(0)
+```
+
+```{r first-obligations}
+guide <- bg_next_actions(handle)
+guide$obligations
+```
+
+```
+#> named list()
+```
+
+No obligations. That is worth pausing on: an empty answer here is not
+"nothing happened", it is a positive statement that every fresh summary in
+the project has been reviewed or is unremarkable. So far the only summary is
+the clean HMC diagnostic from the fit.
+
+## A check that fails
+
+Clean sampling says the *computation* worked, not that the *model* is any
+good. The built-in `ppc` node kind computes posterior-predictive p-values
+for a set of test statistics and stores plot-ready draws. It takes two
+inputs: the fit (for the `yrep` draws) and the data node (for the observed
+`y`). The fit's data node is simply the fit node's input, so we can read it
+off the graph:
+
+```{r ppc}
+graph <- bg_read_graph(handle)
+n_data <- Filter(
+  function(edge) identical(edge$to, n_fit),
+  graph$edges
+)[[1]]$from
+
+n_ppc <- bg_add_node(
   handle,
-  kind = "compare",
-  label = "Comparison Step",
-  inputs = n_model
+  kind = "ppc",
+  label = "PPC: normal model",
+  inputs = c(n_fit, n_data),
+  params = list(stats = c("mean", "sd", "min", "max"))
 )
+run <- bg_run(handle, targets = n_ppc)
 ```
 
-## 3. Decision Gates
+```
+#> Starting run "run_631ca2d5" with 1 node to execute.
+#> Running node "node_7ea22ed9"...
+```
 
-Instead of just running the model directly, let's add a "Decision Gate" to force us to explicitly approve the data before moving on. This captures provenance.
+The p-values compare each statistic of the observed data against its
+posterior-predictive distribution. Values near 0 or 1 mean the model cannot
+reproduce that feature of the data:
 
-```{r add_gate}
+```{r ppc-summary}
+ppc_summary <- bg_read_summaries(handle, include_stale = FALSE)
+ppc_summary <- Filter(
+  function(s) identical(s$summary_kind, "posterior_predictive_check"),
+  ppc_summary
+)[[1]]
+ppc_summary$severity
+ppc_summary$metrics
+```
+
+```
+#> [1] "warning"
+#> $max
+#> [1] 2e-04
+#>
+#> $mean
+#> [1] 0.5098
+#>
+#> $min
+#> [1] 2e-04
+#>
+#> $sd
+#> [1] 0.5025
+```
+
+Both tail statistics give it away, in opposite directions: the model
+happily predicts negative values the strictly positive data never show
+(`min`), and its thin symmetric tail cannot reach the largest observed
+values (`max`). The center is fine — `mean` and `sd` are unremarkable —
+which is exactly why a skewed sample can hide behind a normal model until
+you check its extremes. One caveat before moving on: posterior-predictive
+p-values are conservative tripwires, not calibrated tests — an unremarkable
+p-value is weak evidence of fit. The primary check is graphical:
+
+```{r ppc-plot, fig.alt = "Posterior predictive density overlay for the normal model"}
+bg_plot(handle, n_ppc)
+```
+
+![Posterior predictive density overlay for the normal model](figures/getting-started-ppc-normal.png)
+
+## The obligation, and the decision that answers it
+
+The extreme p-values arrived as a `warning`-severity summary, and the
+default pack turns fresh warnings into a blocking obligation — at project
+scope it files everything under its baseline review lane,
+`review_computation_validity` (the optional packs add more specific
+vocabularies):
+
+```{r obligation}
+guide <- bg_next_actions(handle)
+vapply(guide$obligations, `[[`, character(1), "kind")
+vapply(guide$actions, `[[`, character(1), "kind")
+```
+
+```
+#>                  obl_a969dc96
+#> "review_computation_validity"
+#>        act_16593cd9        act_ed08cddc
+#>   "record_decision" "branch_and_modify"
+```
+
+An *obligation* is a demand raised from evidence; each one comes with
+suggested *actions* that would resolve it. Blocking obligations also
+translate into *holds*: pass them to the planner and any node downstream of
+the criticized one stays parked until the review happens.
+
+```{r holds}
+held_plan <- bg_plan(handle, external_holds = guide$metadata$external_holds)
+held_plan$external_blocked
+```
+
+```
+#> list()
+```
+
+Empty — and instructively so. The failing check is the last node in this
+tiny graph, so there is nothing downstream to hold yet. The moment you add
+one (a comparison, a report step, a follow-up fit), it lands in
+`external_blocked` until the obligation is resolved. The hold mechanism is
+how unreviewed evidence stops an analysis from advancing *past* it, not a
+punishment for the node that produced it.
+
+To resolve the obligation we record a decision. A decision is a permanent
+log entry: the prompt, the choice, the rationale, and the ids of the
+evidence it covers. The suggested `record_decision` action carries the right
+metadata in its payload, so we do not have to assemble it by hand:
+
+```{r decision}
+review <- Filter(
+  function(a) identical(a$kind, "record_decision"),
+  guide$actions
+)[[1]]
+
+bg_record_decision(
+  handle,
+  scope = "project",
+  prompt = "Does the normal model reproduce the data?",
+  choice = "reject_normal_model",
+  rationale = paste(
+    "The observed minimum is far outside the posterior predictive",
+    "distribution: the data are strictly positive and right-skewed,",
+    "and a normal model cannot express that. Refit on the log scale."
+  ),
+  kind = review$payload$decision_type,
+  metadata = review$payload[c("node_ids", "summary_ids")]
+)
+
+bg_next_actions(handle)$obligations
+```
+
+```
+#> <bg_decision_record> dec_632c0a7b
+#> • Prompt: Does the normal model reproduce the data?
+#> • Choice: reject_normal_model
+#> • Rationale: The observed minimum is far outside the posterior predictive
+#>   distribution: the data are strictly positive and right-skewed, and a normal
+#>   model cannot express that. Refit on the log scale.
+#> named list()
+```
+
+The obligation is gone — not because the evidence went away, but because a
+recorded judgment now covers it. Both stay in the log: a reviewer can later
+see exactly which p-value prompted the rejection and what the stated
+reasoning was.
+
+## Branch to the repair
+
+The rationale named the repair: model the log scale. A *branch* keeps the
+rejected fit and its criticism in the record while the analysis moves on —
+provenance is the point, so we never edit the past. `bg_branch()` copies the
+fit node into a new branch; `bg_update_node()` merges params, so only the
+Stan program needs swapping. The default pack asks every active branch for
+an inferential goal, which doubles as documentation of why the branch
+exists.
+
+```{r branch}
+branch <- bg_branch(handle, n_fit, label = "Lognormal model")
+
+bg_set_goal(
+  project = handle,
+  branch_id = branch$branch_id,
+  kind = "observable_prediction",
+  label = "Positive-valued predictions",
+  rationale = "The rejected normal fit motivates a lognormal likelihood."
+)
+
+lognormal_program <- system.file(
+  "stan/lognormal_iid.stan",
+  package = "bayesgrove",
+  mustWork = TRUE
+)
+
+bg_update_node(
+  handle,
+  branch$root_node_id,
+  params = list(stan_file = lognormal_program)
+)
+run2 <- bg_run(handle, targets = branch$root_node_id)
+```
+
+```
+#> <bg_decision_record> dec_ca79d9cb
+#> • Prompt: Set inferential goal
+#> • Choice: Positive-valued predictions
+#> • Rationale: The rejected normal fit motivates a lognormal likelihood.
+#> [1] "node_4610511f"
+#> Starting run "run_f3475fdc" with 1 node to execute.
+#> Running node "node_4610511f"...
+```
+
+A second `ppc` node on the branch confirms the repair:
+
+```{r branch-ppc}
+n_ppc2 <- bg_add_node(
+  handle,
+  kind = "ppc",
+  label = "PPC: lognormal model",
+  inputs = c(branch$root_node_id, n_data),
+  params = list(stats = c("mean", "sd", "min", "max"))
+)
+bg_run(handle, targets = n_ppc2)
+
+ppc2 <- Filter(
+  function(s) {
+    identical(s$summary_kind, "posterior_predictive_check") &&
+      identical(s$node_id, n_ppc2)
+  },
+  bg_read_summaries(handle, include_stale = FALSE)
+)[[1]]
+ppc2$severity
+ppc2$metrics
+```
+
+```
+#> Starting run "run_cc95c582" with 1 node to execute.
+#> Running node "node_70de7bc7"...
+#> <bg_run_handle> run_cc95c582
+#> • Status: succeeded
+#> • Executed Nodes: 1
+#> [1] "ok"
+#> $max
+#> [1] 0.2
+#>
+#> $mean
+#> [1] 0.4708
+#>
+#> $min
+#> [1] 0.6925
+#>
+#> $sd
+#> [1] 0.3262
+```
+
+Both models remain in the graph — the rejected normal fit with its failed
+check and the decision that rejected it, and the lognormal fit with a clean
+one:
+
+```{r graph}
+print(bg_read_graph(handle))
+```
+
+```
+#> ── Execution Graph ──
+#>
+#> └── Normal model_data <stan_data> [new]
+#>     ├── Normal model <cmdstanr_fit> [new]
+#>     │   └── PPC: normal model <ppc> [new]
+#>     ├── [already shown: PPC: normal model]
+#>     ├── Lognormal model <cmdstanr_fit> [new]
+#>     │   └── PPC: lognormal model <ppc> [new]
+#>     └── [already shown: PPC: lognormal model]
+```
+
+## Where this goes next
+
+This was one turn of the loop on the smallest possible example. The same
+mechanics scale up:
+
+- **Computation review.** When HMC itself misbehaves — divergences, low
+  E-BFMI — the same loop fires on the sampler diagnostics instead of a
+  predictive check. `vignette("eight-schools")` walks that case, including
+  the branch-scoped review a repair branch inherits.
+- **Comparison and disposition.** With two or more clean candidate fits, the
+  default pack demands an explicit comparison (via LOO) and then an
+  accept-or-reject disposition for each branch before the analysis can
+  conclude. `vignette("case-study-roaches")` runs that full arc on real
+  data, from a badly misfitting first model to an exported report.
+- **Reporting.** `bg_export_report(handle, format = "md")` renders the whole
+  trail — graph, diagnostics, decisions, branch lineage — into a document; a
+  `bg_bundle()` archive backs it with the machine-readable logs. See the
+  reproducible-research article for what a reviewer can verify from the
+  bundle.
+
+## Reference: the pieces individually
+
+The sections above used the machinery in one continuous story. The notes
+below are the pieces in isolation, for when you come back looking for one
+of them.
+
+### Gates: pre-planned checkpoints
+
+Obligations arise dynamically from evidence. When you know *in advance* that
+a step needs sign-off, put a *gate* on the edge instead. A gate blocks
+planning until it is answered, and the answer (with its rationale) lands in
+the same decision log:
+
+```{r gate}
 gate <- bg_add_gate(
   project = handle,
   from = n_data,
-  to = n_model,
-  prompt = "Does the simulated data look ready for modeling?",
+  to = n_fit,
+  prompt = "Were the measurements validated before modeling?",
   alternatives = c("yes", "no")
 )
-```
 
-If we try to plan the workflow now, the runner will see that the graph is blocked by an unresolved gate:
+bg_pending_gates(handle)
 
-```{r plan_blocked}
-plan <- bg_plan(handle)
-print(plan$blocked)
-print(bg_pending_gates(handle))
-```
-
-We must explicitly answer the gate and provide a rationale. This rationale is logged permanently.
-
-```{r answer_gate}
 bg_answer_gate(
   project = handle,
   id = gate$id,
   choice = "yes",
-  rationale = "The simulated distributions match our expectations."
+  rationale = "Values were cross-checked against the collection protocol."
 )
 ```
 
-## 4. Execution
-
-With the gate resolved, the path is unblocked. We now run only through the fit
-node so that we can inspect the workflow protocol before scheduling downstream
-comparison work.
-
-```{r execution}
-run_result <- bg_run(handle, targets = n_model)
-print(run_result$summary)
+```
+#> $gate_84ce804b
+#> $gate_84ce804b$id
+#> [1] "gate_84ce804b"
+#>
+#> $gate_84ce804b$edge_id
+#> [1] "edge_2ed4dcc6"
+#>
+#> $gate_84ce804b$prompt
+#> [1] "Were the measurements validated before modeling?"
+#>
+#> $gate_84ce804b$options
+#> $gate_84ce804b$options[[1]]
+#> [1] "yes"
+#>
+#> $gate_84ce804b$options[[2]]
+#> [1] "no"
+#>
+#> $gate_84ce804b$refs
+#> list()
+#>
+#> $gate_84ce804b$created_at
+#> [1] "2026-07-11T05:29:34Z"
+#>
+#> $gate_84ce804b$metadata
+#> list()
+#>
+#> $gate_84ce804b$from_node_id
+#> [1] "node_66f87a33"
+#>
+#> $gate_84ce804b$to_node_id
+#> [1] "node_7bd2286f"
+#>
+#> $gate_84ce804b$from_label
+#> [1] "Normal model_data"
+#>
+#> $gate_84ce804b$to_label
+#> [1] "Normal model"
+#>
+#> <bg_decision_record> dec_61ab307c
+#> • Prompt: Were the measurements validated before modeling?
+#> • Choice: yes
+#> • Rationale: Values were cross-checked against the collection protocol.
 ```
 
-## 5. Workflow Guidance And External Holds
+### Scopes
 
-The fit executor emitted a lightweight warning summary. `bg_next_actions()`
-turns that evidence into an obligation plus a matching next action:
+Obligations and decisions carry a scope: `project` or `branch:<id>`. A
+project-scope decision does not silently cover a branch, and vice versa —
+each active line of analysis answers for its own evidence. Pass `scope` and
+`branch_id` to `bg_next_actions()` to interrogate a specific branch, as the
+eight-schools vignette does after branching.
 
-```{r protocol}
-next_steps <- bg_next_actions(handle)
-next_steps$obligations[[1]]$kind
-next_steps$actions[[1]]$payload$decision_type
-```
+### Freshness
 
-If the same warning appears on a branch-scoped fit, the stronger default pack
-also emits `review_fit_criticism` and keeps `branch_and_modify` available so
-you can preserve provenance while revising the branch.
+Summaries are fingerprinted against the exact node configuration that
+produced them. Change the params, the data, or the Stan program and the old
+summary goes *stale*: it stops feeding obligations until the node is rerun.
+This is what makes "the checks passed" meaningful across sessions and
+machines.
 
-Those blocking obligations can be passed back into planning as explicit
-external holds. This keeps workflow guidance distinct from structural graph
-state:
+### Additional workflow packs
 
-```{r external_holds}
-held_plan <- bg_plan(
+`bg_use_default_workflow()` installs the built-in starter pack used here.
+`bg_use_workflow_packs()` can instead activate an explicit set, such as the
+default Bayesian pack shown below plus the optional prior-workflow pack.
+These packs add richer review vocabularies while remaining summary-driven:
+executors keep returning plain data, and the packs decide what that evidence
+obliges.
+
+```{r packs, eval = FALSE}
+bg_use_workflow_packs(
   handle,
-  external_holds = next_steps$metadata$external_holds
-)
-
-held_plan$blocked
-held_plan$external_blocked
-```
-
-In this example, the downstream comparison node is not structurally broken. It
-is simply being held until the warning summary is reviewed or replaced by a
-clean rerun.
-
-## 6. Comparison And Branch Disposition
-
-The stronger default pack also supports a project-level comparison loop once
-multiple fit candidates are clean. This second example uses a fresh project so
-that the comparison state is easy to inspect.
-
-```{r comparison_setup}
-comparison_root <- file.path(tempdir(), "bg-comparison")
-unlink(comparison_root, recursive = TRUE)
-
-comparison_handle <- bg_init(
-  path = comparison_root,
-  project_name = "Comparison",
-  workflow_packs = list("bayesgrove.default_bayesian")
-)
-
-bg_register_node_kind(
-  comparison_handle,
-  "source",
-  executor = function(node, inputs) {
-    list(rows = 100L)
-  }
-)
-bg_register_node_kind(
-  comparison_handle,
-  "fit",
-  executor = function(node, inputs) {
-    variant <- node$params$variant %||% "baseline"
-    list(
-      result = list(ok = TRUE, variant = variant, rows = inputs[[1]]$rows),
-      summaries = list(list(
-        summary_kind = "hmc_diagnostics",
-        passed = TRUE,
-        severity = "ok",
-        metrics = list(variant = variant, divergences = 0)
-      ))
-    )
-  }
-)
-bg_register_node_kind(
-  comparison_handle,
-  "compare",
-  executor = function(node, inputs) {
-    list(
-      result = list(compared = names(inputs)),
-      summaries = list(list(
-        summary_kind = "comparison_results",
-        passed = TRUE,
-        severity = "ok"
-      ))
-    )
-  }
-)
-
-n_source2 <- bg_add_node(comparison_handle, kind = "source", label = "Data")
-n_fit_base <- bg_add_node(
-  comparison_handle,
-  kind = "fit",
-  label = "Baseline Fit",
-  inputs = n_source2,
-  params = list(variant = "baseline")
-)
-bg_run(comparison_handle)
-
-branch <- bg_branch(comparison_handle, n_fit_base, label = "Alternative Fit")
-bg_set_goal(
-  project = comparison_handle,
-  branch_id = branch$branch_id,
-  kind = "observable_prediction",
-  label = "Compare alternatives",
-  rationale = "This branch exists to compare two clean fits."
-)
-bg_update_node(
-  comparison_handle,
-  branch$root_node_id,
-  params = list(variant = "alternative")
-)
-bg_run(comparison_handle, targets = branch$root_node_id)
-```
-
-With two clean fits, project scope now requires an explicit comparison step:
-
-```{r comparison_obligation}
-comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
-vapply(comparison_guide$obligations, `[[`, character(1), "kind")
-Filter(
-  function(x) identical(x$kind, "create_node_from_template"),
-  comparison_guide$actions
-)[[1]]$payload$template_ref
-```
-
-That `template_ref` is stable and maps to the built-in descriptor returned by
-`bg_list_templates("branch_comparison")`. The same registry is what the REPL
-uses when you execute a suggested action interactively.
-
-Create and run the comparison node, then record a `model_comparison` decision
-using the payload fields supplied by the workflow action:
-
-```{r comparison_decision}
-comparison_node_id <- bg_add_node(
-  comparison_handle,
-  kind = "compare",
-  label = "Compare Fits",
-  inputs = c(n_fit_base, branch$root_node_id)
-)
-bg_run(comparison_handle, targets = comparison_node_id)
-
-comparison_guide <- bg_next_actions(comparison_handle, scope = "project")
-comparison_action <- Filter(
-  function(x) {
-    identical(x$kind, "record_decision") &&
-      identical(x$payload$decision_type, "model_comparison")
-  },
-  comparison_guide$actions
-)[[1]]
-
-bg_record_decision(
-  comparison_handle,
-  scope = "project",
-  prompt = "Compare candidate branches",
-  choice = "prefer_alternative",
-  rationale = "The alternative fit is the preferred clean candidate.",
-  kind = "model_comparison",
-  metadata = comparison_action$payload[c(
-    "fit_node_ids",
-    "summary_ids",
-    "candidate_signature",
-    "comparison_signature",
-    "comparison_context"
-  )]
+  c("bayesgrove.default_bayesian", "bayesgrove.prior_workflow")
 )
 ```
 
-After a current comparison exists, branch scope asks for an explicit accept or
-reject disposition:
+### The REPL
 
-```{r branch_disposition}
-branch_guide <- bg_next_actions(
-  comparison_handle,
-  scope = "branch",
-  branch_id = branch$branch_id
-)
-vapply(branch_guide$obligations, `[[`, character(1), "kind")
+`bg_repl(handle)` wraps the same loop in an interactive dashboard: it shows
+outstanding obligations, previews the suggested actions, and can execute
+them. Everything it does goes through the public API you used above, so a
+REPL session and a script leave the same audit trail.
 
-disposition_action <- Filter(
-  function(x) {
-    identical(x$kind, "record_decision") &&
-      identical(x$payload$decision_type, "branch_disposition")
-  },
-  branch_guide$actions
-)[[1]]
+### Extending
 
-bg_record_decision(
-  comparison_handle,
-  scope = branch$branch_id,
-  prompt = "Accept or reject branch",
-  choice = "accept",
-  rationale = "Keep the alternative branch as the accepted analysis path.",
-  kind = "branch_disposition",
-  metadata = list(
-    disposition = "accept",
-    summary_ids = disposition_action$payload$summary_ids,
-    comparison_signature = disposition_action$payload$comparison_signature,
-    comparison_context = disposition_action$payload$comparison_context
-  )
-)
-
-bg_next_actions(
-  comparison_handle,
-  scope = "branch",
-  branch_id = branch$branch_id
-)$obligations
-```
-
-## 7. Next Steps
-
-As you advance, you can use `bg_branch()` to create alternative model paths
-(e.g., trying a different prior without losing your baseline), `bg_invalidate()`
-to supersede outdated results, and `bg_next_actions()` plus `bg_plan(...,
-external_holds = ...)` to keep workflow obligations visible during scheduling.
-For the built-in default pack, that means you can move through the full loop
-without leaving the runtime contract: review the computation, review branch
-criticism when needed, compare clean candidates, and explicitly accept or
-reject the surviving branch. When you are ready to grow beyond that loop, emit
-the richer phase-10 summary kinds (`prior_spec`, `prior_predictive_check`,
-`posterior_predictive_check`, `sbc_result`, `comparison_results`,
-`model_comparison`, `stacking_weights`, `causal_framing`, and
-`pad_annotation`) and see `vignette("extensions", package = "bayesgrove")`
-for extension patterns.
+Custom node kinds, custom executors (including deterministic mock executors
+for testing), template registration, and custom summary kinds are covered in
+`vignette("extensions")`. The short version: register an executor that
+returns `list(result = ..., summaries = ...)` and the review loop picks up
+your evidence exactly as it picked up the built-in checks here.

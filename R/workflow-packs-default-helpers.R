@@ -55,17 +55,23 @@ bg_default_bayesian_fit_criticism_summary <- function(summary, node = NULL) {
   summary_kind <- summary$summary_kind %||% ""
   node_kind <- node$kind %||% ""
 
-  identical(node_kind, "fit") ||
+  if (identical(node_kind, "loo")) {
+    return(FALSE)
+  }
+
+  bg_pack_is_fit_node(node) ||
     grepl("diagnostics|fit|criticism", summary_kind, ignore.case = TRUE) ||
     grepl("diagnostic|check", node_kind, ignore.case = TRUE)
 }
 
 #' @keywords internal
 bg_default_bayesian_decision_summary_ids <- function(decision) {
-  unique(sort(c(
+  # Decisions read back from JSONL carry list-typed metadata fields
+  # (simplifyVector = FALSE), so coerce before sorting.
+  sort(unique(as.character(c(
     decision$metadata$summary_ids %||% character(),
     decision$metadata$summary_id %||% character()
-  )))
+  ))))
 }
 
 #' @keywords internal

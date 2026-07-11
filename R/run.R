@@ -463,6 +463,35 @@ bg_refresh_run_plan <- function(
   )
 }
 
+#' Retarget an existing full-project plan without recomputing fingerprints.
+#'
+#' `bg_run()` first needs a full plan to evaluate project-wide workflow holds.
+#' Explicit targets only change graph eligibility, so reuse the full plan's
+#' fingerprints and artifact index instead of paying for a second `bg_plan()`.
+#' @keywords internal
+#' @noRd
+bg_retarget_run_plan <- function(
+  project,
+  plan,
+  graph,
+  targets,
+  external_holds = list()
+) {
+  graph_plan <- bg_dagri_plan(
+    graph,
+    targets,
+    external_holds = external_holds
+  )
+  plan$graph_plan <- graph_plan
+  plan$targets <- targets %||% graph_plan$targets
+  bg_derive_run_plan_state(
+    project,
+    plan,
+    graph,
+    external_holds = graph_plan$external_blocked
+  )
+}
+
 #' Run a project workflow
 #'
 #' Executes the workflow, driving every node that is ready and unheld to
@@ -517,9 +546,20 @@ bg_run <- function(
       external_holds = external_holds
     )
   } else {
-    bg_plan(
-      project,
+    inactive_targets <- intersect(
       targets,
+      setdiff(names(raw_graph$nodes), names(graph$nodes))
+    )
+    if (length(inactive_targets) > 0L) {
+      cli::cli_abort(
+        "Cannot plan retired or disabled nodes: {.val {inactive_targets}}."
+      )
+    }
+    bg_retarget_run_plan(
+      project,
+      workflow_plan,
+      graph,
+      targets = targets,
       external_holds = external_holds
     )
   }
@@ -548,6 +588,7 @@ bg_run <- function(
   )
 
   use_parallel <- bg_parallel_active(parallel)
+  warned_parallel_fit_outputs <- FALSE
 
   # Wave-based execution: each wave is the set of to_execute nodes whose inputs
   # are already available (mutually independent). The wave is dispatched
@@ -571,6 +612,30 @@ bg_run <- function(
     # wave has >1 node (a single-node wave gains nothing from dispatch and the
     # sequential path avoids task-construction overhead).
     wave_parallel <- use_parallel && length(wave) > 1L
+    if (wave_parallel && !warned_parallel_fit_outputs) {
+      fit_nodes <- Filter(
+        function(node_id) {
+          graph$nodes[[node_id]]$kind %in%
+            c(
+              "cmdstanr_fit",
+              "prior_fit",
+              "brms_fit",
+              "brms_prior_fit"
+            )
+        },
+        wave
+      )
+      if (length(fit_nodes) > 0L) {
+        cli::cli_warn(c(
+          "Parallel fit workers preserve the R fit artifact but may not preserve raw sampler CSV files.",
+          "i" = paste0(
+            "Daemon-local CSV paths can be unreachable from the main process. ",
+            "Use {.code parallel = \"never\"} when durable raw CSV output is required."
+          )
+        ))
+        warned_parallel_fit_outputs <- TRUE
+      }
+    }
 
     # Record jobs (queued -> running) up front so the records exist regardless
     # of dispatch mode; the executor/blob work happens next.

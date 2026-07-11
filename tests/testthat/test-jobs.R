@@ -95,4 +95,32 @@ describe("Job Tracking Layer", {
     )
     expect_equal(seqs, seq_along(lines))
   })
+
+  it("compacts snapshots without changing current job state", {
+    handle <- bg_init(path = withr::local_tempdir())
+    j1 <- bg_create_job(handle, run_id = "r1", node_id = "n1")
+    j2 <- bg_create_job(handle, run_id = "r1", node_id = "n2")
+    bg_update_job(handle, j1$job_id, status = "running")
+    bg_update_job(handle, j2$job_id, status = "succeeded")
+    before_status <- vapply(bg_jobs(handle), `[[`, character(1), "status")
+
+    compacted <- bg_compact_jobs(handle)
+
+    expect_equal(compacted, list(before = 4L, after = 2L, removed = 2L))
+    expect_equal(
+      vapply(bg_jobs(handle), `[[`, character(1), "status"),
+      before_status
+    )
+    expect_equal(bg_jobs_count_lines(handle), 2L)
+
+    bg_update_job(handle, j1$job_id, status = "succeeded")
+    lines <- readLines(bg_jobs_log_path(handle), warn = FALSE)
+    seqs <- vapply(
+      lines,
+      function(line) jsonlite::fromJSON(line)$seq,
+      integer(1),
+      USE.NAMES = FALSE
+    )
+    expect_equal(seqs, 1:3)
+  })
 })

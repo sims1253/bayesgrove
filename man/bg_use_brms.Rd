@@ -16,5 +16,7 @@ Invisibly, the project handle.
 Registers \code{brms_fit} and \code{brms_prior_fit} built-in executors. The
 \code{loo}, \code{compare}, \code{ppc}, \code{loo_pit}, and \code{sbc} kinds are shared with
 \code{\link[=bg_use_cmdstanr]{bg_use_cmdstanr()}} and are registered here too so a brms-only project can
-use them without calling both setup functions.
+use them without calling both setup functions. A neutral \code{data} kind (an
+alias of the \code{stan_data} executor) is registered as well, so brms-backed
+graphs need not label plain data frames with a Stan-specific kind.
 }

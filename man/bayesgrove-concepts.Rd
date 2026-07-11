@@ -12,8 +12,8 @@ overlap by design. This topic is the one-table disambiguation; the
 \tabular{lll}{
    Concept \tab Who produces it \tab What it does \cr
    \strong{Node} \tab The user \tab Pairs code with a graph slot. \cr
-   \strong{Summary} \tab A built-in executor \tab Typed evidence (HMC, ppc, loo_pit, sbc, ...). \cr
-   \strong{Obligation} \tab A workflow pack \tab A demand raised from a summary (severity: info / warning / blocking). \cr
+   \strong{Summary} \tab An executor (built-in or user-registered) \tab Typed evidence (HMC, ppc, loo_pit, sbc, ...). \cr
+   \strong{Obligation} \tab A workflow pack \tab A demand raised from a summary (severity: advisory or blocking). \cr
    \strong{Action} \tab A workflow pack \tab A copy-pasteable call resolving the obligation. \cr
    \strong{Decision} \tab The user \tab The recorded answer (choice + rationale). \cr
    \strong{Hold} \tab The engine \tab Stops downstream execution until a blocking decision lands. \cr

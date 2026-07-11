@@ -20,3 +20,10 @@ persisted). The fit executors compute HMC diagnostics themselves and emit
 \code{hmc_diagnostics}
 summaries with severity rules; no user-written diagnostic code is required.
 }
+\details{
+The \code{ppc} kind's posterior-predictive p-values are conservative tripwires:
+an extreme value flags gross misfit, but an unremarkable value is weak
+evidence that the model is adequate. Treat the graphical check via
+\code{\link[=bg_plot]{bg_plot()}} as the primary posterior-predictive diagnostic and the
+p-values as its alarm layer.
+}

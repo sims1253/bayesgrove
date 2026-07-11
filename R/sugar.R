@@ -5,6 +5,21 @@
 # and return the fit node id (invisibly) with the run handle printed. No new
 # semantics; all extra `...` params pass through to the fit node.
 
+#' Require backend kinds before a sugar helper starts mutating the graph.
+#' @keywords internal
+#' @noRd
+bg_require_backend_kinds <- function(handle, kinds, setup_function) {
+  available <- names(handle@registries$node_kinds %||% list())
+  missing <- setdiff(kinds, available)
+  if (length(missing) > 0L) {
+    cli::cli_abort(c(
+      "Required backend node kind{?s} {?is/are} not registered: {.val {missing}}.",
+      "i" = "Call {.fn {setup_function}} before using this fit helper."
+    ))
+  }
+  invisible(TRUE)
+}
+
 #' Fit a Stan model in one call
 #'
 #' Creates a data node (via [bg_set_node_data]), a `cmdstanr_fit` node consuming
@@ -24,6 +39,11 @@
 #' @export
 bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
   S7::check_is_S7(handle, bg_handle)
+  bg_require_backend_kinds(
+    handle,
+    c("stan_data", "cmdstanr_fit"),
+    "bg_use_cmdstanr"
+  )
 
   # Create + populate the data node, then the fit node consuming it.
   data_node <- bg_add_node(
@@ -68,10 +88,15 @@ bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
 #' @export
 bg_fit_brms <- function(handle, formula, data, label = NULL, ...) {
   S7::check_is_S7(handle, bg_handle)
+  bg_require_backend_kinds(
+    handle,
+    c("data", "brms_fit"),
+    "bg_use_brms"
+  )
 
   data_node <- bg_add_node(
     handle,
-    kind = "stan_data",
+    kind = "data",
     label = paste0(label %||% "fit", "_data")
   )
   bg_set_node_data(handle, data_node, data)

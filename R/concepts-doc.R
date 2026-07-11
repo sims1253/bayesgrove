@@ -11,8 +11,8 @@
 #' | Concept        | Who produces it     | What it does |
 #' |:---------------|:--------------------|:-------------|
 #' | **Node**       | The user            | Pairs code with a graph slot. |
-#' | **Summary**    | A built-in executor | Typed evidence (HMC, ppc, loo_pit, sbc, ...). |
-#' | **Obligation** | A workflow pack     | A demand raised from a summary (severity: info / warning / blocking). |
+#' | **Summary**    | An executor (built-in or user-registered) | Typed evidence (HMC, ppc, loo_pit, sbc, ...). |
+#' | **Obligation** | A workflow pack     | A demand raised from a summary (severity: advisory or blocking). |
 #' | **Action**     | A workflow pack     | A copy-pasteable call resolving the obligation. |
 #' | **Decision**   | The user            | The recorded answer (choice + rationale). |
 #' | **Hold**       | The engine          | Stops downstream execution until a blocking decision lands. |

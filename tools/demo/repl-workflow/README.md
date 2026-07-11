@@ -1,11 +1,11 @@
 # REPL VHS Demos
 
-The repo now keeps several focused REPL demos instead of relying on one large
+This directory contains several focused REPL demos instead of one large
 walkthrough for every use case.
 
 Available tapes:
 
-- `repl-showcase.tape`: the shortest social-share clip; warning, repair, rerun, and comparison-ready payoff
+- `repl-showcase.tape`: the shortest clip; warning, repair, rerun, and a comparison-ready end state
 - `repl-remediation.tape`: starts at a warning-driven branch and shows the
   template-backed remediation loop
 - `repl-comparison.tape`: starts at the comparison-ready checkpoint and focuses
@@ -17,8 +17,7 @@ Available tapes:
 Each focused tape uses the same launcher and checkpoints into a meaningful
 state instead of replaying the full setup story every time.
 
-If you want one asset for Twitter/X or the Stan Forums, start with
-`repl-showcase.mp4`.
+If you want a single short asset, start with `repl-showcase.mp4`.
 
 These demos are intentionally REPL-first. They exercise the guided terminal
 client surface end to end.
@@ -28,11 +27,7 @@ workflow pack so the tapes remain short and deterministic. For examples of the
 new prior-workflow, model-check, model-selection, causal, and PAD extension
 surfaces, see `vignette("extensions", package = "bayesgrove")`.
 
-This matches the package's current strengths and the design notes in
-[`design/system-design.md`](/home/m0hawk/Documents/bayesgrove/design/system-design.md)
-and
-[`design/workflow-protocol.md`](/home/m0hawk/Documents/bayesgrove/design/workflow-protocol.md):
-resume from a checkpoint, inspect protocol guidance, branch to resolve
+The flow they demonstrate: resume from a checkpoint, inspect protocol guidance, branch to resolve
 diagnostics, execute template-backed comparison/review actions, compare clean
 candidates, and explicitly accept the surviving branch.
 
@@ -81,7 +76,7 @@ You can also pass tape basenames to render only a subset:
 bash tools/demo/repl-workflow/render-all-demos.sh repl-comparison repl-disposition
 ```
 
-The batch script now recompacts every MP4 after `vhs` renders it, using a
+The batch script recompacts every MP4 after `vhs` renders it, using a
 smaller default export profile (`960px`, `12fps`, `CRF 30`) before deriving the
 GIF previews. You can tune that profile per run:
 

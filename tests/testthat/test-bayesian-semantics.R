@@ -351,6 +351,11 @@ describe("Phase 10 Bayesian semantics packs", {
       function(obligation) identical(obligation$kind, "run_sbc"),
       logical(1)
     )))
+    sbc_setup_actions <- Filter(
+      function(action) identical(action$payload$template_ref, "sbc_check"),
+      initial$actions
+    )
+    expect_length(sbc_setup_actions, 1L)
 
     sbc_id <- bg_add_node(
       handle,
@@ -393,6 +398,26 @@ describe("Phase 10 Bayesian semantics packs", {
       },
       logical(1)
     )))
+  })
+
+  it("skips SBC action creation without a source node", {
+    obligation <- list(
+      kind = "run_sbc",
+      scope = "project",
+      basis = list(node_ids = character()),
+      metadata = list(),
+      explanation = list()
+    )
+    actions <- bg_pack_checks_actions(
+      context = list(
+        scope = "project",
+        structural = list(nodes = list()),
+        scope_context = list()
+      ),
+      obligations = list(obligation)
+    )
+
+    expect_length(actions, 0L)
   })
 
   it("uses model comparison and stacking summaries for explicit review decisions", {

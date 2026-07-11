@@ -108,6 +108,23 @@ describe("HMC severity rules (Phase 4.5)", {
     expect_equal(bg_hmc_severity(metrics), "warning")
   })
 
+  it("does not treat a missing transition count as a zero divergence rate", {
+    metrics <- list(
+      divergences = 2L,
+      max_treedepth_hits = 0L,
+      max_rhat = 1.0,
+      min_bulk_ess = 1000,
+      min_tail_ess = 1000,
+      e_bfmi = 0.5,
+      num_transitions = NA_integer_
+    )
+
+    rate <- bayesgrove:::bg_hmc_divergence_rate(metrics)
+    expect_false(rate$available)
+    expect_true(is.na(rate$value))
+    expect_equal(bg_hmc_severity(metrics), "warning")
+  })
+
   it("returns warning when treedepth saturation occurs", {
     metrics <- list(
       divergences = 0L,
@@ -250,8 +267,23 @@ describe("Executor registration (Phase 4.2)", {
     bg_use_brms(handle)
 
     kinds <- names(handle@registries$node_kinds)
-    expect_true("brms_fit" %in% kinds)
-    expect_true("brms_prior_fit" %in% kinds)
-    expect_true("loo" %in% kinds)
+    expect_equal(
+      kinds,
+      c(
+        "stan_data",
+        "data",
+        "brms_fit",
+        "brms_prior_fit",
+        "loo",
+        "compare",
+        "ppc",
+        "loo_pit",
+        "sbc"
+      )
+    )
+    expect_identical(
+      handle@registries$node_kinds$data$executor,
+      handle@registries$node_kinds$stan_data$executor
+    )
   })
 })

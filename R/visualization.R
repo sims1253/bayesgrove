@@ -89,6 +89,11 @@ print.bg_mermaid <- function(x, ...) {
 #' dependency); the function aborts with an informative message when it is
 #' missing or the node kind has no plot.
 #'
+#' For posterior-predictive checking, this graphical view is the primary
+#' diagnostic: the p-values in a `ppc` node's summary are conservative
+#' tripwires that flag gross misfit, and an unremarkable p-value is weak
+#' evidence of adequacy. Read the overlay, not just the numbers.
+#'
 #' @param project A `bg_handle`.
 #' @param node_id The node to plot.
 #' @param ... Passed to the underlying bayesplot function (ignored for the

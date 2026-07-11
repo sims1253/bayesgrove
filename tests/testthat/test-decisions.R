@@ -1,4 +1,11 @@
 describe("Decision and Gate Layer", {
+  it("validates the handle before reading decisions", {
+    expect_error(
+      bg_read_decisions(list(path = tempdir())),
+      "`project` must be a <bayesgrove::bg_handle>"
+    )
+  })
+
   it("can add a gate to an edge and track it as pending", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)

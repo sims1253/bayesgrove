@@ -228,6 +228,82 @@ bg_jobs <- function(project, status = NULL, detailed = FALSE) {
   jobs
 }
 
+#' Compact the append-only jobs log
+#'
+#' Rewrites `jobs.jsonl` atomically with only the latest snapshot for each job.
+#' This preserves the last-record-wins view returned by [bg_jobs()] while
+#' bounding cold-open parsing costs for long-lived projects. Sequence numbers
+#' are reassigned in their existing order so later appends remain monotonic.
+#'
+#' @param project A writable `bg_handle`.
+#' @return Invisibly, a list with `before`, `after`, and `removed` line counts.
+#' @export
+bg_compact_jobs <- function(project) {
+  S7::check_is_S7(project, bg_handle)
+  if (isTRUE(project@readonly)) {
+    cli::cli_abort(
+      "Cannot compact jobs through a read-only handle; reopen the project with {.fn bg_open}."
+    )
+  }
+
+  log_path <- bg_jobs_log_path(project)
+  if (!file.exists(log_path)) {
+    return(invisible(list(before = 0L, after = 0L, removed = 0L)))
+  }
+
+  before <- NULL
+  jobs <- bg_with_file_lock(paste0(log_path, ".lock"), {
+    before <- bg_jobs_count_lines(project)
+    latest <- bg_jobs_read_disk(project)
+    if (length(latest) > 0L) {
+      ordering <- order(vapply(
+        latest,
+        function(job) job$seq %||% 0L,
+        integer(1)
+      ))
+      latest <- latest[ordering]
+      for (i in seq_along(latest)) {
+        latest[[i]]$seq <- as.integer(i)
+      }
+    }
+
+    lines <- vapply(
+      latest,
+      function(job) {
+        jsonlite::toJSON(
+          bg_sort_persisted_value(job),
+          auto_unbox = TRUE,
+          null = "null"
+        )
+      },
+      character(1)
+    )
+    tmp <- paste0(log_path, ".tmp")
+    writeLines(lines, tmp, useBytes = TRUE)
+    if (!file.rename(tmp, log_path)) {
+      unlink(tmp, force = TRUE)
+      cli::cli_abort(
+        "Failed to atomically replace the jobs log during compaction."
+      )
+    }
+    latest
+  })
+
+  fi <- file.info(log_path)
+  after <- length(jobs)
+  project@.state$jobs_cache <- list(
+    jobs = jobs,
+    line_count = as.integer(after),
+    mtime = fi$mtime,
+    size = as.numeric(fi$size)
+  )
+  invisible(list(
+    before = as.integer(before),
+    after = as.integer(after),
+    removed = as.integer(before - after)
+  ))
+}
+
 #' Create a new job record
 #'
 #' @param project A `bg_handle`.

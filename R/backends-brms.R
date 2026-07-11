@@ -8,7 +8,9 @@
 #' Registers `brms_fit` and `brms_prior_fit` built-in executors. The
 #' `loo`, `compare`, `ppc`, `loo_pit`, and `sbc` kinds are shared with
 #' [bg_use_cmdstanr()] and are registered here too so a brms-only project can
-#' use them without calling both setup functions.
+#' use them without calling both setup functions. A neutral `data` kind (an
+#' alias of the `stan_data` executor) is registered as well, so brms-backed
+#' graphs need not label plain data frames with a Stan-specific kind.
 #'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
@@ -18,6 +20,10 @@ bg_use_brms <- function(project) {
 
   kind_specs <- list(
     stan_data = list(
+      executor = bg_executor_stan_data,
+      output_type = "list"
+    ),
+    data = list(
       executor = bg_executor_stan_data,
       output_type = "list"
     ),
@@ -177,9 +183,9 @@ bg_executor_brms_prior_fit <- function(node, inputs) {
 
   summary <- list(
     summary_kind = "prior_predictive_check",
-    passed = TRUE,
+    passed = NA,
     severity = "ok",
-    metrics = list(draws_summary = draws_summary)
+    metrics = list(draws_summary = draws_summary, graded = FALSE)
   )
 
   list(result = fit, summaries = list(summary))
@@ -208,7 +214,7 @@ bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
   tail_ess <- draws_df$ess_tail[is.finite(draws_df$ess_tail)]
   min_tail_ess <- if (length(tail_ess) > 0) min(tail_ess) else Inf
 
-  list(
+  metrics <- list(
     divergences = nuts_metrics$divergences,
     max_treedepth_hits = nuts_metrics$max_treedepth_hits,
     max_rhat = max_rhat,
@@ -224,6 +230,10 @@ bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
       error = function(e) NA_integer_
     )
   )
+  rate <- bg_hmc_divergence_rate(metrics)
+  metrics$divergence_rate <- rate$value
+  metrics$divergence_rate_available <- rate$available
+  metrics
 }
 
 #' Derive HMC counts/divergences/E-BFMI from a brms::nuts_params() data frame.

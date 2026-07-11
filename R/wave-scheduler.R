@@ -11,6 +11,42 @@
 # hold discovered from a fresh summary in wave N takes effect before wave N+1
 # is dispatched, never mid-wave.
 
+#' Minimum package versions needed by the parallel dispatch path.
+#'
+#' `purrr::in_parallel()` was introduced in purrr 1.1.0 and calls
+#' `carrier::crate()` internally, so carrier is a real runtime dependency of
+#' this optional path even though bayesgrove does not call it directly.
+#' @keywords internal
+#' @noRd
+bg_parallel_requirements <- function() {
+  c(mirai = "2.5.1", purrr = "1.1.0", carrier = "0.3.0")
+}
+
+#' Report missing or too-old optional parallel dependencies.
+#' @keywords internal
+#' @noRd
+bg_missing_parallel_requirements <- function() {
+  requirements <- bg_parallel_requirements()
+  missing <- lapply(names(requirements), function(package) {
+    required <- requirements[[package]]
+    if (!requireNamespace(package, quietly = TRUE)) {
+      return(sprintf("%s (>= %s) is not installed", package, required))
+    }
+    installed <- as.character(utils::packageVersion(package))
+    if (utils::compareVersion(installed, required) < 0) {
+      return(sprintf(
+        "%s %s is installed, but >= %s is required",
+        package,
+        installed,
+        required
+      ))
+    }
+    ""
+  })
+  names(missing) <- names(requirements)
+  missing[nzchar(unlist(missing, use.names = FALSE))]
+}
+
 #' Compute the current execution wave.
 #'
 #' The wave is the set of nodes that are (a) scheduled for execution
@@ -46,10 +82,9 @@ bg_compute_wave <- function(plan) {
 #' Detect whether parallel dispatch should be used for the given mode.
 #'
 #' `parallel = "never"` always returns FALSE. `"auto"` returns TRUE only when
-#' mirai reports active daemons (so a wave can be dispatched in parallel without
-#' the caller having to wire anything up). `"always"` requires mirai daemons and
-#' errors if they are unavailable. Soft dependency: returns FALSE (never/auto) or
-#' errors cleanly (always) when mirai is not installed.
+#' all optional dependencies are available and mirai reports active daemons.
+#' `"always"` requires the complete dependency stack plus mirai daemons and
+#' errors cleanly if either is unavailable.
 #'
 #' @param parallel One of `"auto"`, `"never"`, `"always"`.
 #' @return TRUE if the current wave should be dispatched in parallel.
@@ -59,14 +94,16 @@ bg_parallel_active <- function(parallel) {
   if (identical(parallel, "never")) {
     return(FALSE)
   }
-  if (!requireNamespace("mirai", quietly = TRUE)) {
+  missing <- bg_missing_parallel_requirements()
+  if (length(missing) > 0L) {
     if (identical(parallel, "always")) {
       cli::cli_abort(c(
-        "{.arg parallel = \"always\"} requires the {.pkg mirai} package.",
+        "{.arg parallel = \"always\"} cannot start because optional dependencies are unavailable.",
+        "x" = paste(unname(unlist(missing)), collapse = "; "),
         "i" = paste0(
-          "Install it with {.run install.packages(\"mirai\")}, or use ",
+          "Install or update {.pkg mirai}, {.pkg purrr}, and {.pkg carrier}; or use ",
           "{.arg parallel = \"auto\"} to fall back to sequential ",
-          "execution when mirai is absent."
+          "execution."
         )
       ))
     }

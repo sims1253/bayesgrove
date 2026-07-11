@@ -98,7 +98,7 @@ bg_canonicalize_obligation <- function(obligation, pack_ref) {
     severity <- "advisory"
   }
 
-  list(
+  canonical <- list(
     obligation_id = bg_obligation_id(
       obligation$kind,
       obligation$scope,
@@ -114,6 +114,8 @@ bg_canonicalize_obligation <- function(obligation, pack_ref) {
     ),
     metadata = metadata
   )
+  bg_assert_protocol_item(canonical, "obligation")
+  canonical
 }
 
 #' @keywords internal
@@ -122,7 +124,7 @@ bg_canonicalize_action <- function(action, pack_ref) {
   metadata <- action$metadata %||% list()
   metadata$pack_id <- metadata$pack_id %||% pack_ref$pack_id
 
-  list(
+  canonical <- list(
     action_id = bg_action_id(
       action$kind,
       action$scope,
@@ -136,6 +138,135 @@ bg_canonicalize_action <- function(action, pack_ref) {
     explanation = bg_protocol_normalize_value(action$explanation %||% list()),
     metadata = metadata
   )
+  bg_assert_protocol_item(canonical, "action")
+  canonical
+}
+
+#' Validate the stable shape at the protocol canonicalization boundary.
+#'
+#' This intentionally checks the fields that downstream code navigates rather
+#' than re-reading the on-disk JSON schema for every provider result. It turns
+#' misspelled or omitted provider fields into an immediate actionable error at
+#' the one boundary all obligation/action values cross.
+#' @keywords internal
+#' @noRd
+bg_assert_protocol_item <- function(item, type = c("obligation", "action")) {
+  type <- match.arg(type)
+  required <- if (identical(type, "obligation")) {
+    c("obligation_id", "kind", "scope", "severity", "title", "basis")
+  } else {
+    c("action_id", "kind", "scope", "title", "basis", "payload")
+  }
+  missing <- required[vapply(
+    required,
+    function(field) {
+      is.null(item[[field]])
+    },
+    logical(1)
+  )]
+  if (length(missing) > 0L) {
+    cli::cli_abort(
+      "Canonical {type} is missing required field{?s}: {.field {missing}}."
+    )
+  }
+
+  scalar_strings <- intersect(c("kind", "scope", "severity", "title"), required)
+  invalid_strings <- scalar_strings[
+    !vapply(
+      scalar_strings,
+      function(field) {
+        value <- item[[field]]
+        is.character(value) &&
+          length(value) == 1L &&
+          !is.na(value) &&
+          nzchar(value)
+      },
+      logical(1)
+    )
+  ]
+  if (length(invalid_strings) > 0L) {
+    cli::cli_abort(
+      "Canonical {type} field{?s} must be non-empty strings: {.field {invalid_strings}}."
+    )
+  }
+  if (!is.list(item$basis)) {
+    cli::cli_abort("Canonical {type} {.field basis} must be a list.")
+  }
+  basis_fields <- c(
+    "node_ids",
+    "summary_ids",
+    "decision_ids",
+    "branch_ids",
+    "obligation_refs",
+    "comparison_signature"
+  )
+  unexpected_basis <- setdiff(names(item$basis) %||% character(), basis_fields)
+  if (length(unexpected_basis) > 0L) {
+    cli::cli_abort(
+      "Canonical {type} {.field basis} has unexpected field{?s}: {.field {unexpected_basis}}."
+    )
+  }
+  id_fields <- intersect(names(item$basis) %||% character(), basis_fields[1:4])
+  invalid_ids <- id_fields[
+    !vapply(
+      id_fields,
+      function(field) {
+        is.character(item$basis[[field]])
+      },
+      logical(1)
+    )
+  ]
+  if (length(invalid_ids) > 0L) {
+    cli::cli_abort(
+      "Canonical {type} basis id field{?s} must be character vectors: {.field {invalid_ids}}."
+    )
+  }
+  if (identical(type, "action") && !is.list(item$payload)) {
+    cli::cli_abort("Canonical action {.field payload} must be a list.")
+  }
+  if (!is.list(item$metadata) || !is.list(item$explanation)) {
+    cli::cli_abort(
+      "Canonical {type} {.field metadata} and {.field explanation} must be lists."
+    )
+  }
+  if (
+    !is.null(item$explanation$references) &&
+      !is.character(item$explanation$references)
+  ) {
+    cli::cli_abort(
+      "Canonical {type} {.field explanation$references} must be a character vector."
+    )
+  }
+  if (identical(type, "obligation")) {
+    metadata_names <- names(item$metadata) %||% character()
+    suspicious_hold_names <- metadata_names[
+      grepl("hold.*node.*id", metadata_names) &
+        metadata_names != "hold_node_ids"
+    ]
+    if (length(suspicious_hold_names) > 0L) {
+      cli::cli_abort(c(
+        "Canonical obligation metadata has an unrecognized hold field: {.field {suspicious_hold_names}}.",
+        "i" = "Use {.field hold_node_ids}; misspelling it would silently disable workflow holds."
+      ))
+    }
+    if (
+      !is.null(item$metadata$hold_node_ids) &&
+        !is.character(item$metadata$hold_node_ids)
+    ) {
+      cli::cli_abort(
+        "Canonical obligation {.field metadata$hold_node_ids} must be a character vector."
+      )
+    }
+  }
+  if (
+    identical(type, "obligation") &&
+      !item$severity %in% c("advisory", "warning", "blocking")
+  ) {
+    cli::cli_abort(
+      "Canonical obligation has invalid severity {.val {item$severity}}."
+    )
+  }
+  invisible(TRUE)
 }
 
 #' @keywords internal
