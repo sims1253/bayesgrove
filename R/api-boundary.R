@@ -21,8 +21,8 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_init", classification = "stable"),
     list(fn = "bg_open", classification = "stable"),
     list(fn = "bg_close", classification = "stable"),
-    list(fn = "bg_use_default_workflow", classification = "experimental"),
-    list(fn = "bg_use_workflow_packs", classification = "experimental"),
+    list(fn = "bg_use_default_workflow", classification = "stable"),
+    list(fn = "bg_use_workflow_packs", classification = "stable"),
 
     # === Stable: Graph Editing ===
     list(fn = "bg_add_node", classification = "stable"),
@@ -47,6 +47,7 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_answer_gate", classification = "stable"),
     list(fn = "bg_pending_gates", classification = "stable"),
     list(fn = "bg_record_decision", classification = "stable"),
+    list(fn = "bg_read_decisions", classification = "stable"),
     list(fn = "bg_extension_registry", classification = "experimental"),
     list(fn = "bg_execute_action", classification = "experimental"),
 
@@ -84,7 +85,7 @@ bg_build_api_boundary_registry <- function() {
     # === Experimental: Workflow Protocol ===
     list(fn = "bg_workflow_packs", classification = "experimental"),
     list(fn = "bg_build_workflow_context", classification = "experimental"),
-    list(fn = "bg_next_actions", classification = "experimental"),
+    list(fn = "bg_next_actions", classification = "stable"),
     list(
       fn = "bg_partition_protocol_by_scope",
       classification = "experimental"

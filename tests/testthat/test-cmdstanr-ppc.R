@@ -26,8 +26,25 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     node_bad <- list(params = list(stats = "var"))
     expect_error(
       bayesgrove:::bg_executor_ppc(node_bad, inputs),
+      "Unsupported ppc statistic.*var.*prop_zero",
       class = "rlang_error"
     )
+  })
+
+  it("computes prop_zero for observed and replicated data", {
+    zero_yrep <- matrix(
+      c(0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1),
+      nrow = 3,
+      byrow = TRUE
+    )
+    colnames(zero_yrep) <- paste0("yrep[", seq_len(ncol(zero_yrep)), "]")
+    zero_inputs <- list(zero_yrep, list(y = c(0, 0, 1, 1)))
+    node <- list(params = list(stats = "prop_zero"))
+
+    res <- bayesgrove:::bg_executor_ppc(node, zero_inputs)
+
+    expect_equal(res$result$p_values$prop_zero, 2 / 3)
+    expect_equal(res$summaries[[1]]$metrics$prop_zero, 2 / 3)
   })
 
   it("accepts allowed statistics and returns a p-value in [0, 1]", {

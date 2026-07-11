@@ -267,8 +267,23 @@ describe("Executor registration (Phase 4.2)", {
     bg_use_brms(handle)
 
     kinds <- names(handle@registries$node_kinds)
-    expect_true("brms_fit" %in% kinds)
-    expect_true("brms_prior_fit" %in% kinds)
-    expect_true("loo" %in% kinds)
+    expect_equal(
+      kinds,
+      c(
+        "stan_data",
+        "data",
+        "brms_fit",
+        "brms_prior_fit",
+        "loo",
+        "compare",
+        "ppc",
+        "loo_pit",
+        "sbc"
+      )
+    )
+    expect_identical(
+      handle@registries$node_kinds$data$executor,
+      handle@registries$node_kinds$stan_data$executor
+    )
   })
 })

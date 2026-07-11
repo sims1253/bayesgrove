@@ -90,13 +90,13 @@ bg_fit_brms <- function(handle, formula, data, label = NULL, ...) {
   S7::check_is_S7(handle, bg_handle)
   bg_require_backend_kinds(
     handle,
-    c("stan_data", "brms_fit"),
+    c("data", "brms_fit"),
     "bg_use_brms"
   )
 
   data_node <- bg_add_node(
     handle,
-    kind = "stan_data",
+    kind = "data",
     label = paste0(label %||% "fit", "_data")
   )
   bg_set_node_data(handle, data_node, data)

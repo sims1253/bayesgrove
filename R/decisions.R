@@ -336,6 +336,12 @@ bg_write_decision_record <- function(project, record) {
   invisible(record)
 }
 
+#' Read the project decision log
+#'
+#' @param project A `bg_project` handle.
+#'
+#' @return A named list of `bg_decision_record` objects.
+#' @export
 bg_read_decisions <- function(project) {
   log_path <- file.path(
     project@path,

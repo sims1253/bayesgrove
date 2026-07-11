@@ -18,4 +18,19 @@ describe("Practitioner fit helpers", {
     )
     expect_length(bg_read_graph(handle)$nodes, 0L)
   })
+
+  it("bg_fit_brms creates a neutral data node", {
+    handle <- bg_init(withr::local_tempdir())
+    bg_use_brms(handle)
+
+    testthat::with_mocked_bindings(
+      bg_fit_brms(handle, y ~ x, data.frame(y = 1, x = 1)),
+      bg_run = function(...) NULL,
+      .package = "bayesgrove"
+    )
+
+    nodes <- bg_read_graph(handle)$nodes
+    kinds <- unname(vapply(nodes, `[[`, character(1), "kind"))
+    expect_equal(kinds, c("data", "brms_fit"))
+  })
 })

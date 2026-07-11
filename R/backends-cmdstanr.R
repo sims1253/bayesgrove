@@ -161,6 +161,12 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
 #' `hmc_diagnostics`
 #' summaries with severity rules; no user-written diagnostic code is required.
 #'
+#' The `ppc` kind's posterior-predictive p-values are conservative tripwires:
+#' an extreme value flags gross misfit, but an unremarkable value is weak
+#' evidence that the model is adequate. Treat the graphical check via
+#' [bg_plot()] as the primary posterior-predictive diagnostic and the
+#' p-values as its alarm layer.
+#'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
 #' @export
@@ -481,8 +487,9 @@ bg_executor_compare <- function(node, inputs) {
     cli::cli_abort("{.field compare} requires at least two loo input nodes.")
   }
 
-  comparison <- loo::loo_compare(loo_objs)
+  comparison <- do.call(loo::loo_compare, unname(loo_objs))
   comparison_df <- as.data.frame(comparison)
+  class(comparison_df) <- "data.frame"
   comparison_table <- list(
     model = rownames(comparison_df),
     elpd_diff = unname(comparison_df$elpd_diff),
@@ -534,7 +541,10 @@ bg_executor_compare <- function(node, inputs) {
     ))
   )
 
-  list(result = comparison, summaries = summaries)
+  list(
+    result = list(comparison_table = comparison_table),
+    summaries = summaries
+  )
 }
 
 #' @keywords internal
@@ -595,19 +605,27 @@ bg_executor_ppc <- function(node, inputs) {
     )
   }
 
-  # Restrict ppc statistics to an allowlist. Custom statistics wait for the
-  # trusted-hook mechanism; params are data, never code, so match.fun over an
-  # unbounded search path would reopen a params-as-code channel.
-  allowed_stats <- c("mean", "sd", "median", "min", "max", "mad")
+  # Restrict ppc statistics to an internal registry. Custom statistics wait for
+  # the trusted-hook mechanism; params are data, never code, so function lookup
+  # must remain bounded to this registry.
+  allowed_stats <- list(
+    mean = mean,
+    sd = stats::sd,
+    median = stats::median,
+    min = min,
+    max = max,
+    mad = stats::mad,
+    prop_zero = function(x) mean(x == 0)
+  )
 
   p_values <- list()
   for (stat_name in stats) {
-    if (!stat_name %in% allowed_stats) {
+    if (!stat_name %in% names(allowed_stats)) {
       cli::cli_abort(
-        "Unsupported ppc statistic {.val {stat_name}}. Allowed: {.val {allowed_stats}}."
+        "Unsupported ppc statistic {.val {stat_name}}. Allowed: {.val {names(allowed_stats)}}."
       )
     }
-    stat_fn <- match.fun(stat_name)
+    stat_fn <- allowed_stats[[stat_name]]
     y_stat <- stat_fn(y)
     # One statistic per draw, computed across observations (rows are draws in a
     # posterior draws matrix). Margin 2 would give the per-observation

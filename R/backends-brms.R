@@ -8,7 +8,9 @@
 #' Registers `brms_fit` and `brms_prior_fit` built-in executors. The
 #' `loo`, `compare`, `ppc`, `loo_pit`, and `sbc` kinds are shared with
 #' [bg_use_cmdstanr()] and are registered here too so a brms-only project can
-#' use them without calling both setup functions.
+#' use them without calling both setup functions. A neutral `data` kind (an
+#' alias of the `stan_data` executor) is registered as well, so brms-backed
+#' graphs need not label plain data frames with a Stan-specific kind.
 #'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
@@ -18,6 +20,10 @@ bg_use_brms <- function(project) {
 
   kind_specs <- list(
     stan_data = list(
+      executor = bg_executor_stan_data,
+      output_type = "list"
+    ),
+    data = list(
       executor = bg_executor_stan_data,
       output_type = "list"
     ),

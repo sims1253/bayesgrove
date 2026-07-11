@@ -251,8 +251,9 @@ bg_compact_jobs <- function(project) {
     return(invisible(list(before = 0L, after = 0L, removed = 0L)))
   }
 
-  before <- bg_jobs_count_lines(project)
+  before <- NULL
   jobs <- bg_with_file_lock(paste0(log_path, ".lock"), {
+    before <- bg_jobs_count_lines(project)
     latest <- bg_jobs_read_disk(project)
     if (length(latest) > 0L) {
       ordering <- order(vapply(
