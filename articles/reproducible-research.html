@@ -121,6 +121,10 @@ package versions, CmdStan version, creation time.</td>
 </tr>
 </tbody>
 </table>
+<p>Data attached with <code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code> are included, even
+before execution. External files referenced by node params, such as Stan
+programs, are not copied or relocated. Archive those files separately
+and update their paths before rerunning on another machine.</p>
 <p>The logs and fingerprints record the analysis history:</p>
 <ol style="list-style-type: decimal">
 <li>

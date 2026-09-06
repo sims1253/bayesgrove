@@ -40,7 +40,14 @@
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>Removed <code>bg_branch_with_continuation()</code>. Use <code>bg_branch(continue = )</code>.</li>
 <li>Removed the ignored <code>auto_advance</code> argument from <code><a href="../reference/bg_status.html">bg_status()</a></code>.</li>
+<li>Removed <code>bg_export_report(out_file = )</code>; use <code>path =</code> instead.</li>
+<li>Removed the ineffective <code>include_data</code> argument from <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code>. Bundles include attached data but do not copy external files referenced by node params.</li>
 <li>JSON storage preserves double precision. Fingerprint format 3 invalidates previous cache keys, so the first run after upgrading recomputes results.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
+<ul><li>Bundles retain data attached with <code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>, even before a node runs.</li>
+<li>Relative bundle paths resolve from the caller’s working directory, not the temporary staging directory.</li>
 </ul></div>
 </div>
     <div class="section level2">
