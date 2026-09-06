@@ -31,7 +31,7 @@ and [project tests](../tests/testthat/test-project.R).
 
 ## Cache identity and stored results
 
-A fingerprint identifies a computation using its parameters, upstream
+A fingerprint identifies a computation using its kind, parameters, upstream
 fingerprints, executor, source, environment, and format version. An artifact
 hash identifies the serialized result bytes. These are different keys:
 the artifact index connects a computation to its result.
