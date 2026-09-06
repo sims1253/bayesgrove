@@ -2,7 +2,7 @@
 % Please edit documentation in R/concepts-doc.R
 \name{bayesgrove-concepts}
 \alias{bayesgrove-concepts}
-\title{Concepts: what asks, what answers, what blocks}
+\title{Workflow review concepts}
 \description{
 Workflow packs request reviews based on diagnostic summaries and project
 context. Blocking obligations hold downstream computation until resolved.

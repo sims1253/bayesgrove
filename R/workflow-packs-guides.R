@@ -624,7 +624,7 @@ bg_pack_failing_summaries <- function(summaries) {
   Filter(
     function(summary) {
       # An explicit severity is authoritative over a missing `passed` field
-      # (a bring-your-own executor may set severity without also setting
+      # (a user executor may set severity without also setting
       # passed); fall back to `passed` only when severity is absent too.
       if (!is.null(summary$severity)) {
         return(summary$severity %in% c("warning", "error"))

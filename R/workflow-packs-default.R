@@ -1,5 +1,5 @@
 # Default Bayesian workflow pack helpers.
-# These internal utilities implement the stronger
+# These internal utilities implement the
 # `bayesgrove.default_bayesian` review/comparison/disposition loop.
 
 #' @keywords internal

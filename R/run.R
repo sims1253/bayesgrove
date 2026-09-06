@@ -30,11 +30,10 @@ bg_check_artifact <- function(
 #' Store an artifact in cache
 #'
 #' Writes the blob to the content-addressed store and binds it in the artifact
-#' index (superseding prior bindings for the node). Thin wrapper over
+#' index (superseding prior bindings for the node). Calls
 #' `bg_store_cas_blob` (the idempotent, atomic blob write) and
-#' `bg_bind_artifact_index` (the locked index update) so callers that want both
-#' at once — the sequential execution path — get the historical behavior. The
-#' parallel path splits them: a worker writes the blob; the main process binds
+#' `bg_bind_artifact_index` (the locked index update) for sequential execution.
+#' In parallel execution, a worker writes the blob; the main process binds
 #' the index (single-writer invariant).
 #' @return The artifact reference string (e.g. `"cas:sha256:..."`).
 #' @keywords internal
@@ -47,10 +46,9 @@ bg_store_artifact <- function(project, node_id, fingerprint, result) {
 
 #' Bind an artifact ref in the index, superseding prior node bindings.
 #'
-#' The index-writing half of `bg_store_artifact`, split out so the parallel
-#' scheduler can have workers write blobs (idempotent, atomic) while the main
-#' process — the single writer of the index — performs this binding after a
-#' wave resolves. Runs under the artifact-index file lock.
+#' Updates the index under the artifact-index file lock. In parallel execution,
+#' workers write blobs atomically and the main process binds them in the index
+#' after the wave completes. Only the main process writes the index.
 #' @return The artifact reference string (invisibly).
 #' @keywords internal
 #' @noRd
@@ -477,7 +475,7 @@ bg_refresh_run_plan <- function(
 #'
 #' `bg_run()` first needs a full plan to evaluate project-wide workflow holds.
 #' Explicit targets only change graph eligibility, so reuse the full plan's
-#' fingerprints and artifact index instead of paying for a second `bg_plan()`.
+#' fingerprints and artifact index without a second `bg_plan()` call.
 #' @keywords internal
 #' @noRd
 bg_retarget_run_plan <- function(
@@ -504,10 +502,10 @@ bg_retarget_run_plan <- function(
 
 #' Run a project workflow
 #'
-#' Executes the workflow, driving every node that is ready and unheld to
-#' completion. Execution proceeds in topological **waves**: each wave is the set
-#' of nodes whose upstream inputs are already available, so the nodes within a
-#' wave are mutually independent. With `parallel = "auto"` (the default) and
+#' Runs every ready node that has no hold. Execution proceeds in topological
+#' waves: each wave contains nodes whose upstream inputs are already available.
+#' Nodes within a wave are mutually independent. With `parallel = "auto"`
+#' (the default) and
 #' active [mirai::daemons] set, a wave is dispatched concurrently; otherwise it
 #' runs sequentially in topological order. Either way the protocol holds and the
 #' pause flag are evaluated at wave boundaries, so a hold discovered from a fresh
@@ -538,8 +536,8 @@ bg_run <- function(
 
   # Read the raw graph once and derive the recomputed active graph from it.
   # The raw graph feeds the protocol holds check (descendants must traverse
-  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
-  # feeds the run-plan derivation. Both are paid for once, not per node.
+  # inactive nodes too); the active graph feeds the run-plan derivation.
+  # Compute both once per run.
   raw_graph <- bg_read_graph(project)
   graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
   workflow_plan <- bg_plan(project)
@@ -579,7 +577,7 @@ bg_run <- function(
   num_executed <- 0L
   run_started_at <- bg_now_timestamp()
 
-  # Per-run state object (Phase 6): cache summaries/decisions/jobs in memory so
+  # Cache summaries/decisions/jobs in memory for this run so
   # the external-holds check between nodes does not re-read every JSONL file.
   # Trusted only within this bg_run() call; everything else reads disk.
   run_state <- new.env(parent = emptyenv())
@@ -602,10 +600,9 @@ bg_run <- function(
 
   # Wave-based execution: each wave is the set of to_execute nodes whose inputs
   # are already available (mutually independent). The wave is dispatched
-  # sequentially here unless mirai daemons are active and parallel != "never"
-  # (Step 3 wires the parallel branch). Holds and pause are checked at wave
-  # boundaries, so a mid-run hold from a fresh summary applies before the next
-  # wave — never mid-wave.
+  # sequentially here unless mirai daemons are active and parallel != "never".
+  # Holds and pause are checked at wave boundaries, so a hold from a fresh
+  # summary applies before the next wave starts.
   repeat {
     wave <- bg_compute_wave(plan)
     if (length(wave) == 0) {
@@ -697,7 +694,7 @@ bg_run <- function(
         )
         # Fit-output copying needs the artifact object; refetch from the CAS
         # (the worker wrote the blob). Cheap relative to the fit itself.
-        # NOTE: best-effort under parallel dispatch — a fit produced on a
+        # Copying is best-effort under parallel dispatch: a fit produced on a
         # remote daemon embedded CSV paths in the daemon's tempdir, which are
         # unreachable from this process, so bg_copy_fit_outputs silently skips
         # them. The RDS artifact itself is preserved; only the durable CSV
@@ -726,8 +723,8 @@ bg_run <- function(
       }
     }
 
-    # Abort the run after this wave if any node failed (mirrors the
-    # pre-wave-loop behavior). Mark every failed parallel job first —
+    # Abort the run after this wave if any node failed. Mark every failed
+    # parallel job first:
     # sequential bg_execute_node already updates its own job, but workers do
     # not, and a wave can contain several failures; none may be left "running".
     failed_nodes <- Filter(function(id) !isTRUE(results[[id]]$ok), wave)
@@ -898,7 +895,7 @@ bg_execute_node <- function(
   # data_ref gets the referenced object fetched from the CAS store and attached
   # as node$resolved$data before the executor runs. This keeps executors (whose
   # (node, inputs) signature cannot receive the handle) free of hidden global
-  # state, e.g. bg_executor_stan_data no longer needs an active-handle global.
+  # state, including an active-handle global.
   data_ref <- node$params$data_ref %||% NULL
   if (
     is.character(data_ref) &&

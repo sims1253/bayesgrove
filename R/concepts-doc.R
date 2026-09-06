@@ -1,6 +1,6 @@
 # Console reference for the review terms in vignettes/concepts.Rmd.
 
-#' Concepts: what asks, what answers, what blocks
+#' Workflow review concepts
 #'
 #' Workflow packs request reviews based on diagnostic summaries and project
 #' context. Blocking obligations hold downstream computation until resolved.

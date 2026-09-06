@@ -92,11 +92,10 @@ bg_connect <- function(
 
 #' Update a node in the bayesgrove project graph
 #'
-#' `params` and `metadata` default to MERGING into the node's existing values
+#' `params` and `metadata` default to merging into the node's existing values
 #' via [utils::modifyList], so `bg_update_node(handle, id, params = list(stan_file = f))`
 #' updates just `stan_file` and preserves `chains`, `seed`, etc. Pass
-#' `replace = TRUE` for intentional wholesale replacement (the historical
-#' behavior of `dagriculture::dagri_update_node`).
+#' `replace = TRUE` to replace the existing lists.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The node ID to update.

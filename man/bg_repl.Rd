@@ -22,14 +22,13 @@ Interactive REPL for bayesgrove
 reviewing protocol guidance, and applying common workflow actions without
 manually calling the lower-level APIs.
 
-The REPL is scope-aware. In project scope it can surface obligations and
-actions across the whole workflow; in branch scope it focuses on the selected
-branch and its branch-local graph view.
+In project scope, the REPL shows obligations and actions across the whole
+workflow. In branch scope, it shows the selected branch and its graph.
 
 Supported commands include:
 \itemize{
 \item \code{help}: show the command list
-\item \code{dashboard}: show the guided operator dashboard
+\item \code{dashboard}: show workflow status, obligations, holds, and decisions
 \item \code{status}: print workflow state and health
 \item \code{guide}: show active obligations and suggested actions
 \item \verb{explain <n>}: show an obligation's rationale and references

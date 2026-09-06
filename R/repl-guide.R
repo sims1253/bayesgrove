@@ -247,9 +247,9 @@ bg_repl_print_guide <- function(project, scope = "project") {
 #' Print one obligation's rationale and literature references.
 #'
 #' Backs the REPL `explain <n>` command: `n` indexes the numbered obligation
-#' list printed by `guide`. The references carried on every obligation (via
-#' `bg_workflow_references`) are the teaching hook — they say WHY the
-#' protocol asks, with citations to follow up on.
+#' list printed by `guide`. Each obligation's references (via
+#' `bg_workflow_references`) explain why the review is required and cite
+#' sources for further reading.
 #' @keywords internal
 #' @noRd
 bg_repl_explain_obligation <- function(project, scope, idx) {

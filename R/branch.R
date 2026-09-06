@@ -244,7 +244,7 @@ bg_branch_continuation_clones <- function(
 
 #' Invalidate a node's result
 #'
-#' Invalidation is an explicit escape hatch for intentional recomputation.
+#' Invalidation marks the indexed result as superseded so the node can be recomputed.
 #' It does not alter the structural graph state.
 #'
 #' @param project A `bg_handle`.

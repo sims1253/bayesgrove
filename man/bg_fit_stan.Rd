@@ -23,7 +23,7 @@ The fit node id, invisibly. The run handle is printed.
 \description{
 Creates a data node (via \link{bg_set_node_data}), a \code{cmdstanr_fit} node consuming
 it, dispatches \link{bg_run}, and returns the fit node id invisibly while printing
-the run handle. Pure sugar over the existing verbs — no new semantics. Extra
+the run handle. Extra
 arguments in \code{...} become the fit node's params (e.g. \code{chains}, \code{seed},
 \code{iter_warmup}, \code{iter_sampling}).
 }

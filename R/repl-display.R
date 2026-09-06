@@ -135,7 +135,7 @@ bg_repl_print_status <- function(status, project = NULL) {
 
   rows <- bg_repl_status_rows(status, project = project)
 
-  # Skip 'Workflow state' and 'Health' as we just printed them nicer
+  # Skip 'Workflow state' and 'Health'; they are already printed above.
   skip_keys <- c("Workflow state", "Health")
   for (i in seq_along(rows)) {
     label <- names(rows)[[i]]

@@ -31,9 +31,8 @@ bg_update_node(
 The node ID.
 }
 \description{
-\code{params} and \code{metadata} default to MERGING into the node's existing values
+\code{params} and \code{metadata} default to merging into the node's existing values
 via \link[utils:modifyList]{utils::modifyList}, so \code{bg_update_node(handle, id, params = list(stan_file = f))}
 updates just \code{stan_file} and preserves \code{chains}, \code{seed}, etc. Pass
-\code{replace = TRUE} for intentional wholesale replacement (the historical
-behavior of \code{dagriculture::dagri_update_node}).
+\code{replace = TRUE} to replace the existing lists.
 }

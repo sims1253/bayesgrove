@@ -2,7 +2,7 @@
 % Please edit documentation in R/protocol-contract.R
 \name{bg_execute_action}
 \alias{bg_execute_action}
-\title{Execute a workflow action from the protocol surface}
+\title{Execute a workflow action}
 \usage{
 bg_execute_action(project, action_id, overrides = list())
 }
@@ -18,6 +18,6 @@ A plain-data execution result.
 }
 \description{
 Resolves an action by \code{action_id} from the current \code{bg_next_actions()}
-surface and executes it inside bayesgrove so GUI clients do not need to own
-workflow-command semantics.
+result and executes it inside bayesgrove. GUI clients can call this function
+without implementing the workflow commands themselves.
 }

@@ -171,9 +171,8 @@ bg_load_protocol_fixture <- function(fixture_name) {
 #'
 #' Performs structural validation of a protocol object against
 #' expected field names, scalar types, nested arrays, object maps,
-#' and local schema references. This remains lighter than a full
-#' JSON Schema validator, but it is strong enough to catch drift
-#' in the checked-in protocol surfaces.
+#' and local schema references. Checks protocol objects without implementing
+#' all of JSON Schema.
 #'
 #' @param object The R object to validate
 #' @param schema_name Name of the schema to validate against

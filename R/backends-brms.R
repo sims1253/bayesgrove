@@ -174,8 +174,8 @@ bg_executor_brms_prior_fit <- function(node, inputs) {
   fit <- do.call(brms::brm, brm_args)
 
   # Match the cmdstanr prior-fit executor: carry the draws summary as evidence.
-  # Severity stays "ok" absent a check function (that hook arrives with the
-  # trusted-executor mechanism); evidence must still be non-empty.
+  # Severity stays "ok" without a check function; the summary still includes
+  # the draws as evidence.
   draws_summary <- tryCatch(
     posterior::summarise_draws(posterior::as_draws(fit)),
     error = function(e) NULL
@@ -238,8 +238,7 @@ bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
 
 #' Derive HMC counts/divergences/E-BFMI from a brms::nuts_params() data frame.
 #'
-#' Pure helper split out of `bg_brms_hmc_metrics` so it can be unit-tested
-#' against a synthetic data frame without faking a brmsfit. Expects columns
+#' Accepts a data frame without requiring a brmsfit object. Expects columns
 #' `Chain`, `Iteration`, `Parameter`, `Value` (the `brms::nuts_params()`
 #' shape). Returns zero/`Inf` metrics when `np` is NULL.
 #' @keywords internal

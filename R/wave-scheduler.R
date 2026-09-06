@@ -4,17 +4,16 @@
 # ready to execute (in plan$to_execute AND with all upstream artifacts already
 # available, i.e. present in plan$input_bindings). Nodes within a wave are
 # mutually independent by construction, so they can be dispatched in parallel
-# (Milestone 3 Step 3); the sequential fallback executes them in topo order.
+# or executed sequentially in topological order.
 #
-# Protocol holds and the pause flag are evaluated at WAVE BOUNDARIES, not
-# between individual nodes within a wave. This is the documented semantic: a
-# hold discovered from a fresh summary in wave N takes effect before wave N+1
-# is dispatched, never mid-wave.
+# Protocol holds and the pause flag are evaluated at wave boundaries. A hold
+# discovered from a fresh summary in wave N takes effect before wave N+1
+# starts. It does not interrupt the current wave.
 
 #' Minimum package versions needed by the parallel dispatch path.
 #'
 #' `purrr::in_parallel()` was introduced in purrr 1.1.0 and calls
-#' `carrier::crate()` internally, so carrier is a real runtime dependency of
+#' `carrier::crate()` internally, so carrier is a runtime dependency of
 #' this optional path even though bayesgrove does not call it directly.
 #' @keywords internal
 #' @noRd
@@ -52,7 +51,7 @@ bg_missing_parallel_requirements <- function() {
 #' The wave is the set of nodes that are (a) scheduled for execution
 #' (`plan$to_execute`) and (b) have all upstream artifact inputs resolved
 #' (`plan$input_bindings[[node_id]]` is non-empty, OR the node has no upstream
-#' edges — base nodes). These nodes are mutually independent by construction
+#' edges). These nodes are mutually independent by construction
 #' (no edges run between them within the wave), so they may run concurrently.
 #'
 #' `plan$input_bindings[[node_id]]` is populated by `bg_derive_run_plan_state`
@@ -122,9 +121,8 @@ bg_parallel_active <- function(parallel) {
 #' Report whether mirai daemons are currently active.
 #'
 #' `mirai::status()` returns a list whose `$connections` field counts active
-#' daemon connections (> 0 when daemons are set). This is the modern, stable
-#' check. Wrapped in tryCatch so a future API change degrades to "no daemons"
-#' (sequential fallback) rather than erroring mid-run.
+#' daemon connections (> 0 when daemons are set). If the call fails, tryCatch
+#' returns "no daemons" so execution can fall back to sequential mode.
 #' @return TRUE if at least one mirai daemon connection is active.
 #' @keywords internal
 #' @noRd
@@ -138,12 +136,11 @@ bg_mirai_daemons_active <- function() {
 
 # Parallel wave dispatch -----------------------------------------------------
 #
-# Workers run the executor and write the artifact BLOB only (content-addressed
-# writes are idempotent and atomic, so concurrent workers never corrupt the
-# CAS). The main process is the single writer of the artifact INDEX, the
-# summaries JSONL, and the jobs JSONL — the existing single-writer lock model
-# is preserved. Each worker returns list(node_id, ref, summaries, error) and
-# the main process folds the results back into the plan + run state.
+# Workers run the executor and write artifact blobs. Content-addressed writes
+# are idempotent and atomic, so workers can write concurrently. The main
+# process is the single writer of the artifact index, summaries JSONL, and
+# jobs JSONL. Each worker returns list(node_id, ref, summaries, error); the
+# main process updates the plan and run state from these results.
 
 #' Build a worker task bundle for one node in a wave.
 #'
@@ -153,8 +150,8 @@ bg_mirai_daemons_active <- function() {
 #' path travel to the daemon; the worker runs `bg_run_executor` and
 #' `bg_store_cas_blob` and returns the result shape.
 #'
-#' Built-in executors are NOT shipped across (they resolve by `builtin:` ref
-#' on the daemon); user executors are prepared by
+#' Built-in executors resolve by `builtin:` ref
+#' on the daemon. User executors are prepared by
 #' `bg_prepare_executor_for_ship`, which rebuilds them from persisted source
 #' when available. Aborts (via that helper) when the kind has no usable
 #' executor.
@@ -202,18 +199,17 @@ bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
 #'
 #' mirai serializes the function object to the daemon directly. To keep the
 #' closure self-contained (so it does not capture unreachable state from the
-#' caller's environment), we prefer to rebuild the function from its persisted
-#' source when available — the rebuilt function's parent environment is a child
-#' of globalenv, matching the `bg_restore_executors` evaluation context. When no
-#' source is available, we ship the registered function as-is and warn that a
-#' non-self-contained closure may not survive the daemon trip.
+#' caller's environment), this helper rebuilds the function from persisted
+#' source when available. Its parent environment is a child of globalenv,
+#' matching the `bg_restore_executors` evaluation context. Without persisted
+#' source, the helper sends the registered function and warns that references
+#' to the caller's environment may fail on the daemon.
 #'
-#' `carrier::crate()` is the canonical "self-contained closure" tool, but it
-#' requires the function literal to be defined INSIDE the crate() call — it
+#' `carrier::crate()` creates self-contained closures. It requires the function
+#' literal to be defined inside the crate() call; it
 #' cannot wrap an already-built function object or an `eval(parse())` result.
-#' So crating is the user's responsibility at registration time (they may
-#' register a function built inside `carrier::crate()`); here we ship the
-#' cleanest available form.
+#' Users who need crating must register a function built inside
+#' `carrier::crate()`.
 #' @param kind_reg The node-kind registry entry.
 #' @return A list describing how the worker resolves the executor.
 #' @keywords internal
@@ -254,7 +250,7 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
   }
 
   # Fall back to shipping the registered function object directly. mirai
-  # serializes it; warn that a non-self-contained closure may not survive.
+  # serializes it; warn that references to the caller's environment may fail.
   cli::cli_warn(
     paste0(
       "Shipping the {.val {kind}} executor to daemons without rebuilding ",
@@ -319,8 +315,8 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 #' Runs on a mirai daemon. Loads bayesgrove, resolves the executor (built-in by
 #' ref, or uses the crated user function), calls `bg_run_executor`, and writes
 #' the artifact blob via `bg_store_cas_blob` (idempotent + atomic, safe under
-#' concurrent writes). Does NOT touch the artifact index, summaries JSONL, or
-#' jobs JSONL — the main process owns those (single-writer invariant). Returns
+#' concurrent writes). The main process writes the artifact index, summaries
+#' JSONL, and jobs JSONL. Returns
 #' `list(node_id, ref, summaries, ok, error)`; `ref`/`summaries` are populated
 #' on success, `error` on failure.
 #' @param task A worker task bundle from `bg_build_worker_task`.
@@ -330,7 +326,7 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 bg_wave_worker <- function(task) {
   # Daemons need bayesgrove installed; require it quietly so a missing install
   # surfaces as a clean per-node failure. (The body below uses unqualified
-  # calls — they resolve in bayesgrove's own namespace because this function's
+  # calls. They resolve in bayesgrove's own namespace because this function's
   # defining environment is the package, even when the daemon looked it up via
   # getFromNamespace.)
   if (!requireNamespace("bayesgrove", quietly = TRUE)) {

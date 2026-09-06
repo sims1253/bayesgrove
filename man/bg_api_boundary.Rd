@@ -22,17 +22,17 @@ Each function is classified as \code{stable}, \code{experimental}, \code{interna
 \code{deprecated}.
 }
 \details{
-\subsection{Classification Meanings}{
+\subsection{Classification meanings}{
 
 \itemize{
 \item \code{stable}: Core public API expected to remain backward-compatible.
 Includes project lifecycle, graph editing, branching, decisions,
 execution control, status/results, and established workflow entry points.
 \item \code{experimental}: Newer or provisional APIs that may evolve.
-Includes workflow protocol/context/template surfaces, REPL, and
-practitioner sugar helpers.
-\item \code{internal}: Technically exported for worker/process reasons
-but not intended as ergonomic user-facing API. Includes artifact helpers,
+Includes workflow protocol, context and template APIs, the REPL, and
+convenience functions for fitting models.
+\item \code{internal}: Exported for use by workers or other processes.
+Not intended for direct use in analyses. Includes artifact helpers,
 job primitives, and backend registration.
 \item \code{deprecated}: Kept temporarily for backward compatibility and
 warns on use.

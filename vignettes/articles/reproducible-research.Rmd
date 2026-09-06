@@ -11,11 +11,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-This article is for researchers who want to *report* a bayesgrove-backed
-analysis: what to archive, what a reviewer can verify from the archive, and
-how to phrase it in a methods section. The companion narrative is
-`vignette("concepts")`; the mechanics of a full analysis are in
-`vignette("eight-schools")`.
+This article covers archiving an analysis, verifying its records, and
+describing it in a methods section. See `vignette("concepts")` for definitions
+and `vignette("eight-schools")` for a worked analysis.
 
 # What the bundle contains
 
@@ -28,7 +26,7 @@ handle <- bg_open("analysis/")
 bundle <- bg_bundle(handle, path = "analysis-bundle.tar.gz")
 ```
 
-Inside the archive, under `.bayesgrove/`, an independent reader finds:
+The archive contains these files under `.bayesgrove/`:
 
 | File | Contents |
 |:-----|:---------|
@@ -44,16 +42,14 @@ External files referenced by node params, such as Stan programs, are not copied
 or relocated. Archive those files separately and update their paths before
 rerunning on another machine.
 
-The logs and fingerprints record the analysis history:
+Decisions and summaries are appended to JSONL logs with increasing sequence
+numbers. Entries are not edited in place, so the log retains earlier decisions
+when a prior or model changes.
 
-1. **Append-only logs.** Decisions and summaries are JSONL appends with
-   monotonic sequence numbers; nothing is edited in place. The history of a
-   revised prior is the sequence of decisions, not the final state.
-2. **Fingerprints.** Every summary carries the execution fingerprint of the
-   node that produced it — a deterministic hash of the node's params, its
-   upstream fingerprints, the Stan program *contents*, and the environment.
-   A reader can verify that the diagnostic evidence cited for a decision
-   came from the exact configuration that was eventually reported.
+Each summary contains its node's execution fingerprint: a deterministic hash
+of the params, upstream fingerprints, Stan program contents, and environment.
+Use it to check whether the evidence cited by a decision matches the reported
+configuration.
 
 # Restoring a bundle on another machine
 
@@ -66,17 +62,16 @@ handle <- bg_open("restored/analysis")
 
 `bg_open()` compares the bundle's reproducibility manifest against the
 current session and warns when the R version, platform, or CmdStan version
-differ. Cached artifacts stay usable either way — fingerprints, not the
-manifest, decide what reruns — but the warning tells you up front that
-bit-level reproduction may require matching the recorded environment.
+differ. This warning does not invalidate cached artifacts; fingerprints
+determine what reruns. Matching the recorded environment may be necessary
+for bit-level reproduction.
 
-Executors are **never** restored implicitly: opening a project runs no
-project-supplied code. Built-in executors re-register with
-`bg_use_cmdstanr()` / `bg_use_brms()`; user executors restore only through
-the explicit `bg_restore_executors(trust = TRUE)` gate after you have
-reviewed their persisted source.
+Opening a project does not evaluate saved user executor source. Built-in
+executors restore by reference. Review saved source before calling
+`bg_restore_executors(trust = TRUE)`, or re-register custom executors with
+`bg_register_node_kind()`.
 
-# The machine-readable protocol trace
+# Read the decision and summary logs
 
 Both logs are plain JSONL and parse with any JSON reader:
 
@@ -96,8 +91,8 @@ Use the logs to check, for example, whether every
 by at least one `computation_review` decision.
 
 For a human-readable rendering, `bg_export_report()` produces a Markdown or
-HTML report with the graph (as a Mermaid diagram), the full decision
-provenance, and the artifact index.
+HTML report with the graph as a Mermaid diagram, the decision history, and
+the artifact index.
 
 # SBC and simulation studies at scale
 
@@ -111,12 +106,12 @@ mirai::daemons(0)
 ```
 
 The built-in `sbc` node kind runs the Talts et al. (2018) rank-statistic
-loop and emits an `sbc_result` summary (rank histogram plus a chi-squared
-uniformity check) that the SBC review pack turns into an obligation like any
-other piece of evidence. Its input is plain data from an upstream generator
-executor—`list(simulations = list(list(theta = ..., data = ...), ...))`—so
-generator code follows the same explicit executor trust gate as other
-project-defined code. The executor thins each fit to a common number bounded by
+loop and emits an `sbc_result` summary containing a rank histogram and a
+chi-squared uniformity check. The SBC review pack uses this summary to request
+reviews. Input comes from an upstream generator executor as plain data:
+`list(simulations = list(list(theta = ..., data = ...), ...))`.
+Generator code requires the same explicit trust as other custom executors.
+The executor thins each fit to a common number bounded by
 bulk ESS before ranking, and refuses to grade histograms whose expected bin
 counts are below five. Twenty simulations are a smoke test; use hundreds for a
 substantive calibration study.
@@ -131,12 +126,11 @@ the wave semantics and `vignette("simulation-study")` for a full design.
 
 A "data and code availability" statement for a bayesgrove-backed analysis:
 
-> The analysis was managed with bayesgrove (Scholz, YEAR), which records
-> the model graph, all diagnostic evidence, and all analyst decisions in
-> machine-readable form. The complete project bundle — including the
-> decision log with rationales, typed diagnostic summaries with execution
-> fingerprints, and a reproducibility manifest (R X.Y.Z, CmdStan X.Y.Z) —
-> is archived at DOI.
+> We used bayesgrove (Scholz, YEAR) to record the model graph, diagnostic
+> evidence, and analysis decisions in machine-readable form. The project
+> bundle is archived at DOI. It contains the decision log with rationales,
+> typed diagnostic summaries with execution fingerprints, and a
+> reproducibility manifest (R X.Y.Z, CmdStan X.Y.Z).
 
-Cite the package and the workflow paper it operationalizes with
+Cite the package and its workflow reference with
 `citation("bayesgrove")`.

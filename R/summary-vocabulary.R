@@ -2,8 +2,8 @@
 #
 # The summary-kind vocabulary is the declared, validated interface between
 # executors (which emit summary records) and workflow packs (which match on
-# summary_kind). Declaring it here makes typos loud (a warning at write time)
-# rather than silently dropping evidence the packs would never see.
+# summary_kind). Unknown kinds cause a warning at write time, since packs
+# cannot match a misspelled kind.
 
 #' Built-in summary-kind vocabulary
 #'
@@ -14,7 +14,7 @@
 #' ## Evidence coverage
 #'
 #' Every summary kind a built-in workflow pack matches on is emitted by at
-#' least one shipped executor (or is documented as "bring your own"). The
+#' least one shipped executor (or is documented as requiring a user executor). The
 #' table below maps the kinds packs most commonly ask for to the built-in node
 #' kind that produces them:
 #'
@@ -27,14 +27,14 @@
 #' | `loo_pit_calibration`   | `loo_pit`                     | randomized PIT + PIET severity|
 #' | `sbc_result`            | `sbc`                         | ESS-bounded ranks + valid bins |
 #' | `comparison_results` / `stacking_weights` | `compare`        | model comparison               |
-#' | `prior_spec`            | user executor                 | bring your own (record prior)  |
-#' | `projpred_selection`    | user executor                 | bring your own (`projpred`)    |
-#' | `causal_*` / `pad_*`    | user executors                | bring your own (causal/PAD)    |
+#' | `prior_spec`            | user executor                 | record the prior               |
+#' | `projpred_selection`    | user executor                 | use `projpred`                 |
+#' | `causal_*` / `pad_*`    | user executors                | supply causal/PAD evidence     |
 #'
 #' A test (`test-summary-vocabulary-coverage.R`) asserts every literal
-#' `summary_kinds = "<kind>"` referenced by a pack source is present here, so a
-#' pack can never demand evidence no shipped executor can produce without the
-#' vocabulary (and its test) being updated in lockstep.
+#' `summary_kinds = "<kind>"` referenced by a pack source is present here.
+#' New summary kinds used by packs require a vocabulary entry that identifies
+#' a built-in or user executor as the source.
 #'
 #' @return Named list of summary-kind descriptors.
 #' @export

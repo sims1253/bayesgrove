@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 Register your own node kinds and executors. bayesgrove handles the graph, cache,
 decision log, and workflow protocol.
 
-| Term | Meaning in bayesgrove today |
+| Term | Meaning in bayesgrove |
 |---|---|
 | Node set | A group of node kinds plus executors you register on a handle |
 | Ruleset | A chosen set of `workflow_packs` plus the summary vocabulary they consume |
@@ -27,12 +27,11 @@ decision log, and workflow protocol.
 
 The stable public hooks are node-kind registration, built-in executor
 activation (`bg_use_cmdstanr()` / `bg_use_brms()`), and summary emission from
-executors. Workflow-pack selection is also public. Authoring brand new
-workflow-pack providers is still an internal extension surface, so external
-packages should currently target the built-in summary contracts instead of
-reaching into unexported provider internals.
+executors. Workflow-pack selection is also public. Custom workflow-pack
+providers use internal APIs. External packages should emit the built-in
+summary kinds rather than call unexported provider functions.
 
-# Activate the built-in workflow packs you need
+# Select workflow packs
 
 Projects start empty by default. If your workflow needs the built-in
 review vocabulary, activate and persist the packs you want after creating the
@@ -84,18 +83,17 @@ Those packs add review vocabulary without changing the graph engine:
 - `bayesgrove.causal_dagitty`: DAG-backed adjustment review, implication
   review, and causal selection contracts for `latent_inference` branches.
 
-The scope matters. `bayesgrove.model_selection` only acts at project scope
+`bayesgrove.model_selection` only acts at project scope
 when there are at least two clean fit candidates. The taxonomy and causal packs
-are branch-scoped, and they do not fire until the branch has the right goal
-context. In particular, `bayesgrove.causal_dagitty` becomes stronger after a
-reviewed `causal_selection_contract`: formulas and projection-based selection
-can then be constrained to keep required identification terms and exclude
-forbidden controls.
+apply to branches with the relevant goal. After review of a
+`causal_selection_contract`, `bayesgrove.causal_dagitty` can constrain formulas
+and projection-based selection to retain required identification terms and
+exclude forbidden controls.
 
 # Build a node set
 
-In practice, a node set is usually a helper that registers several node kinds
-for one modeling domain. The only hard contract is that each executor receives
+A node set is usually a helper that registers several node kinds for one
+modeling domain. Each executor receives
 `(node, inputs)` and returns plain R data.
 
 ```{r node-set, eval = FALSE}
@@ -149,7 +147,7 @@ register_normal_model_nodes <- function(handle) {
 }
 ```
 
-Two practical rules make these node sets easy to compose:
+For node sets that can be used together:
 
 1. Keep executors domain-specific and return plain data.
 2. Emit summaries as plain-data records so workflow packs can react to them.
@@ -158,10 +156,9 @@ Two practical rules make these node sets easy to compose:
 
 Executors are R functions, and a project's runtime manifest stores their
 source text so the project can be reopened later. For safety, `bg_open()`
-restores persisted node kinds **structurally only** — the kind name, input
-contracts, and stored executor source are kept as inert metadata, but the
-source is never evaluated. Opening a project directory from an untrusted
-source therefore executes nothing.
+restores the kind name, input contracts, and executor source as metadata.
+It does not evaluate the saved source, including when opening a project
+directory from an untrusted source.
 
 To restore executable executors after opening, call
 `bg_restore_executors()` explicitly:
@@ -187,30 +184,26 @@ environment are not restored. Alternatively, re-register executors with
 Built-in executors (shipped with the package) are persisted as stable
 references and restore safely without this opt-in step.
 
-### Params are data, never code
+### Attach data to nodes
 
-The same trust boundary applies to node `params`. A node's params carry
-**data** only — never R source. There is no params channel that evaluates
-arbitrary code at run time, so a hostile `graph.json` cannot smuggle code in
-through a `data_fn_source` or `check_fn_source` param (those have been
-removed). To attach a data object that JSON serialization would mangle (for
-example Stan's typed integers), use `bg_set_node_data()`, which stores the
-object in the content-addressed store and records a `data_ref` param pointing
-at it:
+Node `params` contain data, not executable R source. bayesgrove does not
+evaluate R code from params, including `data_fn_source` or `check_fn_source`.
+To preserve R types that JSON serialization can change, such as Stan's typed
+integers, attach the object with `bg_set_node_data()`. It saves the object in
+the content-addressed store and sets a `data_ref` param:
 
 ```{r set-data, eval = FALSE}
 n_data <- bg_add_node(handle, kind = "stan_data", label = "Data")
 bg_set_node_data(handle, n_data, list(N = 10L, y = as.integer(y)))
 ```
 
-Code enters a project only through the executor gate above — by registering a
-node kind in-session with `bg_register_node_kind()`, or by consenting with
-`bg_restore_executors(trust = TRUE)`.
+Register executable R functions with `bg_register_node_kind()`, or restore
+saved executors with `bg_restore_executors(trust = TRUE)` after reviewing them.
 
-# Emit summaries that workflow packs understand
+# Emit diagnostic summaries
 
 The optional packs are summary-driven. They do not require special node kinds;
-they only care about summary records attached to fresh results.
+they use summary records attached to fresh results.
 
 | Summary kind | Consumed by | Typical use |
 |---|---|---|
@@ -228,16 +221,15 @@ they only care about summary records attached to fresh results.
 
 # Causal selection contracts and constrained projpred workflows
 
-The causal-DAG path is meant to guide model construction, not only review
-it after the fact. A causal branch can now emit a `causal_selection_contract`
-summary with fields such as:
+A causal branch can emit a `causal_selection_contract` summary to constrain
+model construction. Its fields include:
 
 - `required_terms` for identification-critical covariates,
 - `forbidden_terms` for colliders, post-treatment variables, or other blocked
   controls,
 - `ranked_candidate_terms` for the admissible precision path from simpler to
-  richer models, and
-- optionally `allowed_formulas` when the DAG layer wants to enumerate exact
+  larger models, and
+- optionally `allowed_formulas` to enumerate exact
   permitted RHS patterns.
 
 Once that summary is reviewed, `bayesgrove.causal_dagitty` can enforce formula
@@ -263,11 +255,11 @@ bg_register_node_kind(handle, "causal_selection_contract", executor = function(n
 })
 ```
 
-That contract keeps the Bayesian-workflow iteration spirit intact: start with
-the smallest causally valid formula, then add ranked admissible terms as the
-workflow pursues more precision or better predictive compression.
+Start with the smallest causally valid formula. Add permitted terms in the
+specified order when evaluating precision. Restrict projection-based
+selection to the permitted candidates.
 
-Each summary should stay plain and serializable. A good pattern is:
+Use serializable data in each summary:
 
 - `summary_kind` for dispatch,
 - `passed` and `severity` for review urgency,
@@ -276,9 +268,8 @@ Each summary should stay plain and serializable. A good pattern is:
 
 # Package a domain module
 
-A domain module is just a reusable setup layer around `bg_init()` and your node
-registration helpers. This is the easiest way to publish a project-specific
-extension package.
+A domain module combines `bg_init()` with node-registration helpers in a
+reusable setup function. You can distribute it as an extension package.
 
 ```{r domain-module, eval = FALSE}
 init_normal_workflow <- function(path) {
@@ -305,13 +296,12 @@ init_normal_workflow <- function(path) {
 }
 ```
 
-That helper can live in your analysis package, a lab-internal utility package,
-or even a plain project script. The important part is that the node set and the
-selected workflow packs evolve together.
+Put the helper in an analysis package, a lab utility package, or a project
+script. Update the node set and its selected workflow packs together.
 
 # Built-in cmdstanr and brms executors
 
-For real model fitting, bayesgrove ships built-in executors that wrap
+bayesgrove includes executors that call
 cmdstanr and brms and compute diagnostics themselves (divergences, R-hat,
 ESS, Pareto-k, posterior-predictive p-values). Activate them with:
 
@@ -322,13 +312,12 @@ bg_use_brms(handle)
 
 These register node kinds (`stan_data`, `cmdstanr_fit`, `brms_fit`, `loo`,
 `compare`, `ppc`, ...) whose executors emit the validated summary kinds the
-workflow packs consume. You do not need to hand-roll diagnostics: a fit
-through `bg_use_cmdstanr()` emits an `hmc_diagnostics` summary automatically,
-and a blocking `review_computation_validity` obligation follows when
-diagnostics are poor.
+workflow packs consume. A `cmdstanr_fit` node emits an `hmc_diagnostics`
+summary. With the default review pack active, warning or error diagnostics
+raise a blocking `review_computation_validity` obligation.
 
-Custom executors are still possible via `bg_register_node_kind()`; but the
-built-in executors are the documented happy path for cmdstanr and brms.
+Use the built-in executors for cmdstanr and brms, or register a custom
+executor with `bg_register_node_kind()`.
 
 
 # Rulesets

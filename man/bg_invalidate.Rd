@@ -14,6 +14,6 @@ bg_invalidate(project, node_id, recursive = TRUE)
 \item{recursive}{Whether to recursively invalidate downstream nodes (default: TRUE).}
 }
 \description{
-Invalidation is an explicit escape hatch for intentional recomputation.
+Invalidation marks the indexed result as superseded so the node can be recomputed.
 It does not alter the structural graph state.
 }

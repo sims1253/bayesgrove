@@ -1,7 +1,7 @@
 # Built-in executors --------------------------------------------------------
 #
-# Built-in executors are persisted as "builtin:<id>" references (Phase 2.2)
-# and fingerprinted by id + package version (Phase 2.1). This file holds the
+# Built-in executors are persisted as "builtin:<id>" references
+# and fingerprinted by id + package version. This file holds the
 # package-internal registry; the cmdstanr/brms executor implementations are
 # registered in R/backends-cmdstanr.R and R/backends-brms.R.
 
@@ -69,8 +69,8 @@ bg_extract_draws <- function(artifact, as = c("matrix", "array")) {
 #'
 #' Matches a Stan variable exactly, including its indexed form. A variable
 #' named `log_lik` matches `log_lik` and `log_lik[1]`, `log_lik[2]`, ... but
-#' NOT `log_lik_saturated[1]` or `log_lik_extra`. Substring matching
-#' (`grepl(fixed = TRUE)`) would wrongly match those decoys.
+#' not `log_lik_saturated[1]` or `log_lik_extra`. Substring matching
+#' (`grepl(fixed = TRUE)`) would incorrectly match those names.
 #'
 #' A column matches when its name equals `var` or starts with `paste0(var, "[")`
 #' (Stan's indexed-variable form). `var` is matched literally, not as a regex,

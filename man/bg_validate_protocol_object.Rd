@@ -17,8 +17,7 @@ TRUE if valid, otherwise raises an error.
 \description{
 Performs structural validation of a protocol object against
 expected field names, scalar types, nested arrays, object maps,
-and local schema references. This remains lighter than a full
-JSON Schema validator, but it is strong enough to catch drift
-in the checked-in protocol surfaces.
+and local schema references. Checks protocol objects without implementing
+all of JSON Schema.
 }
 \keyword{internal}

@@ -13,6 +13,6 @@ bg_extension_registry(project)
 A plain-data extension registry.
 }
 \description{
-Exposes Bayesgrove-owned runtime extension descriptors as a read-only,
-protocol-facing registry for GUI consumers.
+Returns bayesgrove's runtime extension descriptors in a read-only registry
+for GUI clients.
 }

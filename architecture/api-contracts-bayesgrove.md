@@ -61,7 +61,8 @@ protocol schemas and fixtures live in [inst/protocol](../inst/protocol/).
 ## Executor trust
 
 Opening a project does not run persisted executor source.
-Built-in backends are registered explicitly; restoring saved user executors
-requires `bg_restore_executors(trust = TRUE)`. Node parameters are data.
+Activate built-in backends explicitly in a new project; their saved references
+restore on reopen. Restoring saved user executor source requires
+`bg_restore_executors(trust = TRUE)`. Node parameters are data.
 See [project loading](../R/project.R) and
 [the extension guide](../vignettes/extensions.Rmd).

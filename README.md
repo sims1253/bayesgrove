@@ -28,9 +28,9 @@ Fit a model
             └─ Resolve the review, then continue or branch to a revised model
 ```
 
-Results are cached. Reports collect the graph, diagnostics, and
-decisions. Review rules are opt-in: enable a workflow pack to choose
-which checks apply.
+Results are cached. Reports contain the graph, decisions, and artifact
+index. Review rules are opt-in: enable a workflow pack to choose which
+checks apply.
 
 ## Install
 

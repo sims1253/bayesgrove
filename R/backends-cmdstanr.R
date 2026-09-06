@@ -1,6 +1,6 @@
 # cmdstanr built-in executors -----------------------------------------------
 #
-# Registers node kinds that wrap cmdstanr for real model fitting and compute
+# Registers node kinds that use cmdstanr for model fitting and compute
 # HMC diagnostics themselves. Every executor takes (node, inputs) and returns
 # list(result=, summaries=).
 
@@ -13,8 +13,7 @@
 #' The ESS warning threshold scales with the chain count: Vehtari et al.
 #' (2021) recommend ~100 effective samples per chain. When `metrics` carries
 #' an `n_chains` entry, `ess_warn` defaults to `100 * n_chains`; otherwise it
-#' stays 400 (the historical default). An explicit `thresholds$ess_warn`
-#' always wins over both.
+#' defaults to 400. An explicit `thresholds$ess_warn` overrides these defaults.
 #'
 #' @param metrics Named list with: divergences, max_treedepth_hits,
 #'   max_rhat, min_bulk_ess, min_tail_ess, e_bfmi, num_transitions.
@@ -75,7 +74,7 @@ bg_hmc_severity <- function(metrics, thresholds = list()) {
   "ok"
 }
 
-#' Compute the divergence rate without inventing a zero denominator.
+#' Compute the divergence rate when the transition count is available.
 #'
 #' @keywords internal
 #' @noRd
@@ -161,11 +160,11 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
 #' `hmc_diagnostics`
 #' summaries with severity rules; no user-written diagnostic code is required.
 #'
-#' The `ppc` kind's posterior-predictive p-values are conservative tripwires:
-#' an extreme value flags gross misfit, but an unremarkable value is weak
+#' The `ppc` kind's posterior-predictive p-values are conservative checks:
+#' an extreme value flags substantial misfit, but an unremarkable value is weak
 #' evidence that the model is adequate. Treat the graphical check via
 #' [bg_plot()] as the primary posterior-predictive diagnostic and the
-#' p-values as its alarm layer.
+#' p-values as supplementary checks.
 #'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
@@ -224,7 +223,7 @@ bg_use_cmdstanr <- function(project) {
 #'
 #' Registers the kind in the structural graph (so it can be added as a node)
 #' and in the runtime handle with executor_ref = "builtin:<id>" so it restores
-#' safely on open (Phase 2.2) and fingerprints by id + version (Phase 2.1).
+#' on open and fingerprints by id + version.
 #' @keywords internal
 #' @noRd
 bg_register_node_kind_builtin <- function(
@@ -278,8 +277,7 @@ bg_register_node_kind_builtin <- function(
 #' Resolve the data input for a fit executor.
 #'
 #' `data_input` may name an upstream node id directly; if it does not match a
-#' node id, the first input is used. This bridges the gap between bayesgrove's
-#' node-id-keyed inputs and the user-facing `data_input` param.
+#' node id, the first input is used. Inputs are keyed by node id.
 #' @keywords internal
 #' @noRd
 bg_resolve_fit_data <- function(node, inputs, default = NULL) {
@@ -509,7 +507,7 @@ bg_executor_compare <- function(node, inputs) {
   )
   # loo_compare orders best-first, so comparison[1, 1] (the best model's
   # elpd_diff) is always 0 by construction. Report the runner-up's gap as the
-  # headline metric so it is usable; NA when fewer than two models compare.
+  # comparison metric; NA when fewer than two models compare.
   runner_up_elpd_diff <- if (nrow(comparison_df) >= 2) {
     comparison_df$elpd_diff[[2]]
   } else {
@@ -625,9 +623,8 @@ bg_executor_ppc <- function(node, inputs) {
     )
   }
 
-  # Restrict ppc statistics to an internal registry. Custom statistics wait for
-  # the trusted-hook mechanism; params are data, never code, so function lookup
-  # must remain bounded to this registry.
+  # Restrict ppc statistics to an internal registry. Params contain data, so
+  # function lookup must remain bounded to this registry.
   allowed_stats <- list(
     mean = mean,
     sd = stats::sd,
@@ -800,9 +797,9 @@ bg_executor_loo_pit <- function(node, inputs) {
     weights <- matrix(weights, ncol = 1L)
   }
 
-  # posterior::pit() is the maintained weighted-PIT implementation. It uses
+  # posterior::pit() computes weighted PIT values. It uses
   # Pr(yrep < y) for continuous outcomes and randomized PIT for discrete ones,
-  # avoiding the upward bias from the former unconditional `<=` calculation.
+  # avoiding the upward bias that an unconditional `<=` calculation would cause.
   # A fixed default seed keeps the executor deterministic when callers do not
   # supply one; node params remain data, not executable code.
   n_obs <- length(y)
@@ -852,7 +849,7 @@ bg_executor_loo_pit <- function(node, inputs) {
   list(result = result, summaries = list(summary))
 }
 
-#' Kolmogorov–Smirnov distance of a sample from Uniform(0, 1).
+#' Kolmogorov-Smirnov distance of a sample from Uniform(0, 1).
 #'
 #' The KS statistic is the maximum absolute difference between the empirical CDF
 #' of the sample and the Uniform(0,1) CDF. Used to grade LOO-PIT calibration: a

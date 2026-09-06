@@ -1,6 +1,6 @@
 # Persistence primitives: timestamps, storage paths, atomic JSON, JSONL
 # appends with seq stamping, file locks, and artifact-index IO +
-# normalization. Pure moves from workflow-context.R (M9 item 1).
+# normalization.
 
 # --- Timestamps and Storage Paths ---
 

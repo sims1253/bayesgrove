@@ -20,10 +20,10 @@ back to sequential execution. \code{"never"} always runs sequentially.
 A \code{bg_run_handle} list.
 }
 \description{
-Executes the workflow, driving every node that is ready and unheld to
-completion. Execution proceeds in topological \strong{waves}: each wave is the set
-of nodes whose upstream inputs are already available, so the nodes within a
-wave are mutually independent. With \code{parallel = "auto"} (the default) and
+Runs every ready node that has no hold. Execution proceeds in topological
+waves: each wave contains nodes whose upstream inputs are already available.
+Nodes within a wave are mutually independent. With \code{parallel = "auto"}
+(the default) and
 active \link[mirai:daemons]{mirai::daemons} set, a wave is dispatched concurrently; otherwise it
 runs sequentially in topological order. Either way the protocol holds and the
 pause flag are evaluated at wave boundaries, so a hold discovered from a fresh

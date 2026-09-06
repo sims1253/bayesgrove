@@ -14,9 +14,8 @@ Pausing the workflow stops auto-advancing and marks the workflow state
 so that no new jobs are dispatched. It does not cancel currently running jobs.
 }
 \details{
-In a synchronous runtime this is a near-no-op: it only gates the next
-\link{bg_run} call. Under parallel execution (Milestone 3) pause takes effect at
-WAVE BOUNDARIES — the in-flight wave finishes, then the run stops before the
-next wave dispatches, and \link{bg_resume} clears the flag. Reclassified
-\code{experimental} while the wave-boundary semantics settle.
+In a synchronous runtime the pause marker prevents the next \link{bg_run} call
+from starting work. Under parallel execution, pause takes effect at wave
+boundaries: the current wave finishes, then the run stops before the next
+wave starts. \link{bg_resume} clears the flag. This API is experimental.
 }
