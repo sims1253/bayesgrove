@@ -1,4 +1,5 @@
 url: "https://sims1253.github.io/bayesgrove"
+llm-docs: false
 template:
   bootstrap: 5
 
