@@ -35,7 +35,6 @@ bg_build_api_boundary_registry <- function() {
 
     # === Stable: Branching ===
     list(fn = "bg_branch", classification = "stable"),
-    list(fn = "bg_branch_with_continuation", classification = "deprecated"),
     list(fn = "bg_branch_lineage", classification = "stable"),
     list(fn = "bg_list_branches", classification = "stable"),
     list(fn = "bg_retire_node", classification = "stable"),
@@ -147,9 +146,8 @@ bg_build_api_boundary_registry <- function() {
 #'   \item `internal`: Technically exported for worker/process reasons
 #'     but not intended as ergonomic user-facing API. Includes artifact helpers,
 #'     job primitives, and backend registration.
-#'   \item `deprecated`: Kept for backward compatibility for one release;
-#'     warns on use and names its replacement. Currently
-#'     `bg_branch_with_continuation()` (use `bg_branch(continue = )`).
+#'   \item `deprecated`: Kept temporarily for backward compatibility and
+#'     warns on use.
 #' }
 #'
 #' @export

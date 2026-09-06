@@ -14,24 +14,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Motivation
-
-This vignette shows how bayesgrove can support a small
-simulation study with explicit workflow state, branching, cached execution, and
-decision logging.
-
-It focuses on structural branching and explicit gate decisions. Summary-driven
-workflow guidance is also available in the current package through
-`bg_next_actions()` and `bg_plan(..., external_holds = ...)`, including the
-optional packs for prior workflow, model checks, model selection,
-causal framing, and PAD annotations, but that layer is kept out of this
-vignette so the simulation example stays focused.
-
-It is intentionally modest relative to the full vision for the package. The
-workflow is inspired by the simulation-oriented perspective of
+This simulation study uses branches, cached execution, and explicit gate
+decisions. The workflow follows the simulation-oriented perspective of
 <https://arxiv.org/abs/2408.06504> and
-<https://arxiv.org/abs/2210.06927>, but it stays inside the package's current
-capabilities and uses base R model fitting so that the example remains light.
+<https://arxiv.org/abs/2210.06927> and uses base R model fitting.
 
 The study asks a simple question: when treatment assignment is confounded, does
 an adjustment-aware model outperform a naive model that omits the confounder?
@@ -343,14 +329,12 @@ report_path <- bg_export_report(handle, path = "simulation-study-report.md", for
 report_path
 ```
 
-The generated report now includes graph topology, decision provenance, gate
+The report includes graph topology, decision provenance, gate
 context, evidence nodes, and the artifact index for the current run.
 
-# How the richer workflow packs fit on top
+# Workflow packs
 
-This vignette stays intentionally lightweight, but the package can now layer a
-richer Bayesian review vocabulary on top of the same graph and decision
-infrastructure. The optional built-in packs add:
+Optional built-in packs add summary-driven review:
 
 - `bayesgrove.process_guidance` for workflow preflight, iterative repair, and
   out-of-sample stability review,
@@ -365,9 +349,3 @@ infrastructure. The optional built-in packs add:
 - `bayesgrove.causal_dagitty` for DAG-based adjustment review, implication
   review, and causal selection contracts that can constrain formulas or
   projection-based variable selection.
-
-What still remains domain-specific is the layer above those semantics: rich
-prior object systems, causal DAG classes, graph-aware suggestion engines, and
-package-specific executors for particular model families. bayesgrove now has
-the review vocabulary for those workflows, but you still supply the node kinds
-and summaries that make the workflow concrete.

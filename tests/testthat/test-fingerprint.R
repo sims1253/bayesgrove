@@ -35,6 +35,24 @@ describe("Fingerprinting", {
     expect_false(f1 == f2)
   })
 
+  it("distinguishes params that differ only beyond 4 decimal places", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "data_source")
+    n1 <- bg_add_node(
+      handle,
+      kind = "data_source",
+      params = list(mu = 1.23456789)
+    )
+    f1 <- bg_compute_fingerprint(handle, n1)
+
+    bg_update_node(handle, n1, params = list(mu = 1.23456999))
+    f2 <- bg_compute_fingerprint(handle, n1)
+
+    expect_false(f1 == f2)
+  })
+
   it("changes fingerprint when upstream fingerprints change", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -181,7 +199,7 @@ describe("Executor fingerprinting (Phase 2.1)", {
       digest::digest(legacy_payload, algo = "sha256")
     )
 
-    # The format bump must make the current (format 2) fingerprint differ.
+    # The format bump must make the current (format 3) fingerprint differ.
     expect_false(current_fp == stale_fp)
 
     # And an index keyed by the legacy fingerprint must not yield a hit when

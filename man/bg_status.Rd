@@ -4,12 +4,10 @@
 \alias{bg_status}
 \title{Get workflow status}
 \usage{
-bg_status(project, auto_advance = NULL)
+bg_status(project)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
-
-\item{auto_advance}{Deprecated; no longer has any effect.}
 }
 \value{
 A \code{bg_status} list summarizing the project.

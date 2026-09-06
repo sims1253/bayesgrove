@@ -328,7 +328,7 @@ bg_build_workflow_context_impl <- function(
     }
   }
 
-  # When a per-run state object is supplied (Phase 6), use its cached
+  # When a per-run state object is supplied, use its cached
   # summaries/decisions/jobs instead of re-reading from disk on every node.
   summaries <- if (!is.null(state)) {
     state$summaries

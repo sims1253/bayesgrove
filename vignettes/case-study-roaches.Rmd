@@ -21,12 +21,6 @@ knitr::opts_chunk$set(
      bayesgrove or CmdStan changes; outputs are version-dependent.
      Last refreshed against bayesgrove 0.7.0 / CmdStan 2.39.0. -->
 
-This is the package's flagship case study: a real dataset, a real inferential
-question, and the full review loop from a badly misfitting first model to an
-exported report. Unlike a reference walkthrough, it shows the loop doing its
-actual job — the enforced reviews *change the analysis*, and the final answer
-differs substantively from what the first model would have reported.
-
 The data come from a randomized trial of integrated pest management in urban
 apartments (Gelman and Hill, 2007). For each of 262 apartments we have the
 number of roaches caught in traps after the intervention (`y`), the
@@ -37,8 +31,8 @@ is the trial's question: **does the pest-management treatment reduce roach
 counts, and by how much?**
 
 The chunks use `eval = FALSE` with output pasted from a real run, so the
-vignette builds without CmdStan on CI. Everything here is reproducible: the
-dataset ships with the package, as do the three Stan programs.
+vignette builds without CmdStan on CI. The dataset and three Stan programs
+ship with the package.
 
 ## Setup
 
@@ -770,7 +764,7 @@ workflow collected has a recorded judgment attached.
 
 ## What the enforced loop changed
 
-Here is the payoff. The treatment effect, as a multiplicative factor on the
+The treatment effect, as a multiplicative factor on the
 roach count (posterior median and 90 percent interval of
 `exp(b_treatment)`):
 
@@ -779,16 +773,10 @@ roach count (posterior median and 90 percent interval of
 | Poisson (rejected at review) | 0.60 | [0.57, 0.62] |
 | Negative binomial (accepted) | 0.46 | [0.31, 0.69] |
 
-A naive analysis that stopped at the clean-sampling Poisson fit would have
-reported a 40 percent roach reduction with a strikingly precise interval —
-plus or minus a couple of points. The accepted model reports a *larger*
-estimated reduction with an honest interval roughly five times wider. The
-Poisson's precision was an artifact of an equidispersion assumption the
-data falsify at p-value zero. Nothing about this repair required the
-workflow tooling — but the tooling made it *non-optional*: the failed check
-raised a blocking obligation, the obligation demanded a recorded judgment,
-and the judgment is now part of the project's permanent record rather than
-a private glance at a plot.
+The Poisson fit estimates a 40 percent reduction. The accepted negative
+binomial fit estimates a larger reduction, with an interval roughly five
+times wider. The failed predictive check raised a blocking obligation, and
+the decision log records why the Poisson model was rejected.
 
 ```{r effect-check}
 draws <- bg_result(handle, nb$root_node_id)$draws("b_treatment")

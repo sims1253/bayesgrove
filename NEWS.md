@@ -1,3 +1,10 @@
+# bayesgrove (development version)
+
+## Breaking changes
+
+* Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
+* Removed the ignored `auto_advance` argument from `bg_status()`.
+
 # bayesgrove 0.7.0
 
 ## Breaking changes

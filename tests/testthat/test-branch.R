@@ -240,39 +240,6 @@ describe("Branch with continuation", {
     expect_equal(cloned_node$metadata$branch_id, record$branch_id)
   })
 
-  it("deprecated bg_branch_with_continuation delegates and keeps its shape", {
-    tmp <- withr::local_tempdir()
-    handle <- bg_init(path = tmp)
-
-    graph <- bg_read_graph(handle)
-    graph$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
-    graph$registry$kinds[["check"]] <- dagriculture::dagri_kind("check")
-    graph$version <- graph$version + 1L
-    bg_commit_graph(handle, graph)
-
-    n_fit <- bg_add_node(handle, kind = "fit", label = "Fit")
-    n_check <- bg_add_node(
-      handle,
-      kind = "check",
-      label = "Diagnostics",
-      inputs = n_fit
-    )
-
-    # The wrapper warns (once per session) and returns the legacy
-    # list(branch, continuation_nodes) shape.
-    result <- suppressWarnings(withCallingHandlers(
-      bg_branch_with_continuation(handle, n_fit, label = "Legacy"),
-      warning = function(w) {
-        expect_match(conditionMessage(w), "deprecated")
-      }
-    ))
-    expect_named(result, c("branch", "continuation_nodes"))
-    expect_true(startsWith(result$branch$branch_id, "branch:"))
-    expect_true(n_check %in% names(result$continuation_nodes))
-    # The legacy branch record does not carry the new field.
-    expect_false("continuation_nodes" %in% names(result$branch))
-  })
-
   it("allows running downstream nodes on the branched path", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(
@@ -452,27 +419,6 @@ describe("Branch with continuation", {
     compare_action <- compare_actions[[1]]
     expect_true(n_fit1 %in% compare_action$payload$inputs)
     expect_true(record$root_node_id %in% compare_action$payload$inputs)
-  })
-
-  it("errors on unsupported continuation depth", {
-    tmp <- withr::local_tempdir()
-    handle <- bg_init(path = tmp)
-
-    graph <- bg_read_graph(handle)
-    graph$registry$kinds[["fit"]] <- dagriculture::dagri_kind("fit")
-    graph$version <- graph$version + 1L
-    bg_commit_graph(handle, graph)
-
-    n_fit <- bg_add_node(handle, kind = "fit", label = "Fit")
-
-    expect_error(
-      bg_branch_with_continuation(
-        project = handle,
-        node_id = n_fit,
-        continuation_depth = 2L
-      ),
-      "continuation_depth"
-    )
   })
 
   it("retires a warning branch so it no longer participates in planning", {

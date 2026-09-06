@@ -118,6 +118,11 @@ bg_answer_gate <- function(
   }
 
   edge <- graph$edges[[gate_spec$edge_id]]
+  if (is.null(edge)) {
+    cli::cli_abort(
+      "Edge {.val {gate_spec$edge_id}} for gate {.val {id}} no longer exists in the graph."
+    )
+  }
 
   graph <- dagriculture::dagri_resolve_gate(graph, id)
 

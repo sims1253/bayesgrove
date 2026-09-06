@@ -21,22 +21,10 @@ knitr::opts_chunk$set(
      CmdStan changes; outputs are version-dependent.
      Last refreshed against bayesgrove 0.7.0 / CmdStan 2.39.0. -->
 
-bayesgrove records a Bayesian analysis as a graph of computations plus a log
-of decisions. The graph part is familiar from build tools: nodes hold code,
-edges hold dependencies, results are cached. The part that makes it
-bayesgrove is the review loop on top: fits and checks emit typed diagnostic
-*summaries*, summaries raise *obligations*, and a blocking obligation holds
-downstream work until you record a *decision* — a choice plus a rationale —
-that resolves it. The analysis cannot quietly run past evidence you never
-looked at.
-
-This vignette walks the smallest real version of that loop with cmdstanr:
-one fit, one posterior-predictive check that fails, the obligation it
-raises, the decision that answers it, and the branch that repairs the model.
-The chunks use `eval = FALSE` with output pasted from a real run, so the
-vignette builds without CmdStan on CI. For the mental model behind the
-moving parts, see `vignette("concepts")`; this vignette shows them in
-motion.
+Fit a normal model to positive, skewed data, inspect its predictive checks,
+then record a review and try a lognormal model. This tutorial requires
+cmdstanr and CmdStan. The displayed results come from a recorded run; your
+sampler output may differ. See [Concepts](concepts.html) for terminology.
 
 ## A project and a first fit
 
@@ -97,7 +85,7 @@ n_fit <- bg_fit_stan(
 #> • Executed Nodes: 2
 ```
 
-The sampler is happy — no divergences, good R-hats. `bg_status()` shows the
+The fit has no divergences and good R-hats. `bg_status()` shows the
 project state, and `bg_next_actions()` asks the workflow pack whether any
 evidence demands attention:
 
@@ -205,14 +193,10 @@ ppc_summary$metrics
 #> [1] 0.5025
 ```
 
-Both tail statistics give it away, in opposite directions: the model
-happily predicts negative values the strictly positive data never show
-(`min`), and its thin symmetric tail cannot reach the largest observed
-values (`max`). The center is fine — `mean` and `sd` are unremarkable —
-which is exactly why a skewed sample can hide behind a normal model until
-you check its extremes. One caveat before moving on: posterior-predictive
-p-values are conservative tripwires, not calibrated tests — an unremarkable
-p-value is weak evidence of fit. The primary check is graphical:
+The model predicts negative values absent from the data (`min`) and fails
+to reproduce the largest observations (`max`). The `mean` and `sd` checks
+do not flag these problems. Posterior-predictive p-values are conservative;
+an unremarkable value is weak evidence of fit. Inspect the predictive plot:
 
 ```{r ppc-plot, fig.alt = "Posterior predictive density overlay for the normal model"}
 bg_plot(handle, n_ppc)
@@ -223,8 +207,7 @@ bg_plot(handle, n_ppc)
 ## The obligation, and the decision that answers it
 
 The extreme p-values arrived as a `warning`-severity summary, and the
-default pack turns fresh warnings into a blocking obligation — at project
-scope it files everything under its baseline review lane,
+default pack raises a blocking obligation. At project scope it uses
 `review_computation_validity` (the optional packs add more specific
 vocabularies):
 
@@ -255,12 +238,8 @@ held_plan$external_blocked
 #> list()
 ```
 
-Empty — and instructively so. The failing check is the last node in this
-tiny graph, so there is nothing downstream to hold yet. The moment you add
-one (a comparison, a report step, a follow-up fit), it lands in
-`external_blocked` until the obligation is resolved. The hold mechanism is
-how unreviewed evidence stops an analysis from advancing *past* it, not a
-punishment for the node that produced it.
+The list is empty because the failing check has no downstream nodes yet.
+A dependent node would be held until the obligation is resolved.
 
 To resolve the obligation we record a decision. A decision is a permanent
 log entry: the prompt, the choice, the rationale, and the ids of the
@@ -300,16 +279,13 @@ bg_next_actions(handle)$obligations
 #> named list()
 ```
 
-The obligation is gone — not because the evidence went away, but because a
-recorded judgment now covers it. Both stay in the log: a reviewer can later
-see exactly which p-value prompted the rejection and what the stated
-reasoning was.
+The recorded review resolves the obligation. The summary and decision
+remain available so a reviewer can trace the rejection to its evidence.
 
 ## Branch to the repair
 
-The rationale named the repair: model the log scale. A *branch* keeps the
-rejected fit and its criticism in the record while the analysis moves on —
-provenance is the point, so we never edit the past. `bg_branch()` copies the
+Try the lognormal model on a branch to keep the rejected fit and its
+criticism in the record. `bg_branch()` copies the
 fit node into a new branch; `bg_update_node()` merges params, so only the
 Stan program needs swapping. The default pack asks every active branch for
 an inferential goal, which doubles as documentation of why the branch
@@ -393,7 +369,7 @@ ppc2$metrics
 #> [1] 0.3262
 ```
 
-Both models remain in the graph — the rejected normal fit with its failed
+Both models remain in the graph: the rejected normal fit with its failed
 check and the decision that rejected it, and the lognormal fit with a clean
 one:
 
@@ -413,146 +389,16 @@ print(bg_read_graph(handle))
 #>     └── [already shown: PPC: lognormal model]
 ```
 
-## Where this goes next
+## Continue the analysis
 
-This was one turn of the loop on the smallest possible example. The same
-mechanics scale up:
+- [Eight schools](eight-schools.html) shows how to review sampler diagnostics
+  and reparameterize a model.
+- The [roaches case study](case-study-roaches.html) compares competing models
+  and records which branches to accept.
+- [Reproducible research](reproducible-research.html) covers reports and
+  project bundles.
 
-- **Computation review.** When HMC itself misbehaves — divergences, low
-  E-BFMI — the same loop fires on the sampler diagnostics instead of a
-  predictive check. `vignette("eight-schools")` walks that case, including
-  the branch-scoped review a repair branch inherits.
-- **Comparison and disposition.** With two or more clean candidate fits, the
-  default pack demands an explicit comparison (via LOO) and then an
-  accept-or-reject disposition for each branch before the analysis can
-  conclude. `vignette("case-study-roaches")` runs that full arc on real
-  data, from a badly misfitting first model to an exported report.
-- **Reporting.** `bg_export_report(handle, format = "md")` renders the whole
-  trail — graph, diagnostics, decisions, branch lineage — into a document; a
-  `bg_bundle()` archive backs it with the machine-readable logs. See the
-  reproducible-research article for what a reviewer can verify from the
-  bundle.
-
-## Reference: the pieces individually
-
-The sections above used the machinery in one continuous story. The notes
-below are the pieces in isolation, for when you come back looking for one
-of them.
-
-### Gates: pre-planned checkpoints
-
-Obligations arise dynamically from evidence. When you know *in advance* that
-a step needs sign-off, put a *gate* on the edge instead. A gate blocks
-planning until it is answered, and the answer (with its rationale) lands in
-the same decision log:
-
-```{r gate}
-gate <- bg_add_gate(
-  project = handle,
-  from = n_data,
-  to = n_fit,
-  prompt = "Were the measurements validated before modeling?",
-  alternatives = c("yes", "no")
-)
-
-bg_pending_gates(handle)
-
-bg_answer_gate(
-  project = handle,
-  id = gate$id,
-  choice = "yes",
-  rationale = "Values were cross-checked against the collection protocol."
-)
-```
-
-```
-#> $gate_84ce804b
-#> $gate_84ce804b$id
-#> [1] "gate_84ce804b"
-#>
-#> $gate_84ce804b$edge_id
-#> [1] "edge_2ed4dcc6"
-#>
-#> $gate_84ce804b$prompt
-#> [1] "Were the measurements validated before modeling?"
-#>
-#> $gate_84ce804b$options
-#> $gate_84ce804b$options[[1]]
-#> [1] "yes"
-#>
-#> $gate_84ce804b$options[[2]]
-#> [1] "no"
-#>
-#> $gate_84ce804b$refs
-#> list()
-#>
-#> $gate_84ce804b$created_at
-#> [1] "2026-07-11T05:29:34Z"
-#>
-#> $gate_84ce804b$metadata
-#> list()
-#>
-#> $gate_84ce804b$from_node_id
-#> [1] "node_66f87a33"
-#>
-#> $gate_84ce804b$to_node_id
-#> [1] "node_7bd2286f"
-#>
-#> $gate_84ce804b$from_label
-#> [1] "Normal model_data"
-#>
-#> $gate_84ce804b$to_label
-#> [1] "Normal model"
-#>
-#> <bg_decision_record> dec_61ab307c
-#> • Prompt: Were the measurements validated before modeling?
-#> • Choice: yes
-#> • Rationale: Values were cross-checked against the collection protocol.
-```
-
-### Scopes
-
-Obligations and decisions carry a scope: `project` or `branch:<id>`. A
-project-scope decision does not silently cover a branch, and vice versa —
-each active line of analysis answers for its own evidence. Pass `scope` and
-`branch_id` to `bg_next_actions()` to interrogate a specific branch, as the
-eight-schools vignette does after branching.
-
-### Freshness
-
-Summaries are fingerprinted against the exact node configuration that
-produced them. Change the params, the data, or the Stan program and the old
-summary goes *stale*: it stops feeding obligations until the node is rerun.
-This is what makes "the checks passed" meaningful across sessions and
-machines.
-
-### Additional workflow packs
-
-`bg_use_default_workflow()` installs the built-in starter pack used here.
-`bg_use_workflow_packs()` can instead activate an explicit set, such as the
-default Bayesian pack shown below plus the optional prior-workflow pack.
-These packs add richer review vocabularies while remaining summary-driven:
-executors keep returning plain data, and the packs decide what that evidence
-obliges.
-
-```{r packs, eval = FALSE}
-bg_use_workflow_packs(
-  handle,
-  c("bayesgrove.default_bayesian", "bayesgrove.prior_workflow")
-)
-```
-
-### The REPL
-
-`bg_repl(handle)` wraps the same loop in an interactive dashboard: it shows
-outstanding obligations, previews the suggested actions, and can execute
-them. Everything it does goes through the public API you used above, so a
-REPL session and a script leave the same audit trail.
-
-### Extending
-
-Custom node kinds, custom executors (including deterministic mock executors
-for testing), template registration, and custom summary kinds are covered in
-`vignette("extensions")`. The short version: register an executor that
-returns `list(result = ..., summaries = ...)` and the review loop picks up
-your evidence exactly as it picked up the built-in checks here.
+For gates, scopes, and evidence freshness, see [Concepts](concepts.html).
+For additional workflow packs and custom executors, see
+[Extensions](extensions.html). Use `bg_repl(handle)` to inspect reviews and
+execute suggested actions interactively.

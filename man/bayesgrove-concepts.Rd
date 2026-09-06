@@ -4,27 +4,27 @@
 \alias{bayesgrove-concepts}
 \title{Concepts: what asks, what answers, what blocks}
 \description{
-bayesgrove's question surfaces — gates, obligations, and decisions —
-overlap by design. This topic is the one-table disambiguation; the
-\code{vignette("concepts")} article carries the full narrative and diagram.
+Workflow packs request reviews based on diagnostic summaries and project
+context. Blocking obligations hold downstream computation until resolved.
+See \code{vignette("concepts")} for the review flow and glossary.
 }
 \details{
 \tabular{lll}{
    Concept \tab Who produces it \tab What it does \cr
-   \strong{Node} \tab The user \tab Pairs code with a graph slot. \cr
+   \strong{Node} \tab The user \tab A computation and its dependencies. \cr
    \strong{Summary} \tab An executor (built-in or user-registered) \tab Typed evidence (HMC, ppc, loo_pit, sbc, ...). \cr
-   \strong{Obligation} \tab A workflow pack \tab A demand raised from a summary (severity: advisory or blocking). \cr
-   \strong{Action} \tab A workflow pack \tab A copy-pasteable call resolving the obligation. \cr
+   \strong{Obligation} \tab A workflow pack \tab Work the analysis needs, such as reviewing divergences. \cr
+   \strong{Action} \tab A workflow pack \tab A suggested step, such as recording a decision or adding a check. \cr
    \strong{Decision} \tab The user \tab The recorded answer (choice + rationale). \cr
-   \strong{Hold} \tab The engine \tab Stops downstream execution until a blocking decision lands. \cr
+   \strong{Hold} \tab The engine \tab Prevents a node from running. \cr
    \strong{Gate} \tab The user \tab A pre-planned checkpoint on an edge. \cr
 }
 
 
-Obligations and gates both block, but they are not the same: gates are
-\emph{pre-planned} checkpoints the user authors on an edge ("review before
-fitting the hierarchical model"); obligations are \emph{evidence-driven} and
-arise dynamically from summaries.
+Use a gate when you know in advance that a step needs sign-off.
+Workflow packs raise obligations as the analysis develops. A decision can
+resolve a review; other obligations need new evidence. Advisory obligations
+do not hold execution.
 }
 \section{Scopes}{
 

@@ -34,9 +34,8 @@ practitioner sugar helpers.
 \item \code{internal}: Technically exported for worker/process reasons
 but not intended as ergonomic user-facing API. Includes artifact helpers,
 job primitives, and backend registration.
-\item \code{deprecated}: Kept for backward compatibility for one release;
-warns on use and names its replacement. Currently
-\code{bg_branch_with_continuation()} (use \code{bg_branch(continue = )}).
+\item \code{deprecated}: Kept temporarily for backward compatibility and
+warns on use.
 }
 }
 }

@@ -168,6 +168,16 @@ bg_fetch_artifact <- function(project, ref) {
     cli::cli_abort("Artifact file missing at {.path {path}}")
   }
 
+  observed_hash <- digest::digest(file = path, algo = "sha256")
+  if (observed_hash != hash) {
+    cli::cli_abort(c(
+      "Artifact integrity check failed for {.val {ref}}.",
+      "Expected sha256: {hash}",
+      "Observed sha256: {observed_hash}",
+      "The file may be corrupted or tampered with."
+    ))
+  }
+
   readRDS(path)
 }
 

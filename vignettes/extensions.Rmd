@@ -14,13 +14,8 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Why this vignette exists
-
-bayesgrove keeps the runtime boundary small on purpose. You bring your own node
-kinds, executors, and domain conventions. bayesgrove handles the graph, cache,
+Register your own node kinds and executors. bayesgrove handles the graph, cache,
 decision log, and workflow protocol.
-
-This vignette uses the following vocabulary:
 
 | Term | Meaning in bayesgrove today |
 |---|---|
@@ -336,32 +331,18 @@ Custom executors are still possible via `bg_register_node_kind()`; but the
 built-in executors are the documented happy path for cmdstanr and brms.
 
 
-# What a ruleset means right now
+# Rulesets
 
-Today, a practical "ruleset" in bayesgrove means two things together:
+A ruleset combines:
 
 1. the `workflow_packs` you activate in `bg_init()`, and
 2. the summary kinds your executors emit for those packs to interpret.
 
-That path is public and stable enough to build around. By contrast,
-registering entirely new workflow-pack providers from an external package is
-not yet a public API. If you need custom review logic today, prefer one of
+Registering new workflow-pack providers from an external package is
+not a public API. For custom review logic, use one of
 these approaches:
 
 - emit the existing summary vocabulary and reuse the built-in packs,
 - wrap a project-specific decision policy around `bg_next_actions()`, or
 - pin to internal helpers only if you are comfortable tracking internal API
   changes.
-
-# Recommended extension shape
-
-For most projects, the easiest sustainable pattern is:
-
-1. create a domain module that initializes the right workflow packs,
-2. register a small node set for your modeling tasks,
-3. use built-in backend plugins where possible,
-4. emit plain-data summaries that match the review vocabulary you want, and
-5. keep project-specific heuristics outside the core runtime.
-
-That keeps bayesgrove responsible for provenance, caching, branching, and
-review state while your package owns the domain logic.

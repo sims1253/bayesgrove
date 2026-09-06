@@ -1,27 +1,25 @@
-# Help-topic version of the concepts vignette's core table. Keep the two in
-# sync: vignettes/concepts.Rmd is the narrative, this topic is the quick
-# console reference (`?bayesgrove-concepts`).
+# Console reference for the review terms in vignettes/concepts.Rmd.
 
 #' Concepts: what asks, what answers, what blocks
 #'
-#' bayesgrove's question surfaces — gates, obligations, and decisions —
-#' overlap by design. This topic is the one-table disambiguation; the
-#' `vignette("concepts")` article carries the full narrative and diagram.
+#' Workflow packs request reviews based on diagnostic summaries and project
+#' context. Blocking obligations hold downstream computation until resolved.
+#' See `vignette("concepts")` for the review flow and glossary.
 #'
 #' | Concept        | Who produces it     | What it does |
 #' |:---------------|:--------------------|:-------------|
-#' | **Node**       | The user            | Pairs code with a graph slot. |
+#' | **Node**       | The user            | A computation and its dependencies. |
 #' | **Summary**    | An executor (built-in or user-registered) | Typed evidence (HMC, ppc, loo_pit, sbc, ...). |
-#' | **Obligation** | A workflow pack     | A demand raised from a summary (severity: advisory or blocking). |
-#' | **Action**     | A workflow pack     | A copy-pasteable call resolving the obligation. |
+#' | **Obligation** | A workflow pack     | Work the analysis needs, such as reviewing divergences. |
+#' | **Action**     | A workflow pack     | A suggested step, such as recording a decision or adding a check. |
 #' | **Decision**   | The user            | The recorded answer (choice + rationale). |
-#' | **Hold**       | The engine          | Stops downstream execution until a blocking decision lands. |
+#' | **Hold**       | The engine          | Prevents a node from running. |
 #' | **Gate**       | The user            | A pre-planned checkpoint on an edge. |
 #'
-#' Obligations and gates both block, but they are not the same: gates are
-#' *pre-planned* checkpoints the user authors on an edge ("review before
-#' fitting the hierarchical model"); obligations are *evidence-driven* and
-#' arise dynamically from summaries.
+#' Use a gate when you know in advance that a step needs sign-off.
+#' Workflow packs raise obligations as the analysis develops. A decision can
+#' resolve a review; other obligations need new evidence. Advisory obligations
+#' do not hold execution.
 #'
 #' @section Scopes:
 #' Decisions and obligations carry a scope: `project` (whole project) or

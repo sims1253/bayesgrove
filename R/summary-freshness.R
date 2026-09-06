@@ -1,5 +1,4 @@
-# Summary persistence, validation, freshness, and reading. Pure moves
-# from workflow-context.R (M9 item 1).
+# Summary persistence, validation, freshness, and reading.
 
 # --- Summary Persistence and Reading ---
 

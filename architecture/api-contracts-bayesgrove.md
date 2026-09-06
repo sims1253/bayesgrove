@@ -1,9 +1,10 @@
 # API Contracts: `bayesgrove`
 
-**Status:** Draft
+**Status:** Historical design draft; includes APIs that are not implemented.
 **Date:** 2026-03-03
 
-bayesgrove's own public API and canonical type specifications. The
+For the current public API, use the package reference and `bg_api_boundary()`.
+This draft records proposed API and type specifications. The
 `dagriculture` side of the boundary (graph value model, structural API,
 errors, return shapes) lives in
 [`../../dagriculture/design/api-contracts.md`](../../dagriculture/design/api-contracts.md);
