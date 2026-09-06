@@ -4,6 +4,8 @@
 
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
 * Removed the ignored `auto_advance` argument from `bg_status()`.
+* JSON storage preserves double precision. Fingerprint format 3 invalidates
+  previous cache keys, so the first run after upgrading recomputes results.
 
 # bayesgrove 0.7.0
 

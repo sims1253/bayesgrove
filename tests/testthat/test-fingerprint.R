@@ -43,11 +43,15 @@ describe("Fingerprinting", {
     n1 <- bg_add_node(
       handle,
       kind = "data_source",
-      params = list(mu = 1.23456789)
+      params = list(mu = 1.2345678912345e-7)
     )
     f1 <- bg_compute_fingerprint(handle, n1)
 
-    bg_update_node(handle, n1, params = list(mu = 1.23456999))
+    expect_identical(
+      bg_read_graph(handle)$nodes[[n1]]$params$mu,
+      1.2345678912345e-7
+    )
+    bg_update_node(handle, n1, params = list(mu = 1.2345678912346e-7))
     f2 <- bg_compute_fingerprint(handle, n1)
 
     expect_false(f1 == f2)

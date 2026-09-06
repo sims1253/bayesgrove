@@ -1042,7 +1042,6 @@ describe("Interactive REPL", {
     bg_register_node_kind(handle, "cmdstanr_fit")
     bg_register_node_kind(handle, "generator")
     bg_register_node_kind(handle, "sbc")
-    bg_register_node_kind(handle, "sbc")
     generator_id <- bg_add_node(handle, kind = "generator", label = "Generator")
     fit_id <- bg_add_node(handle, kind = "cmdstanr_fit", label = "Fit")
     stan_file <- withr::local_tempfile(fileext = ".stan")

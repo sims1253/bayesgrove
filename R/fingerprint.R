@@ -43,7 +43,7 @@ bg_compute_fingerprint <- function(
     sorted_params,
     auto_unbox = TRUE,
     null = "null",
-    digits = 17
+    digits = I(17)
   )
 
   # 2. Upstream fingerprints, ordered by input edge for determinism
@@ -74,7 +74,7 @@ bg_compute_fingerprint <- function(
     manifest,
     auto_unbox = TRUE,
     null = "null",
-    digits = 17
+    digits = I(17)
   )
 
   # 4. Executor. Resolution order:
@@ -109,7 +109,7 @@ bg_compute_fingerprint <- function(
     components,
     auto_unbox = TRUE,
     null = "null",
-    digits = 17
+    digits = I(17)
   )
 
   sprintf("sha256:%s", digest::digest(payload, algo = "sha256"))

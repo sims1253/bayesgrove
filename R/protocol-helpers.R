@@ -55,7 +55,7 @@ bg_protocol_identity_string <- function(x) {
     bg_protocol_normalize_value(x),
     auto_unbox = TRUE,
     null = "null",
-    digits = 17
+    digits = I(17)
   )
 }
 

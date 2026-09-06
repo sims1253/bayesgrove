@@ -30,7 +30,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr, any::xml2, cran::rstan, cran::StanHeaders, any::RcppEigen, any::BH
+          extra-packages: any::covr, any::xml2, cran::rstan@2.32.7, cran::StanHeaders@2.32.10, any::RcppEigen, any::BH
           needs: coverage
 
       - name: Build Cmdstan

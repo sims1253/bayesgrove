@@ -202,7 +202,7 @@ bg_bundle <- function(
     file.path(dest_proj_dir, ".bayesgrove", "bundle_manifest.json"),
     auto_unbox = TRUE,
     pretty = TRUE,
-    digits = 17
+    digits = I(17)
   )
 
   # 4. Tar it up

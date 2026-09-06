@@ -274,7 +274,7 @@ bg_compact_jobs <- function(project) {
           bg_sort_persisted_value(job),
           auto_unbox = TRUE,
           null = "null",
-          digits = 17
+          digits = I(17)
         )
       },
       character(1)

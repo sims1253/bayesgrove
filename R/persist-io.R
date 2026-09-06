@@ -50,7 +50,7 @@ bg_write_json_atomic <- function(path, data, sort_keys = TRUE) {
     pretty = TRUE,
     null = "null",
     force = TRUE,
-    digits = 17
+    digits = I(17)
   )
 
   if (!file.rename(tmp, path)) {
@@ -113,7 +113,7 @@ bg_append_jsonl <- function(path, record, known_line_count = NULL) {
       bg_sort_persisted_value(record),
       auto_unbox = TRUE,
       null = "null",
-      digits = 17
+      digits = I(17)
     )
     cat(paste0(json_line, "\n"), file = path, append = TRUE)
     invisible(record$seq)
