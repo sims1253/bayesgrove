@@ -193,6 +193,8 @@ bg_bundle <- function(
           showWarnings = FALSE
         )
         file.copy(cas_file, file.path(cache_dest, "sha256", prefix))
+      } else {
+        cli::cli_warn("Bundle is missing referenced artifact {.val {ref}}.")
       }
     }
   }

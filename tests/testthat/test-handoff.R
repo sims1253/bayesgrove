@@ -129,6 +129,27 @@ describe("Handoff and Export Layer", {
     bg_close(restored)
   })
 
+  it("warns when a referenced data blob is missing", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node <- bg_add_node(handle, "data")
+    bg_set_node_data(handle, node, list(x = 1:3))
+    ref <- bg_read_graph(handle)$nodes[[node]]$params$data_ref
+    hash <- sub("^cas:sha256:", "", ref)
+    blob <- file.path(
+      tmp,
+      ".bayesgrove",
+      "cache",
+      "sha256",
+      substr(hash, 1, 2),
+      paste0(hash, ".rds")
+    )
+    expect_true(file.remove(blob))
+
+    expect_warning(bg_bundle(handle), "Bundle is missing referenced artifact")
+  })
+
   it("bundle manifest carries a reproducibility manifest", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
