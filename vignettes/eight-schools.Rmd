@@ -22,11 +22,10 @@ knitr::opts_chunk$set(
      CmdStan changes; outputs are version-dependent.
      Last refreshed against bayesgrove 0.7.0 / CmdStan 2.39.0. -->
 
-This vignette walks through one round of the review loop with real cmdstanr:
-fit the eight-schools model in its centered parameterization, hit a
-computation-review obligation, record the decision, branch to a non-centered
-repair, and rerun. The chunks use `eval = FALSE` with output captured from a
-real run, so the vignette builds without CmdStan on CI.
+Fit the centered eight-schools model with cmdstanr, review its sampler
+diagnostics, and rerun a non-centered version on a branch. The chunks use
+`eval = FALSE` with output captured from a real run, so the vignette builds
+without CmdStan on CI.
 
 ## Setup
 
@@ -92,7 +91,7 @@ n_fit <- bg_add_node(
 )
 ```
 
-## Run and hit the obligation
+## Run the model and inspect diagnostics
 
 ```{r run}
 run <- bg_run(handle, targets = n_fit)
@@ -139,7 +138,7 @@ vapply(guide$actions, `[[`, character(1), "kind")
 #>   "record_decision" "branch_and_modify"
 ```
 
-## Record the review decision
+## Record a review
 
 The suggested `record_decision` action carries the decision kind and the ids
 of the summaries under review in its payload. Recording a
@@ -173,11 +172,10 @@ vapply(bg_next_actions(handle)$obligations, `[[`, character(1), "kind")
 
 ## Branch to the non-centered parameterization
 
-The repair is a branch from the criticized fit. The branch keeps the original
-fit and its diagnostics in the record; we give it an inferential goal (the
-default pack asks for one on every active branch) and swap in the
-non-centered program. `bg_update_node()` merges params, so the chains, iteration,
-and seed settings carry over.
+Create a branch from the centered fit, retaining the original fit and its
+diagnostics. Set an inferential goal, as required for each active branch,
+and select the non-centered program. `bg_update_node()` merges params, so
+the chains, iteration, and seed settings carry over.
 
 ```{r branch}
 branch <- bg_branch(handle, n_fit, label = "Non-centered")
@@ -203,7 +201,7 @@ bg_update_node(
 )
 ```
 
-## Rerun and close the loop
+## Run and review the non-centered fit
 
 ```{r rerun}
 run2 <- bg_run(handle, targets = branch$root_node_id)
@@ -216,9 +214,8 @@ run2 <- bg_run(handle, targets = branch$root_node_id)
 #> All 4 chains finished successfully.
 ```
 
-The non-centered fit samples cleanly. Both fits remain in the record: the
-criticized centered fit with its error summary, and the repaired fit with a
-clean one.
+The non-centered fit has no sampler warnings. Both fits remain in the
+record, with their diagnostic summaries.
 
 ```{r rerun-summaries}
 for (s in bg_read_summaries(handle, include_stale = FALSE)) {
@@ -230,7 +227,7 @@ for (s in bg_read_summaries(handle, include_stale = FALSE)) {
 
 One obligation remains. Decisions are scope-specific (see
 `vignette("concepts")`): the project-scope review recorded above does not
-cover the new branch, so the branch asks for its own review of the centered
+cover the new branch. Record a branch-scope review of the centered fit's
 error summary in its lineage.
 
 ```{r branch-review}
@@ -267,9 +264,9 @@ bg_next_actions(handle)$obligations
 
 No model comparison is needed here: the two fits target the same posterior,
 and the reparameterization is a computational repair rather than a change of
-model. For a loop with genuinely distinct candidates — where the default pack
-requires an explicit comparison decision and an accept-or-reject disposition
-for each branch — see `vignette("case-study-roaches")`.
+model. For distinct candidate models, the default pack requires a comparison
+decision and an accept-or-reject disposition for each branch. See
+`vignette("case-study-roaches")`.
 
 ## Export a report
 
@@ -284,5 +281,5 @@ print(bg_read_graph(handle))
 bg_export_report(handle, format = "md", path = "eight-schools-report.md")
 ```
 
-The report captures the full trail: both fits, the diagnostics that fired,
-the review decisions at each scope, and the branch lineage.
+The report contains the graph with both fits, the review decisions at each
+scope, and the artifact index. Diagnostic summaries remain in the project.

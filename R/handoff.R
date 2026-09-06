@@ -90,11 +90,11 @@ bg_bundle <- function(
   dest_proj_dir <- file.path(tmp_dir, basename(project@path))
 
   # 1. Copy core project files (.bayesgrove metadata directory)
-  # We do NOT just copy the whole folder because we want to filter large artifacts
+  # Copy files selectively to exclude model fit artifacts when requested.
   dir.create(file.path(dest_proj_dir, ".bayesgrove"), recursive = TRUE)
 
   # Copy graph, decisions, runs, workflow state (summaries JSONL + branch and
-  # goal registries — without these a restored bundle loses its protocol
+  # goal registries; without these a restored bundle loses its protocol
   # state: obligations, holds, and branches), and config.
   for (sub in c("graph", "decisions", "runs", "workflow", "config.json")) {
     src_path <- file.path(project@path, ".bayesgrove", sub)
@@ -220,7 +220,7 @@ bg_bundle <- function(
     digits = I(17)
   )
 
-  # 4. Tar it up
+  # 4. Create the tar archive
   tar_bin <- Sys.which("tar")
   tar_tool <- if (nzchar(tar_bin)) tar_bin else "internal"
   old_wd <- getwd()
@@ -302,9 +302,9 @@ bg_export_report <- function(
     }
   }
 
-  # Embed the Mermaid flowchart (Milestone 7). In Markdown a ```mermaid fence
-  # renders on GitHub (and in Quarto). The HTML embed is appended AFTER the
-  # escaped <pre> block at write time below — it must not go through
+  # Embed the Mermaid flowchart. In Markdown a ```mermaid fence
+  # renders on GitHub (and in Quarto). Append the HTML embed after the
+  # escaped <pre> block at write time below. It must not go through
   # bg_escape_html, or the <div>/<script> tags render as literal text.
   mermaid <- tryCatch(
     as.character(bg_graph_mermaid(project)),

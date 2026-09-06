@@ -27,9 +27,8 @@ apartments (Gelman and Hill, 2007). For each of 262 apartments we have the
 number of roaches caught in traps after the intervention (`y`), the
 pre-treatment roach level (`roach1`), whether the apartment received the
 treatment (`treatment`), whether the building is restricted to elderly
-residents (`senior`), and the number of trap-days (`exposure2`). The question
-is the trial's question: **does the pest-management treatment reduce roach
-counts, and by how much?**
+residents (`senior`), and the number of trap-days (`exposure2`). We want to
+estimate whether the treatment reduces roach counts, and by how much.
 
 The chunks use `eval = FALSE` with output pasted from a real run, so the
 vignette builds without CmdStan on CI. The dataset and three Stan programs
@@ -67,11 +66,10 @@ max(roaches$y)
 [1] 357
 ```
 
-Two features of the outcome deserve attention before any model is fit: more
-than a third of the apartments caught *zero* roaches, and the largest count
-is in the hundreds. Keep both in mind.
+More than a third of the apartments caught zero roaches, and the largest
+count is in the hundreds. The models need to account for both features.
 
-## Round 1: the Poisson model
+## Fit a Poisson model
 
 The default first model for counts is Poisson regression with a log link and
 the trap-days as an exposure offset. The package ships the program, so the
@@ -115,8 +113,8 @@ Total execution time: 1.7 seconds.
 • Executed Nodes: 2
 ```
 
-The sampler is perfectly happy: no divergences, uniform R-hats, healthy
-E-BFMI. The workflow pack agrees that nothing needs review yet:
+The fit has no divergences, and its R-hat and E-BFMI values raise no warnings.
+The workflow pack requests no review of these sampler diagnostics:
 
 ```{r poisson-guidance}
 bg_next_actions(handle)$obligations
@@ -126,15 +124,14 @@ bg_next_actions(handle)$obligations
 named list()
 ```
 
-This is the first lesson of the case study: **computational health is not
-model adequacy.** Every sampler diagnostic is clean, and the model is about
-to turn out to be unusable.
+These diagnostics assess the sampler. Predictive checks assess whether the
+model reproduces the data.
 
-### The check that ends round 1
+### Check the Poisson predictions
 
 A `ppc` node computes posterior-predictive p-values for chosen test
 statistics. For count data, `prop_zero` (the proportion of zeros) and the
-dispersion-sensitive `sd` and `max` are the statistics that hurt:
+dispersion-sensitive `sd` and `max` check the features noted above:
 
 ```{r ppc-poisson}
 graph <- bg_read_graph(handle)
@@ -180,18 +177,16 @@ $sd
 [1] 0
 ```
 
-The p-values for `sd` and `prop_zero` are numerically zero: in four thousand
-posterior-predictive draws, the Poisson model *never once* produced data as
-dispersed as the real data, and never once produced as many zeros. The
-observed data have a 36 percent zero rate; a Poisson model whose means are
-anchored by apartments with hundreds of roaches essentially cannot generate
-zeros at all. This is textbook overdispersion — the Poisson's variance is
-pinned to its mean, and these counts have variance far beyond that.
+The p-values for `sd` and `prop_zero` are numerically zero. None of the four
+thousand posterior-predictive draws has as much dispersion or as many zeros
+as the observed data. The observed zero rate is 36 percent. The large counts
+raise the fitted Poisson means, which leaves too few predicted zeros. A
+Poisson distribution has equal mean and variance; these counts have much
+greater variance.
 
-A caveat that applies throughout: posterior-predictive p-values are
-conservative tripwires, not calibrated tests. An extreme value is a loud
-alarm, but an unremarkable value is weak evidence of adequacy — the primary
-check is graphical:
+Posterior-predictive p-values are conservative and are not calibrated tests.
+Extreme values indicate a mismatch, but unremarkable values provide weak
+evidence of model adequacy. Inspect the predictive plot as the primary check:
 
 ```{r plot-poisson, fig.alt = "Posterior predictive density overlay for the Poisson model"}
 bg_plot(handle, n_ppc_pois)
@@ -203,11 +198,11 @@ The observed density (dark) has a spike at zero and a long right tail. The
 Poisson replicates (light) concentrate their mass in a narrow band and have
 neither feature.
 
-### The obligation and the recorded rejection
+### Review the Poisson model
 
-The failed check arrived as a warning-severity summary, so the default pack
-now blocks forward progress with a review obligation demanding a recorded
-judgment on the fresh evidence:
+The failed check produces a warning-severity summary. The default pack
+blocks downstream computation until a decision records a review of that
+evidence:
 
 ```{r obligation-poisson}
 guide <- bg_next_actions(handle)
@@ -222,10 +217,9 @@ vapply(guide$actions, `[[`, character(1), "kind")
   "record_decision" "branch_and_modify" 
 ```
 
-The suggested actions are to record the criticism decision and to branch and
-modify the fit — which is exactly the plan. First the decision. This is the
-record a later reader (a reviewer, a co-author, yourself in a year) will
-consult to understand why the analysis left the Poisson model:
+The suggested actions are to record a review decision and to modify the fit
+on a branch. First, record why the Poisson model is rejected so later readers
+can follow the choice:
 
 ```{r decision-poisson}
 review <- Filter(
@@ -249,11 +243,11 @@ bg_record_decision(
 )
 ```
 
-## Round 2: the negative binomial
+## Fit a negative binomial model
 
-The repair is a branch, not an edit: the Poisson fit and its failed check
-stay in the record, and the branch documents its own reason for existing.
-`bg_update_node()` merges params, so only the Stan program is swapped; data,
+Create a branch for the negative binomial model. This retains the Poisson
+fit and its failed check and records the reason for the new model.
+`bg_update_node()` merges params, so only the Stan program changes; data,
 chains, and seed carry over.
 
 ```{r branch-nb}
@@ -344,13 +338,10 @@ $sd
 [1] 0.9835
 ```
 
-Real model criticism is rarely a clean pass after one repair, and the
-package does not pretend otherwise. The zero rate is now comfortably
-reproduced (`prop_zero` around 0.3), but the `max` statistic has tripped in
-the *opposite* direction: with the fitted dispersion (phi around 0.27), the
-negative binomial's tail is so heavy that almost every replicate contains a
-count *larger* than the observed maximum of 357. The model now overshoots
-the extremes it previously could not reach.
+The negative binomial reproduces the zero rate (`prop_zero` p-value around 0.3),
+but overpredicts the maximum. With the fitted dispersion (phi around 0.27),
+almost every replicate contains a count larger than the observed maximum
+of 357.
 
 ```{r plot-nb, fig.alt = "Posterior predictive density overlay for the negative binomial model"}
 bg_plot(handle, n_ppc_nb)
@@ -358,12 +349,11 @@ bg_plot(handle, n_ppc_nb)
 
 ![Posterior predictive density overlay for the negative binomial model](figures/case-study-roaches-ppc-nb.png)
 
-Is that disqualifying? This is precisely the judgment the workflow refuses
-to make for you. A tripwire fired; a human must decide what it means *for
-this question*. Our question is the average treatment effect, which is
-driven by the bulk of the count distribution, not by whether the single
-largest trap count is 357 or 3000. We record that judgment — visibly, with
-its reasoning — rather than silently ignoring a warning:
+Decide whether the overpredicted maximum invalidates the model for estimating
+the average treatment effect. That estimate depends mainly on the bulk of
+the count distribution, rather than whether the largest count is 357 or
+3000. Record the decision to retain the model and the reason for accepting
+this mismatch:
 
 ```{r decision-nb}
 nb_guide <- bg_next_actions(
@@ -393,14 +383,14 @@ bg_record_decision(
 )
 ```
 
-## Round 3: a competing hypothesis about the zeros
+## Fit a zero-inflated negative binomial model
 
 The negative binomial explains the zeros as ordinary low-count outcomes. A
 different mechanism is plausible: some apartments may have no roach
-infestation at all, producing *structural* zeros regardless of exposure. A
-zero-inflated negative binomial encodes that hypothesis. It is a genuinely
-different model of the process, so it enters as a second branch from the
-same criticized fit — not as a further edit of the NB branch:
+infestation at all, producing structural zeros regardless of exposure. A
+zero-inflated negative binomial models that possibility. Create a second
+branch from the Poisson fit so it can be compared with the negative binomial
+branch:
 
 ```{r branch-zinb}
 zinb <- bg_branch(handle, n_pois, label = "Zero-inflated NB")
@@ -481,11 +471,10 @@ $sd
 [1] 0.9572
 ```
 
-The picture is close to the plain negative binomial's: zeros comfortably
-reproduced, the same heavy-tail caveat at the margin. The structural-zero
-probability itself turns out to be small (about 7 percent on average), a
-first hint that the zero-inflation machinery may not be earning its keep.
-We record the branch's criticism decision with the same reasoning as before:
+The zero-inflated model also reproduces the zero rate and overpredicts large
+counts. The structural-zero probability averages about 7 percent, suggesting
+that the added component may contribute little. Record the branch's review
+using the same rationale as for the negative binomial:
 
 ```{r decision-zinb}
 zinb_guide <- bg_next_actions(
@@ -513,15 +502,13 @@ bg_record_decision(
 )
 ```
 
-## The enforced comparison
+## Compare the models
 
-Every fit in the project now carries reviewed evidence, and the default pack
-will not let the analysis conclude by fiat — project scope demands an
-explicit comparison. Note who is in the candidate set: all three models,
-*including* the rejected Poisson. A review decision covers evidence; it does
-not quietly erase a model from the record. The comparison is where the
-Poisson's inadequacy gets quantified, and the branch dispositions afterwards
-are where candidates are formally accepted or rejected.
+All fits now have reviewed evidence. The default pack requires a comparison
+at project scope, including the Poisson model rejected during review.
+Review decisions do not remove candidates from the graph. The comparison
+quantifies their differences; subsequent branch dispositions record which
+candidates to accept or reject.
 
 ```{r comparison-obligation}
 project_guide <- bg_next_actions(handle, scope = "project")
@@ -533,11 +520,10 @@ vapply(project_guide$obligations, `[[`, character(1), "kind")
 "compare_candidate_branches" 
 ```
 
-The comparison is PSIS-LOO (Vehtari, Gelman, and Gabry, 2017), and it is
-itself part of the graph: a `loo` node per candidate computes the
-leave-one-out estimate from that fit's log-likelihood draws (emitting its
-own Pareto-k diagnostic summary on the way), and a `compare` node consumes
-all three:
+Use PSIS-LOO (Vehtari, Gelman, and Gabry, 2017). A `loo` node for each
+candidate computes the leave-one-out estimate from its log-likelihood draws
+and emits a Pareto-k diagnostic summary. A `compare` node uses all three
+results:
 
 ```{r comparison-node}
 n_loo_pois <- bg_add_node(
@@ -590,23 +576,18 @@ $comparison_table$se_diff
 [1]   0.0000000   0.8328894 708.9827766
 ```
 
-The table is ordered best-first, and the elpd values identify the rows: the
-two count models sit at the top separated by a fraction of a standard error
-(the negative binomial narrowly ahead, as the comparison decision below
-records), and the Poisson sits at the bottom. Two things are on the record
-now. First, the gulf: the Poisson is over five thousand elpd units below
-the count models — the comparison does not merely rank it last, it
-documents *how far* last. Second, the tie at the top between the negative
-binomial and its zero-inflated extension.
+The table orders models by elpd, highest first. The negative binomial is
+slightly ahead of its zero-inflated extension, with a difference of less than
+one standard error. The Poisson is more than five thousand elpd units below
+both. These results show little difference between the two negative binomial
+models and a large difference between either one and the Poisson.
 
-### The diagnostics of the diagnostics
+### Review LOO diagnostics
 
-The loo nodes emitted their own evidence, and it does not all pass: the
-Poisson's importance sampling is unreliable (many high Pareto-k values, the
-expected signature of a badly misspecified model), and the ZINB has one
-borderline observation. Unreviewed warnings block progress here exactly as
-they did for the fits, so the workflow demands a judgment on the reliability
-of its own comparison evidence before it lets the comparison conclude:
+The Poisson's LOO importance sampling is unreliable, with many high Pareto-k
+values consistent with its poor fit. The ZINB has one borderline observation.
+These warnings block progress until a review records whether the comparison
+evidence is reliable enough to use:
 
 ```{r loo-review}
 project_guide <- bg_next_actions(handle, scope = "project")
@@ -637,9 +618,8 @@ bg_record_decision(
 
 Decisions are scope-specific, and the loo evidence for the branch fits
 lives on those branches: the project-scope decision above does not cover
-them. Each branch records the same judgment for its own evidence — the
-repetition is the point, since each active line of analysis must answer for
-what it relies on:
+them. Record the judgment separately on each branch so it applies to that
+branch's evidence:
 
 ```{r loo-review-branches}
 for (b in list(nb, zinb)) {
@@ -669,10 +649,9 @@ for (b in list(nb, zinb)) {
 }
 ```
 
-Ties are informative. The zero-inflation component adds a parameter and a
-mechanism the data do not demand — the plain negative binomial already
-produces enough zeros. Following the parsimony principle, the comparison
-decision prefers the negative binomial, and says so in the log:
+The zero-inflation component adds a parameter without a clear predictive
+improvement. The negative binomial already reproduces the zero rate, so the
+comparison decision prefers that simpler model:
 
 ```{r comparison-decision}
 project_guide <- bg_next_actions(handle, scope = "project")
@@ -706,8 +685,7 @@ bg_record_decision(
 )
 ```
 
-With a comparison on record, each branch must be explicitly closed out —
-accepted or rejected, with reasons:
+After recording the comparison, accept or reject each branch with a rationale:
 
 ```{r dispositions}
 for (b in list(
@@ -760,10 +738,10 @@ named list()
 named list()
 ```
 
-No outstanding obligations at any scope: every piece of evidence the
-workflow collected has a recorded judgment attached.
+There are no outstanding obligations at project or branch scope. The
+required reviews have been recorded.
 
-## What the enforced loop changed
+## Compare treatment-effect estimates
 
 The treatment effect, as a multiplicative factor on the
 roach count (posterior median and 90 percent interval of
@@ -775,8 +753,8 @@ roach count (posterior median and 90 percent interval of
 | Negative binomial (accepted) | 0.46 | [0.31, 0.69] |
 
 The Poisson fit estimates a 40 percent reduction. The accepted negative
-binomial fit estimates a larger reduction, with an interval roughly five
-times wider. The failed predictive check raised a blocking obligation, and
+binomial fit estimates a larger reduction, with a wider interval.
+The failed predictive check raised a blocking obligation, and
 the decision log records why the Poisson model was rejected.
 
 ```{r effect-check}
@@ -789,11 +767,11 @@ round(quantile(exp(draws), c(0.05, 0.5, 0.95)), 2)
 0.31 0.46 0.69 
 ```
 
-## The audit trail
+## Export the analysis record
 
-The graph holds all three models, their checks, and the comparison; the
-decision log holds every judgment that steered the analysis — the goals,
-the reviews, the comparison, and the dispositions:
+The graph contains all three models, their checks, and the comparison. The
+decision log records the goals, reviews, comparison decision, and branch
+dispositions:
 
 ```{r trail}
 print(bg_read_graph(handle))
@@ -836,9 +814,8 @@ branch_disposition - accept
 branch_disposition - reject 
 ```
 
-`bg_export_report()` renders the whole trail into a document — every fit,
-every diagnostic summary, every decision with its rationale, and the branch
-lineage:
+`bg_export_report()` produces a document with the graph, decisions and
+rationales, and artifact index. Diagnostic summaries remain in the project:
 
 ```{r report}
 bg_export_report(

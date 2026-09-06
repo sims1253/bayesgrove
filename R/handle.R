@@ -3,11 +3,10 @@
 #'
 #' # Decision record: S7 + environment-backed state
 #'
-#' `bg_handle` is intentionally an S7 class with an environment-backed `.state`
-#' slot (used by the jobs cache, registries, etc.). This gives reference
-#' semantics WITH S7 validation. Do NOT migrate to R6 or plain environments:
-#' the S7 validation guards are load-bearing, and plain environments would
-#' lose them. (PLAN.md Milestone 9 item 3.)
+#' `bg_handle` is an S7 class with an environment-backed `.state` slot for
+#' the jobs cache and registries. This provides reference semantics with S7
+#' validation. Keep this design: replacing it with R6 or plain environments
+#' would remove the S7 validation checks.
 #'
 #' @param project_id Unique project identifier.
 #' @param path File path to the project root.

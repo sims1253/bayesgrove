@@ -167,8 +167,7 @@ bg_executor_fingerprint_component <- function(project, node) {
 
   # Built-in executors store an executor_ref of the form "builtin:<id>" and
   # are fingerprinted by id + package version (stable across reinstalls of
-  # the same version, invalidating on upgrade). The built-in registry is
-  # established in Phase 4; until then this branch is forward-compatible.
+  # the same version, invalidating on upgrade).
   executor_ref <- kind_reg$executor_ref %||% NULL
   if (!is.null(executor_ref) && startsWith(executor_ref, "builtin:")) {
     version <- as.character(utils::packageVersion("bayesgrove"))

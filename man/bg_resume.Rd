@@ -11,6 +11,5 @@ bg_resume(project)
 }
 \description{
 Removes the pause marker, allowing the workflow to resume execution. Pair
-with \link{bg_pause}; reclassified \code{experimental} along with it (the
-wave-boundary pause semantics are new in Milestone 3).
+with \link{bg_pause}. This API is experimental.
 }

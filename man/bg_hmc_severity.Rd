@@ -28,6 +28,5 @@ overridable via node params (\code{rhat_error}, \code{rhat_warn}, \code{ess_warn
 The ESS warning threshold scales with the chain count: Vehtari et al.
 (2021) recommend ~100 effective samples per chain. When \code{metrics} carries
 an \code{n_chains} entry, \code{ess_warn} defaults to \code{100 * n_chains}; otherwise it
-stays 400 (the historical default). An explicit \code{thresholds$ess_warn}
-always wins over both.
+defaults to 400. An explicit \code{thresholds$ess_warn} overrides these defaults.
 }

@@ -203,8 +203,8 @@ bg_is_valid_kind_name <- function(kind) {
 #'
 #' On open, persisted node kinds are restored structurally only: the kind
 #' name, contracts, and the stored `executor_source` / `executor_ref` are
-#' kept as inert metadata. User-supplied executor source is NEVER evaluated
-#' here — opening a project directory must not run project-supplied code.
+#' kept as inert metadata. Opening a project directory does not evaluate
+#' user-supplied executor source.
 #' Use [bg_restore_executors()] to opt into restoring executable executors.
 #' @keywords internal
 #' @noRd
@@ -228,7 +228,7 @@ bg_restore_runtime_manifest <- function(project) {
     }
 
     # Built-in executors are safe to restore by reference: they resolve
-    # through the package-internal bg_builtin_executors() registry (Phase 4).
+    # through the package-internal bg_builtin_executors() registry.
     executor_ref <- entry$executor_ref %||% NULL
     if (!is.null(executor_ref) && startsWith(executor_ref, "builtin:")) {
       executor <- bg_resolve_builtin_executor(executor_ref)
@@ -251,7 +251,7 @@ bg_restore_runtime_manifest <- function(project) {
   }
 
   # Summary-kind registrations are plain data (no code), so they restore
-  # fully on open — no trust gate needed.
+  # fully on open without requiring trust approval.
   if (length(summary_entries) > 0) {
     if (is.null(project@registries$summary_kinds)) {
       project@registries$summary_kinds <- list()
@@ -365,9 +365,9 @@ bg_restore_executors <- function(project, trust = FALSE) {
 
 #' Resolve a built-in executor reference to its function.
 #'
-#' Built-in executors (established in Phase 4) are persisted as
+#' Built-in executors are persisted as
 #' `"builtin:<id>"` references and resolve through the package-internal
-#' registry. Until that registry exists this returns NULL.
+#' registry. Returns NULL if the registry is unavailable.
 #' @keywords internal
 #' @noRd
 bg_resolve_builtin_executor <- function(executor_ref) {
@@ -590,9 +590,9 @@ bg_open <- function(path = ".", readonly = FALSE, force = FALSE) {
 #' A project restored from [bg_bundle()] carries
 #' `.bayesgrove/bundle_manifest.json` with the reproducibility manifest of the
 #' machine that produced it. On open, compare the recorded R version, platform,
-#' and CmdStan version against the current session and warn on mismatch — the
-#' cache stays valid (fingerprints decide reruns), but the user should know the
-#' environment differs before trusting bit-level reproducibility.
+#' and CmdStan version against the current session and warn on mismatch.
+#' Fingerprints determine cache validity. An environment mismatch can affect
+#' bit-level reproducibility.
 #' @keywords internal
 #' @noRd
 bg_warn_on_bundle_manifest_mismatch <- function(handle) {

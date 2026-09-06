@@ -44,8 +44,8 @@ print.bg_run_handle <- function(x, ...) {
     cli::cli_alert_danger("Error: {error_message}")
   }
 
-  # When blocked, surface the held nodes + their reason and the resolving call,
-  # so the console UI carries the protocol forward.
+  # When blocked, show the held nodes, their reasons, and the call that
+  # resolves each hold.
   if (identical(status_text, "blocked")) {
     held <- x$metadata$held_by_policy %||% list()
     if (length(held) > 0L) {

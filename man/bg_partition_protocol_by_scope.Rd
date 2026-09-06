@@ -22,6 +22,5 @@ A named list where each element corresponds to a scope, containing:
 }
 \description{
 Helper for UI layers to group obligations and actions by scope. Returns
-a nested structure where each scope has its own obligations and actions,
-making branch-aware rendering straightforward.
+a nested structure where each scope has its own obligations and actions.
 }

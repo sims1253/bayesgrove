@@ -1,7 +1,7 @@
 # Bayesian Semantics Workflow Pack - Helper Functions
 # ---------------------------------------------------
 # Context helpers, summary accessors, decision helpers, and review/goal
-# utilities shared across the phase-10 workflow pack.
+# utilities shared across the Bayesian workflow packs.
 
 # --- Context Helpers ---
 

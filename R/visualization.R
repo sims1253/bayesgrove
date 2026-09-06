@@ -1,7 +1,6 @@
-# Visualization (Milestone 7) ------------------------------------------------
+# Visualization --------------------------------------------------------------
 #
-# Thin visualization surface. bg_graph_mermaid renders the active graph as a
-# Mermaid flowchart (pure string manipulation, zero new deps) using
+# bg_graph_mermaid renders the active graph as a Mermaid flowchart using
 # dagriculture's dagri_mermaid, extended with bayesgrove state coloring
 # (cached/ready/held/blocked/failed). bg_plot dispatches on a node's
 # artifact/summary kind to a bayesplot method.
@@ -10,8 +9,8 @@
 #'
 #' Emits Mermaid flowchart text for the active graph: node label + kind, state
 #' coloring (cached/ready/held/blocked/failed), and branch grouping via
-#' subgraphs. Pure string manipulation — zero new dependencies — renders on
-#' GitHub and in Quarto. Embed the output in [bg_export_report].
+#' subgraphs. Produces text without additional dependencies. The output renders
+#' on GitHub and in Quarto. Embed it in [bg_export_report].
 #'
 #' @param project A `bg_handle`.
 #' @param direction Mermaid graph direction (default `"TD"`; also `"LR"`).
@@ -91,8 +90,8 @@ print.bg_mermaid <- function(x, ...) {
 #'
 #' For posterior-predictive checking, this graphical view is the primary
 #' diagnostic: the p-values in a `ppc` node's summary are conservative
-#' tripwires that flag gross misfit, and an unremarkable p-value is weak
-#' evidence of adequacy. Read the overlay, not just the numbers.
+#' checks that flag substantial misfit. An unremarkable p-value is weak
+#' evidence of adequacy. Inspect the overlay alongside the p-values.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id The node to plot.

@@ -1,9 +1,8 @@
 # Practitioner convenience helpers ----------------------------------------
 #
-# Pure sugar over the existing graph verbs. Each one collapses the minimal
-# fit into a single call: create the data node, create the fit node, run it,
-# and return the fit node id (invisibly) with the run handle printed. No new
-# semantics; all extra `...` params pass through to the fit node.
+# Each helper creates a data node and a fit node, runs the fit, and returns
+# the fit node id invisibly while printing the run handle. Extra `...` params
+# pass through to the fit node.
 
 #' Require backend kinds before a sugar helper starts mutating the graph.
 #' @keywords internal
@@ -24,7 +23,7 @@ bg_require_backend_kinds <- function(handle, kinds, setup_function) {
 #'
 #' Creates a data node (via [bg_set_node_data]), a `cmdstanr_fit` node consuming
 #' it, dispatches [bg_run], and returns the fit node id invisibly while printing
-#' the run handle. Pure sugar over the existing verbs — no new semantics. Extra
+#' the run handle. Extra
 #' arguments in `...` become the fit node's params (e.g. `chains`, `seed`,
 #' `iter_warmup`, `iter_sampling`).
 #'
@@ -73,7 +72,7 @@ bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
 #'
 #' Creates a data node (via [bg_set_node_data]), a `brms_fit` node consuming
 #' it, dispatches [bg_run], and returns the fit node id invisibly while printing
-#' the run handle. Pure sugar over the existing verbs. Extra arguments in `...`
+#' the run handle. Extra arguments in `...`
 #' become the fit node's params (e.g. `chains`, `seed`, `iter`).
 #'
 #' Call [bg_use_brms()] first so the `brms_fit` kind is registered.

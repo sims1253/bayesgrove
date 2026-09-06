@@ -19,6 +19,6 @@ copy-pasteable at the console and embeddable as a string).
 \description{
 Emits Mermaid flowchart text for the active graph: node label + kind, state
 coloring (cached/ready/held/blocked/failed), and branch grouping via
-subgraphs. Pure string manipulation — zero new dependencies — renders on
-GitHub and in Quarto. Embed the output in \link{bg_export_report}.
+subgraphs. Produces text without additional dependencies. The output renders
+on GitHub and in Quarto. Embed it in \link{bg_export_report}.
 }

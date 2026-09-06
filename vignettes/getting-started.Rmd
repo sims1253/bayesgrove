@@ -27,10 +27,10 @@ then record a review and try a lognormal model. This tutorial requires
 cmdstanr and CmdStan. The displayed results come from a recorded run; your
 sampler output may differ. See [Concepts](concepts.html) for terminology.
 
-## A project and a first fit
+## Create a project and fit a model
 
-Every analysis lives in an initialized project: a directory with a
-`.bayesgrove/` folder holding the graph, the cache, and the decision log.
+An initialized project is a directory with a `.bayesgrove/` folder containing
+the graph, cache, and decision log.
 `bg_use_cmdstanr()` registers the Stan-backed node kinds, and
 `bg_use_default_workflow()` opts into the built-in review pack (register
 the backend first, so the pack sees the real node kinds rather than its
@@ -47,18 +47,16 @@ bg_use_cmdstanr(handle)
 bg_use_default_workflow(handle)
 ```
 
-The data are 50 skewed, strictly positive measurements. We will do what
-analysts do all the time: start with a normal model anyway.
+The data are 50 skewed, strictly positive measurements. Start by fitting a
+normal model.
 
 ```{r data}
 set.seed(31)
 y <- round(rlnorm(50, meanlog = 0, sdlog = 0.8), 3)
 ```
 
-`bg_fit_stan()` collapses the minimal lifecycle into one call: it creates a
-data node, attaches the data, creates a fit node consuming it, and runs the
-fit. The package ships the example Stan programs, so the code below runs as
-pasted.
+`bg_fit_stan()` creates a data node, attaches the data, and creates and runs
+a fit node that uses it. The example Stan programs are included in the package.
 
 ```{r fit}
 normal_program <- system.file(
@@ -88,7 +86,7 @@ n_fit <- bg_fit_stan(
 
 The fit has no divergences and good R-hats. `bg_status()` shows the
 project state, and `bg_next_actions()` asks the workflow pack whether any
-evidence demands attention:
+evidence needs review:
 
 ```{r first-guidance}
 bg_status(handle)
@@ -129,15 +127,13 @@ guide$obligations
 #> named list()
 ```
 
-No obligations. That is worth pausing on: an empty answer here is not
-"nothing happened", it is a positive statement that every fresh summary in
-the project has been reviewed or is unremarkable. So far the only summary is
-the clean HMC diagnostic from the fit.
+There are no obligations: the only summary is the fit's HMC diagnostic,
+which reports no problems. The pack requests no further review of that summary.
 
-## A check that fails
+## Check the model's predictions
 
-Clean sampling says the *computation* worked, not that the *model* is any
-good. The built-in `ppc` node kind computes posterior-predictive p-values
+Sampler diagnostics assess computation, not model fit. The built-in `ppc`
+node kind computes posterior-predictive p-values
 for a set of test statistics and stores plot-ready draws. It takes two
 inputs: the fit (for the `yrep` draws) and the data node (for the observed
 `y`). The fit's data node is simply the fit node's input, so we can read it
@@ -166,8 +162,8 @@ run <- bg_run(handle, targets = n_ppc)
 ```
 
 The p-values compare each statistic of the observed data against its
-posterior-predictive distribution. Values near 0 or 1 mean the model cannot
-reproduce that feature of the data:
+posterior-predictive distribution. Values near 0 or 1 flag features that the
+model reproduces poorly:
 
 ```{r ppc-summary}
 ppc_summary <- bg_read_summaries(handle, include_stale = FALSE)
@@ -205,12 +201,11 @@ bg_plot(handle, n_ppc)
 
 ![Posterior predictive density overlay for the normal model](figures/getting-started-ppc-normal.png)
 
-## The obligation, and the decision that answers it
+## Record a review
 
-The extreme p-values arrived as a `warning`-severity summary, and the
-default pack raises a blocking obligation. At project scope it uses
-`review_computation_validity` (the optional packs add more specific
-vocabularies):
+The summary has `warning` severity because of the extreme p-values. The
+default pack raises a blocking `review_computation_validity` obligation at
+project scope. Optional packs use more specific obligation kinds:
 
 ```{r obligation}
 guide <- bg_next_actions(handle)
@@ -225,10 +220,10 @@ vapply(guide$actions, `[[`, character(1), "kind")
 #>   "record_decision" "branch_and_modify"
 ```
 
-An *obligation* is a demand raised from evidence; each one comes with
-suggested *actions* that would resolve it. Blocking obligations also
-translate into *holds*: pass them to the planner and any node downstream of
-the criticized one stays parked until the review happens.
+An obligation identifies work needed to address the evidence and suggests
+actions to resolve it. Blocking obligations create execution holds. Pass
+these holds to the planner to prevent downstream nodes from running until
+the review is recorded.
 
 ```{r holds}
 held_plan <- bg_plan(handle, external_holds = guide$metadata$external_holds)
@@ -283,14 +278,13 @@ bg_next_actions(handle)$obligations
 The recorded review resolves the obligation. The summary and decision
 remain available so a reviewer can trace the rejection to its evidence.
 
-## Branch to the repair
+## Fit a lognormal model on a branch
 
 Try the lognormal model on a branch to keep the rejected fit and its
 criticism in the record. `bg_branch()` copies the
 fit node into a new branch; `bg_update_node()` merges params, so only the
-Stan program needs swapping. The default pack asks every active branch for
-an inferential goal, which doubles as documentation of why the branch
-exists.
+Stan program changes. The default pack requires an inferential goal for each
+active branch. The goal records what the branch is intended to estimate.
 
 ```{r branch}
 branch <- bg_branch(handle, n_fit, label = "Lognormal model")
@@ -327,7 +321,7 @@ run2 <- bg_run(handle, targets = branch$root_node_id)
 #> Running node "node_4610511f"...
 ```
 
-A second `ppc` node on the branch confirms the repair:
+A second `ppc` node checks the lognormal model's predictions:
 
 ```{r branch-ppc}
 n_ppc2 <- bg_add_node(
@@ -371,8 +365,7 @@ ppc2$metrics
 ```
 
 Both models remain in the graph: the rejected normal fit with its failed
-check and the decision that rejected it, and the lognormal fit with a clean
-one:
+check and recorded rejection, and the lognormal fit whose check passed:
 
 ```{r graph}
 print(bg_read_graph(handle))

@@ -18,7 +18,7 @@ not enforced), \code{emitted_by} (free text), \code{consumed_by_packs} (characte
 \subsection{Evidence coverage}{
 
 Every summary kind a built-in workflow pack matches on is emitted by at
-least one shipped executor (or is documented as "bring your own"). The
+least one shipped executor (or is documented as requiring a user executor). The
 table below maps the kinds packs most commonly ask for to the built-in node
 kind that produces them:\tabular{lll}{
    summary kind \tab produced by built-in kind \tab notes \cr
@@ -29,15 +29,15 @@ kind that produces them:\tabular{lll}{
    \code{loo_pit_calibration} \tab \code{loo_pit} \tab randomized PIT + PIET severity \cr
    \code{sbc_result} \tab \code{sbc} \tab ESS-bounded ranks + valid bins \cr
    \code{comparison_results} / \code{stacking_weights} \tab \code{compare} \tab model comparison \cr
-   \code{prior_spec} \tab user executor \tab bring your own (record prior) \cr
-   \code{projpred_selection} \tab user executor \tab bring your own (\code{projpred}) \cr
-   \verb{causal_*} / \verb{pad_*} \tab user executors \tab bring your own (causal/PAD) \cr
+   \code{prior_spec} \tab user executor \tab record the prior \cr
+   \code{projpred_selection} \tab user executor \tab use \code{projpred} \cr
+   \verb{causal_*} / \verb{pad_*} \tab user executors \tab supply causal/PAD evidence \cr
 }
 
 
 A test (\code{test-summary-vocabulary-coverage.R}) asserts every literal
-\code{summary_kinds = "<kind>"} referenced by a pack source is present here, so a
-pack can never demand evidence no shipped executor can produce without the
-vocabulary (and its test) being updated in lockstep.
+\code{summary_kinds = "<kind>"} referenced by a pack source is present here.
+New summary kinds used by packs require a vocabulary entry that identifies
+a built-in or user executor as the source.
 }
 }

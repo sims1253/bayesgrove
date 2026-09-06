@@ -1,6 +1,5 @@
 # Registry persistence: branch registry, goal registry, lifecycle state
-# helpers, branch records, and branch listing / scope labels. Pure moves
-# from workflow-context.R (M9 item 1).
+# helpers, branch records, and branch listing / scope labels.
 
 # --- Workflow Directory and Registry Paths ---
 

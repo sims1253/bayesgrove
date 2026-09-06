@@ -145,10 +145,9 @@ bg_canonicalize_action <- function(action, pack_ref) {
 
 #' Validate the stable shape at the protocol canonicalization boundary.
 #'
-#' This intentionally checks the fields that downstream code navigates rather
-#' than re-reading the on-disk JSON schema for every provider result. It turns
-#' misspelled or omitted provider fields into an immediate actionable error at
-#' the one boundary all obligation/action values cross.
+#' Checks the fields used by downstream code without rereading the on-disk
+#' JSON schema for each provider result. Reports misspelled or missing fields
+#' before downstream code receives an obligation or action.
 #' @keywords internal
 #' @noRd
 bg_assert_protocol_item <- function(item, type = c("obligation", "action")) {

@@ -8,9 +8,8 @@
 #'   Built-in refs are `diagnostic_check`, `sbc_check`, `branch_comparison`,
 #'   `branch_and_modify_fit`, and `review_decision`.
 #'
-#' @details Built-in templates are intentionally small and explicit. Some
-#'   create nodes directly, while others wrap narrow workflow macros such as
-#'   `bg_branch(continue = )` or `bg_record_decision()`. The guided REPL
+#' @details Built-in templates create nodes directly or call workflow
+#'   functions such as `bg_branch(continue = )` or `bg_record_decision()`. The REPL
 #'   uses the same registry to execute template-backed actions.
 #' @export
 bg_list_templates <- function(template_ref = NULL) {

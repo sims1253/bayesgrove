@@ -19,7 +19,7 @@ decisions. The workflow follows the simulation-oriented perspective of
 <https://arxiv.org/abs/2408.06504> and
 <https://arxiv.org/abs/2210.06927> and uses base R model fitting.
 
-The study asks a simple question: when treatment assignment is confounded, does
+When treatment assignment is confounded, does
 an adjustment-aware model outperform a naive model that omits the confounder?
 
 # Setup
@@ -35,8 +35,7 @@ handle <- bg_init(project_root, project_name = "simulation-study")
 
 # Register node kinds
 
-Each node kind below is deliberately simple, but together they already resemble
-a structured workflow:
+The graph uses these node kinds:
 
 - a scenario node defines the data-generating condition,
 - simulation nodes generate train/test data,
@@ -241,7 +240,7 @@ randomized <- build_branch(handle, "Randomized", confounding = 0.0, seed = 101)
 confounded <- build_branch(handle, "Confounded", confounding = 1.1, seed = 202)
 ```
 
-# First run: execute everything up to the decision gates
+# Run up to the decision gates
 
 The comparison nodes are blocked, but the descriptive summaries and both model
 branches can already run.
@@ -260,11 +259,11 @@ bg_result(handle, randomized$descriptive)
 bg_result(handle, confounded$descriptive)
 ```
 
-# Resolve the gates with explicit rationale
+# Answer the gates
 
 The randomized branch should not show systematic imbalance, whereas the
-confounded branch usually does. We record that distinction as an explicit
-decision rather than letting the workflow silently continue.
+confounded branch usually does. Record that distinction in the gate decisions
+before running the comparison nodes.
 
 ```{r decisions}
 bg_answer_gate(
@@ -302,7 +301,7 @@ bg_answer_gate(
 )
 ```
 
-# Second run: execute the comparison nodes
+# Run the comparisons
 
 ```{r run-after-gates}
 second_run <- bg_run(handle)
@@ -317,10 +316,9 @@ bg_result(handle, confounded$compare)$ranking
 ```
 
 In a typical run, the randomized scenario keeps the two models close, while the
-confounded scenario penalizes the naive model more strongly. That is the kind of
-structured depth-first search bayesgrove is well positioned to support: each
-branch is explicit, caches are reused automatically, and the rationale for the
-next step is stored alongside the computational state.
+confounded scenario penalizes the naive model more strongly. The graph records
+each branch, reuses cached results, and stores the reasons for each next step
+alongside the computation state.
 
 # Export an audit report
 

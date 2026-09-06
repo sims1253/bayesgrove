@@ -249,8 +249,8 @@ bg_normalize_workflow_pack_refs <- function(specs) {
 #'   `bayesgrove.model_selection`, `bayesgrove.causal_minimal`, and
 #'   `bayesgrove.pad_scaffold`.
 #'
-#' @details The built-in default pack is an opinionated Bayesian workflow
-#'   layer. It derives computation-review obligations from fresh warning/error
+#' @details The built-in default pack derives computation-review obligations
+#'   from fresh warning/error
 #'   summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 #'   requires project-scoped comparison decisions when multiple fit candidates
 #'   are clean, and asks each candidate branch to be explicitly accepted or
@@ -333,7 +333,7 @@ bg_resolve_pack_includes <- function(pack_refs) {
 
   resolved <- list()
   # Tracks packs already expanded via includes (transitive closure). Top-level
-  # active packs are NOT deduped here — literal duplicates are handled by
+  # active packs are not deduplicated here; literal duplicates are handled by
   # bg_merge_protocol_items so the merged item records pack_ids correctly.
   included_seen <- character(0)
 
@@ -359,7 +359,7 @@ bg_resolve_pack_includes <- function(pack_refs) {
     included_seen <<- c(included_seen, pack_id)
 
     # Resolve included packs first (depth-first) so the includer's own
-    # providers run last, matching the old explicit-bundle ordering.
+    # providers run last.
     includes <- pack$includes %||% character()
     for (included_id in includes) {
       included_ref <- list(
@@ -443,7 +443,7 @@ bg_blocking_obligation_holds <- function(project, obligations, graph = NULL) {
   # Thread the already-loaded graph through to avoid re-reading it on every
   # protocol evaluation (the run loop calls this once per executed node). Callers
   # that already hold the recomputed-state graph pass it; otherwise fall back to
-  # a fresh read so behavior is unchanged for one-shot callers.
+  # a fresh read.
   if (is.null(graph)) {
     graph <- bg_read_graph(project)
   }
@@ -654,8 +654,7 @@ bg_workflow_obligations_impl <- function(
 #' Partition protocol results by scope
 #'
 #' Helper for UI layers to group obligations and actions by scope. Returns
-#' a nested structure where each scope has its own obligations and actions,
-#' making branch-aware rendering straightforward.
+#' a nested structure where each scope has its own obligations and actions.
 #'
 #' @param result A `bg_next_actions` result object.
 #' @param project Optional `bg_handle` to include display labels.

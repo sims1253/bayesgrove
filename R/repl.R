@@ -14,14 +14,13 @@
 #' reviewing protocol guidance, and applying common workflow actions without
 #' manually calling the lower-level APIs.
 #'
-#' The REPL is scope-aware. In project scope it can surface obligations and
-#' actions across the whole workflow; in branch scope it focuses on the selected
-#' branch and its branch-local graph view.
+#' In project scope, the REPL shows obligations and actions across the whole
+#' workflow. In branch scope, it shows the selected branch and its graph.
 #'
 #' Supported commands include:
 #' \itemize{
 #'   \item `help`: show the command list
-#'   \item `dashboard`: show the guided operator dashboard
+#'   \item `dashboard`: show workflow status, obligations, holds, and decisions
 #'   \item `status`: print workflow state and health
 #'   \item `guide`: show active obligations and suggested actions
 #'   \item `explain <n>`: show an obligation's rationale and references
@@ -359,7 +358,7 @@ bg_repl <- function(project, initial_scope = NULL) {
                     "(Empty artifact, execution only returned summaries or metadata)"
                   ))
                 } else if (is.list(res)) {
-                  # Format a nice summary of the list instead of dumping it raw
+                  # Print a summary of the list.
                   for (nm in names(res)) {
                     val <- res[[nm]]
                     if (is.atomic(val) && length(val) == 1) {

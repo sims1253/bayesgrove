@@ -35,6 +35,6 @@ missing or the node kind has no plot.
 
 For posterior-predictive checking, this graphical view is the primary
 diagnostic: the p-values in a \code{ppc} node's summary are conservative
-tripwires that flag gross misfit, and an unremarkable p-value is weak
-evidence of adequacy. Read the overlay, not just the numbers.
+checks that flag substantial misfit. An unremarkable p-value is weak
+evidence of adequacy. Inspect the overlay alongside the p-values.
 }

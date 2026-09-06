@@ -341,7 +341,7 @@ bg_create_job <- function(project, run_id, node_id, backend = "local") {
 #' Update an existing job record
 #'
 #' Reads the current jobs (from the cache), applies the field updates, appends
-#' the updated snapshot to the log, and refreshes the cache in place — without
+#' the updated snapshot to the log, and refreshes the cache in place without
 #' a second full parse of the log.
 #'
 #' @param project A `bg_handle`.

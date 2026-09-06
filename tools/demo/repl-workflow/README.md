@@ -1,35 +1,33 @@
-# REPL VHS Demos
+# REPL VHS demos
 
-This directory contains several focused REPL demos instead of one large
-walkthrough for every use case.
+This directory contains REPL recordings for individual workflow steps and a
+full walkthrough.
 
 Available tapes:
 
-- `repl-showcase.tape`: the shortest clip; warning, repair, rerun, and a comparison-ready end state
-- `repl-remediation.tape`: starts at a warning-driven branch and shows the
-  template-backed remediation loop
-- `repl-comparison.tape`: starts at the comparison-ready checkpoint and focuses
-  on `branch_comparison`
-- `repl-disposition.tape`: starts after model comparison and focuses on the
-  final branch disposition action
-- `repl-workflow.tape`: the original full end-to-end walkthrough
+- `repl-showcase.tape`: the shortest clip; review a warning, repair the model,
+  and rerun it so the candidates are ready for comparison
+- `repl-remediation.tape`: starts with a branch that has a diagnostic warning
+  and uses templates to repair it
+- `repl-comparison.tape`: starts with candidates ready for comparison and
+  demonstrates `branch_comparison`
+- `repl-disposition.tape`: starts after model comparison and records the final
+  branch disposition
+- `repl-workflow.tape`: the full walkthrough
 
-Each focused tape uses the same launcher and checkpoints into a meaningful
-state instead of replaying the full setup story every time.
+Each recording uses the same launcher. The shorter recordings start from a
+checkpoint.
 
 If you want a single short asset, start with `repl-showcase.mp4`.
 
-These demos are intentionally REPL-first. They exercise the guided terminal
-client surface end to end.
+The demos use the REPL and the `bayesgrove.default_bayesian` workflow pack.
+Using one pack keeps the recordings short and deterministic. For prior-workflow,
+model-check, model-selection, causal, and PAD examples, see
+`vignette("extensions", package = "bayesgrove")`.
 
-They also intentionally stay on the narrow `bayesgrove.default_bayesian`
-workflow pack so the tapes remain short and deterministic. For examples of the
-new prior-workflow, model-check, model-selection, causal, and PAD extension
-surfaces, see `vignette("extensions", package = "bayesgrove")`.
-
-The flow they demonstrate: resume from a checkpoint, inspect protocol guidance, branch to resolve
-diagnostics, execute template-backed comparison/review actions, compare clean
-candidates, and explicitly accept the surviving branch.
+The workflow starts from a checkpoint. You inspect the guidance, branch to
+resolve diagnostic problems, use templates for comparisons and reviews, compare
+candidates that pass the checks, and accept a branch.
 
 Run the full launcher manually from the repository root:
 
@@ -38,7 +36,7 @@ R --quiet
 source("tools/demo/repl-workflow/launch-demo.R")
 ```
 
-Once the REPL opens, the guided operator flow is:
+Once the REPL opens, use these commands:
 
 - `dashboard` to refresh the full status, obligations, holds, and decisions view
 - `next` to preview the top recommended action before execution
@@ -64,7 +62,7 @@ vhs tools/demo/repl-workflow/repl-disposition.tape
 vhs tools/demo/repl-workflow/repl-workflow.tape
 ```
 
-Render every checked-in demo plus matching GIF previews in one shot:
+Render all checked-in demos and matching GIF previews:
 
 ```bash
 bash tools/demo/repl-workflow/render-all-demos.sh

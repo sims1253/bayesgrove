@@ -1,8 +1,8 @@
-#' Execute a workflow action from the protocol surface
+#' Execute a workflow action
 #'
 #' Resolves an action by `action_id` from the current `bg_next_actions()`
-#' surface and executes it inside bayesgrove so GUI clients do not need to own
-#' workflow-command semantics.
+#' result and executes it inside bayesgrove. GUI clients can call this function
+#' without implementing the workflow commands themselves.
 #'
 #' @param project A `bg_handle`.
 #' @param action_id Action identifier from `bg_next_actions()`.
@@ -49,8 +49,8 @@ bg_execute_action <- function(project, action_id, overrides = list()) {
 
 #' Return the descriptive extension registry for a project
 #'
-#' Exposes Bayesgrove-owned runtime extension descriptors as a read-only,
-#' protocol-facing registry for GUI consumers.
+#' Returns bayesgrove's runtime extension descriptors in a read-only registry
+#' for GUI clients.
 #'
 #' @param project A `bg_handle`.
 #'

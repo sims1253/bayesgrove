@@ -1,10 +1,9 @@
 # Adapter layer for graph-generic operations.
 #
-# The edge-diff and edge-traversal helpers below are thin pass-throughs to
-# `dagriculture` (>=0.3.0), which now owns them as the canonical `dagri_*`
-# implementations. Bayesgrove keeps the `bg_dagri_*` wrappers so internal call
-# sites read consistently and so a future dagriculture API change has one
-# adapter to update rather than N call sites.
+# The edge-diff and edge-traversal helpers call the `dagri_*` implementations
+# in `dagriculture` (>=0.3.0). The `bg_dagri_*` wrappers give internal callers
+# a consistent interface and contain any changes needed for a new
+# dagriculture API.
 
 # --- Node Operations ---
 

@@ -134,17 +134,17 @@ bg_build_api_boundary_registry <- function() {
 #' }
 #'
 #' @details
-#' ## Classification Meanings
+#' ## Classification meanings
 #'
 #' \itemize{
 #'   \item `stable`: Core public API expected to remain backward-compatible.
 #'     Includes project lifecycle, graph editing, branching, decisions,
 #'     execution control, status/results, and established workflow entry points.
 #'   \item `experimental`: Newer or provisional APIs that may evolve.
-#'     Includes workflow protocol/context/template surfaces, REPL, and
-#'     practitioner sugar helpers.
-#'   \item `internal`: Technically exported for worker/process reasons
-#'     but not intended as ergonomic user-facing API. Includes artifact helpers,
+#'     Includes workflow protocol, context and template APIs, the REPL, and
+#'     convenience functions for fitting models.
+#'   \item `internal`: Exported for use by workers or other processes.
+#'     Not intended for direct use in analyses. Includes artifact helpers,
 #'     job primitives, and backend registration.
 #'   \item `deprecated`: Kept temporarily for backward compatibility and
 #'     warns on use.

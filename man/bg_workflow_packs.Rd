@@ -20,8 +20,8 @@ pack id is \code{bayesgrove.default_bayesian}. Additional built-in pack ids are
 List active workflow packs
 }
 \details{
-The built-in default pack is an opinionated Bayesian workflow
-layer. It derives computation-review obligations from fresh warning/error
+The built-in default pack derives computation-review obligations
+from fresh warning/error
 summaries, adds branch-scoped fit criticism for model-diagnostic evidence,
 requires project-scoped comparison decisions when multiple fit candidates
 are clean, and asks each candidate branch to be explicitly accepted or

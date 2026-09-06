@@ -73,8 +73,8 @@ bg_write_summaries <- function(
 #' Validate a summary record before writing.
 #'
 #' Aborts on malformed structure (missing/non-string summary_kind, bad severity,
-#' non-logical passed, non-named-list metrics). Warns — but still allows the
-#' write — when the summary_kind is not in the vocabulary, naming the nearest
+#' non-logical passed, non-named-list metrics). Warns but allows the write
+#' when the summary_kind is not in the vocabulary, naming the nearest
 #' known kind as a typo suggestion.
 #' @keywords internal
 #' @noRd

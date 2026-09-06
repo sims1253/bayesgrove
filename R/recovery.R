@@ -39,11 +39,10 @@ bg_snapshot <- function(project) {
 #' Pausing the workflow stops auto-advancing and marks the workflow state
 #' so that no new jobs are dispatched. It does not cancel currently running jobs.
 #'
-#' In a synchronous runtime this is a near-no-op: it only gates the next
-#' [bg_run] call. Under parallel execution (Milestone 3) pause takes effect at
-#' WAVE BOUNDARIES — the in-flight wave finishes, then the run stops before the
-#' next wave dispatches, and [bg_resume] clears the flag. Reclassified
-#' `experimental` while the wave-boundary semantics settle.
+#' In a synchronous runtime the pause marker prevents the next [bg_run] call
+#' from starting work. Under parallel execution, pause takes effect at wave
+#' boundaries: the current wave finishes, then the run stops before the next
+#' wave starts. [bg_resume] clears the flag. This API is experimental.
 #'
 #' @param project A `bg_handle`.
 #'
@@ -66,8 +65,7 @@ bg_pause <- function(project) {
 #' Resume the workflow execution
 #'
 #' Removes the pause marker, allowing the workflow to resume execution. Pair
-#' with [bg_pause]; reclassified `experimental` along with it (the
-#' wave-boundary pause semantics are new in Milestone 3).
+#' with [bg_pause]. This API is experimental.
 #'
 #' @param project A `bg_handle`.
 #'
