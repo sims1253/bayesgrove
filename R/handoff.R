@@ -47,14 +47,13 @@ bg_reproducibility_manifest <- function() {
 #' Bundle a bayesgrove project for reproducible handoff
 #'
 #' Creates a portable `.tar.gz` archive of the project, including the structural
-#' graph, decision log, job history, configuration, and optionally cached artifacts
-#' or raw data files.
+#' graph, decision log, job history, configuration, attached data, and cached
+#' artifacts. Model fit artifacts are optional. External files referenced by
+#' node params (such as Stan programs) are not copied or relocated.
 #'
 #' @param project A `bg_handle`.
 #' @param path File path where the bundle should be saved (default: a temp file).
-#' @param include_data How to handle external data sources: 'omit',
-#'   'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
-#'   treated as 'omit'.
+#'   Relative paths are resolved from the current working directory.
 #' @param include_fits Logical, whether to package the large model fit artifacts.
 #'
 #' @return The file path to the generated bundle.
@@ -62,18 +61,9 @@ bg_reproducibility_manifest <- function() {
 bg_bundle <- function(
   project,
   path = NULL,
-  include_data = c("omit", "freeze_source", "copy", "recipe_only"),
   include_fits = FALSE
 ) {
-  include_data <- match.arg(include_data)
   S7::check_is_S7(project, bg_handle)
-
-  if (identical(include_data, "recipe_only")) {
-    cli::cli_warn(
-      "include_data = 'recipe_only' is deprecated; using 'omit' instead."
-    )
-    include_data <- "omit"
-  }
 
   if (is.null(path)) {
     path <- file.path(
@@ -85,6 +75,10 @@ bg_bundle <- function(
       )
     )
   }
+  path <- file.path(
+    normalizePath(dirname(path), mustWork = TRUE),
+    basename(path)
+  )
 
   # Ensure the project state is up to date
   snap <- bg_snapshot(project)
@@ -126,7 +120,16 @@ bg_bundle <- function(
       file.copy(idx_src, cache_dest)
     }
 
-    # Conditionally copy actual RDS artifacts
+    # Attached data are not indexed execution results, but must travel with
+    # the graph even if their nodes have never run.
+    artifact_refs <- unlist(
+      lapply(snap$graph$nodes, function(node) {
+        node$params$data_ref
+      }),
+      use.names = FALSE
+    )
+
+    # Include indexed results unless their bindings identify a model fit.
     idx <- bg_read_artifact_index(project)
 
     for (fp in names(idx)) {
@@ -168,7 +171,18 @@ bg_bundle <- function(
         next
       }
 
-      hash <- sub("^cas:sha256:", "", meta$artifact_ref)
+      artifact_refs <- c(artifact_refs, meta$artifact_ref)
+    }
+
+    for (ref in unique(artifact_refs)) {
+      if (
+        !is.character(ref) ||
+          is.na(ref) ||
+          !grepl("^cas:sha256:[0-9a-f]{64}$", ref)
+      ) {
+        next
+      }
+      hash <- sub("^cas:sha256:", "", ref)
       prefix <- substr(hash, 1, 2)
       cas_file <- file.path(cache_src, "sha256", prefix, paste0(hash, ".rds"))
 
@@ -179,6 +193,8 @@ bg_bundle <- function(
           showWarnings = FALSE
         )
         file.copy(cas_file, file.path(cache_dest, "sha256", prefix))
+      } else {
+        cli::cli_warn("Bundle is missing referenced artifact {.val {ref}}.")
       }
     }
   }
@@ -192,7 +208,6 @@ bg_bundle <- function(
     bundle_id = bg_new_id("bundle"),
     project_id = project@project_id,
     created_at = bg_now_timestamp(),
-    data_policy = include_data,
     include_fits = include_fits,
     reproducibility = bg_reproducibility_manifest()
   )
@@ -229,25 +244,16 @@ bg_bundle <- function(
 #' @param path Optional output path. Defaults to `workflow_report.md` or
 #'   `workflow_report.html` in the project root depending on `format`.
 #' @param format Output format: markdown (`"md"`) or html (`"html"`).
-#' @param out_file Deprecated alias for `path`.
 #'
 #' @return The path to the written report file.
 #' @export
 bg_export_report <- function(
   project,
   path = NULL,
-  format = c("html", "md"),
-  out_file = NULL
+  format = c("html", "md")
 ) {
   S7::check_is_S7(project, bg_handle)
   format <- match.arg(format)
-
-  if (!is.null(out_file)) {
-    cli::cli_warn(
-      "`out_file` is deprecated; use `path` and `format` instead."
-    )
-    path <- out_file
-  }
 
   if (is.null(path)) {
     path <- file.path(

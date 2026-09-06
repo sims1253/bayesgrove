@@ -4,8 +4,17 @@
 
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
 * Removed the ignored `auto_advance` argument from `bg_status()`.
+* Removed `bg_export_report(out_file = )`; use `path = ` instead.
+* Removed the ineffective `include_data` argument from `bg_bundle()`. Bundles
+  include attached data but do not copy external files referenced by node params.
 * JSON storage preserves double precision. Fingerprint format 3 invalidates
   previous cache keys, so the first run after upgrading recomputes results.
+
+## Bug fixes
+
+* Bundles retain data attached with `bg_set_node_data()`, even before a node runs.
+* Relative bundle paths resolve from the caller's working directory, not the
+  temporary staging directory.
 
 # bayesgrove 0.7.0
 

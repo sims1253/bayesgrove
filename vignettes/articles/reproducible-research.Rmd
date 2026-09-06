@@ -39,6 +39,11 @@ Inside the archive, under `.bayesgrove/`, an independent reader finds:
 | `cache/` | Content-addressed artifacts (large fit objects are excluded unless `include_fits = TRUE`). |
 | `bundle_manifest.json` | A reproducibility manifest: R version, platform, package versions, CmdStan version, creation time. |
 
+Data attached with `bg_set_node_data()` are included, even before execution.
+External files referenced by node params, such as Stan programs, are not copied
+or relocated. Archive those files separately and update their paths before
+rerunning on another machine.
+
 The logs and fingerprints record the analysis history:
 
 1. **Append-only logs.** Decisions and summaries are JSONL appends with

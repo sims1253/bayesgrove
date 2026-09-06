@@ -4,21 +4,13 @@
 \alias{bg_bundle}
 \title{Bundle a bayesgrove project for reproducible handoff}
 \usage{
-bg_bundle(
-  project,
-  path = NULL,
-  include_data = c("omit", "freeze_source", "copy", "recipe_only"),
-  include_fits = FALSE
-)
+bg_bundle(project, path = NULL, include_fits = FALSE)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
 
-\item{path}{File path where the bundle should be saved (default: a temp file).}
-
-\item{include_data}{How to handle external data sources: 'omit',
-'freeze_source', or 'copy'. The legacy alias 'recipe_only' is accepted and
-treated as 'omit'.}
+\item{path}{File path where the bundle should be saved (default: a temp file).
+Relative paths are resolved from the current working directory.}
 
 \item{include_fits}{Logical, whether to package the large model fit artifacts.}
 }
@@ -27,6 +19,7 @@ The file path to the generated bundle.
 }
 \description{
 Creates a portable \code{.tar.gz} archive of the project, including the structural
-graph, decision log, job history, configuration, and optionally cached artifacts
-or raw data files.
+graph, decision log, job history, configuration, attached data, and cached
+artifacts. Model fit artifacts are optional. External files referenced by
+node params (such as Stan programs) are not copied or relocated.
 }
