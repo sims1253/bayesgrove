@@ -91,11 +91,10 @@
 </dl></div>
     <div class="section level2">
     <h2 id="decision-record-s-environment-backed-state">Decision record: S7 + environment-backed state<a class="anchor" aria-label="anchor" href="#decision-record-s-environment-backed-state"></a></h2>
-    <p><code>bg_handle</code> is intentionally an S7 class with an environment-backed <code>.state</code>
-slot (used by the jobs cache, registries, etc.). This gives reference
-semantics WITH S7 validation. Do NOT migrate to R6 or plain environments:
-the S7 validation guards are load-bearing, and plain environments would
-lose them. (PLAN.md Milestone 9 item 3.)</p>
+    <p><code>bg_handle</code> is an S7 class with an environment-backed <code>.state</code> slot for
+the jobs cache and registries. This provides reference semantics with S7
+validation. Keep this design: replacing it with R6 or plain environments
+would remove the S7 validation checks.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

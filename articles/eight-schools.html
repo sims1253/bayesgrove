@@ -67,12 +67,10 @@
      Regenerate and refresh the blocks when bayesgrove or
      CmdStan changes; outputs are version-dependent.
      Last refreshed against bayesgrove 0.7.0 / CmdStan 2.39.0. -->
-<p>This vignette walks through one round of the review loop with real
-cmdstanr: fit the eight-schools model in its centered parameterization,
-hit a computation-review obligation, record the decision, branch to a
-non-centered repair, and rerun. The chunks use <code>eval = FALSE</code>
-with output captured from a real run, so the vignette builds without
-CmdStan on CI.</p>
+<p>Fit the centered eight-schools model with cmdstanr, review its
+sampler diagnostics, and rerun a non-centered version on a branch. The
+chunks use <code>eval = FALSE</code> with output captured from a real
+run, so the vignette builds without CmdStan on CI.</p>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
@@ -135,7 +133,7 @@ package ships the example programs so the code below runs as pasted:</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="run-and-hit-the-obligation">Run and hit the obligation<a class="anchor" aria-label="anchor" href="#run-and-hit-the-obligation"></a>
+<h2 id="run-the-model-and-inspect-diagnostics">Run the model and inspect diagnostics<a class="anchor" aria-label="anchor" href="#run-the-model-and-inspect-diagnostics"></a>
 </h2>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">n_fit</span><span class="op">)</span></span></code></pre></div>
@@ -175,7 +173,7 @@ branch and modify the fit.</p>
 <span><span class="co">#&gt;   "record_decision" "branch_and_modify"</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="record-the-review-decision">Record the review decision<a class="anchor" aria-label="anchor" href="#record-the-review-decision"></a>
+<h2 id="record-a-review">Record a review<a class="anchor" aria-label="anchor" href="#record-a-review"></a>
 </h2>
 <p>The suggested <code>record_decision</code> action carries the
 decision kind and the ids of the summaries under review in its payload.
@@ -208,12 +206,11 @@ not reference the summaries, does not.</p>
 <div class="section level2">
 <h2 id="branch-to-the-non-centered-parameterization">Branch to the non-centered parameterization<a class="anchor" aria-label="anchor" href="#branch-to-the-non-centered-parameterization"></a>
 </h2>
-<p>The repair is a branch from the criticized fit. The branch keeps the
-original fit and its diagnostics in the record; we give it an
-inferential goal (the default pack asks for one on every active branch)
-and swap in the non-centered program. <code><a href="../reference/bg_update_node.html">bg_update_node()</a></code>
-merges params, so the chains, iteration, and seed settings carry
-over.</p>
+<p>Create a branch from the centered fit, retaining the original fit and
+its diagnostics. Set an inferential goal, as required for each active
+branch, and select the non-centered program.
+<code><a href="../reference/bg_update_node.html">bg_update_node()</a></code> merges params, so the chains, iteration,
+and seed settings carry over.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_fit</span>, label <span class="op">=</span> <span class="st">"Non-centered"</span><span class="op">)</span></span>
 <span></span>
@@ -238,7 +235,7 @@ over.</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="rerun-and-close-the-loop">Rerun and close the loop<a class="anchor" aria-label="anchor" href="#rerun-and-close-the-loop"></a>
+<h2 id="run-and-review-the-non-centered-fit">Run and review the non-centered fit<a class="anchor" aria-label="anchor" href="#run-and-review-the-non-centered-fit"></a>
 </h2>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">run2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span>, targets <span class="op">=</span> <span class="va">branch</span><span class="op">$</span><span class="va">root_node_id</span><span class="op">)</span></span></code></pre></div>
@@ -246,9 +243,8 @@ over.</p>
 <span><span class="co">#&gt; Running node "node_4c430039"...</span></span>
 <span><span class="co">#&gt; Running MCMC with 4 sequential chains...</span></span>
 <span><span class="co">#&gt; All 4 chains finished successfully.</span></span></code></pre>
-<p>The non-centered fit samples cleanly. Both fits remain in the record:
-the criticized centered fit with its error summary, and the repaired fit
-with a clean one.</p>
+<p>The non-centered fit has no sampler warnings. Both fits remain in the
+record, with their diagnostic summaries.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">s</span> <span class="kw">in</span> <span class="fu"><a href="../reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span><span class="va">handle</span>, include_stale <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">node_id</span>, <span class="st">"-"</span>, <span class="va">s</span><span class="op">$</span><span class="va">severity</span>, <span class="st">"- divergences:"</span>, <span class="va">s</span><span class="op">$</span><span class="va">metrics</span><span class="op">$</span><span class="va">divergences</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -257,8 +253,8 @@ with a clean one.</p>
 <span><span class="co">#&gt; node_4c430039 - ok - divergences: 0</span></span></code></pre></div>
 <p>One obligation remains. Decisions are scope-specific (see
 <code><a href="../articles/concepts.html">vignette("concepts")</a></code>): the project-scope review recorded
-above does not cover the new branch, so the branch asks for its own
-review of the centered error summary in its lineage.</p>
+above does not cover the new branch. Record a branch-scope review of the
+centered fit’s error summary in its lineage.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">branch_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -291,10 +287,9 @@ review of the centered error summary in its lineage.</p>
 <span><span class="co">#&gt; named list()</span></span></code></pre></div>
 <p>No model comparison is needed here: the two fits target the same
 posterior, and the reparameterization is a computational repair rather
-than a change of model. For a loop with genuinely distinct candidates —
-where the default pack requires an explicit comparison decision and an
-accept-or-reject disposition for each branch — see
-<code><a href="../articles/case-study-roaches.html">vignette("case-study-roaches")</a></code>.</p>
+than a change of model. For distinct candidate models, the default pack
+requires a comparison decision and an accept-or-reject disposition for
+each branch. See <code><a href="../articles/case-study-roaches.html">vignette("case-study-roaches")</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="export-a-report">Export a report<a class="anchor" aria-label="anchor" href="#export-a-report"></a>
@@ -308,8 +303,9 @@ accept-or-reject disposition for each branch — see
 <span><span class="co">#&gt; └── Non-centered &lt;cmdstanr_fit&gt; [new]</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, format <span class="op">=</span> <span class="st">"md"</span>, path <span class="op">=</span> <span class="st">"eight-schools-report.md"</span><span class="op">)</span></span></code></pre></div>
-<p>The report captures the full trail: both fits, the diagnostics that
-fired, the review decisions at each scope, and the branch lineage.</p>
+<p>The report contains the graph with both fits, the review decisions at
+each scope, and the artifact index. Diagnostic summaries remain in the
+project.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

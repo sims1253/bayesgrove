@@ -65,11 +65,10 @@
     <p><code>bg_repl()</code> provides an interactive loop for navigating workflow state,
 reviewing protocol guidance, and applying common workflow actions without
 manually calling the lower-level APIs.</p>
-<p>The REPL is scope-aware. In project scope it can surface obligations and
-actions across the whole workflow; in branch scope it focuses on the selected
-branch and its branch-local graph view.</p>
+<p>In project scope, the REPL shows obligations and actions across the whole
+workflow. In branch scope, it shows the selected branch and its graph.</p>
 <p>Supported commands include:</p><ul><li><p><code>help</code>: show the command list</p></li>
-<li><p><code>dashboard</code>: show the guided operator dashboard</p></li>
+<li><p><code>dashboard</code>: show workflow status, obligations, holds, and decisions</p></li>
 <li><p><code>status</code>: print workflow state and health</p></li>
 <li><p><code>guide</code>: show active obligations and suggested actions</p></li>
 <li><p><code>explain &lt;n&gt;</code>: show an obligation's rationale and references</p></li>

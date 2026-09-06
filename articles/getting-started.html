@@ -72,10 +72,10 @@ checks, then record a review and try a lognormal model. This tutorial
 requires cmdstanr and CmdStan. The displayed results come from a
 recorded run; your sampler output may differ. See <a href="concepts.html">Concepts</a> for terminology.</p>
 <div class="section level2">
-<h2 id="a-project-and-a-first-fit">A project and a first fit<a class="anchor" aria-label="anchor" href="#a-project-and-a-first-fit"></a>
+<h2 id="create-a-project-and-fit-a-model">Create a project and fit a model<a class="anchor" aria-label="anchor" href="#create-a-project-and-fit-a-model"></a>
 </h2>
-<p>Every analysis lives in an initialized project: a directory with a
-<code>.bayesgrove/</code> folder holding the graph, the cache, and the
+<p>An initialized project is a directory with a
+<code>.bayesgrove/</code> folder containing the graph, cache, and
 decision log. <code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code> registers the Stan-backed
 node kinds, and <code><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow()</a></code> opts into the
 built-in review pack (register the backend first, so the pack sees the
@@ -89,15 +89,14 @@ real node kinds rather than its generic placeholders).</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_use_default_workflow.html">bg_use_default_workflow</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span></code></pre></div>
-<p>The data are 50 skewed, strictly positive measurements. We will do
-what analysts do all the time: start with a normal model anyway.</p>
+<p>The data are 50 skewed, strictly positive measurements. Start by
+fitting a normal model.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">31</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Lognormal.html" class="external-link">rlnorm</a></span><span class="op">(</span><span class="fl">50</span>, meanlog <span class="op">=</span> <span class="fl">0</span>, sdlog <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="../reference/bg_fit_stan.html">bg_fit_stan()</a></code> collapses the minimal lifecycle into one
-call: it creates a data node, attaches the data, creates a fit node
-consuming it, and runs the fit. The package ships the example Stan
-programs, so the code below runs as pasted.</p>
+<p><code><a href="../reference/bg_fit_stan.html">bg_fit_stan()</a></code> creates a data node, attaches the data,
+and creates and runs a fit node that uses it. The example Stan programs
+are included in the package.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">normal_program</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span></span>
 <span>  <span class="st">"stan/normal_iid.stan"</span>,</span>
@@ -121,7 +120,7 @@ programs, so the code below runs as pasted.</p>
 <span><span class="co">#&gt; • Executed Nodes: 2</span></span></code></pre>
 <p>The fit has no divergences and good R-hats. <code><a href="../reference/bg_status.html">bg_status()</a></code>
 shows the project state, and <code><a href="../reference/bg_next_actions.html">bg_next_actions()</a></code> asks the
-workflow pack whether any evidence demands attention:</p>
+workflow pack whether any evidence needs review:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_status.html">bg_status</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">#&gt; $workflow_state</span></span>
@@ -151,21 +150,19 @@ workflow pack whether any evidence demands attention:</p>
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span></span></code></pre></div>
 <pre><code><span><span class="co">#&gt; named list()</span></span></code></pre>
-<p>No obligations. That is worth pausing on: an empty answer here is not
-“nothing happened”, it is a positive statement that every fresh summary
-in the project has been reviewed or is unremarkable. So far the only
-summary is the clean HMC diagnostic from the fit.</p>
+<p>There are no obligations: the only summary is the fit’s HMC
+diagnostic, which reports no problems. The pack requests no further
+review of that summary.</p>
 </div>
 <div class="section level2">
-<h2 id="a-check-that-fails">A check that fails<a class="anchor" aria-label="anchor" href="#a-check-that-fails"></a>
+<h2 id="check-the-models-predictions">Check the model’s predictions<a class="anchor" aria-label="anchor" href="#check-the-models-predictions"></a>
 </h2>
-<p>Clean sampling says the <em>computation</em> worked, not that the
-<em>model</em> is any good. The built-in <code>ppc</code> node kind
-computes posterior-predictive p-values for a set of test statistics and
-stores plot-ready draws. It takes two inputs: the fit (for the
-<code>yrep</code> draws) and the data node (for the observed
-<code>y</code>). The fit’s data node is simply the fit node’s input, so
-we can read it off the graph:</p>
+<p>Sampler diagnostics assess computation, not model fit. The built-in
+<code>ppc</code> node kind computes posterior-predictive p-values for a
+set of test statistics and stores plot-ready draws. It takes two inputs:
+the fit (for the <code>yrep</code> draws) and the data node (for the
+observed <code>y</code>). The fit’s data node is simply the fit node’s
+input, so we can read it off the graph:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">graph</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -184,8 +181,8 @@ we can read it off the graph:</p>
 <pre><code><span><span class="co">#&gt; Starting run "run_631ca2d5" with 1 node to execute.</span></span>
 <span><span class="co">#&gt; Running node "node_7ea22ed9"...</span></span></code></pre>
 <p>The p-values compare each statistic of the observed data against its
-posterior-predictive distribution. Values near 0 or 1 mean the model
-cannot reproduce that feature of the data:</p>
+posterior-predictive distribution. Values near 0 or 1 flag features that
+the model reproduces poorly:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ppc_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_read_summaries.html">bg_read_summaries</a></span><span class="op">(</span><span class="va">handle</span>, include_stale <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">ppc_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -220,12 +217,12 @@ normal model</div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="the-obligation-and-the-decision-that-answers-it">The obligation, and the decision that answers it<a class="anchor" aria-label="anchor" href="#the-obligation-and-the-decision-that-answers-it"></a>
+<h2 id="record-a-review">Record a review<a class="anchor" aria-label="anchor" href="#record-a-review"></a>
 </h2>
-<p>The extreme p-values arrived as a <code>warning</code>-severity
-summary, and the default pack raises a blocking obligation. At project
-scope it uses <code>review_computation_validity</code> (the optional
-packs add more specific vocabularies):</p>
+<p>The summary has <code>warning</code> severity because of the extreme
+p-values. The default pack raises a blocking
+<code>review_computation_validity</code> obligation at project scope.
+Optional packs use more specific obligation kinds:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
@@ -234,11 +231,10 @@ packs add more specific vocabularies):</p>
 <span><span class="co">#&gt; "review_computation_validity"</span></span>
 <span><span class="co">#&gt;        act_16593cd9        act_ed08cddc</span></span>
 <span><span class="co">#&gt;   "record_decision" "branch_and_modify"</span></span></code></pre>
-<p>An <em>obligation</em> is a demand raised from evidence; each one
-comes with suggested <em>actions</em> that would resolve it. Blocking
-obligations also translate into <em>holds</em>: pass them to the planner
-and any node downstream of the criticized one stays parked until the
-review happens.</p>
+<p>An obligation identifies work needed to address the evidence and
+suggests actions to resolve it. Blocking obligations create execution
+holds. Pass these holds to the planner to prevent downstream nodes from
+running until the review is recorded.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">held_plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_plan.html">bg_plan</a></span><span class="op">(</span><span class="va">handle</span>, external_holds <span class="op">=</span> <span class="va">guide</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">external_holds</span><span class="op">)</span></span>
 <span><span class="va">held_plan</span><span class="op">$</span><span class="va">external_blocked</span></span></code></pre></div>
@@ -284,14 +280,14 @@ remain available so a reviewer can trace the rejection to its
 evidence.</p>
 </div>
 <div class="section level2">
-<h2 id="branch-to-the-repair">Branch to the repair<a class="anchor" aria-label="anchor" href="#branch-to-the-repair"></a>
+<h2 id="fit-a-lognormal-model-on-a-branch">Fit a lognormal model on a branch<a class="anchor" aria-label="anchor" href="#fit-a-lognormal-model-on-a-branch"></a>
 </h2>
 <p>Try the lognormal model on a branch to keep the rejected fit and its
 criticism in the record. <code><a href="../reference/bg_branch.html">bg_branch()</a></code> copies the fit node
 into a new branch; <code><a href="../reference/bg_update_node.html">bg_update_node()</a></code> merges params, so only
-the Stan program needs swapping. The default pack asks every active
-branch for an inferential goal, which doubles as documentation of why
-the branch exists.</p>
+the Stan program changes. The default pack requires an inferential goal
+for each active branch. The goal records what the branch is intended to
+estimate.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">branch</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_fit</span>, label <span class="op">=</span> <span class="st">"Lognormal model"</span><span class="op">)</span></span>
 <span></span>
@@ -322,7 +318,8 @@ the branch exists.</p>
 <span><span class="co">#&gt; [1] "node_4610511f"</span></span>
 <span><span class="co">#&gt; Starting run "run_f3475fdc" with 1 node to execute.</span></span>
 <span><span class="co">#&gt; Running node "node_4610511f"...</span></span></code></pre>
-<p>A second <code>ppc</code> node on the branch confirms the repair:</p>
+<p>A second <code>ppc</code> node checks the lognormal model’s
+predictions:</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_ppc2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -360,8 +357,8 @@ the branch exists.</p>
 <span><span class="co">#&gt; $sd</span></span>
 <span><span class="co">#&gt; [1] 0.3262</span></span></code></pre>
 <p>Both models remain in the graph: the rejected normal fit with its
-failed check and the decision that rejected it, and the lognormal fit
-with a clean one:</p>
+failed check and recorded rejection, and the lognormal fit whose check
+passed:</p>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">#&gt; ── Execution Graph ──</span></span>

@@ -76,8 +76,7 @@ since divergences are summed across chains. May optionally carry
     <p>The ESS warning threshold scales with the chain count: Vehtari et al.
 (2021) recommend ~100 effective samples per chain. When <code>metrics</code> carries
 an <code>n_chains</code> entry, <code>ess_warn</code> defaults to <code>100 * n_chains</code>; otherwise it
-stays 400 (the historical default). An explicit <code>thresholds$ess_warn</code>
-always wins over both.</p>
+defaults to 400. An explicit <code>thresholds$ess_warn</code> overrides these defaults.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

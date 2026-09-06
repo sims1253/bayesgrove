@@ -65,9 +65,8 @@
 gate decisions. The workflow follows the simulation-oriented perspective
 of <a href="https://arxiv.org/abs/2408.06504" class="external-link uri">https://arxiv.org/abs/2408.06504</a> and <a href="https://arxiv.org/abs/2210.06927" class="external-link uri">https://arxiv.org/abs/2210.06927</a> and uses base R model
 fitting.</p>
-<p>The study asks a simple question: when treatment assignment is
-confounded, does an adjustment-aware model outperform a naive model that
-omits the confounder?</p>
+<p>When treatment assignment is confounded, does an adjustment-aware
+model outperform a naive model that omits the confounder?</p>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
@@ -82,8 +81,7 @@ omits the confounder?</p>
 <div class="section level2">
 <h2 id="register-node-kinds">Register node kinds<a class="anchor" aria-label="anchor" href="#register-node-kinds"></a>
 </h2>
-<p>Each node kind below is deliberately simple, but together they
-already resemble a structured workflow:</p>
+<p>The graph uses these node kinds:</p>
 <ul>
 <li>a scenario node defines the data-generating condition,</li>
 <li>simulation nodes generate train/test data,</li>
@@ -289,7 +287,7 @@ gate.</li>
 <span><span class="va">confounded</span> <span class="op">&lt;-</span> <span class="fu">build_branch</span><span class="op">(</span><span class="va">handle</span>, <span class="st">"Confounded"</span>, confounding <span class="op">=</span> <span class="fl">1.1</span>, seed <span class="op">=</span> <span class="fl">202</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="first-run-execute-everything-up-to-the-decision-gates">First run: execute everything up to the decision gates<a class="anchor" aria-label="anchor" href="#first-run-execute-everything-up-to-the-decision-gates"></a>
+<h2 id="run-up-to-the-decision-gates">Run up to the decision gates<a class="anchor" aria-label="anchor" href="#run-up-to-the-decision-gates"></a>
 </h2>
 <p>The comparison nodes are blocked, but the descriptive summaries and
 both model branches can already run.</p>
@@ -377,12 +375,11 @@ answers:</p>
 <span><span class="co">#&gt; [1] 0.4954234</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="resolve-the-gates-with-explicit-rationale">Resolve the gates with explicit rationale<a class="anchor" aria-label="anchor" href="#resolve-the-gates-with-explicit-rationale"></a>
+<h2 id="answer-the-gates">Answer the gates<a class="anchor" aria-label="anchor" href="#answer-the-gates"></a>
 </h2>
 <p>The randomized branch should not show systematic imbalance, whereas
-the confounded branch usually does. We record that distinction as an
-explicit decision rather than letting the workflow silently
-continue.</p>
+the confounded branch usually does. Record that distinction in the gate
+decisions before running the comparison nodes.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_answer_gate.html">bg_answer_gate</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -431,7 +428,7 @@ continue.</p>
 <span><span class="co">#&gt;   branch is the only trustworthy explanatory candidate.</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="second-run-execute-the-comparison-nodes">Second run: execute the comparison nodes<a class="anchor" aria-label="anchor" href="#second-run-execute-the-comparison-nodes"></a>
+<h2 id="run-the-comparisons">Run the comparisons<a class="anchor" aria-label="anchor" href="#run-the-comparisons"></a>
 </h2>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">second_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
@@ -453,10 +450,8 @@ continue.</p>
 <span><span class="co">#&gt; 1    Confounded naive model            0.72121614        1.264224</span></span></code></pre></div>
 <p>In a typical run, the randomized scenario keeps the two models close,
 while the confounded scenario penalizes the naive model more strongly.
-That is the kind of structured depth-first search bayesgrove is well
-positioned to support: each branch is explicit, caches are reused
-automatically, and the rationale for the next step is stored alongside
-the computational state.</p>
+The graph records each branch, reuses cached results, and stores the
+reasons for each next step alongside the computation state.</p>
 </div>
 <div class="section level2">
 <h2 id="export-an-audit-report">Export an audit report<a class="anchor" aria-label="anchor" href="#export-an-audit-report"></a>
@@ -464,9 +459,9 @@ the computational state.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, path <span class="op">=</span> <span class="st">"simulation-study-report.md"</span>, format <span class="op">=</span> <span class="st">"md"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Report exported to</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpoxGIr1/bg-simulation-study/simulation-study-report.md</span></span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">/tmp/RtmpLxt70K/bg-simulation-study/simulation-study-report.md</span></span></span>
 <span><span class="va">report_path</span></span>
-<span><span class="co">#&gt; [1] "/tmp/RtmpoxGIr1/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "/tmp/RtmpLxt70K/bg-simulation-study/simulation-study-report.md"</span></span></code></pre></div>
 <p>The report includes graph topology, decision provenance, gate
 context, evidence nodes, and the artifact index for the current run.</p>
 </div>

@@ -70,7 +70,7 @@ graph, cache, decision log, and workflow protocol.</p>
 </colgroup>
 <thead><tr class="header">
 <th>Term</th>
-<th>Meaning in bayesgrove today</th>
+<th>Meaning in bayesgrove</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -100,12 +100,11 @@ selection, and project conventions</td>
 <p>The stable public hooks are node-kind registration, built-in executor
 activation (<code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code> /
 <code><a href="../reference/bg_use_brms.html">bg_use_brms()</a></code>), and summary emission from executors.
-Workflow-pack selection is also public. Authoring brand new
-workflow-pack providers is still an internal extension surface, so
-external packages should currently target the built-in summary contracts
-instead of reaching into unexported provider internals.</p>
+Workflow-pack selection is also public. Custom workflow-pack providers
+use internal APIs. External packages should emit the built-in summary
+kinds rather than call unexported provider functions.</p>
 <div class="section level2">
-<h2 id="activate-the-built-in-workflow-packs-you-need">Activate the built-in workflow packs you need<a class="anchor" aria-label="anchor" href="#activate-the-built-in-workflow-packs-you-need"></a>
+<h2 id="select-workflow-packs">Select workflow packs<a class="anchor" aria-label="anchor" href="#select-workflow-packs"></a>
 </h2>
 <p>Projects start empty by default. If your workflow needs the built-in
 review vocabulary, activate and persist the packs you want after
@@ -258,22 +257,20 @@ review.</li>
 review, implication review, and causal selection contracts for
 <code>latent_inference</code> branches.</li>
 </ul>
-<p>The scope matters. <code>bayesgrove.model_selection</code> only acts
-at project scope when there are at least two clean fit candidates. The
-taxonomy and causal packs are branch-scoped, and they do not fire until
-the branch has the right goal context. In particular,
-<code>bayesgrove.causal_dagitty</code> becomes stronger after a reviewed
-<code>causal_selection_contract</code>: formulas and projection-based
-selection can then be constrained to keep required identification terms
-and exclude forbidden controls.</p>
+<p><code>bayesgrove.model_selection</code> only acts at project scope
+when there are at least two clean fit candidates. The taxonomy and
+causal packs apply to branches with the relevant goal. After review of a
+<code>causal_selection_contract</code>,
+<code>bayesgrove.causal_dagitty</code> can constrain formulas and
+projection-based selection to retain required identification terms and
+exclude forbidden controls.</p>
 </div>
 <div class="section level2">
 <h2 id="build-a-node-set">Build a node set<a class="anchor" aria-label="anchor" href="#build-a-node-set"></a>
 </h2>
-<p>In practice, a node set is usually a helper that registers several
-node kinds for one modeling domain. The only hard contract is that each
-executor receives <code>(node, inputs)</code> and returns plain R
-data.</p>
+<p>A node set is usually a helper that registers several node kinds for
+one modeling domain. Each executor receives <code>(node, inputs)</code>
+and returns plain R data.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">register_normal_model_nodes</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">handle</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">handle</span>, <span class="st">"study_data"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
@@ -323,7 +320,7 @@ data.</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p>Two practical rules make these node sets easy to compose:</p>
+<p>For node sets that can be used together:</p>
 <ol style="list-style-type: decimal">
 <li>Keep executors domain-specific and return plain data.</li>
 <li>Emit summaries as plain-data records so workflow packs can react to
@@ -334,11 +331,9 @@ them.</li>
 </h3>
 <p>Executors are R functions, and a project’s runtime manifest stores
 their source text so the project can be reopened later. For safety,
-<code><a href="../reference/bg_open.html">bg_open()</a></code> restores persisted node kinds
-<strong>structurally only</strong> — the kind name, input contracts, and
-stored executor source are kept as inert metadata, but the source is
-never evaluated. Opening a project directory from an untrusted source
-therefore executes nothing.</p>
+<code><a href="../reference/bg_open.html">bg_open()</a></code> restores the kind name, input contracts, and
+executor source as metadata. It does not evaluate the saved source,
+including when opening a project directory from an untrusted source.</p>
 <p>To restore executable executors after opening, call
 <code><a href="../reference/bg_restore_executors.html">bg_restore_executors()</a></code> explicitly:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -360,34 +355,30 @@ Alternatively, re-register executors with
 <p>Built-in executors (shipped with the package) are persisted as stable
 references and restore safely without this opt-in step.</p>
 <div class="section level4">
-<h4 id="params-are-data-never-code">Params are data, never code<a class="anchor" aria-label="anchor" href="#params-are-data-never-code"></a>
+<h4 id="attach-data-to-nodes">Attach data to nodes<a class="anchor" aria-label="anchor" href="#attach-data-to-nodes"></a>
 </h4>
-<p>The same trust boundary applies to node <code>params</code>. A node’s
-params carry <strong>data</strong> only — never R source. There is no
-params channel that evaluates arbitrary code at run time, so a hostile
-<code>graph.json</code> cannot smuggle code in through a
-<code>data_fn_source</code> or <code>check_fn_source</code> param (those
-have been removed). To attach a data object that JSON serialization
-would mangle (for example Stan’s typed integers), use
-<code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>, which stores the object in the
-content-addressed store and records a <code>data_ref</code> param
-pointing at it:</p>
+<p>Node <code>params</code> contain data, not executable R source.
+bayesgrove does not evaluate R code from params, including
+<code>data_fn_source</code> or <code>check_fn_source</code>. To preserve
+R types that JSON serialization can change, such as Stan’s typed
+integers, attach the object with <code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>. It
+saves the object in the content-addressed store and sets a
+<code>data_ref</code> param:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">handle</span>, kind <span class="op">=</span> <span class="st">"stan_data"</span>, label <span class="op">=</span> <span class="st">"Data"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_set_node_data.html">bg_set_node_data</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>N <span class="op">=</span> <span class="fl">10L</span>, y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>Code enters a project only through the executor gate above — by
-registering a node kind in-session with
-<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>, or by consenting with
-<code>bg_restore_executors(trust = TRUE)</code>.</p>
+<p>Register executable R functions with
+<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>, or restore saved executors with
+<code>bg_restore_executors(trust = TRUE)</code> after reviewing
+them.</p>
 </div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="emit-summaries-that-workflow-packs-understand">Emit summaries that workflow packs understand<a class="anchor" aria-label="anchor" href="#emit-summaries-that-workflow-packs-understand"></a>
+<h2 id="emit-diagnostic-summaries">Emit diagnostic summaries<a class="anchor" aria-label="anchor" href="#emit-diagnostic-summaries"></a>
 </h2>
 <p>The optional packs are summary-driven. They do not require special
-node kinds; they only care about summary records attached to fresh
-results.</p>
+node kinds; they use summary records attached to fresh results.</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -469,9 +460,8 @@ precision candidates</td>
 <div class="section level2">
 <h2 id="causal-selection-contracts-and-constrained-projpred-workflows">Causal selection contracts and constrained projpred workflows<a class="anchor" aria-label="anchor" href="#causal-selection-contracts-and-constrained-projpred-workflows"></a>
 </h2>
-<p>The causal-DAG path is meant to guide model construction, not only
-review it after the fact. A causal branch can now emit a
-<code>causal_selection_contract</code> summary with fields such as:</p>
+<p>A causal branch can emit a <code>causal_selection_contract</code>
+summary to constrain model construction. Its fields include:</p>
 <ul>
 <li>
 <code>required_terms</code> for identification-critical
@@ -481,9 +471,9 @@ covariates,</li>
 variables, or other blocked controls,</li>
 <li>
 <code>ranked_candidate_terms</code> for the admissible precision
-path from simpler to richer models, and</li>
-<li>optionally <code>allowed_formulas</code> when the DAG layer wants to
-enumerate exact permitted RHS patterns.</li>
+path from simpler to larger models, and</li>
+<li>optionally <code>allowed_formulas</code> to enumerate exact
+permitted RHS patterns.</li>
 </ul>
 <p>Once that summary is reviewed, <code>bayesgrove.causal_dagitty</code>
 can enforce formula consistency and keep downstream work on hold until
@@ -507,12 +497,10 @@ ranked candidate set.</p>
 <span>    <span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
-<p>That contract keeps the Bayesian-workflow iteration spirit intact:
-start with the smallest causally valid formula, then add ranked
-admissible terms as the workflow pursues more precision or better
-predictive compression.</p>
-<p>Each summary should stay plain and serializable. A good pattern
-is:</p>
+<p>Start with the smallest causally valid formula. Add permitted terms
+in the specified order when evaluating precision. Restrict
+projection-based selection to the permitted candidates.</p>
+<p>Use serializable data in each summary:</p>
 <ul>
 <li>
 <code>summary_kind</code> for dispatch,</li>
@@ -528,9 +516,9 @@ evidence,</li>
 <div class="section level2">
 <h2 id="package-a-domain-module">Package a domain module<a class="anchor" aria-label="anchor" href="#package-a-domain-module"></a>
 </h2>
-<p>A domain module is just a reusable setup layer around
-<code><a href="../reference/bg_init.html">bg_init()</a></code> and your node registration helpers. This is the
-easiest way to publish a project-specific extension package.</p>
+<p>A domain module combines <code><a href="../reference/bg_init.html">bg_init()</a></code> with
+node-registration helpers in a reusable setup function. You can
+distribute it as an extension package.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">init_normal_workflow</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">path</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span></span>
@@ -554,31 +542,29 @@ easiest way to publish a project-specific extension package.</p>
 <span>  <span class="fu">register_normal_model_nodes</span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span>  <span class="va">handle</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p>That helper can live in your analysis package, a lab-internal utility
-package, or even a plain project script. The important part is that the
-node set and the selected workflow packs evolve together.</p>
+<p>Put the helper in an analysis package, a lab utility package, or a
+project script. Update the node set and its selected workflow packs
+together.</p>
 </div>
 <div class="section level2">
 <h2 id="built-in-cmdstanr-and-brms-executors">Built-in cmdstanr and brms executors<a class="anchor" aria-label="anchor" href="#built-in-cmdstanr-and-brms-executors"></a>
 </h2>
-<p>For real model fitting, bayesgrove ships built-in executors that wrap
-cmdstanr and brms and compute diagnostics themselves (divergences,
-R-hat, ESS, Pareto-k, posterior-predictive p-values). Activate them
-with:</p>
+<p>bayesgrove includes executors that call cmdstanr and brms and compute
+diagnostics themselves (divergences, R-hat, ESS, Pareto-k,
+posterior-predictive p-values). Activate them with:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/bg_use_brms.html">bg_use_brms</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span></code></pre></div>
 <p>These register node kinds (<code>stan_data</code>,
 <code>cmdstanr_fit</code>, <code>brms_fit</code>, <code>loo</code>,
 <code>compare</code>, <code>ppc</code>, …) whose executors emit the
-validated summary kinds the workflow packs consume. You do not need to
-hand-roll diagnostics: a fit through <code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code>
-emits an <code>hmc_diagnostics</code> summary automatically, and a
-blocking <code>review_computation_validity</code> obligation follows
-when diagnostics are poor.</p>
-<p>Custom executors are still possible via
-<code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>; but the built-in executors are the
-documented happy path for cmdstanr and brms.</p>
+validated summary kinds the workflow packs consume. A
+<code>cmdstanr_fit</code> node emits an <code>hmc_diagnostics</code>
+summary. With the default review pack active, warning or error
+diagnostics raise a blocking <code>review_computation_validity</code>
+obligation.</p>
+<p>Use the built-in executors for cmdstanr and brms, or register a
+custom executor with <code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="rulesets">Rulesets<a class="anchor" aria-label="anchor" href="#rulesets"></a>

@@ -72,17 +72,17 @@ Each function is classified as <code>stable</code>, <code>experimental</code>, <
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
 
 <div class="section">
-<h3 id="classification-meanings">Classification Meanings<a class="anchor" aria-label="anchor" href="#classification-meanings"></a></h3>
+<h3 id="classification-meanings">Classification meanings<a class="anchor" aria-label="anchor" href="#classification-meanings"></a></h3>
 
 
 <ul><li><p><code>stable</code>: Core public API expected to remain backward-compatible.
 Includes project lifecycle, graph editing, branching, decisions,
 execution control, status/results, and established workflow entry points.</p></li>
 <li><p><code>experimental</code>: Newer or provisional APIs that may evolve.
-Includes workflow protocol/context/template surfaces, REPL, and
-practitioner sugar helpers.</p></li>
-<li><p><code>internal</code>: Technically exported for worker/process reasons
-but not intended as ergonomic user-facing API. Includes artifact helpers,
+Includes workflow protocol, context and template APIs, the REPL, and
+convenience functions for fitting models.</p></li>
+<li><p><code>internal</code>: Exported for use by workers or other processes.
+Not intended for direct use in analyses. Includes artifact helpers,
 job primitives, and backend registration.</p></li>
 <li><p><code>deprecated</code>: Kept temporarily for backward compatibility and
 warns on use.</p></li>

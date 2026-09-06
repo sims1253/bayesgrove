@@ -61,11 +61,10 @@
 
     
     
-<p>This article is for researchers who want to <em>report</em> a
-bayesgrove-backed analysis: what to archive, what a reviewer can verify
-from the archive, and how to phrase it in a methods section. The
-companion narrative is <code><a href="../articles/concepts.html">vignette("concepts")</a></code>; the mechanics
-of a full analysis are in <code><a href="../articles/eight-schools.html">vignette("eight-schools")</a></code>.</p>
+<p>This article covers archiving an analysis, verifying its records, and
+describing it in a methods section. See
+<code><a href="../articles/concepts.html">vignette("concepts")</a></code> for definitions and
+<code><a href="../articles/eight-schools.html">vignette("eight-schools")</a></code> for a worked analysis.</p>
 <div class="section level2">
 <h2 id="what-the-bundle-contains">What the bundle contains<a class="anchor" aria-label="anchor" href="#what-the-bundle-contains"></a>
 </h2>
@@ -76,8 +75,7 @@ of a full analysis are in <code><a href="../articles/eight-schools.html">vignett
 <span></span>
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="st">"analysis/"</span><span class="op">)</span></span>
 <span><span class="va">bundle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_bundle.html">bg_bundle</a></span><span class="op">(</span><span class="va">handle</span>, path <span class="op">=</span> <span class="st">"analysis-bundle.tar.gz"</span><span class="op">)</span></span></code></pre></div>
-<p>Inside the archive, under <code>.bayesgrove/</code>, an independent
-reader finds:</p>
+<p>The archive contains these files under <code>.bayesgrove/</code>:</p>
 <table class="table">
 <colgroup>
 <col width="37%">
@@ -125,21 +123,13 @@ package versions, CmdStan version, creation time.</td>
 before execution. External files referenced by node params, such as Stan
 programs, are not copied or relocated. Archive those files separately
 and update their paths before rerunning on another machine.</p>
-<p>The logs and fingerprints record the analysis history:</p>
-<ol style="list-style-type: decimal">
-<li>
-<strong>Append-only logs.</strong> Decisions and summaries are JSONL
-appends with monotonic sequence numbers; nothing is edited in place. The
-history of a revised prior is the sequence of decisions, not the final
-state.</li>
-<li>
-<strong>Fingerprints.</strong> Every summary carries the execution
-fingerprint of the node that produced it — a deterministic hash of the
-node’s params, its upstream fingerprints, the Stan program
-<em>contents</em>, and the environment. A reader can verify that the
-diagnostic evidence cited for a decision came from the exact
-configuration that was eventually reported.</li>
-</ol>
+<p>Decisions and summaries are appended to JSONL logs with increasing
+sequence numbers. Entries are not edited in place, so the log retains
+earlier decisions when a prior or model changes.</p>
+<p>Each summary contains its node’s execution fingerprint: a
+deterministic hash of the params, upstream fingerprints, Stan program
+contents, and environment. Use it to check whether the evidence cited by
+a decision matches the reported configuration.</p>
 </div>
 <div class="section level2">
 <h2 id="restoring-a-bundle-on-another-machine">Restoring a bundle on another machine<a class="anchor" aria-label="anchor" href="#restoring-a-bundle-on-another-machine"></a>
@@ -150,19 +140,16 @@ configuration that was eventually reported.</li>
 <span><span class="va">handle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="st">"restored/analysis"</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/bg_open.html">bg_open()</a></code> compares the bundle’s reproducibility manifest
 against the current session and warns when the R version, platform, or
-CmdStan version differ. Cached artifacts stay usable either way —
-fingerprints, not the manifest, decide what reruns — but the warning
-tells you up front that bit-level reproduction may require matching the
-recorded environment.</p>
-<p>Executors are <strong>never</strong> restored implicitly: opening a
-project runs no project-supplied code. Built-in executors re-register
-with <code><a href="../reference/bg_use_cmdstanr.html">bg_use_cmdstanr()</a></code> / <code><a href="../reference/bg_use_brms.html">bg_use_brms()</a></code>; user
-executors restore only through the explicit
-<code>bg_restore_executors(trust = TRUE)</code> gate after you have
-reviewed their persisted source.</p>
+CmdStan version differ. This warning does not invalidate cached
+artifacts; fingerprints determine what reruns. Matching the recorded
+environment may be necessary for bit-level reproduction.</p>
+<p>Opening a project does not evaluate saved user executor source.
+Built-in executors restore by reference. Review saved source before
+calling <code>bg_restore_executors(trust = TRUE)</code>, or re-register
+custom executors with <code><a href="../reference/bg_register_node_kind.html">bg_register_node_kind()</a></code>.</p>
 </div>
 <div class="section level2">
-<h2 id="the-machine-readable-protocol-trace">The machine-readable protocol trace<a class="anchor" aria-label="anchor" href="#the-machine-readable-protocol-trace"></a>
+<h2 id="read-the-decision-and-summary-logs">Read the decision and summary logs<a class="anchor" aria-label="anchor" href="#read-the-decision-and-summary-logs"></a>
 </h2>
 <p>Both logs are plain JSONL and parse with any JSON reader:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -179,8 +166,8 @@ reviewed their persisted source.</p>
 or <code>error</code> is referenced by at least one
 <code>computation_review</code> decision.</p>
 <p>For a human-readable rendering, <code><a href="../reference/bg_export_report.html">bg_export_report()</a></code>
-produces a Markdown or HTML report with the graph (as a Mermaid
-diagram), the full decision provenance, and the artifact index.</p>
+produces a Markdown or HTML report with the graph as a Mermaid diagram,
+the decision history, and the artifact index.</p>
 </div>
 <div class="section level2">
 <h2 id="sbc-and-simulation-studies-at-scale">SBC and simulation studies at scale<a class="anchor" aria-label="anchor" href="#sbc-and-simulation-studies-at-scale"></a>
@@ -193,16 +180,16 @@ the graph:</p>
 <span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span> <span class="co"># sbc / simulation nodes fan out across the daemons</span></span>
 <span><span class="fu">mirai</span><span class="fu">::</span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 <p>The built-in <code>sbc</code> node kind runs the Talts et al. (2018)
-rank-statistic loop and emits an <code>sbc_result</code> summary (rank
-histogram plus a chi-squared uniformity check) that the SBC review pack
-turns into an obligation like any other piece of evidence. Its input is
-plain data from an upstream generator
-executor—<code>list(simulations = list(list(theta = ..., data = ...), ...))</code>—so
-generator code follows the same explicit executor trust gate as other
-project-defined code. The executor thins each fit to a common number
-bounded by bulk ESS before ranking, and refuses to grade histograms
-whose expected bin counts are below five. Twenty simulations are a smoke
-test; use hundreds for a substantive calibration study.</p>
+rank-statistic loop and emits an <code>sbc_result</code> summary
+containing a rank histogram and a chi-squared uniformity check. The SBC
+review pack uses this summary to request reviews. Input comes from an
+upstream generator executor as plain data:
+<code>list(simulations = list(list(theta = ..., data = ...), ...))</code>.
+Generator code requires the same explicit trust as other custom
+executors. The executor thins each fit to a common number bounded by
+bulk ESS before ranking, and refuses to grade histograms whose expected
+bin counts are below five. Twenty simulations are a smoke test; use
+hundreds for a substantive calibration study.</p>
 <p>Parallel workers always preserve the content-addressed R fit
 artifact. Raw sampler CSV paths can point into daemon-local temporary
 directories, however, so <code><a href="../reference/bg_run.html">bg_run()</a></code> warns when a parallel
@@ -217,14 +204,13 @@ design.</p>
 <p>A “data and code availability” statement for a bayesgrove-backed
 analysis:</p>
 <blockquote>
-<p>The analysis was managed with bayesgrove (Scholz, YEAR), which
-records the model graph, all diagnostic evidence, and all analyst
-decisions in machine-readable form. The complete project bundle —
-including the decision log with rationales, typed diagnostic summaries
-with execution fingerprints, and a reproducibility manifest (R X.Y.Z,
-CmdStan X.Y.Z) — is archived at DOI.</p>
+<p>We used bayesgrove (Scholz, YEAR) to record the model graph,
+diagnostic evidence, and analysis decisions in machine-readable form.
+The project bundle is archived at DOI. It contains the decision log with
+rationales, typed diagnostic summaries with execution fingerprints, and
+a reproducibility manifest (R X.Y.Z, CmdStan X.Y.Z).</p>
 </blockquote>
-<p>Cite the package and the workflow paper it operationalizes with
+<p>Cite the package and its workflow reference with
 <code>citation("bayesgrove")</code>.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

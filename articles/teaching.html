@@ -65,16 +65,15 @@
 and their reasons. Blocking obligations require students to record a
 review before downstream computation can proceed.</p>
 <div class="section level2">
-<h2 id="the-assignment-shape">The assignment shape<a class="anchor" aria-label="anchor" href="#the-assignment-shape"></a>
+<h2 id="assignment">Assignment<a class="anchor" aria-label="anchor" href="#assignment"></a>
 </h2>
 <p>Students submit two files:</p>
 <ol style="list-style-type: decimal">
-<li>The exported report —
-<code>bg_export_report(handle, format = "html")</code> — the
-human-readable narrative with the graph diagram and decision
-provenance.</li>
-<li>The project bundle — <code>bg_bundle(handle)</code> — the
-machine-readable trail you verify against the report.</li>
+<li>A report from
+<code>bg_export_report(handle, format = "html")</code>, containing the
+graph diagram and decision history.</li>
+<li>A project bundle from <code>bg_bundle(handle)</code>, containing the
+records used to verify the report.</li>
 </ol>
 <p>Open the bundle to compare its decision and summary logs with the
 report:</p>
@@ -87,10 +86,9 @@ report:</p>
 <span><span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span><span class="va">handle</span>, format <span class="op">=</span> <span class="st">"md"</span><span class="op">)</span> <span class="co"># regenerate and diff against the submitted report</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="grading-checklist-obligations-to-rubric-items">Grading checklist: obligations to rubric items<a class="anchor" aria-label="anchor" href="#grading-checklist-obligations-to-rubric-items"></a>
+<h2 id="grading-checklist">Grading checklist<a class="anchor" aria-label="anchor" href="#grading-checklist"></a>
 </h2>
-<p>The workflow packs raise obligations; each maps to something
-gradeable.</p>
+<p>Use the obligations and their evidence to assess the analysis.</p>
 <table class="table">
 <colgroup>
 <col width="36%">
@@ -137,8 +135,8 @@ miscalibration discussed.</td>
 <tr class="odd">
 <td align="left"><code>review_fit_criticism</code></td>
 <td align="left">Branch-scoped diagnostic problems</td>
-<td align="left">Model revisions happen on branches with the criticism
-recorded, not by silently overwriting params.</td>
+<td align="left">Revisions use branches that retain the earlier model
+and record its criticism.</td>
 </tr>
 <tr class="even">
 <td align="left">
@@ -148,23 +146,19 @@ recorded, not by silently overwriting params.</td>
 <td align="left">
 <code>comparison_results</code>,
 <code>stacking_weights</code> summaries</td>
-<td align="left">The final model was <em>chosen</em>: a comparison
-exists and a branch-disposition decision cites it.</td>
+<td align="left">A comparison supports the final model choice, and a
+branch-disposition decision cites it.</td>
 </tr>
 </tbody>
 </table>
-<p>Two log-level checks catch the common shortcuts:</p>
+<p>Check the logs for missing reviews and incomplete rationales:</p>
 <ul>
-<li>
-<strong>No orphaned warnings.</strong> Every summary in
-<code>workflow/summaries.jsonl</code> with severity
+<li>Every summary in <code>workflow/summaries.jsonl</code> with severity
 <code>warning</code>/<code>error</code> should be referenced (via its
 node or evidence field) by some decision in
 <code>decisions/decisions.jsonl</code>.</li>
-<li>
-<strong>Rationales are text, not tokens.</strong> Sort decisions by
-rationale length; one-word rationales cluster at the bottom and are easy
-to spot-check.</li>
+<li>Sort decisions by rationale length to find one-word answers for
+closer review.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -176,27 +170,26 @@ to spot-check.</li>
 so the baseline review pack is active from the first fit. Stricter packs
 (prior rationale, SBC review) can be introduced per assignment via
 <code><a href="../reference/bg_use_workflow_packs.html">bg_use_workflow_packs()</a></code>.</li>
-<li>
-<code><a href="../reference/bg_add_gate.html">bg_add_gate()</a></code> lets <em>you</em> author checkpoints into
-a template project — e.g. a gate before the hierarchical model that asks
-“justify the pooling structure” — distinct from the evidence-driven
-obligations (see <code>?bayesgrove-concepts</code> for the
+<li>Use <code><a href="../reference/bg_add_gate.html">bg_add_gate()</a></code> to add checkpoints to a template
+project, such as a gate before a hierarchical model asking “justify the
+pooling structure”. These differ from obligations raised by diagnostic
+evidence (see <code>?bayesgrove-concepts</code> for the
 gates-vs-obligations table).</li>
 <li>The REPL (<code><a href="../reference/bg_repl.html">bg_repl()</a></code>) shows the obligation checklist
-interactively and <code>explain &lt;n&gt;</code> prints an obligation’s
-<em>why</em> together with its literature references — the teaching hook
-for “why does the software care about divergences?”.</li>
+interactively and <code>explain &lt;n&gt;</code> prints its reason and
+literature references. Use these to explain checks such as divergence
+diagnostics.</li>
 <li>Plots are one call per node: <code>bg_plot(handle, node_id)</code>
 renders PPC density overlays, LOO-PIT ECDFs, SBC rank histograms, and
 trace plots for flagged fits.</li>
 </ul>
 </div>
 <div class="section level2">
-<h2 id="what-this-does-not-automate">What this does not automate<a class="anchor" aria-label="anchor" href="#what-this-does-not-automate"></a>
+<h2 id="assess-the-reasoning">Assess the reasoning<a class="anchor" aria-label="anchor" href="#assess-the-reasoning"></a>
 </h2>
-<p>The log records decisions, timestamps, and evidence references.
-Grading a rationale — whether “heavier tails to absorb outliers” is
-justified for the data at hand — remains the instructor’s job.</p>
+<p>The log records decisions, timestamps, and evidence references. The
+instructor must assess whether each rationale, such as “heavier tails to
+absorb outliers”, is justified for the data.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

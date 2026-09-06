@@ -74,9 +74,8 @@ we have the number of roaches caught in traps after the intervention
 whether the apartment received the treatment (<code>treatment</code>),
 whether the building is restricted to elderly residents
 (<code>senior</code>), and the number of trap-days
-(<code>exposure2</code>). The question is the trial’s question:
-<strong>does the pest-management treatment reduce roach counts, and by
-how much?</strong></p>
+(<code>exposure2</code>). We want to estimate whether the treatment
+reduces roach counts, and by how much.</p>
 <p>The chunks use <code>eval = FALSE</code> with output pasted from a
 real run, so the vignette builds without CmdStan on CI. The dataset and
 three Stan programs ship with the package.</p>
@@ -106,12 +105,12 @@ three Stan programs ship with the package.</p>
 <pre><code>[1] 262
 [1] 0.3587786
 [1] 357</code></pre>
-<p>Two features of the outcome deserve attention before any model is
-fit: more than a third of the apartments caught <em>zero</em> roaches,
-and the largest count is in the hundreds. Keep both in mind.</p>
+<p>More than a third of the apartments caught zero roaches, and the
+largest count is in the hundreds. The models need to account for both
+features.</p>
 </div>
 <div class="section level2">
-<h2 id="round-1-the-poisson-model">Round 1: the Poisson model<a class="anchor" aria-label="anchor" href="#round-1-the-poisson-model"></a>
+<h2 id="fit-a-poisson-model">Fit a Poisson model<a class="anchor" aria-label="anchor" href="#fit-a-poisson-model"></a>
 </h2>
 <p>The default first model for counts is Poisson regression with a log
 link and the trap-days as an exposure offset. The package ships the
@@ -149,22 +148,21 @@ Total execution time: 1.7 seconds.
 &lt;bg_run_handle&gt; run_473d5bba
 • Status: succeeded
 • Executed Nodes: 2</code></pre>
-<p>The sampler is perfectly happy: no divergences, uniform R-hats,
-healthy E-BFMI. The workflow pack agrees that nothing needs review
-yet:</p>
+<p>The fit has no divergences, and its R-hat and E-BFMI values raise no
+warnings. The workflow pack requests no review of these sampler
+diagnostics:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">$</span><span class="va">obligations</span></span></code></pre></div>
 <pre><code>named list()</code></pre>
-<p>This is the first lesson of the case study: <strong>computational
-health is not model adequacy.</strong> Every sampler diagnostic is
-clean, and the model is about to turn out to be unusable.</p>
+<p>These diagnostics assess the sampler. Predictive checks assess
+whether the model reproduces the data.</p>
 <div class="section level3">
-<h3 id="the-check-that-ends-round-1">The check that ends round 1<a class="anchor" aria-label="anchor" href="#the-check-that-ends-round-1"></a>
+<h3 id="check-the-poisson-predictions">Check the Poisson predictions<a class="anchor" aria-label="anchor" href="#check-the-poisson-predictions"></a>
 </h3>
 <p>A <code>ppc</code> node computes posterior-predictive p-values for
 chosen test statistics. For count data, <code>prop_zero</code> (the
 proportion of zeros) and the dispersion-sensitive <code>sd</code> and
-<code>max</code> are the statistics that hurt:</p>
+<code>max</code> check the features noted above:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">graph</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="va">n_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -205,17 +203,16 @@ $prop_zero
 $sd
 [1] 0</code></pre>
 <p>The p-values for <code>sd</code> and <code>prop_zero</code> are
-numerically zero: in four thousand posterior-predictive draws, the
-Poisson model <em>never once</em> produced data as dispersed as the real
-data, and never once produced as many zeros. The observed data have a 36
-percent zero rate; a Poisson model whose means are anchored by
-apartments with hundreds of roaches essentially cannot generate zeros at
-all. This is textbook overdispersion — the Poisson’s variance is pinned
-to its mean, and these counts have variance far beyond that.</p>
-<p>A caveat that applies throughout: posterior-predictive p-values are
-conservative tripwires, not calibrated tests. An extreme value is a loud
-alarm, but an unremarkable value is weak evidence of adequacy — the
-primary check is graphical:</p>
+numerically zero. None of the four thousand posterior-predictive draws
+has as much dispersion or as many zeros as the observed data. The
+observed zero rate is 36 percent. The large counts raise the fitted
+Poisson means, which leaves too few predicted zeros. A Poisson
+distribution has equal mean and variance; these counts have much greater
+variance.</p>
+<p>Posterior-predictive p-values are conservative and are not calibrated
+tests. Extreme values indicate a mismatch, but unremarkable values
+provide weak evidence of model adequacy. Inspect the predictive plot as
+the primary check:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_plot.html">bg_plot</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_ppc_pois</span><span class="op">)</span></span></code></pre></div>
 <div class="float">
@@ -227,11 +224,11 @@ tail. The Poisson replicates (light) concentrate their mass in a narrow
 band and have neither feature.</p>
 </div>
 <div class="section level3">
-<h3 id="the-obligation-and-the-recorded-rejection">The obligation and the recorded rejection<a class="anchor" aria-label="anchor" href="#the-obligation-and-the-recorded-rejection"></a>
+<h3 id="review-the-poisson-model">Review the Poisson model<a class="anchor" aria-label="anchor" href="#review-the-poisson-model"></a>
 </h3>
-<p>The failed check arrived as a warning-severity summary, so the
-default pack now blocks forward progress with a review obligation
-demanding a recorded judgment on the fresh evidence:</p>
+<p>The failed check produces a warning-severity summary. The default
+pack blocks downstream computation until a decision records a review of
+that evidence:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span>
@@ -240,11 +237,9 @@ demanding a recorded judgment on the fresh evidence:</p>
 "review_computation_validity" 
        act_5d3f5ca0        act_fba204ff 
   "record_decision" "branch_and_modify" </code></pre>
-<p>The suggested actions are to record the criticism decision and to
-branch and modify the fit — which is exactly the plan. First the
-decision. This is the record a later reader (a reviewer, a co-author,
-yourself in a year) will consult to understand why the analysis left the
-Poisson model:</p>
+<p>The suggested actions are to record a review decision and to modify
+the fit on a branch. First, record why the Poisson model is rejected so
+later readers can follow the choice:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">review</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
 <span>  <span class="kw">function</span><span class="op">(</span><span class="va">a</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">kind</span>, <span class="st">"record_decision"</span><span class="op">)</span>,</span>
@@ -268,12 +263,12 @@ Poisson model:</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="round-2-the-negative-binomial">Round 2: the negative binomial<a class="anchor" aria-label="anchor" href="#round-2-the-negative-binomial"></a>
+<h2 id="fit-a-negative-binomial-model">Fit a negative binomial model<a class="anchor" aria-label="anchor" href="#fit-a-negative-binomial-model"></a>
 </h2>
-<p>The repair is a branch, not an edit: the Poisson fit and its failed
-check stay in the record, and the branch documents its own reason for
-existing. <code><a href="../reference/bg_update_node.html">bg_update_node()</a></code> merges params, so only the Stan
-program is swapped; data, chains, and seed carry over.</p>
+<p>Create a branch for the negative binomial model. This retains the
+Poisson fit and its failed check and records the reason for the new
+model. <code><a href="../reference/bg_update_node.html">bg_update_node()</a></code> merges params, so only the Stan
+program changes; data, chains, and seed carry over.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_pois</span>, label <span class="op">=</span> <span class="st">"Negative binomial"</span><span class="op">)</span></span>
 <span></span>
@@ -352,27 +347,21 @@ $prop_zero
 
 $sd
 [1] 0.9835</code></pre>
-<p>Real model criticism is rarely a clean pass after one repair, and the
-package does not pretend otherwise. The zero rate is now comfortably
-reproduced (<code>prop_zero</code> around 0.3), but the <code>max</code>
-statistic has tripped in the <em>opposite</em> direction: with the
-fitted dispersion (phi around 0.27), the negative binomial’s tail is so
-heavy that almost every replicate contains a count <em>larger</em> than
-the observed maximum of 357. The model now overshoots the extremes it
-previously could not reach.</p>
+<p>The negative binomial reproduces the zero rate
+(<code>prop_zero</code> p-value around 0.3), but overpredicts the
+maximum. With the fitted dispersion (phi around 0.27), almost every
+replicate contains a count larger than the observed maximum of 357.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_plot.html">bg_plot</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_ppc_nb</span><span class="op">)</span></span></code></pre></div>
 <div class="float">
 <img src="figures/case-study-roaches-ppc-nb.png" alt="Posterior predictive density overlay for the negative binomial model"><div class="figcaption">Posterior predictive density overlay for the
 negative binomial model</div>
 </div>
-<p>Is that disqualifying? This is precisely the judgment the workflow
-refuses to make for you. A tripwire fired; a human must decide what it
-means <em>for this question</em>. Our question is the average treatment
-effect, which is driven by the bulk of the count distribution, not by
-whether the single largest trap count is 357 or 3000. We record that
-judgment — visibly, with its reasoning — rather than silently ignoring a
-warning:</p>
+<p>Decide whether the overpredicted maximum invalidates the model for
+estimating the average treatment effect. That estimate depends mainly on
+the bulk of the count distribution, rather than whether the largest
+count is 357 or 3000. Record the decision to retain the model and the
+reason for accepting this mismatch:</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nb_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -401,15 +390,14 @@ warning:</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="round-3-a-competing-hypothesis-about-the-zeros">Round 3: a competing hypothesis about the zeros<a class="anchor" aria-label="anchor" href="#round-3-a-competing-hypothesis-about-the-zeros"></a>
+<h2 id="fit-a-zero-inflated-negative-binomial-model">Fit a zero-inflated negative binomial model<a class="anchor" aria-label="anchor" href="#fit-a-zero-inflated-negative-binomial-model"></a>
 </h2>
 <p>The negative binomial explains the zeros as ordinary low-count
 outcomes. A different mechanism is plausible: some apartments may have
-no roach infestation at all, producing <em>structural</em> zeros
-regardless of exposure. A zero-inflated negative binomial encodes that
-hypothesis. It is a genuinely different model of the process, so it
-enters as a second branch from the same criticized fit — not as a
-further edit of the NB branch:</p>
+no roach infestation at all, producing structural zeros regardless of
+exposure. A zero-inflated negative binomial models that possibility.
+Create a second branch from the Poisson fit so it can be compared with
+the negative binomial branch:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">zinb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_branch.html">bg_branch</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">n_pois</span>, label <span class="op">=</span> <span class="st">"Zero-inflated NB"</span><span class="op">)</span></span>
 <span></span>
@@ -484,12 +472,11 @@ $prop_zero
 
 $sd
 [1] 0.9572</code></pre>
-<p>The picture is close to the plain negative binomial’s: zeros
-comfortably reproduced, the same heavy-tail caveat at the margin. The
-structural-zero probability itself turns out to be small (about 7
-percent on average), a first hint that the zero-inflation machinery may
-not be earning its keep. We record the branch’s criticism decision with
-the same reasoning as before:</p>
+<p>The zero-inflated model also reproduces the zero rate and
+overpredicts large counts. The structural-zero probability averages
+about 7 percent, suggesting that the added component may contribute
+little. Record the branch’s review using the same rationale as for the
+negative binomial:</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">zinb_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -516,26 +503,22 @@ the same reasoning as before:</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="the-enforced-comparison">The enforced comparison<a class="anchor" aria-label="anchor" href="#the-enforced-comparison"></a>
+<h2 id="compare-the-models">Compare the models<a class="anchor" aria-label="anchor" href="#compare-the-models"></a>
 </h2>
-<p>Every fit in the project now carries reviewed evidence, and the
-default pack will not let the analysis conclude by fiat — project scope
-demands an explicit comparison. Note who is in the candidate set: all
-three models, <em>including</em> the rejected Poisson. A review decision
-covers evidence; it does not quietly erase a model from the record. The
-comparison is where the Poisson’s inadequacy gets quantified, and the
-branch dispositions afterwards are where candidates are formally
-accepted or rejected.</p>
+<p>All fits now have reviewed evidence. The default pack requires a
+comparison at project scope, including the Poisson model rejected during
+review. Review decisions do not remove candidates from the graph. The
+comparison quantifies their differences; subsequent branch dispositions
+record which candidates to accept or reject.</p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">project_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">project_guide</span><span class="op">$</span><span class="va">obligations</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"kind"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span>                <span class="va">obl_d68109ce</span> </span>
 <span><span class="st">"compare_candidate_branches"</span> </span></code></pre>
-<p>The comparison is PSIS-LOO (Vehtari, Gelman, and Gabry, 2017), and it
-is itself part of the graph: a <code>loo</code> node per candidate
-computes the leave-one-out estimate from that fit’s log-likelihood draws
-(emitting its own Pareto-k diagnostic summary on the way), and a
-<code>compare</code> node consumes all three:</p>
+<p>Use PSIS-LOO (Vehtari, Gelman, and Gabry, 2017). A <code>loo</code>
+node for each candidate computes the leave-one-out estimate from its
+log-likelihood draws and emits a Pareto-k diagnostic summary. A
+<code>compare</code> node uses all three results:</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_loo_pois</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>
@@ -582,25 +565,19 @@ $comparison_table$elpd_diff
 
 $comparison_table$se_diff
 [1]   0.0000000   0.8328894 708.9827766</code></pre>
-<p>The table is ordered best-first, and the elpd values identify the
-rows: the two count models sit at the top separated by a fraction of a
-standard error (the negative binomial narrowly ahead, as the comparison
-decision below records), and the Poisson sits at the bottom. Two things
-are on the record now. First, the gulf: the Poisson is over five
-thousand elpd units below the count models — the comparison does not
-merely rank it last, it documents <em>how far</em> last. Second, the tie
-at the top between the negative binomial and its zero-inflated
-extension.</p>
+<p>The table orders models by elpd, highest first. The negative binomial
+is slightly ahead of its zero-inflated extension, with a difference of
+less than one standard error. The Poisson is more than five thousand
+elpd units below both. These results show little difference between the
+two negative binomial models and a large difference between either one
+and the Poisson.</p>
 <div class="section level3">
-<h3 id="the-diagnostics-of-the-diagnostics">The diagnostics of the diagnostics<a class="anchor" aria-label="anchor" href="#the-diagnostics-of-the-diagnostics"></a>
+<h3 id="review-loo-diagnostics">Review LOO diagnostics<a class="anchor" aria-label="anchor" href="#review-loo-diagnostics"></a>
 </h3>
-<p>The loo nodes emitted their own evidence, and it does not all pass:
-the Poisson’s importance sampling is unreliable (many high Pareto-k
-values, the expected signature of a badly misspecified model), and the
-ZINB has one borderline observation. Unreviewed warnings block progress
-here exactly as they did for the fits, so the workflow demands a
-judgment on the reliability of its own comparison evidence before it
-lets the comparison conclude:</p>
+<p>The Poisson’s LOO importance sampling is unreliable, with many high
+Pareto-k values consistent with its poor fit. The ZINB has one
+borderline observation. These warnings block progress until a review
+records whether the comparison evidence is reliable enough to use:</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">project_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="va">loo_review</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -628,9 +605,8 @@ lets the comparison conclude:</p>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Decisions are scope-specific, and the loo evidence for the branch
 fits lives on those branches: the project-scope decision above does not
-cover them. Each branch records the same judgment for its own evidence —
-the repetition is the point, since each active line of analysis must
-answer for what it relies on:</p>
+cover them. Record the judgment separately on each branch so it applies
+to that branch’s evidence:</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">b</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">nb</span>, <span class="va">zinb</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">b_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"branch"</span>, branch_id <span class="op">=</span> <span class="va">b</span><span class="op">$</span><span class="va">branch_id</span><span class="op">)</span></span>
@@ -657,11 +633,9 @@ answer for what it relies on:</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p>Ties are informative. The zero-inflation component adds a parameter
-and a mechanism the data do not demand — the plain negative binomial
-already produces enough zeros. Following the parsimony principle, the
-comparison decision prefers the negative binomial, and says so in the
-log:</p>
+<p>The zero-inflation component adds a parameter without a clear
+predictive improvement. The negative binomial already reproduces the
+zero rate, so the comparison decision prefers that simpler model:</p>
 <div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">project_guide</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_next_actions.html">bg_next_actions</a></span><span class="op">(</span><span class="va">handle</span>, scope <span class="op">=</span> <span class="st">"project"</span><span class="op">)</span></span>
 <span><span class="va">comparison_action</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
@@ -692,8 +666,8 @@ log:</p>
 <span>    <span class="st">"comparison_context"</span></span>
 <span>  <span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>With a comparison on record, each branch must be explicitly closed
-out — accepted or rejected, with reasons:</p>
+<p>After recording the comparison, accept or reject each branch with a
+rationale:</p>
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">b</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>branch <span class="op">=</span> <span class="va">nb</span>, disposition <span class="op">=</span> <span class="st">"accept"</span>, why <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span></span>
@@ -740,12 +714,12 @@ out — accepted or rejected, with reasons:</p>
 <pre><code>named list()
 named list()
 named list()</code></pre>
-<p>No outstanding obligations at any scope: every piece of evidence the
-workflow collected has a recorded judgment attached.</p>
+<p>There are no outstanding obligations at project or branch scope. The
+required reviews have been recorded.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="what-the-enforced-loop-changed">What the enforced loop changed<a class="anchor" aria-label="anchor" href="#what-the-enforced-loop-changed"></a>
+<h2 id="compare-treatment-effect-estimates">Compare treatment-effect estimates<a class="anchor" aria-label="anchor" href="#compare-treatment-effect-estimates"></a>
 </h2>
 <p>The treatment effect, as a multiplicative factor on the roach count
 (posterior median and 90 percent interval of
@@ -770,10 +744,9 @@ workflow collected has a recorded judgment attached.</p>
 </tbody>
 </table>
 <p>The Poisson fit estimates a 40 percent reduction. The accepted
-negative binomial fit estimates a larger reduction, with an interval
-roughly five times wider. The failed predictive check raised a blocking
-obligation, and the decision log records why the Poisson model was
-rejected.</p>
+negative binomial fit estimates a larger reduction, with a wider
+interval. The failed predictive check raised a blocking obligation, and
+the decision log records why the Poisson model was rejected.</p>
 <div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">draws</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_result.html">bg_result</a></span><span class="op">(</span><span class="va">handle</span>, <span class="va">nb</span><span class="op">$</span><span class="va">root_node_id</span><span class="op">)</span><span class="op">$</span><span class="fu">draws</span><span class="op">(</span><span class="st">"b_treatment"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">draws</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.5</span>, <span class="fl">0.95</span><span class="op">)</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
@@ -781,11 +754,11 @@ rejected.</p>
 0.31 0.46 0.69 </code></pre>
 </div>
 <div class="section level2">
-<h2 id="the-audit-trail">The audit trail<a class="anchor" aria-label="anchor" href="#the-audit-trail"></a>
+<h2 id="export-the-analysis-record">Export the analysis record<a class="anchor" aria-label="anchor" href="#export-the-analysis-record"></a>
 </h2>
-<p>The graph holds all three models, their checks, and the comparison;
-the decision log holds every judgment that steered the analysis — the
-goals, the reviews, the comparison, and the dispositions:</p>
+<p>The graph contains all three models, their checks, and the
+comparison. The decision log records the goals, reviews, comparison
+decision, and branch dispositions:</p>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_read_graph.html">bg_read_graph</a></span><span class="op">(</span><span class="va">handle</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -822,9 +795,9 @@ computation_review - accept_loo_evidence
 model_comparison - prefer_negative_binomial 
 branch_disposition - accept 
 branch_disposition - reject </code></pre>
-<p><code><a href="../reference/bg_export_report.html">bg_export_report()</a></code> renders the whole trail into a
-document — every fit, every diagnostic summary, every decision with its
-rationale, and the branch lineage:</p>
+<p><code><a href="../reference/bg_export_report.html">bg_export_report()</a></code> produces a document with the graph,
+decisions and rationales, and artifact index. Diagnostic summaries
+remain in the project:</p>
 <div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_export_report.html">bg_export_report</a></span><span class="op">(</span></span>
 <span>  <span class="va">handle</span>,</span>

@@ -57,11 +57,10 @@ so that no new jobs are dispatched. It does not cancel currently running jobs.</
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>In a synchronous runtime this is a near-no-op: it only gates the next
-<a href="bg_run.html">bg_run</a> call. Under parallel execution (Milestone 3) pause takes effect at
-WAVE BOUNDARIES — the in-flight wave finishes, then the run stops before the
-next wave dispatches, and <a href="bg_resume.html">bg_resume</a> clears the flag. Reclassified
-<code>experimental</code> while the wave-boundary semantics settle.</p>
+    <p>In a synchronous runtime the pause marker prevents the next <a href="bg_run.html">bg_run</a> call
+from starting work. Under parallel execution, pause takes effect at wave
+boundaries: the current wave finishes, then the run stops before the next
+wave starts. <a href="bg_resume.html">bg_resume</a> clears the flag. This API is experimental.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
