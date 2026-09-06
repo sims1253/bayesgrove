@@ -3,9 +3,6 @@ llm-docs: false
 template:
   bootstrap: 5
 
-development:
-  mode: auto
-
 navbar:
   structure:
     left:
