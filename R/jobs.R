@@ -273,7 +273,8 @@ bg_compact_jobs <- function(project) {
         jsonlite::toJSON(
           bg_sort_persisted_value(job),
           auto_unbox = TRUE,
-          null = "null"
+          null = "null",
+          digits = I(17)
         )
       },
       character(1)

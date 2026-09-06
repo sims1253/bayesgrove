@@ -14,19 +14,6 @@ which are owned by `dagriculture` as graph-generic primitives.
 | Summary freshness, decision coverage, and workflow protocol guidance | bayesgrove | These concerns depend on Bayesian review semantics, artifact freshness, and decision provenance. |
 | Decision logs, gates, and provenance records | bayesgrove | Provenance is domain-specific context on top of the structural graph, not a generic graph primitive. |
 
-## Why this split
-
-bayesgrove uses `dagriculture` as its structural execution engine, and this
-boundary is defended by:
-
-- graph-generic queries sitting behind a small internal adapter layer of thin
-  pass-throughs;
-- the canonical implementations living in `dagriculture`, with bayesgrove
-  keeping only adapter wrappers (so a future dagriculture API change has one
-  adapter to update rather than N call sites); and
-- workflow semantics staying local, avoiding an architectural leak where
-  Bayesian review rules would be pushed into a generic graph package.
-
 ## Decision note (Milestone 5)
 
 Milestone 5 moved the edge-traversal and graph-diff helpers
@@ -47,11 +34,6 @@ derivation, and the jobs log — should also migrate into dagriculture as a
 generic execution layer, leaving bayesgrove purely semantic (summaries,
 obligations, decisions, holds).
 
-Recommendation: **yes, eventually — but only once a second consumer
-exists.** Those subsystems are already graph-generic in shape (nothing in
-the CAS or the fingerprint algebra mentions Bayesian concepts), so the move
-is mechanically feasible. Extracting them today, however, would freeze their
-interfaces against a single consumer's needs and double the release
-coordination cost for no present benefit. The trigger for revisiting is a
-second package that wants cached, fingerprinted graph execution without the
-review protocol.
+Revisit extraction when a second package needs cached, fingerprinted graph
+execution without the review protocol. Until then, keep these interfaces
+local to bayesgrove.

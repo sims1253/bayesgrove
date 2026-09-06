@@ -17,22 +17,8 @@ navbar:
       text: "Home"
       href: index.html
     intro:
-      text: "Get Started"
-      menu:
-      - text: "Concepts"
-        href: articles/concepts.html
-      - text: "Getting Started"
-        href: articles/getting-started.html
-      - text: "Case Study: Eight Schools"
-        href: articles/eight-schools.html
-      - text: "Simulation Study Workflow"
-        href: articles/simulation-study.html
-      - text: "Reproducible Research"
-        href: articles/reproducible-research.html
-      - text: "Teaching with bayesgrove"
-        href: articles/teaching.html
-      - text: "Extending bayesgrove"
-        href: articles/extensions.html
+      text: "Get started"
+      href: articles/getting-started.html
     reference:
       text: "Reference"
       href: reference/index.html
@@ -110,7 +96,6 @@ reference:
   - title: Branching & Invalidation
     contents:
       - bg_branch
-      - bg_branch_with_continuation
       - bg_retire_node
       - bg_retire_branch
       - bg_invalidate
@@ -130,17 +115,17 @@ reference:
       - bg_hmc_severity
 
 articles:
-  - title: "All Vignettes"
-    desc: ~
+  - title: "Learn the workflow"
+    desc: "Start with the tutorial, then follow a model review."
     contents:
+      - "getting-started"
       - "concepts"
       - "eight-schools"
-      - "extensions"
-      - "getting-started"
       - "case-study-roaches"
-      - "simulation-study"
-  - title: "Articles"
-    desc: "pkgdown-only articles (not shipped in the package)."
+  - title: "Adapt and share an analysis"
+    desc: ~
     contents:
+      - "simulation-study"
+      - "extensions"
       - "articles/reproducible-research"
       - "articles/teaching"

@@ -459,13 +459,7 @@ bg_init <- function(
 
   # Save initial graph
   graph_path <- file.path(bg_dir, "graph", "graph.json")
-  jsonlite::write_json(
-    unclass(graph),
-    graph_path,
-    auto_unbox = TRUE,
-    pretty = TRUE,
-    force = TRUE
-  )
+  bg_write_json_atomic(graph_path, unclass(graph), sort_keys = FALSE)
 
   project_id <- bg_new_id("proj")
 

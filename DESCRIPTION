@@ -1,8 +1,8 @@
 Package: bayesgrove
 Title: Graph-Based Bayesian Workflow Scaffolding
-Version: 0.7.0
+Version: 0.7.0.9000
 Authors@R: c(person("Maximilian", "Scholz", email = "dev.scholz@mailbox.org", role = c("aut", "cre")))
-Description: Keeps Bayesian model reviews honest: diagnostics create recorded
+Description: Records Bayesian model reviews: diagnostics create
     obligations that can block downstream computation until a justified
     decision is recorded. Provides typed graph construction, deterministic
     fingerprinting, content-addressed artifact storage, decision logging, a

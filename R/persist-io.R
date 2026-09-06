@@ -39,7 +39,8 @@ bg_sort_persisted_value <- function(x) {
 #' @keywords internal
 bg_write_json_atomic <- function(path, data, sort_keys = TRUE) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-  tmp <- paste0(path, ".tmp")
+  tmp <- tempfile(paste0(basename(path), "."), tmpdir = dirname(path))
+  on.exit(unlink(tmp, force = TRUE), add = TRUE)
   payload <- if (isTRUE(sort_keys)) bg_sort_persisted_value(data) else data
 
   jsonlite::write_json(
@@ -48,10 +49,15 @@ bg_write_json_atomic <- function(path, data, sort_keys = TRUE) {
     auto_unbox = TRUE,
     pretty = TRUE,
     null = "null",
-    force = TRUE
+    force = TRUE,
+    digits = I(17)
   )
 
-  file.rename(tmp, path)
+  if (!file.rename(tmp, path)) {
+    cli::cli_abort(
+      "Failed to write {.file {path}} atomically: could not rename temporary file."
+    )
+  }
   invisible(TRUE)
 }
 
@@ -106,7 +112,8 @@ bg_append_jsonl <- function(path, record, known_line_count = NULL) {
     json_line <- jsonlite::toJSON(
       bg_sort_persisted_value(record),
       auto_unbox = TRUE,
-      null = "null"
+      null = "null",
+      digits = I(17)
     )
     cat(paste0(json_line, "\n"), file = path, append = TRUE)
     invisible(record$seq)

@@ -1073,6 +1073,47 @@ describe("Interactive REPL", {
     expect_equal(bg_read_graph(handle)$nodes[[result$node_id]]$kind, "sbc")
   })
 
+  it("rejects an SBC generator downstream of the source fit", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "cmdstanr_fit")
+    bg_register_node_kind(handle, "generator")
+    fit_id <- bg_add_node(handle, kind = "cmdstanr_fit", label = "Fit")
+    generator_id <- bg_add_node(
+      handle,
+      kind = "generator",
+      label = "Generator",
+      inputs = fit_id
+    )
+    stan_file <- withr::local_tempfile(fileext = ".stan")
+    writeLines(
+      "parameters { real theta; } model { theta ~ normal(0, 1); }",
+      stan_file
+    )
+    action <- list(
+      action_id = "test_sbc_check_descendant",
+      kind = "create_node_from_template",
+      scope = "project",
+      title = "Create SBC check",
+      basis = list(node_ids = fit_id),
+      payload = list(
+        template_ref = "sbc_check",
+        source_node_id = fit_id,
+        generator_node_id = generator_id,
+        stan_file = stan_file
+      )
+    )
+
+    expect_error(
+      bg_apply_template_action(
+        handle,
+        action,
+        scope = "project",
+        interactive = FALSE
+      ),
+      "upstream generator node id"
+    )
+  })
+
   it("preserves backward compatibility for branch_comparison template actions", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)

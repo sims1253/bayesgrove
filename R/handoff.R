@@ -201,7 +201,8 @@ bg_bundle <- function(
     manifest,
     file.path(dest_proj_dir, ".bayesgrove", "bundle_manifest.json"),
     auto_unbox = TRUE,
-    pretty = TRUE
+    pretty = TRUE,
+    digits = I(17)
   )
 
   # 4. Tar it up

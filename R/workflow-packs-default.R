@@ -182,11 +182,12 @@ bg_default_bayesian_clean_fit_candidates <- function(context) {
       next
     }
 
-    node_scope <- sort(unique(vapply(
+    scopes <- unique(vapply(
       ok_diagnostics,
       function(summary) summary$scope %||% "project",
       character(1)
-    )))[[1]]
+    ))
+    node_scope <- if ("project" %in% scopes) "project" else sort(scopes)[[1]]
 
     warning_summaries <- Filter(
       function(summary) {

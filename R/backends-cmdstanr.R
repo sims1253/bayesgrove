@@ -298,10 +298,8 @@ bg_resolve_fit_data <- function(node, inputs, default = NULL) {
 #' @keywords internal
 #' @noRd
 bg_executor_stan_data <- function(node, inputs) {
-  # Resolution order: resolved$data (resolved by bg_execute_node from a cas:
-  # data_ref) > inline data param > abort. Params are data, never code: the
-  # former data_fn_source eval channel has been removed; use bg_set_node_data()
-  # to attach a data object.
+  # Resolve CAS-backed data before inline data. Use bg_set_node_data() to
+  # attach objects whose R types must survive persistence.
   if (!is.null(node$resolved$data)) {
     list(
       result = node$resolved$data,
@@ -405,10 +403,7 @@ bg_executor_cmdstanr_prior_fit <- function(node, inputs) {
     error = function(e) NULL
   )
 
-  # Prior-predictive checking with a custom function now returns as a
-  # trusted-executor pattern: users register their own node kind wrapping
-  # prior_fit, which goes through the bg_restore_executors trust gate. The
-  # former check_fn_source params-as-code channel has been removed.
+  # Custom prior-predictive checks use registered executors wrapping prior_fit.
   summary <- list(
     summary_kind = "prior_predictive_check",
     passed = NA,
@@ -678,7 +673,7 @@ bg_executor_ppc <- function(node, inputs) {
   )
 
   # Plot-ready data: observed y plus a capped subsample of yrep rows, so a
-  # downstream plot (Milestone 7) can render ppc_dens_overlay without re-running
+  # downstream plot can render ppc_dens_overlay without re-running
   # the fit. Cap to max_yrep_rows draws (default 100), evenly spaced across the
   # posterior to keep the subsample representative. Stored alongside the p-values
   # in the artifact; the summary carries only the scalar metrics.
@@ -973,8 +968,7 @@ bg_with_preserved_seed <- function(seed, code) {
 # executor registry and its explicit `bg_restore_executors(trust = TRUE)` gate;
 # no persisted node param is ever parsed or evaluated by this built-in.
 #
-# Cost: this fits n_sims models. Run it under mirai daemons (Milestone 3) for
-# scale — each sim is independent and the whole loop parallelizes cleanly.
+# Cost: this executor fits n_sims models sequentially.
 
 #' Run simulation-based calibration.
 #'

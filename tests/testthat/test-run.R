@@ -179,13 +179,27 @@ describe("Artifact store (Phase 2.3)", {
     expect_gte(length(artifacts), 1)
   })
 
-  it("stores and fetches an artifact round-trip", {
+  it("round-trips an artifact and rejects changes after its first read", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
 
     ref <- bg_store_artifact(handle, "node_x", "sha256:abc", list(value = 7))
     expect_match(ref, "^cas:sha256:")
     expect_equal(bg_fetch_artifact(handle, ref)$value, 7)
+    hash <- sub("^cas:sha256:", "", ref)
+    path <- file.path(
+      handle@path,
+      ".bayesgrove",
+      "cache",
+      "sha256",
+      substr(hash, 1, 2),
+      paste0(hash, ".rds")
+    )
+    saveRDS(list(value = 8), path)
+    expect_error(
+      bg_fetch_artifact(handle, ref),
+      "Artifact integrity check failed"
+    )
   })
 
   it("cleans up the temp file on a cache hit (no leak)", {

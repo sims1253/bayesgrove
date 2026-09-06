@@ -497,8 +497,11 @@ bg_execute_template_sbc_check <- function(
   generator_node_id <- overrides$generator_node_id %||%
     payload$generator_node_id %||%
     NULL
+  candidates <- setdiff(
+    names(source$graph$nodes),
+    c(source_node_id, bg_dagri_descendants(source$graph, source_node_id))
+  )
   if (is.null(generator_node_id) && isTRUE(interactive)) {
-    candidates <- setdiff(names(source$graph$nodes), source_node_id)
     cli::cli_bullets(stats::setNames(
       vapply(
         candidates,
@@ -517,7 +520,7 @@ bg_execute_template_sbc_check <- function(
   if (
     is.null(generator_node_id) ||
       !nzchar(generator_node_id) ||
-      is.null(source$graph$nodes[[generator_node_id]])
+      !generator_node_id %in% candidates
   ) {
     cli::cli_abort(c(
       "SBC setup requires an existing upstream generator node id.",

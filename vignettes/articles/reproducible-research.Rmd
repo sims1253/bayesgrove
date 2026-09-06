@@ -39,7 +39,7 @@ Inside the archive, under `.bayesgrove/`, an independent reader finds:
 | `cache/` | Content-addressed artifacts (large fit objects are excluded unless `include_fits = TRUE`). |
 | `bundle_manifest.json` | A reproducibility manifest: R version, platform, package versions, CmdStan version, creation time. |
 
-Two properties make this an audit trail rather than a snapshot:
+The logs and fingerprints record the analysis history:
 
 1. **Append-only logs.** Decisions and summaries are JSONL appends with
    monotonic sequence numbers; nothing is edited in place. The history of a
@@ -86,11 +86,9 @@ summaries <- lapply(
 )
 ```
 
-This supports checks that a notebook-based workflow cannot: e.g. "every
+Use the logs to check, for example, whether every
 `hmc_diagnostics` summary with severity `warning` or `error` is referenced
-by at least one `computation_review` decision". That is the property
-bayesgrove *enforces* during the analysis (blocking obligations hold
-downstream nodes), and the trace lets a reviewer confirm it after the fact.
+by at least one `computation_review` decision.
 
 For a human-readable rendering, `bg_export_report()` produces a Markdown or
 HTML report with the graph (as a Mermaid diagram), the full decision
@@ -98,10 +96,8 @@ provenance, and the artifact index.
 
 # SBC and simulation studies at scale
 
-Calibration studies are hundreds of independent fits — exactly the shape the
-wave scheduler parallelizes. Start `mirai` daemons and run; nodes whose
-inputs are ready dispatch concurrently, and results are byte-identical to a
-sequential run because artifacts are content-addressed:
+The wave scheduler dispatches independent nodes concurrently when their
+inputs are ready. Start `mirai` daemons before running the graph:
 
 ```{r}
 mirai::daemons(8)
@@ -135,9 +131,7 @@ A "data and code availability" statement for a bayesgrove-backed analysis:
 > machine-readable form. The complete project bundle — including the
 > decision log with rationales, typed diagnostic summaries with execution
 > fingerprints, and a reproducibility manifest (R X.Y.Z, CmdStan X.Y.Z) —
-> is archived at DOI. Model fits can be regenerated from the bundle with
-> `bg_open()` followed by `bg_run()`; environment mismatches with the
-> recorded manifest are surfaced on open.
+> is archived at DOI.
 
 Cite the package and the workflow paper it operationalizes with
 `citation("bayesgrove")`.

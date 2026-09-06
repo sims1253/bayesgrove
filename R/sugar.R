@@ -1,4 +1,4 @@
-# Practitioner convenience helpers (Milestone 6 item 9) ---------------------
+# Practitioner convenience helpers ----------------------------------------
 #
 # Pure sugar over the existing graph verbs. Each one collapses the minimal
 # fit into a single call: create the data node, create the fit node, run it,
@@ -45,7 +45,6 @@ bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
     "bg_use_cmdstanr"
   )
 
-  # Create + populate the data node, then the fit node consuming it.
   data_node <- bg_add_node(
     handle,
     kind = "stan_data",

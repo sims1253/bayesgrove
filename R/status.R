@@ -9,9 +9,7 @@
 #' @keywords internal
 #' @noRd
 bg_workflow_bundle <- function(project) {
-  # The raw graph feeds the protocol holds check (descendants must traverse
-  # inactive nodes too, matching pre-Phase-6 semantics); the active graph
-  # feeds the plan refresh. Both are paid for once, not per protocol call.
+  # Holds must traverse inactive nodes too; planning uses the active graph.
   raw_graph <- bg_read_graph(project)
   graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
   plan_seed <- bg_plan(project)
@@ -52,18 +50,10 @@ bg_workflow_bundle <- function(project) {
 #' Get workflow status
 #'
 #' @param project A `bg_handle`.
-#' @param auto_advance Deprecated; no longer has any effect.
-#'
 #' @return A `bg_status` list summarizing the project.
 #' @export
-bg_status <- function(project, auto_advance = NULL) {
+bg_status <- function(project) {
   S7::check_is_S7(project, bg_handle)
-
-  if (!is.null(auto_advance)) {
-    cli::cli_warn(
-      "`auto_advance` is deprecated and no longer has any effect."
-    )
-  }
 
   bg_status_from_bundle(project, bg_workflow_bundle(project))
 }

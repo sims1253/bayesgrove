@@ -42,7 +42,8 @@ bg_compute_fingerprint <- function(
   params_json <- jsonlite::toJSON(
     sorted_params,
     auto_unbox = TRUE,
-    null = "null"
+    null = "null",
+    digits = I(17)
   )
 
   # 2. Upstream fingerprints, ordered by input edge for determinism
@@ -69,7 +70,12 @@ bg_compute_fingerprint <- function(
   #    already resolved; an empty manifest falls back to the default so that
   #    direct bg_compute_fingerprint() calls still pin R + bayesgrove version.
   manifest <- bg_resolve_environment_manifest(environment_manifest)
-  env_json <- jsonlite::toJSON(manifest, auto_unbox = TRUE, null = "null")
+  env_json <- jsonlite::toJSON(
+    manifest,
+    auto_unbox = TRUE,
+    null = "null",
+    digits = I(17)
+  )
 
   # 4. Executor. Resolution order:
   #    a. built-in executor id ("builtin:<id>") -> hash id + package version
@@ -86,7 +92,7 @@ bg_compute_fingerprint <- function(
   source_hash <- bg_source_hash_component(node)
 
   # 6. Serialization format version. Bumping invalidates all prior caches.
-  format_version <- "2"
+  format_version <- "3"
 
   # Combine all components deterministically
   components <- list(
@@ -99,7 +105,12 @@ bg_compute_fingerprint <- function(
     source = source_hash
   )
 
-  payload <- jsonlite::toJSON(components, auto_unbox = TRUE, null = "null")
+  payload <- jsonlite::toJSON(
+    components,
+    auto_unbox = TRUE,
+    null = "null",
+    digits = I(17)
+  )
 
   sprintf("sha256:%s", digest::digest(payload, algo = "sha256"))
 }

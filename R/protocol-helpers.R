@@ -54,7 +54,8 @@ bg_protocol_identity_string <- function(x) {
   jsonlite::toJSON(
     bg_protocol_normalize_value(x),
     auto_unbox = TRUE,
-    null = "null"
+    null = "null",
+    digits = I(17)
   )
 }
 
