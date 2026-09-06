@@ -10,7 +10,12 @@ describe("Handoff and Export Layer", {
 
     bg_run(handle)
 
-    bundle_path <- expect_no_warning(bg_bundle(handle))
+    withr::local_dir(tmp)
+    bundle_path <- expect_no_warning(bg_bundle(handle, path = "project.tar.gz"))
+    expect_identical(
+      bundle_path,
+      file.path(normalizePath(tmp), "project.tar.gz")
+    )
     expect_true(file.exists(bundle_path))
     expect_true(grepl("\\.tar\\.gz$", bundle_path))
 
@@ -80,7 +85,7 @@ describe("Handoff and Export Layer", {
     expect_true(any(grepl("References", content, fixed = TRUE)))
   })
 
-  it("supports html reports and modern bundle data policies", {
+  it("supports html reports", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
 
@@ -89,11 +94,6 @@ describe("Handoff and Export Layer", {
     })
     bg_add_node(handle, "data", label = "A")
     bg_run(handle)
-
-    bundle_path <- expect_no_warning(
-      bg_bundle(handle, include_data = "copy")
-    )
-    expect_true(file.exists(bundle_path))
 
     report_path <- bg_export_report(
       handle,
@@ -105,6 +105,28 @@ describe("Handoff and Export Layer", {
     content <- paste(readLines(report_path), collapse = "\n")
     expect_true(grepl("<html>", content, fixed = TRUE))
     expect_true(grepl("bayesgrove Workflow Report", content, fixed = TRUE))
+  })
+
+  it("bundles attached data before execution", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      node$resolved$data
+    })
+    node <- bg_add_node(handle, "data")
+    data <- list(x = 1:3, label = "uncomputed input")
+    bg_set_node_data(handle, node, data)
+
+    bundle <- bg_bundle(handle)
+    restored_dir <- withr::local_tempdir()
+    utils::untar(bundle, exdir = restored_dir)
+    restored <- bg_open(file.path(restored_dir, basename(tmp)))
+    bg_register_node_kind(restored, "data", executor = function(node, inputs) {
+      node$resolved$data
+    })
+    expect_equal(bg_run(restored)$status, "succeeded")
+    expect_identical(bg_result(restored, node), data)
+    bg_close(restored)
   })
 
   it("bundle manifest carries a reproducibility manifest", {

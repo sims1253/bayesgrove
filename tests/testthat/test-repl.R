@@ -613,8 +613,7 @@ describe("Interactive REPL", {
       bg_export_report = function(
         project,
         path = NULL,
-        format = c("html", "md"),
-        out_file = NULL
+        format = c("html", "md")
       ) {
         state$captured <- list(path = path, format = format[[1]])
         file.path(project@path, path)
