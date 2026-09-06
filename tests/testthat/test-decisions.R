@@ -1,4 +1,24 @@
 describe("Decision and Gate Layer", {
+  it("rejects a gate whose edge is missing without changing project state", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "data")
+    from <- bg_add_node(handle, "data")
+    to <- bg_add_node(handle, "data", inputs = from)
+    gate <- bg_add_gate(handle, from, to, "Proceed?", c("yes", "no"))
+    graph <- bg_read_graph(handle)
+    graph$edges[[gate$edge_id]] <- NULL
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    expect_error(
+      bg_answer_gate(handle, gate$id, "yes", rationale = "Reviewed"),
+      "no longer exists in the graph"
+    )
+    expect_equal(bg_read_graph(handle), graph)
+    expect_length(bg_read_decisions(handle), 0)
+    expect_true(gate$id %in% names(bg_read_gate_specs(handle)))
+  })
+
   it("validates the handle before reading decisions", {
     expect_error(
       bg_read_decisions(list(path = tempdir())),

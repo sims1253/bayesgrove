@@ -1,4 +1,18 @@
 describe("Project Lifecycle", {
+  it("preserves the destination and cleans up when atomic replacement fails", {
+    tmp <- withr::local_tempdir()
+    path <- file.path(tmp, "state.json")
+    dir.create(path)
+    writeLines("keep", file.path(path, "sentinel"))
+
+    expect_error(
+      suppressWarnings(bg_write_json_atomic(path, list(value = 1))),
+      "could not rename temporary file"
+    )
+    expect_equal(readLines(file.path(path, "sentinel")), "keep")
+    expect_equal(list.files(tmp), "state.json")
+  })
+
   it("uses a unique temporary file for atomic JSON writes", {
     tmp <- withr::local_tempdir()
     path <- file.path(tmp, "state.json")

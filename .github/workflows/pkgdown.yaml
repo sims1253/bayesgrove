@@ -40,6 +40,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # Keep this tested pair together; mixing development rstan with CRAN headers fails compilation.
           extra-packages: any::pkgdown, local::., cran::rstan@2.32.7, cran::StanHeaders@2.32.10
           needs: website
 
