@@ -49,6 +49,13 @@ tutorial](https://sims1253.github.io/bayesgrove/articles/getting-started.html):
 fit a model, inspect a failed predictive check, record a review, and try
 a revised model. The example Stan programs ship with the package.
 
+For the experimental search interface, see [the recorded model search
+tutorial](https://sims1253.github.io/bayesgrove/articles/research-search.html).
+It records P/A/D revisions, evidence, comparisons across lineages, and
+decisions, with Record, Guide, or Enforce intervention. R users, agents,
+and Glade can use the same research operations; the interface does not
+require a UI.
+
 For an interactive session, `bg_repl(handle)` shows pending reviews and
 suggested actions for an existing project.
 
