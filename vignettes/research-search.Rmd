@@ -176,6 +176,23 @@ not authentication; a host must establish identity for untrusted callers.
 Enforce applies to this research interface, not arbitrary R code or legacy
 `bg_run()` calls. Existing workflow packs retain their separate behavior.
 
+## Reframe without losing earlier decisions
+
+A declared human actor can correct the question or change the inferential goal.
+Earlier records keep their `goal_version`; their reviews do not authorize
+acceptance under the new goal. The evidence itself remains available.
+
+```{r}
+state <- record(
+  list(kind = "reframe", question = "How well are the largest measurements predicted?",
+       goal = list(kind = "observable_prediction", focus = "upper tail")),
+  "Focus the investigation on extreme observations."
+)
+proposal <- bg_research_propose(h, acceptance, human,
+                              "Reconsider the candidate for the revised goal.")
+proposal$allowed
+```
+
 ## Reopen and share
 
 ```{r}

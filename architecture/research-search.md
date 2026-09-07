@@ -48,6 +48,7 @@ that motivated it. These must refer to existing records and remain in history.
 | `accept`, `reject` | `candidate_id`, `evidence_ids` | Record a judgment for the investigation's goal. Rejection does not close a lineage. |
 | `note` | `candidate_id` | Record reasoning without changing a candidate. |
 | `close`, `reopen` | `candidate_id` | Close or reopen a lineage with the proposal's rationale. |
+| `reframe` | `question`, `goal` | Record a corrected or changed question and goal. Requires a declared human actor. |
 | `configure` | `mode`, `rules` | Replace intervention settings. Requires a declared human actor. |
 
 Each successful operation returns the full state. The last history entry carries
@@ -66,7 +67,10 @@ Closed ancestors prevent evidence collection, revision, and acceptance beneath
 them. Historical notes, reviews, rejections, and comparisons remain possible.
 Reopening a descendant cannot bypass a closed ancestor. Review evidence must
 belong to the candidate named by the decision; reviews do not transfer across
-revisions. New evidence is not covered by earlier reviews.
+revisions. New evidence is not covered by earlier reviews. Reframing keeps previous questions
+and goals in history. Each research record carries the `goal_version` it was
+created under, referring to the initialization or reframe history entry. Human
+reviews from a previous goal do not satisfy requirements under the new goal.
 
 ## Policy
 
@@ -97,7 +101,7 @@ Mode and rule changes are historical operations. They do not resolve concerns
 or rewrite earlier decisions. `allowed` and `findings` in a submitted proposal
 are never trusted: apply recomputes them against the current state and policy.
 
-Actors are caller-declared provenance. Human-review requirements and human-only policy changes are
+Actors are caller-declared provenance. Human-review requirements and human-only policy changes or reframing are
 protocol checks, not authentication. A host exposing this interface to untrusted
 agents must bind identity and authorize policy changes itself. Direct R access
 can also call legacy graph operations; this API is not a sandbox.

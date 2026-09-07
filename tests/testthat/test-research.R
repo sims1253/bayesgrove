@@ -678,3 +678,86 @@ test_that("unsupported attributes and empty constraints cannot lose meaning", {
     "must change"
   )
 })
+
+test_that("reframing preserves old goals and requires a review under the new goal", {
+  h <- research_fixture("enforce", list(research_rule()))
+  withr::defer(bg_close(h))
+  root <- research_candidate(h)
+  ev <- research_evidence(h, root)
+  reviewed <- research_apply(
+    h,
+    "review",
+    candidate_id = root,
+    evidence_ids = ev
+  )
+  review <- research_last_id(reviewed)
+  acceptance <- research_action(
+    h,
+    "accept",
+    candidate_id = root,
+    evidence_ids = ev
+  )
+  expect_true(acceptance$allowed)
+  expect_error(
+    research_action(
+      h,
+      "reframe",
+      question = "Estimate a latent quantity",
+      goal = list(kind = "latent"),
+      actor = list(id = "worker", type = "agent")
+    ),
+    "Only a human"
+  )
+  state <- research_apply(
+    h,
+    "reframe",
+    question = "Predict the upper tail",
+    goal = list(kind = "observable_prediction", focus = "upper tail")
+  )
+  expect_equal(
+    state$history[[1]]$action$question,
+    "Predict positive measurements"
+  )
+  expect_equal(state$decisions[[review]]$goal_version, 1L)
+  expect_equal(state$goal_version, state$version)
+  expect_identical(state$evidence, reviewed$evidence)
+  expect_false(
+    research_action(h, "accept", candidate_id = root, evidence_ids = ev)$allowed
+  )
+  expect_error(bg_research_apply(h, acceptance), "Stale")
+  state <- research_apply(h, "review", candidate_id = root, evidence_ids = ev)
+  expect_equal(
+    state$decisions[[research_last_id(state)]]$goal_version,
+    state$goal_version
+  )
+  expect_true(
+    research_action(h, "accept", candidate_id = root, evidence_ids = ev)$allowed
+  )
+  expect_error(
+    research_action(h, "reframe", question = state$question, goal = state$goal),
+    "must change"
+  )
+})
+
+test_that("a comparison requires an actual recorded result", {
+  h <- research_fixture()
+  withr::defer(bg_close(h))
+  one <- research_candidate(h)
+  two <- research_candidate(h)
+  e1 <- research_evidence(h, one)
+  e2 <- research_evidence(h, two)
+  for (result in list(NULL, list())) {
+    expect_error(
+      research_action(
+        h,
+        "compare",
+        candidate_ids = c(one, two),
+        evidence_ids = c(e1, e2),
+        criteria = "PPC",
+        result = result
+      ),
+      "must include a result"
+    )
+  }
+  expect_length(bg_research_state(h)$comparisons, 0)
+})

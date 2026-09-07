@@ -24,11 +24,7 @@ bg_research_init <- function(
 ) {
   bg_research_access(project, write = TRUE)
   bg_research_string(question, "question")
-  goal <- bg_research_data(goal)
-  bg_research_fields(goal, character(), names(goal), "goal")
-  if (length(goal) == 0L) {
-    cli::cli_abort("{.arg goal} must describe the inferential goal.")
-  }
+  goal <- bg_research_goal(goal)
   actor <- bg_research_actor(actor)
   policy <- bg_research_policy(mode, rules)
   path <- bg_research_path(project)
@@ -41,6 +37,7 @@ bg_research_init <- function(
       schema_version = 1L,
       project_id = project@project_id,
       version = 1L,
+      goal_version = 1L,
       question = question,
       goal = goal,
       mode = policy$mode,
@@ -340,6 +337,7 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     close = c("candidate_id"),
     reopen = c("candidate_id"),
     configure = c("mode", "rules"),
+    reframe = c("question", "goal"),
     cli::cli_abort("Unknown research action {.val {action$kind}}.")
   )
   bg_research_fields(
@@ -439,6 +437,9 @@ bg_research_prepare <- function(state, action, actor, rationale) {
       )
     }
     bg_research_string(action$criteria, "criteria")
+    if (is.null(action$result) || length(action$result) == 0L) {
+      cli::cli_abort("A comparison must include a result.")
+    }
   }
   if (action$kind == "close" && identical(candidate$status, "closed")) {
     cli::cli_abort("This candidate is already closed.")
@@ -451,6 +452,19 @@ bg_research_prepare <- function(state, action, actor, rationale) {
       cli::cli_abort(
         "Reopen the closed ancestor before reopening this candidate."
       )
+    }
+  }
+  if (action$kind == "reframe") {
+    if (!identical(actor$type, "human")) {
+      cli::cli_abort("Only a human actor may reframe the investigation.")
+    }
+    bg_research_string(action$question, "question")
+    bg_research_goal(action$goal)
+    if (
+      identical(action$question, state$question) &&
+        identical(action$goal, state$goal)
+    ) {
+      cli::cli_abort("Reframing must change the question or goal.")
     }
   }
   if (action$kind == "configure") {
@@ -482,6 +496,7 @@ bg_research_transition <- function(state, proposal) {
   stamp <- list(
     id = id,
     basis = a$basis %||% list(),
+    goal_version = state$goal_version,
     actor = proposal$actor,
     rationale = proposal$rationale,
     created_at = bg_now_timestamp()
@@ -527,6 +542,10 @@ bg_research_transition <- function(state, proposal) {
     } else {
       "open"
     }
+  } else if (a$kind == "reframe") {
+    state$question <- a$question
+    state$goal <- a$goal
+    state$goal_version <- state$version + 1L
   } else if (a$kind == "configure") {
     policy <- bg_research_policy(a$mode, a$rules)
     state$mode <- policy$mode
@@ -610,4 +629,14 @@ bg_research_report <- function(state) {
     "```",
     ""
   )
+}
+
+
+bg_research_goal <- function(goal) {
+  goal <- bg_research_data(goal)
+  bg_research_fields(goal, character(), names(goal), "goal")
+  if (length(goal) == 0L) {
+    cli::cli_abort("The goal must describe the inferential goal.")
+  }
+  goal
 }

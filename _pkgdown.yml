@@ -120,7 +120,7 @@ reference:
 
 articles:
   - title: "Learn the workflow"
-    desc: "Start with the tutorial, then follow a model review."
+    desc: "Fit models, review evidence, and explore recorded model searches."
     contents:
       - "getting-started"
       - "research-search"

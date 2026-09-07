@@ -8,6 +8,9 @@ and the reasons for pursuing or closing each path.
 **Investigation**: A research question, inferential goal, and the candidates
 explored to address them.
 
+**Reframing**: An explicit change to an investigation's question or inferential
+goal that preserves the earlier framing and its associated decisions.
+
 **Candidate**: A specified joint distribution (P), optionally combined with a
 posterior approximator (A) and training data (D). Its specification stays fixed.
 _Avoid_: Node, when referring to a model configuration.

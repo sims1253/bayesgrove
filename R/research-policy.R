@@ -158,6 +158,7 @@ bg_research_rule_fails <- function(state, candidate, rule) {
         function(d) {
           identical(d$candidate_id, candidate$id) &&
             identical(d$kind, "review") &&
+            identical(d$goal_version, state$goal_version) &&
             identical(d$actor$type, "human")
         },
         state$decisions
