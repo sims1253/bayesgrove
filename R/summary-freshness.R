@@ -232,9 +232,7 @@ bg_read_summaries <- function(
       next
     }
 
-    if (
-      !is.null(scope) && !bg_summary_scope_matches(project, scope, entry$scope)
-    ) {
+    if (!is.null(scope) && !bg_scope_matches(project, scope, entry$scope)) {
       next
     }
 

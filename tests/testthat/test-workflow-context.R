@@ -414,3 +414,30 @@ describe("Workflow persistence and context", {
     expect_true(startsWith(unknown_label, "Branch "))
   })
 })
+
+test_that("edge and gate decisions follow their endpoints' branch scope", {
+  handle <- bg_init(path = withr::local_tempdir())
+  bg_register_node_kind(handle, "source")
+  source <- bg_add_node(handle, "source")
+  branch <- bg_branch(handle, source, label = "Alternative")
+  child <- bg_add_node(handle, "source", inputs = branch$root_node_id)
+  inside <- bg_add_gate(handle, branch$root_node_id, child, "Proceed?", "yes")
+  bg_connect(handle, source, child)
+  crossing <- bg_add_gate(handle, source, child, "Proceed?", "yes")
+
+  resolve <- function(scope) {
+    bg_decision_scope_for_record(handle, list(scope = scope))
+  }
+  for (prefix in c("edge:", "gate:")) {
+    field <- if (prefix == "edge:") "edge_id" else "id"
+    expect_equal(resolve(paste0(prefix, inside[[field]])), branch$branch_id)
+    expect_equal(resolve(paste0(prefix, crossing[[field]])), "project")
+    expect_equal(resolve(paste0(prefix, "missing")), "project")
+  }
+
+  graph <- bg_read_graph(handle)
+  graph$edges[[inside$edge_id]] <- NULL
+  graph$version <- graph$version + 1L
+  bg_commit_graph(handle, graph)
+  expect_equal(resolve(paste0("gate:", inside$id)), "project")
+})
