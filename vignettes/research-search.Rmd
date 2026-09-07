@@ -1,0 +1,193 @@
+---
+title: "A recorded model search"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A recorded model search}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+The experimental research interface records candidates, evidence, and why an
+investigation moved between them. R users, Glade, and agents can use the same
+operations. The execution graph remains available for running computations.
+
+This example uses explicitly illustrative evidence so it runs without Stan.
+For a real fit and predictive check, run `Rscript tools/research-search-demo.R`
+from the repository root with cmdstanr and CmdStan installed.
+
+```text
+Normal candidate
+  ├─ Record a predictive check without creating a revision
+  ├─ Revise P: lognormal candidate
+       ├─ Record its predictive check
+       └─ Close, compare, then reopen this path
+
+Compare the two candidates, retaining the closed candidate's evidence.
+```
+
+## Start with a question
+
+```{r}
+library(bayesgrove)
+h <- bg_init(tempfile("research-search-"))
+human <- list(id = "researcher", type = "human")
+agent <- list(id = "assistant", type = "agent")
+
+review_rule <- list(
+  id = "review-predictions",
+  actions = "accept",
+  type = "require_review",
+  check = "ppc",
+  message = "Review the predictive evidence before accepting this candidate.",
+  interpretation = "Inspect the features that matter for the analysis question.",
+  references = "https://arxiv.org/abs/2209.02439"
+)
+
+state <- bg_research_init(
+  h,
+  question = "How should we model these positive measurements?",
+  goal = list(kind = "observable_prediction", focus = "positive support"),
+  actor = human,
+  mode = "guide",
+  rules = list(review_rule)
+)
+```
+
+A candidate specifies P (joint distribution), with optional A (approximator)
+and D (training data). Specifications are plain data. The labels below are
+illustrative; a reproducible analysis should also retain exact model source,
+data, and settings, not only labels or mutable file paths.
+
+```{r}
+proposal <- bg_research_propose(
+  h,
+  action = list(
+    kind = "create", label = "Normal",
+    components = list(P = list(likelihood = "normal", prior = "illustrative"))
+  ),
+  actor = human,
+  rationale = "Start with a simple candidate and inspect its predictions."
+)
+state <- bg_research_apply(h, proposal)
+normal <- tail(state$history, 1)[[1]]$id
+```
+
+## Record evidence and revise
+
+This local helper only shortens the example. Production clients can inspect the
+proposal's `findings` and `allowed` before calling apply. Apply checks them again.
+
+```{r}
+record <- function(action, rationale, actor = human) {
+  proposal <- bg_research_propose(h, action, actor, rationale)
+  bg_research_apply(h, proposal)
+}
+
+state <- record(
+  list(kind = "evidence", candidate_id = normal, label = "Illustrative PPC",
+       check = "ppc", utility = "predictive_performance",
+       result = list(source = "illustrative", concern = "negative predictions")),
+  "The example check raises a concern about predictive support."
+)
+normal_evidence <- tail(state$history, 1)[[1]]$id
+
+state <- record(
+  list(kind = "revise", candidate_id = normal, label = "Lognormal",
+       components = list(P = list(likelihood = "lognormal", prior = "illustrative")),
+       basis = list(evidence_ids = normal_evidence)),
+  "Investigate a likelihood with positive support."
+)
+lognormal <- tail(state$history, 1)[[1]]$id
+```
+
+A revision replaces the supplied components whole and inherits the others.
+The parent and its evidence stay unchanged. Changing A or D uses the same
+operation. A diagnostic or an interpretation adds evidence rather than a revision.
+
+```{r}
+state <- record(
+  list(kind = "evidence", candidate_id = lognormal, label = "Illustrative PPC",
+       check = "ppc", utility = "predictive_performance",
+       result = list(source = "illustrative", concern = "none in this example")),
+  "Record the alternative's check without treating it as proof of adequacy.",
+  actor = agent
+)
+lognormal_evidence <- tail(state$history, 1)[[1]]$id
+
+state <- record(
+  list(kind = "close", candidate_id = lognormal),
+  "Pause this path while considering other alternatives."
+)
+state <- record(
+  list(kind = "compare", candidate_ids = c(normal, lognormal),
+       evidence_ids = c(normal_evidence, lognormal_evidence),
+       criteria = "Predictive support in the illustrative checks",
+       result = list(preferred_for_support = lognormal)),
+  "Compare both candidates; the closed path's evidence remains available."
+)
+comparison <- tail(state$history, 1)[[1]]$id
+
+state <- record(list(kind = "reopen", candidate_id = lognormal,
+                    basis = list(comparison_ids = comparison)),
+                "Resume this path after the comparison.")
+```
+
+Closing a lineage prevents revisions, evidence collection, and acceptance below
+it until reopening. Closing does not delete anything or automatically reject a
+candidate. Comparisons can include candidates from any lineage.
+
+## Switch intervention without rewriting history
+
+Record mode preserves actions. Guide adds findings and explanations. Enforce
+also holds actions with unmet rules. Structural checks apply in every mode.
+
+```{r}
+state <- record(list(kind = "configure", mode = "enforce", rules = list(review_rule)),
+                "Require human review before recording acceptance.")
+acceptance <- list(kind = "accept", candidate_id = lognormal,
+                   evidence_ids = lognormal_evidence,
+                   basis = list(comparison_ids = comparison))
+proposal <- bg_research_propose(h, acceptance, agent, "Select the alternative.")
+proposal$allowed
+proposal$findings[[1]]$message
+```
+
+An agent can record a review, but it cannot satisfy this rule's human-review
+requirement. A human review covers only the evidence it cites. New evidence or
+a new candidate needs its own review.
+
+```{r}
+state <- record(list(kind = "review", candidate_id = lognormal,
+                    evidence_ids = lognormal_evidence),
+                "For this example, acknowledge the support check and its limited scope.")
+proposal <- bg_research_propose(h, acceptance, human,
+                              "Accept for the example's stated goal, subject to further checks.")
+state <- bg_research_apply(h, proposal)
+state$version
+```
+
+A proposal becomes stale after any successful research mutation. Read the state
+and propose again rather than replaying it. Declared actor identity is provenance,
+not authentication; a host must establish identity for untrusted callers.
+Enforce applies to this research interface, not arbitrary R code or legacy
+`bg_run()` calls. Existing workflow packs retain their separate behavior.
+
+## Reopen and share
+
+```{r}
+path <- h@path
+bg_close(h)
+h <- bg_open(path)
+stopifnot(identical(bg_research_state(h), state))
+bg_close(h)
+```
+
+`bg_snapshot()`, `bg_bundle()`, and `bg_export_report()` include research state.
+The [research-search contract](https://github.com/sims1253/bayesgrove/blob/master/architecture/research-search.md)
+lists all action fields and declarative rule types, including specification
+constraints and evidence requirements. There is no built-in universal model
+score: comparisons state their criteria and retain their evidence.

@@ -372,6 +372,8 @@ bg_export_report <- function(
     }
   }
 
+  lines <- c(lines, bg_research_report(snap$research))
+
   lines <- c(lines, "## Artifact Index")
   if (length(snap$artifacts) == 0) {
     lines <- c(lines, "No cached artifacts recorded.")

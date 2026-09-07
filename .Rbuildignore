@@ -24,3 +24,6 @@
 ^inst/stan/roaches_zinb$
 ^REVIEW\.md$
 ^ROADMAP\.md$
+
+^CONTEXT\.md$
+^tools/design($|/)

@@ -1,5 +1,13 @@
 # bayesgrove (development version)
 
+## New features
+
+* Added an experimental research-search interface: `bg_research_init()`,
+  `bg_research_state()`, `bg_research_propose()`, and `bg_research_apply()`.
+  It records P/A/D candidate lineages, evidence, cross-lineage comparisons,
+  decisions, and policy changes. Record, Guide, and Enforce modes share the
+  same research state. Snapshots, bundles, and reports include that state.
+
 ## Breaking changes
 
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
