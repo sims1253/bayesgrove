@@ -12,7 +12,7 @@ bg_research_apply(project, proposal)
 \item{proposal}{A result of \code{\link[=bg_research_propose]{bg_research_propose()}}.}
 }
 \value{
-The new research state. \code{history} records the generated \code{record_id}.
+The new research state. \code{history} records the generated \code{id}.
 }
 \description{
 Rejects stale proposals and rechecks the current rules. One atomic write

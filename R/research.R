@@ -145,7 +145,7 @@ bg_research_propose <- function(project, action, actor, rationale) {
 #'
 #' @param project A writable `bg_handle`.
 #' @param proposal A result of [bg_research_propose()].
-#' @return The new research state. `history` records the generated `record_id`.
+#' @return The new research state. `history` records the generated `id`.
 #' @export
 bg_research_apply <- function(project, proposal) {
   bg_research_access(project, write = TRUE)
