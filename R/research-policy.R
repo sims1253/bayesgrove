@@ -79,7 +79,14 @@ bg_research_policy <- function(mode, rules) {
       }
       if (
         length(rule$values) == 0L ||
-          is.list(rule$values) && any(vapply(rule$values, is.list, logical(1)))
+          (is.list(rule$values) &&
+            !all(vapply(
+              rule$values,
+              function(value) {
+                is.atomic(value) && !is.null(value) && length(value) == 1L
+              },
+              logical(1)
+            )))
       ) {
         cli::cli_abort("Rule values must contain one or more scalar values.")
       }

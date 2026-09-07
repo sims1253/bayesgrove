@@ -58,7 +58,8 @@ A revision that changes nothing is rejected.
 
 Plain lists, strings, finite numbers, logical values, and NULL are supported.
 Named fields must be unique. Arrays are lists on reading. Executable functions,
-environments, classed objects, NA, and infinite values are rejected instead of
+environments, classed objects, matrices, arrays, other attributes except names,
+NA, and infinite values are rejected instead of
 being silently converted by JSON. Convert results into an explicit record first.
 
 Closed ancestors prevent evidence collection, revision, and acceptance beneath
@@ -96,7 +97,7 @@ Mode and rule changes are historical operations. They do not resolve concerns
 or rewrite earlier decisions. `allowed` and `findings` in a submitted proposal
 are never trusted: apply recomputes them against the current state and policy.
 
-Actors are caller-declared provenance. Human-only review and policy changes are
+Actors are caller-declared provenance. Human-review requirements and human-only policy changes are
 protocol checks, not authentication. A host exposing this interface to untrusted
 agents must bind identity and authorize policy changes itself. Direct R access
 can also call legacy graph operations; this API is not a sandbox.

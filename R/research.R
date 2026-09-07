@@ -215,7 +215,8 @@ bg_research_data <- function(x) {
     return(NULL)
   }
   if (
-    is.object(x) ||
+    length(setdiff(names(attributes(x)), "names")) > 0L ||
+      is.object(x) ||
       !(is.list(x) || is.character(x) || is.numeric(x) || is.logical(x)) ||
       (!is.list(x) && (anyNA(x) || (is.numeric(x) && !all(is.finite(x)))))
   ) {
@@ -236,7 +237,7 @@ bg_research_data <- function(x) {
     ))
   }
   if (length(x) != 1L || !is.null(names(x))) {
-    return(lapply(as.list(x), bg_research_data))
+    return(bg_research_data(as.list(x)))
   }
   if (is.double(x) && x == trunc(x) && abs(x) <= .Machine$integer.max) {
     return(as.integer(x))
@@ -315,7 +316,7 @@ bg_research_components <- function(components, previous = list()) {
   if (is.null(previous$P)) {
     cli::cli_abort("A candidate must specify P; A and D may be absent.")
   }
-  previous
+  Filter(Negate(is.null), previous)
 }
 
 bg_research_prepare <- function(state, action, actor, rationale) {
@@ -512,11 +513,14 @@ bg_research_transition <- function(state, proposal) {
       )
     )
   } else if (a$kind == "evidence") {
-    state$evidence[[id]] <- c(stamp, a[setdiff(names(a), "kind")])
+    state$evidence[[id]] <- c(stamp, a[setdiff(names(a), c("kind", "basis"))])
   } else if (a$kind == "compare") {
-    state$comparisons[[id]] <- c(stamp, a[setdiff(names(a), "kind")])
+    state$comparisons[[id]] <- c(
+      stamp,
+      a[setdiff(names(a), c("kind", "basis"))]
+    )
   } else if (a$kind %in% c("review", "accept", "reject", "note")) {
-    state$decisions[[id]] <- c(stamp, a)
+    state$decisions[[id]] <- c(stamp, a[setdiff(names(a), "basis")])
   } else if (a$kind %in% c("close", "reopen")) {
     state$candidates[[a$candidate_id]]$status <- if (a$kind == "close") {
       "closed"

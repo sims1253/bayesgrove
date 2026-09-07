@@ -590,3 +590,91 @@ test_that("invalid rules cannot replace the policy and disabling it preserves co
     research_action(h, "accept", candidate_id = root, evidence_ids = ev)$allowed
   )
 })
+
+test_that("basis is stored once and named vectors have canonical field order", {
+  h <- research_fixture()
+  withr::defer(bg_close(h))
+  state <- research_apply(
+    h,
+    "create",
+    label = "Named vector",
+    components = list(P = c(a = 1, b = 2))
+  )
+  root <- research_last_id(state)
+  expect_error(
+    research_action(
+      h,
+      "revise",
+      candidate_id = root,
+      label = "Same",
+      components = list(P = c(b = 2, a = 1))
+    ),
+    "must change"
+  )
+  ev <- research_evidence(h, root)
+  state <- research_apply(
+    h,
+    "note",
+    candidate_id = root,
+    basis = list(evidence_ids = ev)
+  )
+  decision <- state$decisions[[research_last_id(state)]]
+  expect_equal(decision$basis$evidence_ids, ev)
+  expect_false("basis.1" %in% names(decision))
+  expect_equal(sum(names(decision) == "basis"), 1L)
+})
+
+test_that("unsupported attributes and empty constraints cannot lose meaning", {
+  h <- research_fixture("enforce")
+  withr::defer(bg_close(h))
+  root <- research_candidate(h)
+  before <- bg_research_state(h)
+  for (value in list(
+    matrix(1:4, 2),
+    array(1:8, c(2, 2, 2)),
+    structure(1, unit = "kg")
+  )) {
+    expect_error(
+      research_action(
+        h,
+        "revise",
+        candidate_id = root,
+        label = "Bad data",
+        components = list(D = value)
+      ),
+      "plain lists"
+    )
+  }
+  for (values in list(list(NULL), list(character()), list(list()))) {
+    rule <- list(
+      id = "required",
+      actions = "accept",
+      type = "require_values",
+      path = c("P", "covariates"),
+      values = values,
+      message = "Include the specified values."
+    )
+    expect_error(
+      research_action(h, "configure", mode = "enforce", rules = list(rule)),
+      "scalar values"
+    )
+  }
+  expect_identical(bg_research_state(h), before)
+  state <- research_apply(
+    h,
+    "create",
+    label = "P only",
+    components = list(P = list(likelihood = "normal"))
+  )
+  p_only <- research_last_id(state)
+  expect_error(
+    research_action(
+      h,
+      "revise",
+      candidate_id = p_only,
+      label = "Still P",
+      components = list(A = NULL)
+    ),
+    "must change"
+  )
+})
