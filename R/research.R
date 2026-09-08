@@ -95,6 +95,14 @@ bg_research_state <- function(project) {
       length(state$version) != 1L ||
       is.na(state$version) ||
       state$version < 1 ||
+      !isTRUE(tryCatch(
+        {
+          bg_research_string(state$question, "question")
+          bg_research_policy(state$mode, state$rules)
+          TRUE
+        },
+        error = function(e) FALSE
+      )) ||
       !all(vapply(
         state[c(
           "candidates",
@@ -169,9 +177,10 @@ bg_research_apply <- function(project, proposal) {
     )
     if (!checked$allowed) {
       reasons <- vapply(checked$findings, `[[`, character(1), "message")
+      held <- paste(reasons, collapse = " ")
       cli::cli_abort(c(
         "Research action is held by policy.",
-        "i" = paste(reasons, collapse = " ")
+        "i" = "{held}"
       ))
     }
     state <- bg_research_transition(state, checked)
@@ -229,7 +238,7 @@ bg_research_data <- function(x) {
   }
   if (is.list(x)) {
     return(lapply(
-      if (is.null(names(x))) x else x[order(names(x))],
+      if (is.null(names(x))) x else x[order(names(x), method = "radix")],
       bg_research_data
     ))
   }
@@ -313,7 +322,7 @@ bg_research_components <- function(components, previous = list()) {
   if (is.null(previous$P)) {
     cli::cli_abort("A candidate must specify P; A and D may be absent.")
   }
-  Filter(Negate(is.null), previous)
+  bg_research_data(Filter(Negate(is.null), previous))
 }
 
 bg_research_prepare <- function(state, action, actor, rationale) {
@@ -382,7 +391,8 @@ bg_research_prepare <- function(state, action, actor, rationale) {
       candidate$components %||% list()
     )
     if (
-      action$kind == "revise" && identical(components, candidate$components)
+      action$kind == "revise" &&
+        identical(components, bg_research_data(candidate$components))
     ) {
       cli::cli_abort(
         "A revision must change P, A, or D. Record a note or gather evidence instead."

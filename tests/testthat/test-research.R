@@ -761,3 +761,88 @@ test_that("a comparison requires an actual recorded result", {
   }
   expect_length(bg_research_state(h)$comparisons, 0)
 })
+
+
+test_that("malformed persisted policy fields cannot disable enforcement", {
+  h <- research_fixture("enforce", list(research_rule()))
+  withr::defer(bg_close(h))
+  id <- research_candidate(h)
+  ev <- research_evidence(h, id)
+  proposal <- research_action(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = ev
+  )
+  original <- bg_research_state(h)
+  cases <- list(
+    list(field = "question", value = NULL),
+    list(field = "question", value = " "),
+    list(field = "mode", value = NULL),
+    list(field = "mode", value = "ENFORCE"),
+    list(field = "rules", value = NULL),
+    list(field = "rules", value = "invalid"),
+    list(field = "rules", value = list(list(type = "require_review")))
+  )
+  for (case in cases) {
+    state <- original
+    state[case$field] <- list(case$value)
+    bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+    expect_error(bg_research_state(h), "Malformed")
+    expect_error(bg_research_apply(h, proposal), "Malformed")
+  }
+  original$rules <- list()
+  bg_write_json_atomic(bg_research_path(h), original, sort_keys = FALSE)
+  expect_identical(bg_research_state(h)$rules, list())
+})
+
+test_that("policy error messages stay literal and cannot evaluate expressions", {
+  marker <- tempfile("policy-message-")
+  rule <- research_rule()
+  rule$message <- paste0(
+    "Review {file.create('",
+    marker,
+    "')} before accepting."
+  )
+  h <- research_fixture("enforce", list(rule))
+  withr::defer(bg_close(h))
+  id <- research_candidate(h)
+  ev <- research_evidence(h, id)
+  before <- bg_research_state(h)
+  error <- tryCatch(
+    research_apply(h, "accept", candidate_id = id, evidence_ids = ev),
+    error = identity
+  )
+  expect_s3_class(error, "error")
+  expect_match(conditionMessage(error), rule$message, fixed = TRUE)
+  expect_false(file.exists(marker))
+  expect_identical(bg_research_state(h), before)
+})
+
+test_that("candidate equivalence ignores persisted field order", {
+  h <- research_fixture()
+  withr::defer(bg_close(h))
+  id <- research_last_id(research_apply(
+    h,
+    "create",
+    label = "Original",
+    components = list(P = list(a = 1, Z = 2), A = list(z = 3, B = 4))
+  ))
+  state <- bg_research_state(h)
+  expect_identical(names(state$candidates[[id]]$components$P), c("Z", "a"))
+  state$candidates[[id]]$components <- list(
+    P = list(a = 1, Z = 2),
+    A = list(z = 3, B = 4)
+  )
+  bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+  expect_error(
+    research_action(
+      h,
+      "revise",
+      candidate_id = id,
+      label = "Unchanged",
+      components = list(P = list(Z = 2, a = 1))
+    ),
+    "must change"
+  )
+})
