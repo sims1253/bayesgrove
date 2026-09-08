@@ -846,3 +846,86 @@ test_that("candidate equivalence ignores persisted field order", {
     "must change"
   )
 })
+
+test_that("damaged candidate records cannot erase lineage on apply", {
+  h <- research_fixture()
+  withr::defer(bg_close(h))
+  id <- research_candidate(h)
+  proposal <- research_action(
+    h,
+    "revise",
+    candidate_id = id,
+    label = "Alternative",
+    components = list(P = list(likelihood = "lognormal"))
+  )
+  original <- bg_research_state(h)
+  mutations <- list(
+    function(x) {
+      x$id <- NULL
+      x
+    },
+    function(x) {
+      x$id <- "wrong"
+      x
+    },
+    function(x) {
+      x$components <- list(A = list(method = "NUTS"))
+      x
+    },
+    function(x) {
+      x$parent_id <- NULL
+      x
+    },
+    function(x) {
+      x$parent_id <- "missing"
+      x
+    },
+    function(x) {
+      x$parent_id <- id
+      x
+    },
+    function(x) {
+      x$status <- "unknown"
+      x
+    },
+    function(x) {
+      x$goal_version <- 2L
+      x
+    }
+  )
+  for (mutate in mutations) {
+    state <- original
+    state$candidates[[id]] <- mutate(state$candidates[[id]])
+    bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+    before <- readLines(bg_research_path(h))
+    expect_error(bg_research_state(h), "Malformed candidate")
+    expect_error(bg_research_apply(h, proposal), "Malformed candidate")
+    expect_identical(readLines(bg_research_path(h)), before)
+  }
+  bg_write_json_atomic(bg_research_path(h), original, sort_keys = FALSE)
+  child <- research_last_id(bg_research_apply(h, proposal))
+  expect_identical(bg_research_state(h)$candidates[[child]]$parent_id, id)
+})
+
+test_that("missing collections and null rules are already rejected", {
+  h <- research_fixture()
+  withr::defer(bg_close(h))
+  original <- bg_research_state(h)
+  for (field in c(
+    "candidates",
+    "evidence",
+    "comparisons",
+    "decisions",
+    "history"
+  )) {
+    state <- original
+    state[[field]] <- NULL
+    bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+    expect_error(bg_research_state(h), "Malformed")
+  }
+  bg_write_json_atomic(bg_research_path(h), original, sort_keys = FALSE)
+  expect_error(
+    research_action(h, "configure", mode = "enforce", rules = NULL),
+    "Rules must be a list"
+  )
+})

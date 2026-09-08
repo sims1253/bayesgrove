@@ -117,7 +117,65 @@ bg_research_state <- function(project) {
   ) {
     cli::cli_abort("Malformed or unsupported research state at {.path {path}}.")
   }
+  tryCatch(
+    bg_research_validate_candidates(state),
+    error = function(e) {
+      cli::cli_abort(
+        "Malformed candidate records at {.path {path}}.",
+        parent = e
+      )
+    }
+  )
   state
+}
+
+bg_research_validate_candidates <- function(state) {
+  candidates <- bg_research_data(state$candidates)
+  if (length(candidates) && is.null(names(candidates))) {
+    cli::cli_abort("Candidates must be named by their IDs.")
+  }
+  goal_versions <- vapply(
+    Filter(
+      function(entry) {
+        entry$action$kind %in% c("initialize", "reframe")
+      },
+      state$history
+    ),
+    function(entry) entry$version,
+    numeric(1)
+  )
+  for (id in names(candidates)) {
+    candidate <- candidates[[id]]
+    required <- c("id", "components", "parent_id", "status", "goal_version")
+    if (
+      !is.list(candidate) ||
+        !all(required %in% names(candidate)) ||
+        !identical(candidate$id, id)
+    ) {
+      cli::cli_abort("Candidate fields or ID are invalid.")
+    }
+    bg_research_components(candidate$components)
+    bg_research_string(candidate$status, "status")
+    if (
+      !candidate$status %in% c("open", "closed") ||
+        !is.numeric(candidate$goal_version) ||
+        length(candidate$goal_version) != 1L ||
+        !candidate$goal_version %in% goal_versions
+    ) {
+      cli::cli_abort("Candidate status or goal reference is invalid.")
+    }
+    seen <- id
+    parent <- candidate$parent_id
+    while (!is.null(parent)) {
+      bg_research_string(parent, "parent_id")
+      if (!parent %in% names(candidates) || parent %in% seen) {
+        cli::cli_abort("Candidate lineage has a missing parent or a cycle.")
+      }
+      seen <- c(seen, parent)
+      parent <- candidates[[parent]]$parent_id
+    }
+  }
+  invisible(NULL)
 }
 
 #' Propose an operation in a model search
