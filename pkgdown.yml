@@ -8,9 +8,10 @@ articles:
   extensions: extensions.html
   getting-started: getting-started.html
   articles/reproducible-research: reproducible-research.html
+  research-search: research-search.html
   simulation-study: simulation-study.html
   articles/teaching: teaching.html
-last_built: 2026-09-06T20:53Z
+last_built: 2026-09-09T19:20Z
 urls:
   reference: https://sims1253.github.io/bayesgrove/reference
   article: https://sims1253.github.io/bayesgrove/articles

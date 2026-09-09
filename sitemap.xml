@@ -1,5 +1,6 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://sims1253.github.io/bayesgrove/404.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/CONTEXT.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/LICENSE-text.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/LICENSE.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/case-study-roaches.html</loc></url>
@@ -9,6 +10,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/articles/getting-started.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/index.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/reproducible-research.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/articles/research-search.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/simulation-study.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/articles/teaching.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/authors.html</loc></url>
@@ -66,6 +68,10 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_summary_kind.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_remove_node.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_repl.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_apply.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_init.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_propose.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_state.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_restore_executors.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_result.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_resume.html</loc></url>

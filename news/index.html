@@ -37,6 +37,10 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="bayesgrove-development-version">bayesgrove (development version)<a class="anchor" aria-label="anchor" href="#bayesgrove-development-version"></a></h2>
 <div class="section level3">
+<h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
+<ul><li>Added an experimental research-search interface: <code><a href="../reference/bg_research_init.html">bg_research_init()</a></code>, <code><a href="../reference/bg_research_state.html">bg_research_state()</a></code>, <code><a href="../reference/bg_research_propose.html">bg_research_propose()</a></code>, and <code><a href="../reference/bg_research_apply.html">bg_research_apply()</a></code>. It records P/A/D candidate lineages, evidence, cross-lineage comparisons, decisions, and policy changes. Record, Guide, and Enforce modes share the same research state. Snapshots, bundles, and reports include that state.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>Removed <code>bg_branch_with_continuation()</code>. Use <code>bg_branch(continue = )</code>.</li>
 <li>Removed the ignored <code>auto_advance</code> argument from <code><a href="../reference/bg_status.html">bg_status()</a></code>.</li>
