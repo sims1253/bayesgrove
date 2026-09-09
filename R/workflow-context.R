@@ -74,8 +74,7 @@ bg_resolve_node_scope <- function(
 
   incoming <- scope_resolution$incoming
   frontier <- node_id
-  visited <- stats::setNames(0L, node_id)
-  distance <- 0L
+  visited <- node_id
 
   repeat {
     hits <- frontier[frontier %in% names(root_to_branch)]
@@ -91,8 +90,8 @@ bg_resolve_node_scope <- function(
     for (current in frontier) {
       parents <- incoming[[current]] %||% character(0)
       for (parent in parents) {
-        if (!parent %in% names(visited)) {
-          visited[[parent]] <- distance + 1L
+        if (!parent %in% visited) {
+          visited <- c(visited, parent)
           next_frontier <- c(next_frontier, parent)
         }
       }
@@ -102,8 +101,7 @@ bg_resolve_node_scope <- function(
       return("project")
     }
 
-    frontier <- unique(next_frontier)
-    distance <- distance + 1L
+    frontier <- next_frontier
   }
 }
 
@@ -160,27 +158,17 @@ bg_predicted_fingerprints <- function(project, include_inactive = TRUE) {
 }
 
 #' @keywords internal
-bg_scope_supports_branch_lineage <- function(scope) {
-  startsWith(scope, "branch:")
-}
-
-#' @keywords internal
 bg_scope_matches <- function(project, scope, candidate_scope) {
   if (identical(scope, "project")) {
     return(identical(candidate_scope, "project"))
   }
 
   valid_scopes <- c("project", scope)
-  if (bg_scope_supports_branch_lineage(scope)) {
+  if (startsWith(scope, "branch:")) {
     valid_scopes <- c(valid_scopes, bg_branch_lineage(project, scope))
   }
 
   candidate_scope %in% valid_scopes
-}
-
-#' @keywords internal
-bg_summary_scope_matches <- function(project, scope, candidate_scope) {
-  bg_scope_matches(project, scope, candidate_scope)
 }
 
 #' @keywords internal
@@ -191,39 +179,19 @@ bg_decision_scope_for_record <- function(project, decision) {
     return(bg_resolve_node_scope(project, sub("^node:", "", scope)))
   }
 
-  if (startsWith(scope, "edge:")) {
+  if (startsWith(scope, "edge:") || startsWith(scope, "gate:")) {
     graph <- bg_read_graph(project)
     scope_resolution <- bg_node_scope_resolution(project, graph = graph)
-    edge_id <- sub("^edge:", "", scope)
+    edge_id <- if (startsWith(scope, "gate:")) {
+      gate <- graph$gates[[sub("^gate:", "", scope)]] %||% NULL
+      if (is.null(gate)) {
+        return("project")
+      }
+      gate$edge_id
+    } else {
+      sub("^edge:", "", scope)
+    }
     edge <- graph$edges[[edge_id]] %||% NULL
-    if (is.null(edge)) {
-      return("project")
-    }
-    from_scope <- bg_resolve_node_scope(
-      project,
-      edge$from,
-      scope_resolution = scope_resolution
-    )
-    to_scope <- bg_resolve_node_scope(
-      project,
-      edge$to,
-      scope_resolution = scope_resolution
-    )
-    if (identical(from_scope, to_scope)) {
-      return(from_scope)
-    }
-    return("project")
-  }
-
-  if (startsWith(scope, "gate:")) {
-    graph <- bg_read_graph(project)
-    scope_resolution <- bg_node_scope_resolution(project, graph = graph)
-    gate_id <- sub("^gate:", "", scope)
-    gate <- graph$gates[[gate_id]] %||% NULL
-    if (is.null(gate)) {
-      return("project")
-    }
-    edge <- graph$edges[[gate$edge_id]] %||% NULL
     if (is.null(edge)) {
       return("project")
     }
