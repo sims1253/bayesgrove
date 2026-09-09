@@ -90,6 +90,12 @@ bg_build_api_boundary_registry <- function() {
       classification = "experimental"
     ),
 
+    # === Experimental: Research search ===
+    list(fn = "bg_research_init", classification = "experimental"),
+    list(fn = "bg_research_state", classification = "experimental"),
+    list(fn = "bg_research_propose", classification = "experimental"),
+    list(fn = "bg_research_apply", classification = "experimental"),
+
     # === Experimental: Templates ===
     list(fn = "bg_list_templates", classification = "experimental"),
 

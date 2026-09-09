@@ -30,7 +30,8 @@ bg_snapshot <- function(project) {
     artifacts = artifacts,
     jobs = jobs,
     config = config,
-    status = status
+    status = status,
+    research = bg_research_state(project)
   )
 }
 

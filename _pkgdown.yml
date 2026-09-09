@@ -29,6 +29,12 @@ reference:
     contents:
       - bayesgrove-concepts
       - bg_api_boundary
+  - title: Research search (experimental)
+    contents:
+      - bg_research_init
+      - bg_research_state
+      - bg_research_propose
+      - bg_research_apply
   - title: Project Lifecycle
     contents:
       - bg_handle
@@ -114,9 +120,10 @@ reference:
 
 articles:
   - title: "Learn the workflow"
-    desc: "Start with the tutorial, then follow a model review."
+    desc: "Fit models, review evidence, and explore recorded model searches."
     contents:
       - "getting-started"
+      - "research-search"
       - "concepts"
       - "eight-schools"
       - "case-study-roaches"

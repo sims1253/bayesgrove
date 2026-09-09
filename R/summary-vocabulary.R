@@ -182,7 +182,7 @@ bg_summary_vocabulary <- function() {
     ),
     list(
       kind = "pad_annotation",
-      title = "PAD (Prior/Assumption/Decision) annotation",
+      title = "PAD (joint distribution, approximator, data) annotation",
       expected_metrics = list(),
       emitted_by = "pad annotation executors",
       consumed_by_packs = "bayesgrove.pad_scaffold"
