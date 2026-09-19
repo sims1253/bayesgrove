@@ -19,6 +19,11 @@
   execution time, so a project bundles and runs identically from any working
   directory.
 
+* Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
+  verify deterministic captured README and vignette output in CI without
+  CmdStan. The sampler vignettes stay intentionally precomputed and are
+  refreshed only via `tools/precompute-vignettes.R`.
+
 ## Breaking changes
 
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
