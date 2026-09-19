@@ -250,7 +250,7 @@ describe("portable bundle sources (referenced-sources policy)", {
     bg_close(restored)
   })
 
-  it("leaves package-shipped Stan programs untouched", {
+  it("rewrites package-shipped references to a machine-stable sentinel", {
     proj <- withr::local_tempdir()
     stan_path <- system.file("stan", "normal_iid.stan", package = "bayesgrove")
 
@@ -274,14 +274,108 @@ describe("portable bundle sources (referenced-sources policy)", {
       simplifyVector = FALSE
     )
     expect_equal(manifest$source_policy$name, "referenced-sources")
-    expect_length(manifest$source_policy$relocation, 0L)
+    entry <- manifest$source_policy$relocation[[stan_path]]
+    expect_false(is.null(entry))
+    expect_equal(entry$package_ref, "bayesgrove:stan/normal_iid.stan")
+    expect_equal(
+      entry$original,
+      normalizePath(stan_path, mustWork = FALSE)
+    )
+    expect_length(entry$files, 0L)
+
+    # The staged graph carries the sentinel, not the bundling machine's
+    # absolute library path, and no bytes are archived.
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(
+      graph$nodes[[node_id]]$params$stan_file,
+      "bayesgrove:stan/normal_iid.stan"
+    )
+    expect_false(dir.exists(file.path(restored_proj, "bundle_sources")))
+
+    # The sentinel resolves through system.file to a real file, and a
+    # restored project fingerprints identically from any working directory.
+    expect_true(file.exists(bayesgrove:::bg_resolve_project_source(
+      restored_proj,
+      "bayesgrove:stan/normal_iid.stan"
+    )))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(
+        graph$nodes[[node_id]],
+        restored_proj
+      ),
+      digest::digest(file = stan_path, algo = "sha256")
+    )
+
+    restored <- bg_open(restored_proj, readonly = TRUE)
+    env_manifest <- list(r = "4.5.0", bayesgrove = "0.7.0")
+    fp_here <- bg_compute_fingerprint(
+      restored,
+      node_id,
+      environment_manifest = env_manifest
+    )
+    fp_there <- withr::with_dir(
+      withr::local_tempdir(),
+      bg_compute_fingerprint(
+        restored,
+        node_id,
+        environment_manifest = env_manifest
+      )
+    )
+    expect_equal(fp_here, fp_there)
+    bg_close(restored)
+  })
+
+  it("archives two distinct stan_file references in one project", {
+    proj <- withr::local_tempdir()
+    dir_a <- withr::local_tempdir()
+    dir_b <- withr::local_tempdir()
+    stan_a <- file.path(dir_a, "alpha.stan")
+    stan_b <- file.path(dir_b, "beta.stan")
+    writeLines("model { x ~ normal(0, 1); }", stan_a)
+    writeLines("model { x ~ normal(0, 5); }", stan_b)
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_a <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_a)
+    )
+    node_b <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_b)
+    )
+
+    bundle_path <- file.path(withr::local_tempdir(), "twofiles.tar.gz")
+    expect_no_warning(bg_bundle(handle, path = bundle_path))
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    expect_length(manifest$source_policy$relocation, 2L)
+    entry_a <- manifest$source_policy$relocation[[stan_a]]
+    entry_b <- manifest$source_policy$relocation[[stan_b]]
+    expect_false(is.null(entry_a) || is.null(entry_b))
+    expect_true(file.exists(file.path(restored_proj, entry_a$archived)))
+    expect_true(file.exists(file.path(restored_proj, entry_b$archived)))
+    # Distinct roots archive into distinct slots.
+    expect_false(identical(entry_a$archived, entry_b$archived))
 
     graph <- jsonlite::read_json(
       file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
       simplifyVector = FALSE
     )
-    expect_equal(graph$nodes[[node_id]]$params$stan_file, stan_path)
-    expect_false(dir.exists(file.path(restored_proj, "bundle_sources")))
+    expect_equal(graph$nodes[[node_a]]$params$stan_file, entry_a$archived)
+    expect_equal(graph$nodes[[node_b]]$params$stan_file, entry_b$archived)
   })
 
   it("warns when a referenced source is missing", {
@@ -369,6 +463,12 @@ describe("portable bundle sources (referenced-sources policy)", {
 
   it("reruns a model from a restored bundle end to end", {
     skip_if_not_installed("cmdstanr")
+    # cmdstanr can be installed without a CmdStan toolchain; compiling the
+    # model needs the latter.
+    tryCatch(
+      cmdstanr::cmdstan_path(),
+      error = function(e) testthat::skip("CmdStan is not installed")
+    )
 
     proj <- withr::local_tempdir()
     src_root <- withr::local_tempdir()

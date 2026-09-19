@@ -34,9 +34,13 @@ with every file reachable through \verb{#include "..."} directives (resolved
 relative to the including file, as stanc3 does). The key list is grounded
 in what the executors actually read.
 \item References into the installed bayesgrove package (e.g.
-\code{system.file("stan", ...)} models) are left untouched: they are portable
-wherever the package is installed, and freezing copies would needlessly
-invalidate fingerprints.
+\code{system.file("stan", ...)} models) are rewritten to a machine-stable
+package reference (\verb{bayesgrove:stan/<model>.stan}) instead of being
+copied: the installed package already carries the bytes on every
+machine, and the sentinel path no longer depends on where the library
+lives, so restored projects resolve it anywhere and their fingerprints
+are comparable across machines. Only a package upgrade (recorded in the
+environment and reproducibility manifests) can change these sources.
 \item Nothing else is copied. Executor dependencies (persisted separately as
 inert source and restored only through the trust-gated
 \code{\link[=bg_restore_executors]{bg_restore_executors()}}), external data (attach it with

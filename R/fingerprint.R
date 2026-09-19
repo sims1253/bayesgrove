@@ -192,7 +192,14 @@ bg_executor_fingerprint_component <- function(project, node) {
 #'
 #' For any node carrying a `stan_file` param pointing at an existing file, hash
 #' the file CONTENTS (not the path): editing the model program must invalidate
-#' the cache even when the path is unchanged. Applied by param presence rather
+#' the cache even when the path is unchanged. Files reachable through
+#' `#include` directives are part of the program, so they are hashed too:
+#' the component covers the whole `bg_stan_source_closure()` with a
+#' deterministic mapping of closure-relative paths to content hashes, and
+#' missing includes are recorded explicitly so adding or resolving one
+#' changes the fingerprint. A program without includes keeps the historical
+#' single-file digest, so existing cache keys survive. Applied by param
+#' presence rather
 #' than by kind name, so custom node kinds carrying `stan_file` are covered.
 #' When `project_path` is supplied, a relative `stan_file` resolves against
 #' the project root first (falling back to the value as-is), so projects
@@ -224,5 +231,67 @@ bg_source_hash_component <- function(node, project_path = NULL) {
     return("missing_stan_file")
   }
 
-  digest::digest(file = stan_file, algo = "sha256")
+  bg_source_closure_hash(stan_file)
+}
+
+#' Hash a Stan program together with its `#include` closure.
+#'
+#' A program whose closure is just the main file (no includes, none missing)
+#' keeps the historical single-file content digest, so existing fingerprints
+#' stay valid. Otherwise the component is a digest over a deterministic
+#' mapping of every closure member keyed by its path relative to the
+#' closure's common root (machine-stable), plus explicit `missing=` entries
+#' for unresolved includes — so editing an included file, or adding or
+#' resolving one, changes the fingerprint.
+#'
+#' Cost: this walks and reads the whole closure on every fingerprint
+#' computation. Stan programs and their includes are small text files, and
+#' fingerprinting already digests the main program, so the extra reads are
+#' accepted in exchange for correctness; no caching is attempted.
+#' @param stan_file Resolved path to an existing Stan program.
+#' @return A SHA-256 digest string.
+#' @keywords internal
+#' @noRd
+bg_source_closure_hash <- function(stan_file) {
+  closure <- bg_stan_source_closure(normalizePath(stan_file, mustWork = FALSE))
+  if (length(closure$files) == 1L && length(closure$missing) == 0L) {
+    return(digest::digest(file = closure$files[[1]], algo = "sha256"))
+  }
+
+  root <- bg_common_root_dir(closure$files)
+  entries <- vapply(
+    sort(closure$files),
+    function(f) {
+      paste0(
+        bg_rel_within_root(f, root),
+        "=",
+        digest::digest(file = f, algo = "sha256")
+      )
+    },
+    character(1)
+  )
+
+  root_prefix <- if (identical(root, "/")) "/" else paste0(root, "/")
+  if (length(closure$missing) > 0L) {
+    entries <- c(
+      entries,
+      paste0(
+        "missing=",
+        sort(vapply(
+          closure$missing,
+          function(m) {
+            slashed <- bg_path_with_slashes(m)
+            if (startsWith(slashed, root_prefix)) {
+              bg_rel_within_root(m, root)
+            } else {
+              slashed
+            }
+          },
+          character(1)
+        ))
+      )
+    )
+  }
+
+  digest::digest(paste(entries, collapse = "\n"), algo = "sha256")
 }
