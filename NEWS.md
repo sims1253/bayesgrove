@@ -8,6 +8,11 @@
   decisions, and policy changes. Record, Guide, and Enforce modes share the
   same research state. Snapshots, bundles, and reports include that state.
 
+* Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
+  verify deterministic captured README and vignette output in CI without
+  CmdStan. The sampler vignettes stay intentionally precomputed and are
+  refreshed only via `tools/precompute-vignettes.R`.
+
 ## Breaking changes
 
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
