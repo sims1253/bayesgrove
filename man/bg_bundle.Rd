@@ -20,6 +20,44 @@ The file path to the generated bundle.
 \description{
 Creates a portable \code{.tar.gz} archive of the project, including the structural
 graph, decision log, job history, configuration, attached data, and cached
-artifacts. Model fit artifacts are optional. External files referenced by
-node params (such as Stan programs) are not copied or relocated.
+artifacts. Model fit artifacts are optional.
+}
+\details{
+\strong{Portable source policy}
+
+External files referenced by approved node params are copied into the
+archive and their references relocated, so a restored project works after
+the original files (and machine) are gone:
+\itemize{
+\item Approved keys: \code{stan_file}. The referenced Stan program is copied together
+with every file reachable through \verb{#include "..."} directives (resolved
+relative to the including file, as stanc3 does). The key list is grounded
+in what the executors actually read.
+\item References into the installed bayesgrove package (e.g.
+\code{system.file("stan", ...)} models) are left untouched: they are portable
+wherever the package is installed, and freezing copies would needlessly
+invalidate fingerprints.
+\item Nothing else is copied. Executor dependencies (persisted separately as
+inert source and restored only through the trust-gated
+\code{\link[=bg_restore_executors]{bg_restore_executors()}}), external data (attach it with
+\link{bg_set_node_data} so it travels through the CAS), secrets, and
+unreferenced siblings of a referenced file all stay outside the archive.
+Directories are never copied wholesale.
+\item A referenced file that is missing at bundle time produces a warning and
+the reference is left as-is.
+}
+
+Relocation happens at bundle time: files are archived under
+\code{bundle_sources/} inside the project directory, the archived graph stores
+the archived paths relative to the project root, and
+\code{.bayesgrove/bundle_manifest.json} records a \code{source_policy} section with
+the policy name and version, the approved keys, and a relocation table
+(original path, archived path, SHA-256 per copied file). Restoring
+therefore executes no project code: untar and \code{\link[=bg_open]{bg_open()}} as usual.
+Relative \code{stan_file} params resolve against the project root at
+fingerprinting and execution time.
+
+Because the params hash covers the path string, relocated references change
+fingerprints and restored fit nodes rerun by default (\code{include_fits} is
+\code{FALSE} by default, so cached fits do not travel anyway).
 }

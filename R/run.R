@@ -909,6 +909,13 @@ bg_execute_node <- function(
     node$resolved$data <- bg_fetch_artifact(handle, data_ref)
   }
 
+  # Resolve portable source params against the project root before the
+  # executor runs: bundle restores persist archived references (e.g.
+  # bundle_sources/...) relative to the project root, and executors cannot
+  # resolve them from their (node, inputs) signature. Mirrors the data_ref
+  # resolution above; the persisted graph is untouched.
+  node$params <- bg_resolve_source_params(node$params, handle@path)
+
   tryCatch(
     {
       normalized <- bg_run_executor(node, resolved_inputs, kind_reg)

@@ -30,7 +30,9 @@ bg_require_backend_kinds <- function(handle, kinds, setup_function) {
 #' Call [bg_use_cmdstanr()] first so the `cmdstanr_fit` kind is registered.
 #'
 #' @param handle A `bg_handle`.
-#' @param stan_file Path to the Stan model file.
+#' @param stan_file Path to the Stan model file. Relative paths resolve
+#'   against the project root when the file exists there, and from the working
+#'   directory otherwise.
 #' @param data A named list (or environment) of Stan data.
 #' @param label Optional label for the fit node.
 #' @param ... Passed to the fit node as params (e.g. `chains = 4`).

@@ -89,7 +89,7 @@ bg_compute_fingerprint <- function(
   #    the file CONTENTS (not the path) so editing the model program invalidates
   #    the cache even at a fixed path. Applied by param presence, so custom
   #    kinds carrying `stan_file` are covered; returns "" for nodes without it.
-  source_hash <- bg_source_hash_component(node)
+  source_hash <- bg_source_hash_component(node, project@path)
 
   # 6. Serialization format version. Bumping invalidates all prior caches.
   format_version <- "3"
@@ -194,19 +194,30 @@ bg_executor_fingerprint_component <- function(project, node) {
 #' the file CONTENTS (not the path): editing the model program must invalidate
 #' the cache even when the path is unchanged. Applied by param presence rather
 #' than by kind name, so custom node kinds carrying `stan_file` are covered.
-#' When the param names a missing file, returns the literal `"missing_stan_file"`
+#' When `project_path` is supplied, a relative `stan_file` resolves against
+#' the project root first (falling back to the value as-is), so projects
+#' restored from a bundle — whose archived references are project-relative —
+#' fingerprint identically from any working directory. When the param names a
+#' missing file, returns the literal `"missing_stan_file"`
 #' so planning still works and the eventual executor error is the user-facing
 #' signal. Returns `""` for nodes without a `stan_file` param (the formula is
 #' already hashed via params, the brms version via the environment manifest, and
 #' codegen drift between brms versions is covered by the version pin).
+#' @param node The graph node list.
+#' @param project_path Optional absolute project root for resolving relative
+#'   paths.
 #' @keywords internal
 #' @noRd
-bg_source_hash_component <- function(node) {
+bg_source_hash_component <- function(node, project_path = NULL) {
   stan_file <- node$params$stan_file %||% NULL
   if (
     is.null(stan_file) || !is.character(stan_file) || length(stan_file) != 1L
   ) {
     return("")
+  }
+
+  if (!is.null(project_path)) {
+    stan_file <- bg_resolve_project_source(project_path, stan_file)
   }
 
   if (!file.exists(stan_file)) {

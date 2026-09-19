@@ -48,8 +48,44 @@ bg_reproducibility_manifest <- function() {
 #'
 #' Creates a portable `.tar.gz` archive of the project, including the structural
 #' graph, decision log, job history, configuration, attached data, and cached
-#' artifacts. Model fit artifacts are optional. External files referenced by
-#' node params (such as Stan programs) are not copied or relocated.
+#' artifacts. Model fit artifacts are optional.
+#'
+#' **Portable source policy**
+#'
+#' External files referenced by approved node params are copied into the
+#' archive and their references relocated, so a restored project works after
+#' the original files (and machine) are gone:
+#'
+#' * Approved keys: `stan_file`. The referenced Stan program is copied together
+#'   with every file reachable through `#include "..."` directives (resolved
+#'   relative to the including file, as stanc3 does). The key list is grounded
+#'   in what the executors actually read.
+#' * References into the installed bayesgrove package (e.g.
+#'   `system.file("stan", ...)` models) are left untouched: they are portable
+#'   wherever the package is installed, and freezing copies would needlessly
+#'   invalidate fingerprints.
+#' * Nothing else is copied. Executor dependencies (persisted separately as
+#'   inert source and restored only through the trust-gated
+#'   [bg_restore_executors()]), external data (attach it with
+#'   [bg_set_node_data()] so it travels through the CAS), secrets, and
+#'   unreferenced siblings of a referenced file all stay outside the archive.
+#'   Directories are never copied wholesale.
+#' * A referenced file that is missing at bundle time produces a warning and
+#'   the reference is left as-is.
+#'
+#' Relocation happens at bundle time: files are archived under
+#' `bundle_sources/` inside the project directory, the archived graph stores
+#' the archived paths relative to the project root, and
+#' `.bayesgrove/bundle_manifest.json` records a `source_policy` section with
+#' the policy name and version, the approved keys, and a relocation table
+#' (original path, archived path, SHA-256 per copied file). Restoring
+#' therefore executes no project code: untar and [bg_open()] as usual.
+#' Relative `stan_file` params resolve against the project root at
+#' fingerprinting and execution time.
+#'
+#' Because the params hash covers the path string, relocated references change
+#' fingerprints and restored fit nodes rerun by default (`include_fits` is
+#' `FALSE` by default, so cached fits do not travel anyway).
 #'
 #' @param project A `bg_handle`.
 #' @param path File path where the bundle should be saved (default: a temp file).
@@ -199,7 +235,17 @@ bg_bundle <- function(
     }
   }
 
-  # 3. Write bundle manifest, including a reproducibility manifest (session
+  # 3. Portable sources (the "referenced-sources" policy): copy approved
+  # external files referenced by node params (Stan programs plus their
+  # include closure) into the archive and rewrite the staged graph to
+  # project-relative archived paths, so a restored project works after the
+  # original paths are gone and restoring runs no project code.
+  source_policy <- bg_copy_bundle_sources(
+    graph = snap$graph,
+    dest_proj_dir = dest_proj_dir
+  )
+
+  # 4. Write bundle manifest, including a reproducibility manifest (session
   # info + CmdStan/Stan versions) so cross-machine restores surface
   # environment mismatches as a warning rather than silently rerunning.
   manifest <- list(
@@ -209,6 +255,7 @@ bg_bundle <- function(
     project_id = project@project_id,
     created_at = bg_now_timestamp(),
     include_fits = include_fits,
+    source_policy = source_policy,
     reproducibility = bg_reproducibility_manifest()
   )
 

@@ -7,6 +7,13 @@
   It records P/A/D candidate lineages, evidence, cross-lineage comparisons,
   decisions, and policy changes. Record, Guide, and Enforce modes share the
   same research state. Snapshots, bundles, and reports include that state.
+* Bundles copy Stan programs referenced by node params, and their `#include`
+  closure, into the archive and rewrite the graph to project-relative paths,
+  so restored projects run after the original files are gone. Only files
+  referenced through approved params keys (`stan_file`) are copied; secrets
+  and unreferenced siblings stay out, and the bundle manifest records a
+  relocation table with content hashes. Relative `stan_file` params resolve
+  against the project root at fingerprinting and execution time.
 
 ## Breaking changes
 

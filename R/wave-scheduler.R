@@ -182,6 +182,11 @@ bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
     node$resolved$data <- bg_fetch_artifact(project, data_ref)
   }
 
+  # Resolve portable source params against the project root so daemon
+  # workers execute archived references (bundle_sources/...) from any working
+  # directory; mirrors the data_ref resolution above.
+  node$params <- bg_resolve_source_params(node$params, project@path)
+
   executor <- bg_prepare_executor_for_ship(kind_reg, node$kind)
 
   list(
