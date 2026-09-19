@@ -85,10 +85,17 @@ read_doc <- function(doc) {
 
 # Locate an R chunk by label; returns c(start, end) line indices of the whole
 # chunk (fences included), or NULL.
-find_chunk <- function(lines, label) {
+find_chunk <- function(lines, doc, label) {
   starts <- grep("^```\\{r(?:[ ,}])", lines, perl = TRUE)
   for (start in starts) {
     end <- start + which(lines[(start + 1L):length(lines)] == "```")[1L]
+    if (is.na(end)) {
+      stop(sprintf(
+        "%s.Rmd chunk starting at line %d has no closing fence",
+        doc,
+        start
+      ))
+    }
     chunk_label <- sub(
       "^```\\{r[[:space:]]*([^,}]*)[^{]*$",
       "\\1",
@@ -103,7 +110,7 @@ find_chunk <- function(lines, label) {
 
 # The fenced output block directly after a chunk, or NULL when the chunk is
 # followed by prose. Returns c(start, end) of the whole block.
-block_after_chunk <- function(lines, chunk) {
+block_after_chunk <- function(lines, doc, chunk) {
   i <- chunk[[2]] + 1L
   while (i <= length(lines) && !nzchar(trimws(lines[[i]]))) {
     i <- i + 1L
@@ -116,6 +123,13 @@ block_after_chunk <- function(lines, chunk) {
     return(NULL)
   }
   end <- i + which(lines[(i + 1L):length(lines)] == "```")[1L]
+  if (is.na(end)) {
+    stop(sprintf(
+      "%s.Rmd block starting at line %d has no closing fence",
+      doc,
+      i
+    ))
+  }
   c(i, end)
 }
 
@@ -222,9 +236,15 @@ canonicalize_markdown <- function(lines) {
 unified_diff <- function(a, b, context = 3L) {
   n <- length(a)
   m <- length(b)
+  if (n == 0L || m == 0L) {
+    # An empty side would degenerate into a pure all-add or all-delete
+    # listing; the stale message and refresh hint already identify the
+    # block, so no diff body is needed for the report.
+    return(character())
+  }
   lcs <- matrix(0L, nrow = n + 1L, ncol = m + 1L)
-  for (i in seq(n, 1)) {
-    for (j in seq(m, 1)) {
+  for (i in rev(seq_len(n))) {
+    for (j in rev(seq_len(m))) {
       lcs[i, j] <- if (identical(a[[i]], b[[j]])) {
         lcs[i + 1L, j + 1L] + 1L
       } else {
@@ -375,11 +395,11 @@ for (entry in checkable_chunks) {
   doc <- entry$doc
   cat(sprintf("%s.Rmd chunk %s: ", doc, entry$label))
   lines <- read_doc(doc)
-  chunk <- find_chunk(lines, entry$label)
+  chunk <- find_chunk(lines, doc, entry$label)
   if (is.null(chunk)) {
     stop(sprintf("Chunk %s not found in %s.Rmd", entry$label, doc))
   }
-  block <- block_after_chunk(lines, chunk)
+  block <- block_after_chunk(lines, doc, chunk)
   if (is.null(block)) {
     stop(sprintf(
       "No captured output block follows chunk %s in %s.Rmd",
@@ -393,10 +413,10 @@ for (entry in checkable_chunks) {
     block[[2]] - 1L
   )])
   env <- new.env(parent = globalenv())
-  fresh_block <- character()
+  raw_block <- character()
   tryCatch(
     {
-      fresh_block <- capture.output({
+      raw_block <- capture.output({
         for (expression in parse(text = code)) {
           value <- withVisible(eval(expression, envir = env))
           if (value$visible) {
@@ -409,7 +429,7 @@ for (entry in checkable_chunks) {
       stop(sprintf("Chunk %s failed: %s", entry$label, conditionMessage(e)))
     }
   )
-  fresh_block <- normalize_lines(fresh_block)
+  fresh_block <- normalize_lines(raw_block)
   if (identical(checked_block, fresh_block)) {
     cat("matches re-evaluated output\n")
   } else {
@@ -421,9 +441,12 @@ for (entry in checkable_chunks) {
     )
   }
   if (refresh) {
+    # Splice the raw captured text; normalization exists only for
+    # comparison, so placeholders and stripped prefixes never reach the
+    # checked-in document.
     lines <- c(
       lines[seq_len(block[[1]])],
-      fresh_block,
+      raw_block,
       lines[seq.int(block[[2]], length(lines))]
     )
     writeLines(lines, doc_path(doc))
@@ -475,7 +498,14 @@ for (doc in live_docs) {
   starts <- grep("^```\\{r(?:[ ,}])", lines, perl = TRUE)
   for (start in starts) {
     end <- start + which(lines[(start + 1L):length(lines)] == "```")[1L]
-    block <- block_after_chunk(lines, c(start, end))
+    if (is.na(end)) {
+      stop(sprintf(
+        "%s.Rmd chunk starting at line %d has no closing fence",
+        doc,
+        start
+      ))
+    }
+    block <- block_after_chunk(lines, doc, c(start, end))
     if (
       !is.null(block) &&
         grepl(captured_pattern, lines[[block[[1]] + 1L]])
