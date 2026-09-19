@@ -178,6 +178,18 @@ describe("Stan-file source hashing (Phase 4)", {
       bayesgrove:::bg_source_hash_component(node_c) ==
         bayesgrove:::bg_source_hash_component(node_b)
     )
+
+    # Missing includes key on the directive (referencing file plus raw
+    # target), so identical layouts with the same missing include are
+    # machine-stable too.
+    root_d <- withr::local_tempdir()
+    main_d <- write_model(root_d, "theta ~ normal(0, 1);")
+    file.remove(file.path(root_d, "parts", "prior.stan"))
+    node_d <- list(kind = "cmdstanr_fit", params = list(stan_file = main_d))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(node_c),
+      bayesgrove:::bg_source_hash_component(node_d)
+    )
   })
 
   it("re-executes a stan-file node after an included file is edited", {

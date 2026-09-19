@@ -241,8 +241,10 @@ bg_source_hash_component <- function(node, project_path = NULL) {
 #' stay valid. Otherwise the component is a digest over a deterministic
 #' mapping of every closure member keyed by its path relative to the
 #' closure's common root (machine-stable), plus explicit `missing=` entries
-#' for unresolved includes — so editing an included file, or adding or
-#' resolving one, changes the fingerprint.
+#' for unresolved includes — keyed by the closure-relative path of the file
+#' carrying the directive plus the raw directive target, again
+#' machine-stable — so editing an included file, or adding or resolving one,
+#' changes the fingerprint.
 #'
 #' Cost: this walks and reads the whole closure on every fingerprint
 #' computation. Stan programs and their includes are small text files, and
@@ -259,8 +261,10 @@ bg_source_closure_hash <- function(stan_file) {
   }
 
   root <- bg_common_root_dir(closure$files)
+  # Radix (C-locale) ordering keeps the mapping — and therefore the digest —
+  # identical across collation locales.
   entries <- vapply(
-    sort(closure$files),
+    sort(closure$files, method = "radix"),
     function(f) {
       paste0(
         bg_rel_within_root(f, root),
@@ -271,25 +275,17 @@ bg_source_closure_hash <- function(stan_file) {
     character(1)
   )
 
-  root_prefix <- if (identical(root, "/")) "/" else paste0(root, "/")
-  if (length(closure$missing) > 0L) {
+  if (length(closure$missing_directives) > 0L) {
+    missing_keys <- unique(vapply(
+      closure$missing_directives,
+      function(d) {
+        paste0(bg_rel_within_root(d$file, root), " -> ", d$target)
+      },
+      character(1)
+    ))
     entries <- c(
       entries,
-      paste0(
-        "missing=",
-        sort(vapply(
-          closure$missing,
-          function(m) {
-            slashed <- bg_path_with_slashes(m)
-            if (startsWith(slashed, root_prefix)) {
-              bg_rel_within_root(m, root)
-            } else {
-              slashed
-            }
-          },
-          character(1)
-        ))
-      )
+      paste0("missing=", sort(missing_keys, method = "radix"))
     )
   }
 

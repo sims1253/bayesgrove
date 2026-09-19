@@ -393,6 +393,68 @@ describe("portable bundle sources (referenced-sources policy)", {
     )
   })
 
+  it("classifies package sources by path boundary, not name prefix", {
+    lib <- withr::local_tempdir()
+    synthetic_root <- bayesgrove:::bg_path_with_slashes(
+      normalizePath(file.path(lib, "bayesgrove"), mustWork = FALSE)
+    )
+
+    # A sibling library whose name merely starts with "bayesgrove" is not
+    # package-shipped: without the boundary check it would be misrouted to a
+    # sentinel that can never resolve.
+    sibling <- normalizePath(
+      file.path(lib, "bayesgrove-backup", "model.stan"),
+      mustWork = FALSE
+    )
+    expect_false(bayesgrove:::bg_is_package_source(sibling, synthetic_root))
+
+    nested <- normalizePath(
+      file.path(lib, "bayesgrove", "stan", "model.stan"),
+      mustWork = FALSE
+    )
+    expect_true(bayesgrove:::bg_is_package_source(nested, synthetic_root))
+
+    elsewhere <- normalizePath(file.path(lib, "model.stan"), mustWork = FALSE)
+    expect_false(bayesgrove:::bg_is_package_source(elsewhere, synthetic_root))
+
+    # The real installed package classifies its own files with the default
+    # root, and a sentinel minted from one resolves back to the file.
+    real <- system.file("stan", "normal_iid.stan", package = "bayesgrove")
+    expect_true(bayesgrove:::bg_is_package_source(real))
+    sentinel <- paste0(
+      bayesgrove:::bg_package_source_prefix(),
+      bayesgrove:::bg_rel_within_root(
+        normalizePath(real, mustWork = FALSE),
+        bayesgrove:::bg_package_source_root()
+      )
+    )
+    expect_equal(
+      bayesgrove:::bg_resolve_project_source(withr::local_tempdir(), sentinel),
+      normalizePath(real, mustWork = FALSE)
+    )
+  })
+
+  it("degrades unresolvable package sentinels to missing files", {
+    proj <- withr::local_tempdir()
+    sentinel <- "bayesgrove:stan/no_such_model.stan"
+
+    # Resolution cannot expand it and leaves the value untouched.
+    expect_equal(
+      bayesgrove:::bg_resolve_project_source(proj, sentinel),
+      sentinel
+    )
+    # The fingerprint component takes the missing-file path.
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(
+        list(kind = "cmdstanr_fit", params = list(stan_file = sentinel)),
+        proj
+      ),
+      "missing_stan_file"
+    )
+    # The executors' failure mode holds: file.exists() on the raw value.
+    expect_false(file.exists(sentinel))
+  })
+
   it("executes relocated references from the restored project", {
     proj <- withr::local_tempdir()
     src_root <- withr::local_tempdir()

@@ -18,7 +18,6 @@
   resolve against the project root at bundling, fingerprinting, and
   execution time, so a project bundles and runs identically from any working
   directory.
-
 * Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
   verify deterministic captured README and vignette output in CI without
   CmdStan. The sampler vignettes stay intentionally precomputed and are

@@ -39,6 +39,45 @@ bg_package_source_prefix <- function() {
   "bayesgrove:"
 }
 
+#' Normalized root of the installed bayesgrove package.
+#'
+#' `normalizePath()` resolves symlinked `.libPaths()` entries, so files from
+#' such an installation still classify as package-shipped.
+#' @return Forward-slash normalized package root ("" when unresolvable).
+#' @keywords internal
+#' @noRd
+bg_package_source_root <- function() {
+  root <- system.file(package = "bayesgrove")
+  if (!nzchar(root)) {
+    return("")
+  }
+  bg_path_with_slashes(normalizePath(root, mustWork = FALSE))
+}
+
+#' Classify a source path as shipped inside the package.
+#'
+#' Pure path-boundary test on normalized forward-slash paths: the package
+#' root must be followed by a separator, so a library sibling whose name
+#' merely starts with "bayesgrove" (e.g.
+#' `…/site-library/bayesgrove-backup/model.stan`) is NOT package-shipped,
+#' while any genuinely nested package file is.
+#' @param path Source path (existing or not).
+#' @param package_root Normalized package root for testing; defaults to the
+#'   installed bayesgrove package.
+#' @return TRUE when `path` lies strictly inside `package_root`.
+#' @keywords internal
+#' @noRd
+bg_is_package_source <- function(
+  path,
+  package_root = bg_package_source_root()
+) {
+  if (!nzchar(package_root)) {
+    return(FALSE)
+  }
+  slashed <- bg_path_with_slashes(normalizePath(path, mustWork = FALSE))
+  startsWith(slashed, paste0(package_root, "/"))
+}
+
 #' Detect absolute filesystem paths (POSIX, Windows drive letters, UNC).
 #' @keywords internal
 #' @noRd
@@ -151,15 +190,19 @@ bg_stan_include_targets <- function(lines) {
 #' Collect a Stan program plus its on-disk `#include` closure.
 #'
 #' Directives naming files that do not exist are reported in `missing` (the
-#' bundler warns on them) rather than silently dropped. Cycles terminate via
-#' the seen set.
+#' bundler warns on them) rather than silently dropped, and in
+#' `missing_directives` as `list(file = <referencing path>, target = <raw
+#' directive target>)` pairs so consumers can key them stably without
+#' absolute paths. Cycles terminate via the seen set.
 #' @param stan_file Normalized path to an existing Stan program.
-#' @return `list(files = <normalized paths>, missing = <normalized paths>)`.
+#' @return `list(files = <normalized paths>, missing = <normalized paths>,
+#'   missing_directives = <list of pairs>)`.
 #' @keywords internal
 #' @noRd
 bg_stan_source_closure <- function(stan_file) {
   files <- character()
   missing <- character()
+  missing_directives <- list()
   seen <- character()
   queue <- stan_file
   while (length(queue) > 0L) {
@@ -184,11 +227,19 @@ bg_stan_source_closure <- function(stan_file) {
         queue <- c(queue, resolved)
       } else {
         missing <- c(missing, resolved)
+        missing_directives <- c(
+          missing_directives,
+          list(list(file = current, target = target))
+        )
       }
     }
   }
 
-  list(files = unique(files), missing = unique(missing))
+  list(
+    files = unique(files),
+    missing = unique(missing),
+    missing_directives = missing_directives
+  )
 }
 
 #' Longest common ancestor directory of a set of normalized paths.
@@ -297,12 +348,16 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
       }
     }
   }
-  references <- sort(names(key_by_value))
+  # Radix (C-locale) ordering keeps warning order, slot numbering, and the
+  # manifest deterministic across collation locales. names() is NULL for an
+  # empty map, which radix sort rejects; normalize to character(0).
+  references <- sort(
+    names(key_by_value) %||% character(0),
+    method = "radix"
+  )
   if (length(references) == 0L) {
     return(policy)
   }
-
-  package_root <- bg_path_with_slashes(system.file(package = "bayesgrove"))
 
   closures <- list()
   roots <- character()
@@ -320,7 +375,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
       next
     }
     normalized <- normalizePath(resolved, mustWork = FALSE)
-    if (startsWith(bg_path_with_slashes(normalized), package_root)) {
+    if (bg_is_package_source(normalized)) {
       # Package-shipped sources are not copied: the installed package
       # already carries the bytes on every machine. Instead the staged graph
       # reference becomes a machine-stable package sentinel, so a restore
@@ -330,7 +385,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
         original = normalized,
         package_ref = paste0(
           bg_package_source_prefix(),
-          bg_rel_within_root(normalized, package_root)
+          bg_rel_within_root(normalized, bg_package_source_root())
         ),
         files = list()
       )
@@ -352,10 +407,12 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
     originals[[value]] <- normalized
   }
 
-  # One archive slot per distinct closure root, in deterministic order.
+  # One archive slot per distinct closure root, in deterministic
+  # (C-locale) order.
+  distinct_roots <- sort(unique(roots), method = "radix")
   slot_of_root <- setNames(
-    paste0("src_", seq_along(sort(unique(roots)))),
-    sort(unique(roots))
+    paste0("src_", seq_along(distinct_roots)),
+    distinct_roots
   )
 
   for (value in names(closures)) {
@@ -394,7 +451,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
       )
     }
 
-    ord <- order(archived_paths)
+    ord <- order(archived_paths, method = "radix")
     policy$relocation[[value]] <- list(
       original = original,
       archived = main_archived,
