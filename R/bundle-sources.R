@@ -201,6 +201,10 @@ bg_rel_within_root <- function(path, root) {
 #' place so every relocated param points at its archived, project-relative
 #' path.
 #'
+#' Each raw param value is resolved with `bg_resolve_project_source()` first,
+#' so relative references bundle identically from any working directory —
+#' the same resolution the executor and the fingerprint use at run time.
+#'
 #' Security boundary: only files reachable from approved param values are
 #' copied — never directories wholesale, never unreferenced siblings.
 #' References that are missing at bundle time produce a warning and keep
@@ -209,12 +213,15 @@ bg_rel_within_root <- function(path, root) {
 #'
 #' @param graph The project graph (from a snapshot).
 #' @param dest_proj_dir Staged project directory inside the bundle temp dir.
+#' @param project_path Absolute path of the project root, used to resolve
+#'   relative references exactly like at run time.
 #' @return The `source_policy` manifest section: policy name and version, the
-#'   approved keys, and a relocation table keyed by the original param value,
-#'   each entry carrying the archived path and a SHA-256 per copied file.
+#'   approved keys, and a relocation table keyed by the raw param value (what
+#'   the graph rewrite matches), each entry carrying the resolved original
+#'   path, the archived path, and a SHA-256 per copied file.
 #' @keywords internal
 #' @noRd
-bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
+bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
   policy <- list(
     name = "referenced-sources",
     version = 1L,
@@ -249,16 +256,20 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
 
   closures <- list()
   roots <- character()
+  originals <- character()
   for (value in references) {
+    # Resolve exactly like the executor and the fingerprint do, so a
+    # project-relative reference bundles from any working directory.
+    resolved <- bg_resolve_project_source(project_path, value)
     # Directories are never bundled (policy: no wholesale copies) and cannot
     # be Stan programs; treat them like missing references.
-    if (!file.exists(value) || dir.exists(value)) {
+    if (!file.exists(resolved) || dir.exists(resolved)) {
       cli::cli_warn(
         "Bundle is missing referenced source file {.path {value}}."
       )
       next
     }
-    normalized <- normalizePath(value, mustWork = FALSE)
+    normalized <- normalizePath(resolved, mustWork = FALSE)
     if (startsWith(bg_path_with_slashes(normalized), package_root)) {
       # Package-shipped sources are portable wherever bayesgrove is
       # installed; freezing copies would only invalidate fingerprints.
@@ -277,6 +288,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
     }
     closures[[value]] <- closure
     roots[[value]] <- bg_common_root_dir(closure$files)
+    originals[[value]] <- normalized
   }
 
   # One archive slot per distinct closure root, in deterministic order.
@@ -289,10 +301,10 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
     closure <- closures[[value]]
     root <- roots[[value]]
     slot <- slot_of_root[[root]]
+    original <- originals[[value]]
 
     hashes <- c()
     archived_paths <- c()
-    main_normalized <- normalizePath(value, mustWork = FALSE)
     main_archived <- NULL
     for (src in closure$files) {
       rel <- bg_rel_within_root(src, root)
@@ -300,7 +312,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
         c("bundle_sources", key_by_value[[value]], slot, rel),
         collapse = "/"
       )
-      if (identical(src, main_normalized)) {
+      if (identical(src, original)) {
         main_archived <- archived
       }
       dest <- file.path(dest_proj_dir, archived)
@@ -316,6 +328,7 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir) {
 
     ord <- order(archived_paths)
     policy$relocation[[value]] <- list(
+      original = original,
       archived = main_archived,
       files = stats::setNames(as.list(hashes[ord]), archived_paths[ord])
     )

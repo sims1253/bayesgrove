@@ -52,10 +52,12 @@ Relocation happens at bundle time: files are archived under
 the archived paths relative to the project root, and
 \code{.bayesgrove/bundle_manifest.json} records a \code{source_policy} section with
 the policy name and version, the approved keys, and a relocation table
-(original path, archived path, SHA-256 per copied file). Restoring
+keyed by the raw param value, each entry carrying the resolved original
+path, the archived path, and a SHA-256 per copied file. Restoring
 therefore executes no project code: untar and \code{\link[=bg_open]{bg_open()}} as usual.
-Relative \code{stan_file} params resolve against the project root at
-fingerprinting and execution time.
+Relative \code{stan_file} params resolve against the project root at bundling,
+fingerprinting, and execution time, so a project bundles and runs
+identically from any working directory.
 
 Because the params hash covers the path string, relocated references change
 fingerprints and restored fit nodes rerun by default (\code{include_fits} is

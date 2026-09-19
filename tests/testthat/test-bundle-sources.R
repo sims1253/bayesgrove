@@ -179,6 +179,77 @@ describe("portable bundle sources (referenced-sources policy)", {
     expect_equal(graph$nodes[[node_id]]$params$stan_file, entry$archived)
   })
 
+  it("archives a project-relative stan_file from any working directory", {
+    # Regression: bundling used to check file.exists() on the raw param value
+    # from the caller's working directory, so a project-relative reference
+    # bundled from elsewhere looked missing and never traveled.
+    proj <- withr::local_tempdir()
+    dir.create(file.path(proj, "models"))
+    writeLines(
+      "model { x ~ normal(0, 1); }",
+      file.path(proj, "models", "foo.stan")
+    )
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = "models/foo.stan")
+    )
+
+    # Bundle from a directory that has no models/foo.stan of its own, with an
+    # absolute output path (bg_bundle resolves `path` from the cwd).
+    bundle_path <- file.path(withr::local_tempdir(), "relative.tar.gz")
+    withr::with_dir(withr::local_tempdir(), {
+      expect_no_warning(bg_bundle(handle, path = bundle_path))
+    })
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    # Keyed by the raw param value; the entry records the resolved original.
+    entry <- manifest$source_policy$relocation[["models/foo.stan"]]
+    expect_false(is.null(entry))
+    expect_equal(
+      entry$original,
+      normalizePath(file.path(proj, "models", "foo.stan"), mustWork = FALSE)
+    )
+    expect_match(entry$archived, "^bundle_sources/stan_file/src_")
+    expect_true(file.exists(file.path(restored_proj, entry$archived)))
+
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(graph$nodes[[node_id]]$params$stan_file, entry$archived)
+
+    # After removing the original file, a restored open resolves the archived
+    # reference at run time from yet another working directory.
+    unlink(file.path(proj, "models"), recursive = TRUE)
+    restored <- bg_open(restored_proj)
+    bg_register_node_kind(
+      restored,
+      "fit",
+      executor = function(node, inputs) {
+        node$params$stan_file
+      }
+    )
+    run <- withr::with_dir(withr::local_tempdir(), {
+      bg_run(restored, targets = node_id)
+    })
+    expect_equal(run$status, "succeeded")
+    result <- bg_result(restored, node_id)
+    expect_true(file.exists(result))
+    expect_match(result, "bundle_sources")
+    bg_close(restored)
+  })
+
   it("leaves package-shipped Stan programs untouched", {
     proj <- withr::local_tempdir()
     stan_path <- system.file("stan", "normal_iid.stan", package = "bayesgrove")

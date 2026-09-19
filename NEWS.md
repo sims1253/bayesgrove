@@ -13,7 +13,8 @@
   referenced through approved params keys (`stan_file`) are copied; secrets
   and unreferenced siblings stay out, and the bundle manifest records a
   relocation table with content hashes. Relative `stan_file` params resolve
-  against the project root at fingerprinting and execution time.
+  against the project root at bundling, fingerprinting, and execution time,
+  so a project bundles and runs identically from any working directory.
 
 ## Breaking changes
 

@@ -78,10 +78,12 @@ bg_reproducibility_manifest <- function() {
 #' the archived paths relative to the project root, and
 #' `.bayesgrove/bundle_manifest.json` records a `source_policy` section with
 #' the policy name and version, the approved keys, and a relocation table
-#' (original path, archived path, SHA-256 per copied file). Restoring
+#' keyed by the raw param value, each entry carrying the resolved original
+#' path, the archived path, and a SHA-256 per copied file. Restoring
 #' therefore executes no project code: untar and [bg_open()] as usual.
-#' Relative `stan_file` params resolve against the project root at
-#' fingerprinting and execution time.
+#' Relative `stan_file` params resolve against the project root at bundling,
+#' fingerprinting, and execution time, so a project bundles and runs
+#' identically from any working directory.
 #'
 #' Because the params hash covers the path string, relocated references change
 #' fingerprints and restored fit nodes rerun by default (`include_fits` is
@@ -239,10 +241,12 @@ bg_bundle <- function(
   # external files referenced by node params (Stan programs plus their
   # include closure) into the archive and rewrite the staged graph to
   # project-relative archived paths, so a restored project works after the
-  # original paths are gone and restoring runs no project code.
+  # original paths are gone and restoring runs no project code. References
+  # resolve against the project root, matching run-time resolution.
   source_policy <- bg_copy_bundle_sources(
     graph = snap$graph,
-    dest_proj_dir = dest_proj_dir
+    dest_proj_dir = dest_proj_dir,
+    project_path = project@path
   )
 
   # 4. Write bundle manifest, including a reproducibility manifest (session
