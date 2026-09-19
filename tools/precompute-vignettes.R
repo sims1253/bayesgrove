@@ -7,6 +7,11 @@
 # Requires cmdstanr and CmdStan. Refresh pasted output from the CHUNK markers,
 # check the regenerated figures, and update the vignette's version stamp.
 # Output varies with package and sampler versions; this is not a snapshot test.
+#
+# This is the REFRESH half of the docs policy. The VERIFY half is
+# tools/check-captured-output.R, which re-checks the deterministic captured
+# output (README render plus the chunks listed there) in CI without CmdStan;
+# run it before committing documentation edits.
 
 args <- commandArgs(trailingOnly = TRUE)
 vignettes <- c("eight-schools", "getting-started", "case-study-roaches")

@@ -1,0 +1,40 @@
+# Verifies captured documentation output without CmdStan; see
+# tools/check-captured-output.R for the refresh-vs-verify policy.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+name: docs-check.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  docs-check:
+    name: docs-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          # Hard dependencies only (dagriculture comes via the DESCRIPTION
+          # Remotes entry); the check needs no Suggests and no CmdStan build.
+          extra-packages: any::rmarkdown
+          dependencies: '"hard"'
+
+      - name: Check captured output
+        run: Rscript tools/check-captured-output.R
