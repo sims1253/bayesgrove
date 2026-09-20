@@ -123,4 +123,153 @@ describe("Stan-file source hashing (Phase 4)", {
     expect_equal(run3$status, "succeeded")
     expect_equal(run3$summary$total_executed, 1L)
   })
+
+  it("bg_source_hash_component hashes the #include closure", {
+    write_model <- function(root, prior) {
+      dir.create(file.path(root, "parts"), recursive = TRUE)
+      writeLines(
+        c(
+          "parameters { real theta; }",
+          "model {",
+          "  #include \"parts/prior.stan\"",
+          "}"
+        ),
+        file.path(root, "main.stan")
+      )
+      writeLines(prior, file.path(root, "parts", "prior.stan"))
+      normalizePath(file.path(root, "main.stan"), mustWork = FALSE)
+    }
+
+    root_a <- withr::local_tempdir()
+    root_b <- withr::local_tempdir()
+    main_a <- write_model(root_a, "theta ~ normal(0, 1);")
+    main_b <- write_model(root_b, "theta ~ normal(0, 1);")
+
+    node_a <- list(kind = "cmdstanr_fit", params = list(stan_file = main_a))
+    node_b <- list(kind = "cmdstanr_fit", params = list(stan_file = main_b))
+
+    # Same closure layout and contents at different absolute roots: the
+    # component is machine-stable.
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(node_a),
+      bayesgrove:::bg_source_hash_component(node_b)
+    )
+
+    # Editing only the included file changes the component at a fixed path.
+    writeLines(
+      "theta ~ normal(0, 5);",
+      file.path(root_a, "parts", "prior.stan")
+    )
+    expect_false(
+      bayesgrove:::bg_source_hash_component(node_a) ==
+        bayesgrove:::bg_source_hash_component(node_b)
+    )
+
+    # A missing include is distinct from a present one.
+    root_c <- withr::local_tempdir()
+    main_c <- write_model(root_c, "theta ~ normal(0, 1);")
+    file.remove(file.path(root_c, "parts", "prior.stan"))
+    node_c <- list(kind = "cmdstanr_fit", params = list(stan_file = main_c))
+    writeLines(
+      "theta ~ normal(0, 1);",
+      file.path(root_b, "parts", "prior.stan")
+    )
+    expect_false(
+      bayesgrove:::bg_source_hash_component(node_c) ==
+        bayesgrove:::bg_source_hash_component(node_b)
+    )
+
+    # Missing includes key on the directive (referencing file plus raw
+    # target), so identical layouts with the same missing include are
+    # machine-stable too.
+    root_d <- withr::local_tempdir()
+    main_d <- write_model(root_d, "theta ~ normal(0, 1);")
+    file.remove(file.path(root_d, "parts", "prior.stan"))
+    node_d <- list(kind = "cmdstanr_fit", params = list(stan_file = main_d))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(node_c),
+      bayesgrove:::bg_source_hash_component(node_d)
+    )
+
+    # An out-of-root missing target ("../missing.stan") is the case the
+    # directive keying actually fixes: the old absolute-path key would
+    # differ wherever the project lives. Nest each model dir inside its own
+    # outer dir so the two resolved missing paths are genuinely different
+    # absolute locations.
+    write_model_escaping <- function(root) {
+      writeLines(
+        c(
+          "parameters { real theta; }",
+          "model {",
+          "  #include \"../missing.stan\"",
+          "}"
+        ),
+        file.path(root, "main.stan")
+      )
+      normalizePath(file.path(root, "main.stan"), mustWork = FALSE)
+    }
+    root_e <- file.path(withr::local_tempdir(), "model")
+    root_f <- file.path(withr::local_tempdir(), "model")
+    dir.create(root_e)
+    dir.create(root_f)
+    node_e <- list(
+      kind = "cmdstanr_fit",
+      params = list(stan_file = write_model_escaping(root_e))
+    )
+    node_f <- list(
+      kind = "cmdstanr_fit",
+      params = list(stan_file = write_model_escaping(root_f))
+    )
+    expect_false(file.exists(file.path(root_e, "..", "missing.stan")))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(node_e),
+      bayesgrove:::bg_source_hash_component(node_f)
+    )
+  })
+
+  it("re-executes a stan-file node after an included file is edited", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(
+      handle,
+      "fake_stan_fit",
+      executor = function(node, inputs) {
+        list(result = list(ran = TRUE, stan_file = node$params$stan_file))
+      }
+    )
+
+    dir.create(file.path(tmp, "parts"))
+    stan_file <- file.path(tmp, "main.stan")
+    writeLines(
+      c(
+        "parameters { real theta; }",
+        "model {",
+        "  #include \"parts/prior.stan\"",
+        "}"
+      ),
+      stan_file
+    )
+    writeLines("theta ~ normal(0, 1);", file.path(tmp, "parts", "prior.stan"))
+
+    n1 <- bg_add_node(
+      handle,
+      kind = "fake_stan_fit",
+      params = list(stan_file = stan_file)
+    )
+
+    run1 <- bg_run(handle, targets = n1)
+    expect_equal(run1$status, "succeeded")
+    expect_equal(run1$summary$total_executed, 1L)
+
+    run2 <- bg_run(handle, targets = n1)
+    expect_equal(run2$summary$total_executed, 0L)
+
+    # Edit ONLY the included file; the main program's path and contents are
+    # unchanged, but the closure hash must invalidate the cache.
+    writeLines("theta ~ normal(0, 5);", file.path(tmp, "parts", "prior.stan"))
+    run3 <- bg_run(handle, targets = n1)
+    expect_equal(run3$status, "succeeded")
+    expect_equal(run3$summary$total_executed, 1L)
+  })
 })

@@ -9,7 +9,9 @@ bg_fit_stan(handle, stan_file, data, label = NULL, ...)
 \arguments{
 \item{handle}{A \code{bg_handle}.}
 
-\item{stan_file}{Path to the Stan model file.}
+\item{stan_file}{Path to the Stan model file. Relative paths resolve
+against the project root when the file exists there, and from the working
+directory otherwise.}
 
 \item{data}{A named list (or environment) of Stan data.}
 

@@ -1,0 +1,598 @@
+describe("portable bundle sources (referenced-sources policy)", {
+  it("copies an out-of-project Stan program and relocates the reference", {
+    proj <- withr::local_tempdir()
+    src_root <- withr::local_tempdir()
+
+    stan_path <- file.path(src_root, "model.stan")
+    writeLines("model { x ~ normal(0, 1); }", stan_path)
+    # Siblings of the referenced file must stay out of the archive.
+    writeLines("hunter2", file.path(src_root, "secret_token.txt"))
+    dir.create(file.path(src_root, "junk"))
+    writeLines("unreferenced", file.path(src_root, "junk", "data.csv"))
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_path)
+    )
+    bundle_path <- file.path(withr::local_tempdir(), "sources.tar.gz")
+    expect_no_warning(bg_bundle(handle, path = bundle_path))
+    unlink(src_root, recursive = TRUE)
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(manifest$source_policy$name, "referenced-sources")
+    expect_equal(manifest$source_policy$version, 1L)
+    expect_equal(unlist(manifest$source_policy$approved_keys), "stan_file")
+
+    entry <- manifest$source_policy$relocation[[stan_path]]
+    expect_false(is.null(entry))
+    expect_match(entry$archived, "^bundle_sources/stan_file/src_")
+
+    # The relocated file exists inside the restored project, with its
+    # content hash recorded in the relocation table.
+    archived_abs <- file.path(restored_proj, entry$archived)
+    expect_true(file.exists(archived_abs))
+    expect_equal(
+      entry$files[[entry$archived]],
+      digest::digest(file = archived_abs, algo = "sha256")
+    )
+
+    # The archived graph points at the archived path, not the deleted one.
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(graph$nodes[[node_id]]$params$stan_file, entry$archived)
+
+    # Security boundary: unreferenced siblings never enter the archive.
+    archived_files <- list.files(
+      restored_proj,
+      recursive = TRUE,
+      all.files = TRUE
+    )
+    expect_false(any(grepl("secret_token", archived_files, fixed = TRUE)))
+    expect_false(any(grepl("junk", archived_files, fixed = TRUE)))
+    outside_meta <- archived_files[!startsWith(archived_files, ".bayesgrove")]
+    expect_true(all(startsWith(outside_meta, "bundle_sources/")))
+  })
+
+  it("copies the #include closure preserving relative structure", {
+    proj <- withr::local_tempdir()
+    # The closure spans a directory above the main program's directory, so
+    # the archive slot is rooted at the closure's common ancestor.
+    src_root <- withr::local_tempdir()
+    models_dir <- file.path(src_root, "models")
+    dir.create(file.path(models_dir, "parts"), recursive = TRUE)
+    dir.create(file.path(src_root, "shared"), recursive = TRUE)
+
+    main_stan <- file.path(models_dir, "main.stan")
+    writeLines(
+      c(
+        "data { int<lower=0> N; }",
+        "parameters { real theta; }",
+        "model {",
+        "  #include \"parts/priors.stan\"",
+        "}",
+        "generated quantities {",
+        "  #include \"../shared/transform.stan\"",
+        "}"
+      ),
+      main_stan
+    )
+    writeLines(
+      "theta ~ normal(0, 1);",
+      file.path(models_dir, "parts", "priors.stan")
+    )
+    writeLines(
+      "real theta_sq = theta * theta;",
+      file.path(src_root, "shared", "transform.stan")
+    )
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    bg_add_node(handle, kind = "fit", params = list(stan_file = main_stan))
+    bundle_path <- file.path(withr::local_tempdir(), "includes.tar.gz")
+    bg_bundle(handle, path = bundle_path)
+    unlink(src_root, recursive = TRUE)
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    entry <- manifest$source_policy$relocation[[main_stan]]
+    expect_false(is.null(entry))
+    expect_length(entry$files, 3L)
+
+    restored_main <- file.path(restored_proj, entry$archived)
+    expect_true(file.exists(restored_main))
+
+    # stanc3 resolves includes relative to the including file: after the
+    # move, the same relative positions must resolve inside the archive.
+    expect_true(file.exists(file.path(
+      dirname(restored_main),
+      "parts",
+      "priors.stan"
+    )))
+    expect_true(file.exists(normalizePath(
+      file.path(dirname(restored_main), "../shared/transform.stan"),
+      mustWork = FALSE
+    )))
+
+    for (archived in names(entry$files)) {
+      expect_equal(
+        entry$files[[archived]],
+        digest::digest(
+          file = file.path(restored_proj, archived),
+          algo = "sha256"
+        )
+      )
+    }
+  })
+
+  it("keeps referenced project files outside .bayesgrove portable too", {
+    proj <- withr::local_tempdir()
+    dir.create(file.path(proj, "models"))
+    in_project <- file.path(proj, "models", "local.stan")
+    writeLines("model { y ~ normal(0, 1); }", in_project)
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = in_project)
+    )
+    bundle_path <- file.path(withr::local_tempdir(), "inproject.tar.gz")
+    bg_bundle(handle, path = bundle_path)
+    # Remove the model from the original project directory.
+    unlink(file.path(proj, "models"), recursive = TRUE)
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    entry <- manifest$source_policy$relocation[[in_project]]
+    expect_false(is.null(entry))
+    expect_true(file.exists(file.path(restored_proj, entry$archived)))
+
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(graph$nodes[[node_id]]$params$stan_file, entry$archived)
+  })
+
+  it("archives a project-relative stan_file from any working directory", {
+    # Regression: bundling used to check file.exists() on the raw param value
+    # from the caller's working directory, so a project-relative reference
+    # bundled from elsewhere looked missing and never traveled.
+    proj <- withr::local_tempdir()
+    dir.create(file.path(proj, "models"))
+    writeLines(
+      "model { x ~ normal(0, 1); }",
+      file.path(proj, "models", "foo.stan")
+    )
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = "models/foo.stan")
+    )
+
+    # Bundle from a directory that has no models/foo.stan of its own, with an
+    # absolute output path (bg_bundle resolves `path` from the cwd).
+    bundle_path <- file.path(withr::local_tempdir(), "relative.tar.gz")
+    withr::with_dir(withr::local_tempdir(), {
+      expect_no_warning(bg_bundle(handle, path = bundle_path))
+    })
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    # Keyed by the raw param value; the entry records the resolved original.
+    entry <- manifest$source_policy$relocation[["models/foo.stan"]]
+    expect_false(is.null(entry))
+    expect_equal(
+      entry$original,
+      normalizePath(file.path(proj, "models", "foo.stan"), mustWork = FALSE)
+    )
+    expect_match(entry$archived, "^bundle_sources/stan_file/src_")
+    expect_true(file.exists(file.path(restored_proj, entry$archived)))
+
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(graph$nodes[[node_id]]$params$stan_file, entry$archived)
+
+    # After removing the original file, a restored open resolves the archived
+    # reference at run time from yet another working directory.
+    unlink(file.path(proj, "models"), recursive = TRUE)
+    restored <- bg_open(restored_proj)
+    bg_register_node_kind(
+      restored,
+      "fit",
+      executor = function(node, inputs) {
+        node$params$stan_file
+      }
+    )
+    run <- withr::with_dir(withr::local_tempdir(), {
+      bg_run(restored, targets = node_id)
+    })
+    expect_equal(run$status, "succeeded")
+    result <- bg_result(restored, node_id)
+    expect_true(file.exists(result))
+    expect_match(result, "bundle_sources")
+    bg_close(restored)
+  })
+
+  it("rewrites package-shipped references to a machine-stable sentinel", {
+    proj <- withr::local_tempdir()
+    stan_path <- system.file("stan", "normal_iid.stan", package = "bayesgrove")
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_path)
+    )
+
+    bundle_path <- file.path(withr::local_tempdir(), "pkgmodel.tar.gz")
+    expect_no_warning(bg_bundle(handle, path = bundle_path))
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(manifest$source_policy$name, "referenced-sources")
+    entry <- manifest$source_policy$relocation[[stan_path]]
+    expect_false(is.null(entry))
+    expect_equal(entry$package_ref, "bayesgrove:stan/normal_iid.stan")
+    expect_equal(
+      entry$original,
+      normalizePath(stan_path, mustWork = FALSE)
+    )
+    expect_length(entry$files, 0L)
+
+    # The staged graph carries the sentinel, not the bundling machine's
+    # absolute library path, and no bytes are archived.
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(
+      graph$nodes[[node_id]]$params$stan_file,
+      "bayesgrove:stan/normal_iid.stan"
+    )
+    expect_false(dir.exists(file.path(restored_proj, "bundle_sources")))
+
+    # The sentinel resolves through system.file to a real file, and a
+    # restored project fingerprints identically from any working directory.
+    expect_true(file.exists(bayesgrove:::bg_resolve_project_source(
+      restored_proj,
+      "bayesgrove:stan/normal_iid.stan"
+    )))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(
+        graph$nodes[[node_id]],
+        restored_proj
+      ),
+      digest::digest(file = stan_path, algo = "sha256")
+    )
+
+    restored <- bg_open(restored_proj, readonly = TRUE)
+    env_manifest <- list(r = "4.5.0", bayesgrove = "0.7.0")
+    fp_here <- bg_compute_fingerprint(
+      restored,
+      node_id,
+      environment_manifest = env_manifest
+    )
+    fp_there <- withr::with_dir(
+      withr::local_tempdir(),
+      bg_compute_fingerprint(
+        restored,
+        node_id,
+        environment_manifest = env_manifest
+      )
+    )
+    expect_equal(fp_here, fp_there)
+    bg_close(restored)
+  })
+
+  it("archives two distinct stan_file references in one project", {
+    proj <- withr::local_tempdir()
+    dir_a <- withr::local_tempdir()
+    dir_b <- withr::local_tempdir()
+    stan_a <- file.path(dir_a, "alpha.stan")
+    stan_b <- file.path(dir_b, "beta.stan")
+    writeLines("model { x ~ normal(0, 1); }", stan_a)
+    writeLines("model { x ~ normal(0, 5); }", stan_b)
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    node_a <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_a)
+    )
+    node_b <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_b)
+    )
+
+    bundle_path <- file.path(withr::local_tempdir(), "twofiles.tar.gz")
+    expect_no_warning(bg_bundle(handle, path = bundle_path))
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    expect_length(manifest$source_policy$relocation, 2L)
+    entry_a <- manifest$source_policy$relocation[[stan_a]]
+    entry_b <- manifest$source_policy$relocation[[stan_b]]
+    expect_false(is.null(entry_a) || is.null(entry_b))
+    expect_true(file.exists(file.path(restored_proj, entry_a$archived)))
+    expect_true(file.exists(file.path(restored_proj, entry_b$archived)))
+    # Distinct roots archive into distinct slots.
+    expect_false(identical(entry_a$archived, entry_b$archived))
+
+    graph <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "graph", "graph.json"),
+      simplifyVector = FALSE
+    )
+    expect_equal(graph$nodes[[node_a]]$params$stan_file, entry_a$archived)
+    expect_equal(graph$nodes[[node_b]]$params$stan_file, entry_b$archived)
+  })
+
+  it("warns when a referenced source is missing", {
+    proj <- withr::local_tempdir()
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = file.path(tempdir(), "no_such_model.stan"))
+    )
+    expect_warning(
+      bg_bundle(handle),
+      "Bundle is missing referenced source file"
+    )
+  })
+
+  it("classifies package sources by path boundary, not name prefix", {
+    lib <- withr::local_tempdir()
+    synthetic_root <- bayesgrove:::bg_path_with_slashes(
+      normalizePath(file.path(lib, "bayesgrove"), mustWork = FALSE)
+    )
+
+    # A sibling library whose name merely starts with "bayesgrove" is not
+    # package-shipped: without the boundary check it would be misrouted to a
+    # sentinel that can never resolve.
+    sibling <- normalizePath(
+      file.path(lib, "bayesgrove-backup", "model.stan"),
+      mustWork = FALSE
+    )
+    expect_false(bayesgrove:::bg_is_package_source(sibling, synthetic_root))
+
+    nested <- normalizePath(
+      file.path(lib, "bayesgrove", "stan", "model.stan"),
+      mustWork = FALSE
+    )
+    expect_true(bayesgrove:::bg_is_package_source(nested, synthetic_root))
+
+    elsewhere <- normalizePath(file.path(lib, "model.stan"), mustWork = FALSE)
+    expect_false(bayesgrove:::bg_is_package_source(elsewhere, synthetic_root))
+
+    # The real installed package classifies its own files with the default
+    # root, and a sentinel minted from one resolves back to the file.
+    real <- system.file("stan", "normal_iid.stan", package = "bayesgrove")
+    expect_true(bayesgrove:::bg_is_package_source(real))
+    sentinel <- paste0(
+      bayesgrove:::bg_package_source_prefix(),
+      bayesgrove:::bg_rel_within_root(
+        normalizePath(real, mustWork = FALSE),
+        bayesgrove:::bg_package_source_root()
+      )
+    )
+    expect_equal(
+      bayesgrove:::bg_resolve_project_source(withr::local_tempdir(), sentinel),
+      normalizePath(real, mustWork = FALSE)
+    )
+  })
+
+  it("degrades unresolvable package sentinels to missing files", {
+    proj <- withr::local_tempdir()
+    sentinel <- "bayesgrove:stan/no_such_model.stan"
+
+    # Resolution cannot expand it and leaves the value untouched.
+    expect_equal(
+      bayesgrove:::bg_resolve_project_source(proj, sentinel),
+      sentinel
+    )
+    # The fingerprint component takes the missing-file path.
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(
+        list(kind = "cmdstanr_fit", params = list(stan_file = sentinel)),
+        proj
+      ),
+      "missing_stan_file"
+    )
+    # The executors' failure mode holds: file.exists() on the raw value.
+    expect_false(file.exists(sentinel))
+  })
+
+  it("executes relocated references from the restored project", {
+    proj <- withr::local_tempdir()
+    src_root <- withr::local_tempdir()
+    stan_path <- file.path(src_root, "model.stan")
+    writeLines("model { x ~ normal(0, 1); }", stan_path)
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(
+      handle,
+      "fit",
+      executor = function(node, inputs) {
+        node$params$stan_file
+      }
+    )
+    node_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      params = list(stan_file = stan_path)
+    )
+    bundle_path <- file.path(withr::local_tempdir(), "run.tar.gz")
+    bg_bundle(handle, path = bundle_path)
+    unlink(src_root, recursive = TRUE)
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+    restored <- bg_open(restored_proj)
+    bg_register_node_kind(
+      restored,
+      "fit",
+      executor = function(node, inputs) {
+        node$params$stan_file
+      }
+    )
+
+    # Fingerprints are stable across working directories: relative archived
+    # references resolve against the project root, not the process wd.
+    manifest <- list(r = "4.5.0", bayesgrove = "0.7.0")
+    fp_here <- bg_compute_fingerprint(
+      restored,
+      node_id,
+      environment_manifest = manifest
+    )
+    other_wd <- withr::local_tempdir()
+    fp_there <- withr::with_dir(
+      other_wd,
+      bg_compute_fingerprint(
+        restored,
+        node_id,
+        environment_manifest = manifest
+      )
+    )
+    expect_equal(fp_here, fp_there)
+
+    run <- bg_run(restored, targets = node_id)
+    expect_equal(run$status, "succeeded")
+
+    # The executor saw an absolute path under the restored project root.
+    result <- bg_result(restored, node_id)
+    expect_true(file.exists(result))
+    expect_true(startsWith(
+      normalizePath(result, mustWork = FALSE),
+      normalizePath(restored_proj, mustWork = FALSE)
+    ))
+    expect_match(result, "bundle_sources")
+    bg_close(restored)
+  })
+
+  it("reruns a model from a restored bundle end to end", {
+    skip_if_not_installed("cmdstanr")
+    # cmdstanr can be installed without a CmdStan toolchain; compiling the
+    # model needs the latter.
+    tryCatch(
+      cmdstanr::cmdstan_path(),
+      error = function(e) testthat::skip("CmdStan is not installed")
+    )
+
+    proj <- withr::local_tempdir()
+    src_root <- withr::local_tempdir()
+    dir.create(file.path(src_root, "scales"))
+
+    stan_path <- file.path(src_root, "portable_model.stan")
+    writeLines(
+      c(
+        "data {",
+        "  int<lower=0> N;",
+        "  array[N] real y;",
+        "}",
+        "parameters {",
+        "  real mu;",
+        "  real<lower=0> sigma;",
+        "}",
+        "model {",
+        "  #include \"scales/sigma_scale.stan\"",
+        "  mu ~ normal(0, 5);",
+        "  sigma ~ cauchy(0, sigma_scale);",
+        "  y ~ normal(mu, sigma);",
+        "}"
+      ),
+      stan_path
+    )
+    writeLines(
+      "real sigma_scale = 5;",
+      file.path(src_root, "scales", "sigma_scale.stan")
+    )
+
+    handle <- bg_init(proj)
+    bg_use_cmdstanr(handle)
+    data_node <- bg_add_node(handle, kind = "stan_data", label = "data")
+    bg_set_node_data(handle, data_node, list(N = 20L, y = rnorm(20)))
+    fit_node <- bg_add_node(
+      handle,
+      kind = "cmdstanr_fit",
+      label = "fit",
+      inputs = data_node,
+      params = list(
+        stan_file = stan_path,
+        chains = 1L,
+        iter_warmup = 50L,
+        iter_sampling = 50L,
+        seed = 11L
+      )
+    )
+    bundle_path <- file.path(withr::local_tempdir(), "e2e.tar.gz")
+    bg_bundle(handle, path = bundle_path)
+    bg_close(handle)
+
+    # Remove both the original sources and the original project directory.
+    unlink(src_root, recursive = TRUE)
+    unlink(proj, recursive = TRUE)
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored <- bg_open(file.path(extract_dir, basename(proj)))
+
+    run <- bg_run(restored, targets = fit_node)
+    expect_equal(run$status, "succeeded")
+    # cmdstanr fits are R6 objects; inherits() covers the class chain.
+    expect_true(inherits(bg_result(restored, fit_node), "CmdStanMCMC"))
+    bg_close(restored)
+  })
+})

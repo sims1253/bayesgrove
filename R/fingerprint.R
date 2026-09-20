@@ -89,7 +89,7 @@ bg_compute_fingerprint <- function(
   #    the file CONTENTS (not the path) so editing the model program invalidates
   #    the cache even at a fixed path. Applied by param presence, so custom
   #    kinds carrying `stan_file` are covered; returns "" for nodes without it.
-  source_hash <- bg_source_hash_component(node)
+  source_hash <- bg_source_hash_component(node, project@path)
 
   # 6. Serialization format version. Bumping invalidates all prior caches.
   format_version <- "3"
@@ -192,16 +192,30 @@ bg_executor_fingerprint_component <- function(project, node) {
 #'
 #' For any node carrying a `stan_file` param pointing at an existing file, hash
 #' the file CONTENTS (not the path): editing the model program must invalidate
-#' the cache even when the path is unchanged. Applied by param presence rather
+#' the cache even when the path is unchanged. Files reachable through
+#' `#include` directives are part of the program, so they are hashed too:
+#' the component covers the whole `bg_stan_source_closure()` with a
+#' deterministic mapping of closure-relative paths to content hashes, and
+#' missing includes are recorded explicitly so adding or resolving one
+#' changes the fingerprint. A program without includes keeps the historical
+#' single-file digest, so existing cache keys survive. Applied by param
+#' presence rather
 #' than by kind name, so custom node kinds carrying `stan_file` are covered.
-#' When the param names a missing file, returns the literal `"missing_stan_file"`
+#' When `project_path` is supplied, a relative `stan_file` resolves against
+#' the project root first (falling back to the value as-is), so projects
+#' restored from a bundle — whose archived references are project-relative —
+#' fingerprint identically from any working directory. When the param names a
+#' missing file, returns the literal `"missing_stan_file"`
 #' so planning still works and the eventual executor error is the user-facing
 #' signal. Returns `""` for nodes without a `stan_file` param (the formula is
 #' already hashed via params, the brms version via the environment manifest, and
 #' codegen drift between brms versions is covered by the version pin).
+#' @param node The graph node list.
+#' @param project_path Optional absolute project root for resolving relative
+#'   paths.
 #' @keywords internal
 #' @noRd
-bg_source_hash_component <- function(node) {
+bg_source_hash_component <- function(node, project_path = NULL) {
   stan_file <- node$params$stan_file %||% NULL
   if (
     is.null(stan_file) || !is.character(stan_file) || length(stan_file) != 1L
@@ -209,9 +223,71 @@ bg_source_hash_component <- function(node) {
     return("")
   }
 
+  if (!is.null(project_path)) {
+    stan_file <- bg_resolve_project_source(project_path, stan_file)
+  }
+
   if (!file.exists(stan_file)) {
     return("missing_stan_file")
   }
 
-  digest::digest(file = stan_file, algo = "sha256")
+  bg_source_closure_hash(stan_file)
+}
+
+#' Hash a Stan program together with its `#include` closure.
+#'
+#' A program whose closure is just the main file (no includes, none missing)
+#' keeps the historical single-file content digest, so existing fingerprints
+#' stay valid. Otherwise the component is a digest over a deterministic
+#' mapping of every closure member keyed by its path relative to the
+#' closure's common root (machine-stable), plus explicit `missing=` entries
+#' for unresolved includes — keyed by the closure-relative path of the file
+#' carrying the directive plus the raw directive target, again
+#' machine-stable — so editing an included file, or adding or resolving one,
+#' changes the fingerprint.
+#'
+#' Cost: this walks and reads the whole closure on every fingerprint
+#' computation. Stan programs and their includes are small text files, and
+#' fingerprinting already digests the main program, so the extra reads are
+#' accepted in exchange for correctness; no caching is attempted.
+#' @param stan_file Resolved path to an existing Stan program.
+#' @return A SHA-256 digest string.
+#' @keywords internal
+#' @noRd
+bg_source_closure_hash <- function(stan_file) {
+  closure <- bg_stan_source_closure(normalizePath(stan_file, mustWork = FALSE))
+  if (length(closure$files) == 1L && length(closure$missing) == 0L) {
+    return(digest::digest(file = closure$files[[1]], algo = "sha256"))
+  }
+
+  root <- bg_common_root_dir(closure$files)
+  # Radix (C-locale) ordering keeps the mapping — and therefore the digest —
+  # identical across collation locales.
+  entries <- vapply(
+    sort(closure$files, method = "radix"),
+    function(f) {
+      paste0(
+        bg_rel_within_root(f, root),
+        "=",
+        digest::digest(file = f, algo = "sha256")
+      )
+    },
+    character(1)
+  )
+
+  if (length(closure$missing_directives) > 0L) {
+    missing_keys <- unique(vapply(
+      closure$missing_directives,
+      function(d) {
+        paste0(bg_rel_within_root(d$file, root), " -> ", d$target)
+      },
+      character(1)
+    ))
+    entries <- c(
+      entries,
+      paste0("missing=", sort(missing_keys, method = "radix"))
+    )
+  }
+
+  digest::digest(paste(entries, collapse = "\n"), algo = "sha256")
 }

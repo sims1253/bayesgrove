@@ -7,7 +7,17 @@
   It records P/A/D candidate lineages, evidence, cross-lineage comparisons,
   decisions, and policy changes. Record, Guide, and Enforce modes share the
   same research state. Snapshots, bundles, and reports include that state.
-
+* Bundles copy Stan programs referenced by node params, and their `#include`
+  closure, into the archive and rewrite the graph to project-relative paths,
+  so restored projects run after the original files are gone. Only files
+  referenced through approved params keys (`stan_file`) are copied; secrets
+  and unreferenced siblings stay out, and the bundle manifest records a
+  relocation table with content hashes. Package-shipped model references
+  (`system.file(...)`) are rewritten to machine-stable `bayesgrove:`
+  package references instead of being copied. Relative `stan_file` params
+  resolve against the project root at bundling, fingerprinting, and
+  execution time, so a project bundles and runs identically from any working
+  directory.
 * Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
   verify deterministic captured README and vignette output in CI without
   CmdStan. The sampler vignettes stay intentionally precomputed and are
@@ -19,13 +29,17 @@
 * Removed the ignored `auto_advance` argument from `bg_status()`.
 * Removed `bg_export_report(out_file = )`; use `path = ` instead.
 * Removed the ineffective `include_data` argument from `bg_bundle()`. Bundles
-  include attached data but do not copy external files referenced by node params.
+  include attached data, and external files follow the approved-source
+  policy: only sources referenced through approved params keys (`stan_file`)
+  are copied, while secrets and unreferenced files stay out.
 * JSON storage preserves double precision. Fingerprint format 3 invalidates
   previous cache keys, so the first run after upgrading recomputes results.
 
 ## Bug fixes
 
 * Bundles retain data attached with `bg_set_node_data()`, even before a node runs.
+* Fingerprints hash the `#include` closure of a Stan program, not just the
+  main file, so editing an included file invalidates cached results.
 * Relative bundle paths resolve from the caller's working directory, not the
   temporary staging directory.
 
