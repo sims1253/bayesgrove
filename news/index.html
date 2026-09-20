@@ -38,20 +38,22 @@
 <h2 class="pkg-version" data-toc-text="development version" id="bayesgrove-development-version">bayesgrove (development version)<a class="anchor" aria-label="anchor" href="#bayesgrove-development-version"></a></h2>
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
-<ul><li><p>Added an experimental research-search interface: <code><a href="../reference/bg_research_init.html">bg_research_init()</a></code>, <code><a href="../reference/bg_research_state.html">bg_research_state()</a></code>, <code><a href="../reference/bg_research_propose.html">bg_research_propose()</a></code>, and <code><a href="../reference/bg_research_apply.html">bg_research_apply()</a></code>. It records P/A/D candidate lineages, evidence, cross-lineage comparisons, decisions, and policy changes. Record, Guide, and Enforce modes share the same research state. Snapshots, bundles, and reports include that state.</p></li>
-<li><p>Added <code>tools/check-captured-output.R</code> and a <code>docs-check.yaml</code> workflow that verify deterministic captured README and vignette output in CI without CmdStan. The sampler vignettes stay intentionally precomputed and are refreshed only via <code>tools/precompute-vignettes.R</code>.</p></li>
+<ul><li>Added an experimental research-search interface: <code><a href="../reference/bg_research_init.html">bg_research_init()</a></code>, <code><a href="../reference/bg_research_state.html">bg_research_state()</a></code>, <code><a href="../reference/bg_research_propose.html">bg_research_propose()</a></code>, and <code><a href="../reference/bg_research_apply.html">bg_research_apply()</a></code>. It records P/A/D candidate lineages, evidence, cross-lineage comparisons, decisions, and policy changes. Record, Guide, and Enforce modes share the same research state. Snapshots, bundles, and reports include that state.</li>
+<li>Bundles copy Stan programs referenced by node params, and their <code>#include</code> closure, into the archive and rewrite the graph to project-relative paths, so restored projects run after the original files are gone. Only files referenced through approved params keys (<code>stan_file</code>) are copied; secrets and unreferenced siblings stay out, and the bundle manifest records a relocation table with content hashes. Package-shipped model references (<code>system.file(...)</code>) are rewritten to machine-stable <code>bayesgrove:</code> package references instead of being copied. Relative <code>stan_file</code> params resolve against the project root at bundling, fingerprinting, and execution time, so a project bundles and runs identically from any working directory.</li>
+<li>Added <code>tools/check-captured-output.R</code> and a <code>docs-check.yaml</code> workflow that verify deterministic captured README and vignette output in CI without CmdStan. The sampler vignettes stay intentionally precomputed and are refreshed only via <code>tools/precompute-vignettes.R</code>.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="breaking-changes-development-version">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-development-version"></a></h3>
 <ul><li>Removed <code>bg_branch_with_continuation()</code>. Use <code>bg_branch(continue = )</code>.</li>
 <li>Removed the ignored <code>auto_advance</code> argument from <code><a href="../reference/bg_status.html">bg_status()</a></code>.</li>
 <li>Removed <code>bg_export_report(out_file = )</code>; use <code>path =</code> instead.</li>
-<li>Removed the ineffective <code>include_data</code> argument from <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code>. Bundles include attached data but do not copy external files referenced by node params.</li>
+<li>Removed the ineffective <code>include_data</code> argument from <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code>. Bundles include attached data, and external files follow the approved-source policy: only sources referenced through approved params keys (<code>stan_file</code>) are copied, while secrets and unreferenced files stay out.</li>
 <li>JSON storage preserves double precision. Fingerprint format 3 invalidates previous cache keys, so the first run after upgrading recomputes results.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-development-version">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>Bundles retain data attached with <code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>, even before a node runs.</li>
+<li>Fingerprints hash the <code>#include</code> closure of a Stan program, not just the main file, so editing an included file invalidates cached results.</li>
 <li>Relative bundle paths resolve from the caller’s working directory, not the temporary staging directory.</li>
 </ul></div>
 </div>

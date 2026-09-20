@@ -65,7 +65,9 @@ arguments in <code>...</code> become the fit node's params (e.g. <code>chains</c
 
 
 <dt id="arg-stan-file">stan_file<a class="anchor" aria-label="anchor" href="#arg-stan-file"></a></dt>
-<dd><p>Path to the Stan model file.</p></dd>
+<dd><p>Path to the Stan model file. Relative paths resolve
+against the project root when the file exists there, and from the working
+directory otherwise.</p></dd>
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
