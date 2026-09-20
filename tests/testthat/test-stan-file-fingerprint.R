@@ -190,6 +190,41 @@ describe("Stan-file source hashing (Phase 4)", {
       bayesgrove:::bg_source_hash_component(node_c),
       bayesgrove:::bg_source_hash_component(node_d)
     )
+
+    # An out-of-root missing target ("../missing.stan") is the case the
+    # directive keying actually fixes: the old absolute-path key would
+    # differ wherever the project lives. Nest each model dir inside its own
+    # outer dir so the two resolved missing paths are genuinely different
+    # absolute locations.
+    write_model_escaping <- function(root) {
+      writeLines(
+        c(
+          "parameters { real theta; }",
+          "model {",
+          "  #include \"../missing.stan\"",
+          "}"
+        ),
+        file.path(root, "main.stan")
+      )
+      normalizePath(file.path(root, "main.stan"), mustWork = FALSE)
+    }
+    root_e <- file.path(withr::local_tempdir(), "model")
+    root_f <- file.path(withr::local_tempdir(), "model")
+    dir.create(root_e)
+    dir.create(root_f)
+    node_e <- list(
+      kind = "cmdstanr_fit",
+      params = list(stan_file = write_model_escaping(root_e))
+    )
+    node_f <- list(
+      kind = "cmdstanr_fit",
+      params = list(stan_file = write_model_escaping(root_f))
+    )
+    expect_false(file.exists(file.path(root_e, "..", "missing.stan")))
+    expect_equal(
+      bayesgrove:::bg_source_hash_component(node_e),
+      bayesgrove:::bg_source_hash_component(node_f)
+    )
   })
 
   it("re-executes a stan-file node after an included file is edited", {
