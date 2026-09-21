@@ -203,6 +203,64 @@ describe("Error Handling - Readonly Mode", {
 
     bg_close(handle)
   })
+
+  it("rejects run, gate, backend, kind, summary, invalidate, and compact writes on a readonly handle", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node_id <- bg_add_node(handle, "data", label = "A")
+
+    ro <- bg_open(path = tmp, readonly = TRUE)
+
+    config_path <- file.path(tmp, ".bayesgrove", "config.json")
+    config_before <- readLines(config_path)
+
+    expect_error(bg_run(ro), "Cannot run nodes in a readonly project")
+    expect_error(
+      bg_answer_gate(ro, "gate_missing", "yes", "because"),
+      "Cannot answer a gate in a readonly project"
+    )
+    expect_error(
+      bg_use_cmdstanr(ro),
+      "Cannot register node kinds in a readonly project"
+    )
+    expect_error(
+      bg_register_summary_kind(ro, "custom_kind", title = "Custom"),
+      "Cannot register summary kinds in a readonly project"
+    )
+    expect_error(
+      bg_write_summaries(
+        ro,
+        node_id,
+        artifact_ref = NULL,
+        execution_fingerprint = "fp",
+        summaries = list(list(summary_kind = "hmc_diagnostics"))
+      ),
+      "Cannot write summaries in a readonly project"
+    )
+    expect_error(
+      bg_invalidate(ro, node_id),
+      "Cannot invalidate nodes in a readonly project"
+    )
+    expect_error(
+      bg_compact_jobs(ro),
+      "Cannot compact jobs in a readonly project"
+    )
+
+    # No runtime manifest or run state was touched on disk.
+    expect_equal(readLines(config_path), config_before)
+    expect_false(file.exists(
+      file.path(tmp, ".bayesgrove", "workflow", "summaries.jsonl")
+    ))
+
+    # Closed writable handles abort the same way, reporting closed first.
+    bg_close(handle)
+    expect_error(bg_run(handle), "Cannot run nodes in a closed project")
+    expect_error(
+      bg_compact_jobs(handle),
+      "Cannot compact jobs in a closed project"
+    )
+  })
 })
 
 describe("Error Handling - Goal Branch Validation", {

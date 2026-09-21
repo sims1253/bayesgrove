@@ -556,6 +556,7 @@ bg_run <- function(
   parallel = c("auto", "never", "always")
 ) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "run nodes in")
   parallel <- match.arg(parallel)
 
   if (bg_workflow_paused(project)) {

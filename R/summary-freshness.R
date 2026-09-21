@@ -19,6 +19,8 @@ bg_write_summaries <- function(
   execution_fingerprint,
   summaries
 ) {
+  bg_assert_writable(project, "write summaries in")
+
   summaries <- summaries %||% list()
   if (length(summaries) == 0) {
     return(list())

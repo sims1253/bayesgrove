@@ -232,6 +232,7 @@ bg_register_summary_kind <- function(
   consumed_by_packs = character()
 ) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "register summary kinds in")
 
   # nzchar(NA) is TRUE, so NA must be rejected explicitly.
   if (

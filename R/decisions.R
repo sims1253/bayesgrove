@@ -157,6 +157,7 @@ bg_answer_gate <- function(
   evidence = NULL
 ) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "answer a gate in")
 
   bg_require_rationale(
     rationale,
