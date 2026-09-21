@@ -71,7 +71,7 @@ run_demo <- function() {
   collect <- function(candidate, file) {
     fit <- do.call(
       bg_fit_stan,
-      c(list(handle = h, stan_file = file, data = data), settings)
+      c(list(project = h, stan_file = file, data = data), settings)
     )
     g <- bg_read_graph(h)
     data_id <- Filter(function(e) identical(e$to, fit), g$edges)[[1]]$from
