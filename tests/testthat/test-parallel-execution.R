@@ -1,13 +1,30 @@
 # Parallel execution (Milestone 3) -------------------------------------------
 #
 # Integration + unit coverage for the wave scheduler's parallel path. The
-# daemon-backed tests skip on CRAN and when mirai/carrier are unavailable.
+# daemon-backed tests skip on CRAN, when mirai/carrier are unavailable, and
+# whenever the session runs a dev-loaded (load_all) copy, whose namespace the
+# daemon processes can never see.
 
 describe("Parallel execution (Milestone 3)", {
   skip_on_cran()
   skip_if_not_installed("mirai")
   skip_if_not_installed("carrier")
   skip_if_not_installed("purrr")
+  # Daemons are fresh R processes that resolve the worker via
+  # getFromNamespace("bg_wave_worker", "bayesgrove"), so they can only ever
+  # run an *installed* copy. A load_all() dev namespace is invisible to them
+  # (and under load_all() even find.package() reports the dev source tree, so
+  # probing the library paths cannot tell whether the daemons would run the
+  # code under test or a stale install). Shipping the worker instead cannot
+  # work: carrier crates `.f` in a globalenv child, stripping the package
+  # namespace the worker's unqualified calls resolve in. Skip whenever this
+  # session runs a dev-loaded copy; R CMD check (and CI) test the installed
+  # package and still run all three daemon tests.
+  skip_if(
+    requireNamespace("pkgload", quietly = TRUE) &&
+      pkgload::is_dev_package("bayesgrove"),
+    "parallel worker requires the installed package; skipped under load_all"
+  )
 
   it("runs independent siblings in parallel across daemons", {
     tmp <- withr::local_tempdir()
