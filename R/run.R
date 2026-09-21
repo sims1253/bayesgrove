@@ -380,6 +380,29 @@ bg_derive_run_plan_state <- function(
   external_blocked <- bg_run_plan_external_holds(plan, external_holds)
   held_nodes <- names(external_blocked %||% list())
 
+  gates_missing_specs <- bg_gates_missing_specs(project, graph = graph)
+
+  # Name the orphan gates in the blocked reason of each node they block, so
+  # the plan answers *why* a node is blocked even when the gate has no spec
+  # and bg_pending_gates() shows nothing.
+  blocked <- plan$graph_plan$blocked
+  if (length(gates_missing_specs) > 0) {
+    for (node_id in names(blocked)) {
+      if (!identical(blocked[[node_id]], "gate")) {
+        next
+      }
+      node_gates <- plan$graph_plan$node_status[[node_id]]$pending_gates %||%
+        character()
+      node_orphans <- intersect(node_gates, names(gates_missing_specs))
+      if (length(node_orphans) > 0) {
+        blocked[[node_id]] <- sprintf(
+          "gate missing spec: %s",
+          paste(node_orphans, collapse = ", ")
+        )
+      }
+    }
+  }
+
   utils::modifyList(
     plan,
     list(
@@ -389,9 +412,10 @@ bg_derive_run_plan_state <- function(
       ),
       targets = plan$targets %||% plan$graph_plan$targets,
       eligible = eligible,
-      blocked = plan$graph_plan$blocked,
+      blocked = blocked,
       external_blocked = external_blocked,
       held_by_policy = external_blocked,
+      gates_missing_specs = gates_missing_specs,
       cache_hits = cache_hits,
       missing_results = missing_results,
       to_execute = setdiff(intersect(missing_results, eligible), held_nodes),

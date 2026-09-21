@@ -62,6 +62,10 @@ bg_status <- function(project) {
 bg_status_from_bundle <- function(project, bundle) {
   plan <- bundle$plan
   gates <- bg_pending_gates(project, graph = bundle$raw_graph)
+  gates_missing_specs <- bg_gates_missing_specs(
+    project,
+    graph = bundle$raw_graph
+  )
   jobs <- bundle$state$jobs
   active_jobs <- Filter(function(j) j$status %in% c("queued", "running"), jobs)
   failed_jobs <- Filter(
@@ -102,6 +106,15 @@ bg_status_from_bundle <- function(project, bundle) {
       sprintf("%d pending gate(s) block downstream work.", length(gates))
     )
   }
+  if (length(gates_missing_specs) > 0) {
+    messages <- c(
+      messages,
+      sprintf(
+        "%d gate(s) in the graph have no spec; the nodes they block cannot be planned or answered.",
+        length(gates_missing_specs)
+      )
+    )
+  }
   if (length(held_nodes) > 0) {
     messages <- c(
       messages,
@@ -135,7 +148,11 @@ bg_status_from_bundle <- function(project, bundle) {
     "paused"
   } else if (length(failed_jobs) > 0) {
     "degraded"
-  } else if (length(gates) > 0 || length(held_nodes) > 0) {
+  } else if (
+    length(gates) > 0 ||
+      length(gates_missing_specs) > 0 ||
+      length(held_nodes) > 0
+  ) {
     "blocked"
   } else {
     "idle"
@@ -143,7 +160,12 @@ bg_status_from_bundle <- function(project, bundle) {
 
   health <- if (length(failed_jobs) > 0) {
     "error"
-  } else if (paused || length(gates) > 0 || length(held_nodes) > 0) {
+  } else if (
+    paused ||
+      length(gates) > 0 ||
+      length(gates_missing_specs) > 0 ||
+      length(held_nodes) > 0
+  ) {
     "warning"
   } else {
     "ok"
@@ -154,6 +176,7 @@ bg_status_from_bundle <- function(project, bundle) {
     runnable_nodes = length(plan$to_execute),
     blocked_nodes = length(plan$blocked) + length(held_nodes),
     pending_gates = length(gates),
+    gates_missing_specs = length(gates_missing_specs),
     active_jobs = num_active,
     last_run_id = last_run_id,
     health = health,

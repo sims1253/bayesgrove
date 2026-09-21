@@ -19,6 +19,83 @@ describe("Decision and Gate Layer", {
     expect_true(gate$id %in% names(bg_read_gate_specs(handle)))
   })
 
+  it("rolls back the committed graph when the gate spec write fails", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    before <- bg_read_graph(handle)
+
+    spec_writes <- 0L
+    local_mocked_bindings(bg_modify_gate_specs = function(...) {
+      spec_writes <<- spec_writes + 1L
+      if (identical(spec_writes, 1L)) {
+        stop("injected gate spec write failure")
+      }
+      list()
+    })
+
+    expect_error(
+      bg_add_gate(handle, from, to, "Proceed?", c("yes", "no")),
+      "Failed to add gate transactionally"
+    )
+
+    # The structural gate did not survive: the graph is back to its
+    # pre-transaction state and no orphan blocks the downstream node.
+    after <- bg_read_graph(handle)
+    expect_equal(after, before)
+    expect_length(bg_read_gate_specs(handle), 0)
+    expect_length(bg_plan(handle)$blocked, 0)
+  })
+
+  it("surfaces graph gates that have no spec in plans, status, and answers", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    expect_false(to %in% names(bg_plan(handle)$blocked))
+
+    # Construct the orphan state an interrupted bg_add_gate leaves behind:
+    # structural gate committed, semantic spec never written.
+    graph <- bg_read_graph(handle)
+    edge_id <- names(graph$edges)[vapply(
+      graph$edges,
+      function(e) identical(e$from, from) && identical(e$to, to),
+      logical(1)
+    )][[1]]
+    graph <- dagriculture::dagri_add_gate(
+      graph,
+      edge_id = edge_id,
+      id = "gate_orphan"
+    )
+    bg_commit_graph(handle, graph)
+
+    # The plan names the orphan gate instead of a bare "gate" reason and
+    # reports it for programmatic consumers.
+    plan <- bg_plan(handle)
+    expect_equal(plan$blocked[[to]], "gate missing spec: gate_orphan")
+    expect_setequal(names(plan$gates_missing_specs), "gate_orphan")
+    expect_equal(plan$gates_missing_specs$gate_orphan$edge_id, edge_id)
+
+    # The status no longer looks idle while a node is deadlocked.
+    status <- bg_status(handle)
+    expect_equal(status$workflow_state, "blocked")
+    expect_equal(status$health, "warning")
+    expect_equal(status$gates_missing_specs, 1)
+    expect_equal(status$pending_gates, 0)
+    expect_true(any(grepl("no spec", status$messages)))
+
+    # The orphan cannot be answered, and the error says why.
+    expect_error(
+      bg_answer_gate(handle, "gate_orphan", "yes", rationale = "try"),
+      "without a spec"
+    )
+  })
+
   it("validates the handle before reading decisions", {
     expect_error(
       bg_read_decisions(list(path = tempdir())),

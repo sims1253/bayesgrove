@@ -23,6 +23,8 @@ bg_add_gate <- function(
   S7::check_is_S7(project, bg_handle)
 
   graph <- bg_read_graph(project)
+  original_graph <- graph
+  original_loaded_version <- project@loaded_graph_version
 
   # Find the edge between `from` and `to`
   edge_id <- NULL
@@ -46,8 +48,6 @@ bg_add_gate <- function(
     id = gate_id
   )
 
-  bg_commit_graph(project, graph)
-
   # 2. Add semantic gate spec to bayesgrove storage
   gate_spec <- list(
     id = gate_id,
@@ -59,10 +59,46 @@ bg_add_gate <- function(
     metadata = metadata
   )
 
-  bg_modify_gate_specs(project, function(specs) {
-    specs[[gate_id]] <- gate_spec
-    specs
-  })
+  tryCatch(
+    {
+      bg_commit_graph(project, graph)
+      bg_modify_gate_specs(project, function(specs) {
+        specs[[gate_id]] <- gate_spec
+        specs
+      })
+    },
+    error = function(e) {
+      rollback_error <- tryCatch(
+        {
+          graph_path <- file.path(
+            project@path,
+            ".bayesgrove",
+            "graph",
+            "graph.json"
+          )
+          bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
+          project@loaded_graph_version <- original_loaded_version
+          # Drop only this gate entry to avoid clobbering concurrent updates.
+          bg_modify_gate_specs(project, function(current_specs) {
+            current_specs[[gate_id]] <- NULL
+            current_specs
+          })
+          NULL
+        },
+        error = function(rollback_e) rollback_e
+      )
+
+      if (!is.null(rollback_error)) {
+        cli::cli_abort(c(
+          "Failed to add gate transactionally.",
+          "Primary error: {e$message}",
+          "Rollback error: {rollback_e$message}"
+        ))
+      }
+
+      cli::cli_abort("Failed to add gate transactionally: {e$message}")
+    }
+  )
 
   gate_spec
 }
@@ -95,6 +131,14 @@ bg_answer_gate <- function(
 
   specs <- bg_read_gate_specs(project)
   if (!id %in% names(specs)) {
+    gate <- bg_read_graph(project)$gates[[id]] %||% NULL
+    if (!is.null(gate) && identical(gate$status, "pending")) {
+      cli::cli_abort(c(
+        "Gate {.val {id}} not found in gate specs.",
+        "The gate exists in the graph without a spec, likely from an",
+        "interrupted {.fn bg_add_gate}, so it cannot be answered."
+      ))
+    }
     cli::cli_abort("Gate {.val {id}} not found in gate specs.")
   }
 
@@ -425,6 +469,66 @@ bg_modify_gate_specs <- function(project, code, timeout = 10, poll = 0.05) {
     },
     timeout = timeout,
     poll = poll
+  )
+}
+
+#' Find pending graph gates that have no matching gate spec
+#'
+#' `bg_add_gate()` writes the structural gate and the semantic spec as two
+#' commits; a failure in between leaves a gate that blocks its downstream
+#' node but cannot be answered. This reports that state so `bg_plan()` and
+#' `bg_status()` can surface it instead of hiding the blockage.
+#'
+#' @param project A `bg_handle`.
+#' @param graph Optional already-loaded raw graph.
+#' @param specs Optional already-read gate specs.
+#'
+#' @return A named list keyed by gate ID with `gate_id`, `edge_id`,
+#'   `from_node_id`, and `to_node_id` entries, empty when every pending
+#'   graph gate has a spec.
+#' @keywords internal
+bg_gates_missing_specs <- function(project, graph = NULL, specs = NULL) {
+  graph <- graph %||% bg_read_graph(project)
+  specs <- specs %||% bg_read_gate_specs(project)
+
+  pending_gate_ids <- names(Filter(
+    function(gate) identical(gate$status, "pending"),
+    graph$gates %||% list()
+  ))
+  orphan_ids <- setdiff(pending_gate_ids, names(specs))
+  if (length(orphan_ids) == 0) {
+    return(list())
+  }
+
+  # Mirror bg_pending_gates(): a gate on an edge with retired or disabled
+  # endpoints cannot block active work, so it is not an anomaly worth
+  # reporting.
+  inactive_node_ids <- bg_inactive_node_ids(project, graph = graph)
+  orphan_ids <- Filter(
+    function(gate_id) {
+      edge <- graph$edges[[graph$gates[[gate_id]]$edge_id]] %||% NULL
+      if (is.null(edge)) {
+        return(FALSE)
+      }
+      !edge$from %in% inactive_node_ids && !edge$to %in% inactive_node_ids
+    },
+    orphan_ids
+  )
+  if (length(orphan_ids) == 0) {
+    return(list())
+  }
+
+  stats::setNames(
+    lapply(orphan_ids, function(gate_id) {
+      edge <- graph$edges[[graph$gates[[gate_id]]$edge_id]]
+      list(
+        gate_id = gate_id,
+        edge_id = edge$id,
+        from_node_id = edge$from,
+        to_node_id = edge$to
+      )
+    }),
+    orphan_ids
   )
 }
 
