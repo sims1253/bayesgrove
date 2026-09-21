@@ -74,7 +74,9 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
 
     inputs <- list(fit, list(y = y))
     node <- list(params = list())
-    res <- bayesgrove:::bg_executor_loo_pit(node, inputs)
+    # The synthetic tails are degenerate enough that loo::psis() warns inside
+    # the executor; an expected fixture consequence, not a signal.
+    res <- suppressWarnings(bayesgrove:::bg_executor_loo_pit(node, inputs))
 
     expect_equal(res$summaries[[1]]$summary_kind, "loo_pit_calibration")
     expect_true(all(res$result$pit_values >= 0 & res$result$pit_values <= 1))
@@ -101,8 +103,14 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     class(fit) <- c("CmdStanMCMC", class(fit))
     node <- list(params = list(pit_seed = 123L))
 
-    first <- bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
-    second <- bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
+    # The constant log_lik makes loo::psis() warn inside the executor; an
+    # expected fixture consequence, not a signal.
+    first <- suppressWarnings(
+      bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
+    )
+    second <- suppressWarnings(
+      bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
+    )
 
     expect_equal(first$result$pit_values, second$result$pit_values)
     expect_true(first$summaries[[1]]$metrics$discrete)
@@ -129,7 +137,11 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     class(fit) <- c("CmdStanMCMC", class(fit))
 
     inputs <- list(fit, list(y = y))
-    res <- bayesgrove:::bg_executor_loo_pit(list(params = list()), inputs)
+    # Same degenerate synthetic tails as above: loo::psis() warnings are an
+    # expected fixture consequence, not a signal.
+    res <- suppressWarnings(
+      bayesgrove:::bg_executor_loo_pit(list(params = list()), inputs)
+    )
     expect_true(length(res$result$pit_values) == n_obs)
     expect_true(all(res$result$pit_values >= 0 & res$result$pit_values <= 1))
   })
