@@ -39,6 +39,12 @@
   are copied, while secrets and unreferenced files stay out.
 * JSON storage preserves double precision. Fingerprint format 3 invalidates
   previous cache keys, so the first run after upgrading recomputes results.
+* `bg_commit_graph()` is no longer exported. It is a version-conflict-aborting
+  primitive that every other mutator already wraps (`bg_add_node()` etc.);
+  internal callers are unaffected and the help topic remains available.
+* `bg_fit_stan()` and `bg_fit_brms()` name their first argument `project`,
+  matching every other exported function taking a `bg_handle`. Passing
+  `handle =` still works but is deprecated and warns once per session.
 
 ## Bug fixes
 
@@ -92,6 +98,13 @@
   missing fields, unknown status, a `goal_version` with no matching history
   entry, or a `parent_id` lineage with missing parents or cycles aborts
   before the lineage can be extended.
+* Random node, edge, job, gate, decision, and summary ids come from a 64-bit
+  digest instead of a 32-bit one (ids grow from 8 to 16 hex characters), and
+  the generators whose write path could alias an existing id (nodes, edges,
+  jobs, gates, decisions) detect the collision and regenerate instead of
+  overwriting state or erroring confusingly. At simulation-study scale
+  (~10,000 ids per project) the old 32-bit ids collided with roughly one
+  percent probability, silently.
 
 ## Documentation
 

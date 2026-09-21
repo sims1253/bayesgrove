@@ -75,8 +75,11 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     inputs <- list(fit, list(y = y))
     node <- list(params = list())
     # The synthetic tails are degenerate enough that loo::psis() warns inside
-    # the executor; an expected fixture consequence, not a signal.
-    res <- suppressWarnings(bayesgrove:::bg_executor_loo_pit(node, inputs))
+    # the executor; pin the expected Pareto diagnostics instead of hiding it.
+    expect_warning(
+      res <- bayesgrove:::bg_executor_loo_pit(node, inputs),
+      "Pareto"
+    )
 
     expect_equal(res$summaries[[1]]$summary_kind, "loo_pit_calibration")
     expect_true(all(res$result$pit_values >= 0 & res$result$pit_values <= 1))
@@ -103,8 +106,11 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     class(fit) <- c("CmdStanMCMC", class(fit))
     node <- list(params = list(pit_seed = 123L))
 
-    # The constant log_lik makes loo::psis() warn inside the executor; an
-    # expected fixture consequence, not a signal.
+    # The constant log_lik makes loo::psis() warn inside the executor; pin
+    # the expected Pareto diagnostics instead of hiding them.
+    # The constant log_lik makes loo::psis() warn twice inside the executor;
+    # expect_warning() would re-signal the second warning, so suppress and
+    # rely on the deterministic reproducibility assertions below.
     first <- suppressWarnings(
       bayesgrove:::bg_executor_loo_pit(node, list(fit, list(y = y)))
     )
@@ -137,10 +143,11 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     class(fit) <- c("CmdStanMCMC", class(fit))
 
     inputs <- list(fit, list(y = y))
-    # Same degenerate synthetic tails as above: loo::psis() warnings are an
-    # expected fixture consequence, not a signal.
-    res <- suppressWarnings(
-      bayesgrove:::bg_executor_loo_pit(list(params = list()), inputs)
+    # Same degenerate synthetic tails as above: pin the expected loo::psis()
+    # Pareto warnings instead of hiding them.
+    expect_warning(
+      res <- bayesgrove:::bg_executor_loo_pit(list(params = list()), inputs),
+      "Pareto"
     )
     expect_true(length(res$result$pit_values) == n_obs)
     expect_true(all(res$result$pit_values >= 0 & res$result$pit_values <= 1))
