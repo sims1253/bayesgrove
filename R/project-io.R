@@ -55,18 +55,33 @@ bg_validate_graph_payload <- function(raw, graph_path) {
   invisible(TRUE)
 }
 
+#' Abort when a handle cannot accept writes
+#'
+#' Shared guard for every mutating entry point. Closed handles are rejected
+#' first, then readonly ones, so neither can mutate project state under a
+#' concurrent writer. Readonly handles stay fully functional for reads.
+#'
+#' @param project A `bg_handle`.
+#' @param action Verb phrase for the error message, e.g. `"commit to"`.
+#' @keywords internal
+bg_assert_writable <- function(project, action) {
+  if (project@closed) {
+    cli::cli_abort("Cannot {action} a closed project.")
+  }
+  if (project@readonly) {
+    cli::cli_abort("Cannot {action} a readonly project.")
+  }
+
+  invisible(TRUE)
+}
+
 #' Write project graph safely
 #' @param project A `bg_handle`
 #' @param graph A `dagri_graph`
 #' @keywords internal
 #' @export
 bg_commit_graph <- function(project, graph) {
-  if (project@closed) {
-    cli::cli_abort("Cannot commit to a closed project.")
-  }
-  if (project@readonly) {
-    cli::cli_abort("Cannot commit to a readonly project.")
-  }
+  bg_assert_writable(project, "commit to")
 
   # Basic version check
   if (graph$version <= project@loaded_graph_version) {

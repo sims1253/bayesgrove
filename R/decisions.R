@@ -438,6 +438,8 @@ bg_new_decision_record <- function(
 
 #' @keywords internal
 bg_write_decision_record <- function(project, record) {
+  bg_assert_writable(project, "record a decision in")
+
   log_path <- file.path(
     project@path,
     ".bayesgrove",

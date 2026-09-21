@@ -50,6 +50,7 @@ bg_snapshot <- function(project) {
 #' @export
 bg_pause <- function(project) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "pause")
 
   config <- bg_read_project_config(project)
 
@@ -73,6 +74,7 @@ bg_pause <- function(project) {
 #' @export
 bg_resume <- function(project) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "resume")
 
   config <- bg_read_project_config(project)
 
