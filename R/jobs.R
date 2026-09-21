@@ -316,7 +316,9 @@ bg_compact_jobs <- function(project) {
 #' @keywords internal
 #' @noRd
 bg_create_job <- function(project, run_id, node_id, backend = "local") {
-  job_id <- bg_new_id("job")
+  # A job_id that collides with an existing job would alias the two records
+  # in the last-record-wins log, so regenerate on collision (#27).
+  job_id <- bg_new_unique_id("job", names(bg_jobs_cache_get(project)))
 
   record <- list(
     job_id = job_id,

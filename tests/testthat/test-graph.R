@@ -125,3 +125,65 @@ describe("Graph tree printing", {
     expect_match(child_line, "^    └── Child")
   })
 })
+
+describe("id collision handling", {
+  it("regenerates a colliding node id instead of erroring or overwriting", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    first <- bg_add_node(handle, kind = "test_kind", label = "Original")
+
+    draws <- 0L
+    local_mocked_bindings(bg_new_id = function(prefix) {
+      draws <<- draws + 1L
+      if (draws == 1L) first else sprintf("%s_retry%d", prefix, draws)
+    })
+
+    second <- bg_add_node(handle, kind = "test_kind", label = "Newcomer")
+
+    expect_true(startsWith(second, "node_retry"))
+    expect_gt(draws, 1L)
+
+    # The existing node is untouched and both nodes are committed.
+    result <- bg_read_graph(handle)
+    expect_length(result$nodes, 2L)
+    expect_equal(result$nodes[[first]]$label, "Original")
+    expect_equal(result$nodes[[second]]$label, "Newcomer")
+  })
+
+  it("regenerates a colliding edge id in bg_connect", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+    n2 <- bg_add_node(handle, kind = "test_kind")
+    n3 <- bg_add_node(handle, kind = "test_kind")
+    first <- bg_connect(handle, n1, n2)
+
+    draws <- 0L
+    local_mocked_bindings(bg_new_id = function(prefix) {
+      draws <<- draws + 1L
+      if (draws == 1L) first else sprintf("%s_retry%d", prefix, draws)
+    })
+
+    second <- bg_connect(handle, n1, n3)
+
+    expect_true(startsWith(second, "edge_retry"))
+    expect_gt(draws, 1L)
+
+    result <- bg_read_graph(handle)
+    expect_length(result$edges, 2L)
+    expect_equal(result$edges[[first]]$to, n2)
+    expect_equal(result$edges[[second]]$to, n3)
+  })
+})

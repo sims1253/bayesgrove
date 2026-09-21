@@ -37,7 +37,12 @@ bg_add_gate <- function(
     cli::cli_abort("No edge found from {.val {from}} to {.val {to}}.")
   }
 
-  gate_id <- bg_new_id("gate")
+  # Guard both storage sites: dagri_add_gate would abort on a duplicate
+  # structural gate id, and the spec write below would silently alias one.
+  gate_id <- bg_new_unique_id(
+    "gate",
+    c(names(graph$gates), names(bg_read_gate_specs(project)))
+  )
 
   # 1. Add structural gate to the graph
   graph <- dagriculture::dagri_add_gate(
@@ -303,7 +308,9 @@ bg_new_decision_record <- function(
   kind = "note",
   metadata = list()
 ) {
-  decision_id <- bg_new_id("dec")
+  # A duplicate decision_id would alias the two records in the
+  # last-record-wins decision log, so regenerate on collision (#27).
+  decision_id <- bg_new_unique_id("dec", names(bg_read_decisions(project)))
 
   res <- list(
     schema_name = "bg_decision_entry",

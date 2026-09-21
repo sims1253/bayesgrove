@@ -15,7 +15,29 @@ bg_new_id <- function(prefix) {
   sprintf(
     "%s_%s",
     prefix,
-    digest::digest(runif(1), algo = "xxhash32")
+    # runif() draws have 32-bit granularity under R's default RNG, so a
+    # 32-bit digest of one draw leaves at most ~2^32 distinct ids (#27).
+    # Four draws feed xxhash64 a full 64 bits of entropy, which keeps the
+    # birthday collision probability at n = 10,000 ids near 1e-11.
+    digest::digest(runif(4), algo = "xxhash64")
+  )
+}
+
+# Draw ids from bg_new_id() until one is absent from `taken`, so an unlucky
+# collision regenerates instead of aliasing or aborting (#27). The bound only
+# guards against a pathological generator; with 64-bit ids it is unreachable
+# in practice.
+#' @keywords internal
+bg_new_unique_id <- function(prefix, taken = character(), max_attempts = 64L) {
+  for (attempt in seq_len(max_attempts)) {
+    id <- bg_new_id(prefix)
+    if (!id %in% taken) {
+      return(id)
+    }
+  }
+
+  cli::cli_abort(
+    "Failed to draw a unique {.val {prefix}} id after {max_attempts} attempts."
   )
 }
 
