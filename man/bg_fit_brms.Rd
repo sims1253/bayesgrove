@@ -4,10 +4,10 @@
 \alias{bg_fit_brms}
 \title{Fit a brms model in one call}
 \usage{
-bg_fit_brms(handle, formula, data, label = NULL, ...)
+bg_fit_brms(project, formula, data, label = NULL, ..., handle = NULL)
 }
 \arguments{
-\item{handle}{A \code{bg_handle}.}
+\item{project}{A \code{bg_handle}.}
 
 \item{formula}{A \code{brmsformula} or formula object.}
 
@@ -16,6 +16,9 @@ bg_fit_brms(handle, formula, data, label = NULL, ...)
 \item{label}{Optional label for the fit node.}
 
 \item{...}{Passed to the fit node as params (e.g. \code{chains = 4}).}
+
+\item{handle}{Deprecated synonym for \code{project}; accepted with a
+once-per-session warning.}
 }
 \value{
 The fit node id, invisibly. The run handle is printed.

@@ -19,6 +19,28 @@ bg_require_backend_kinds <- function(handle, kinds, setup_function) {
   invisible(TRUE)
 }
 
+# Tracks which sugar helpers have already warned about the deprecated
+# `handle` argument so the warning fires once per session.
+#' @keywords internal
+#' @noRd
+.bg_deprecated_handle_env <- new.env(parent = emptyenv())
+
+#' Warn once per session that the `handle` argument name is deprecated.
+#' @keywords internal
+#' @noRd
+bg_warn_deprecated_handle_arg <- function(fn_name) {
+  key <- paste0(fn_name, "-handle")
+  if (isTRUE(get0(key, envir = .bg_deprecated_handle_env))) {
+    return(invisible(NULL))
+  }
+  assign(key, TRUE, envir = .bg_deprecated_handle_env)
+  cli::cli_warn(c(
+    "{.arg handle} is deprecated for {.fn {fn_name}}; use {.arg project} instead.",
+    "Positional passing is unaffected."
+  ))
+  invisible(NULL)
+}
+
 #' Fit a Stan model in one call
 #'
 #' Creates a data node (via [bg_set_node_data]), a `cmdstanr_fit` node consuming
@@ -29,43 +51,62 @@ bg_require_backend_kinds <- function(handle, kinds, setup_function) {
 #'
 #' Call [bg_use_cmdstanr()] first so the `cmdstanr_fit` kind is registered.
 #'
-#' @param handle A `bg_handle`.
+#' @param project A `bg_handle`.
 #' @param stan_file Path to the Stan model file. Relative paths resolve
 #'   against the project root when the file exists there, and from the working
 #'   directory otherwise.
 #' @param data A named list (or environment) of Stan data.
 #' @param label Optional label for the fit node.
 #' @param ... Passed to the fit node as params (e.g. `chains = 4`).
+#' @param handle Deprecated synonym for `project`; accepted with a
+#'   once-per-session warning.
 #' @return The fit node id, invisibly. The run handle is printed.
 #' @export
-bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
-  S7::check_is_S7(handle, bg_handle)
+bg_fit_stan <- function(
+  project,
+  stan_file,
+  data,
+  label = NULL,
+  ...,
+  handle = NULL
+) {
+  if (!is.null(handle)) {
+    if (!missing(project)) {
+      cli::cli_abort(c(
+        "Pass the project via {.arg project} or the deprecated {.arg handle},",
+        "not both."
+      ))
+    }
+    bg_warn_deprecated_handle_arg("bg_fit_stan")
+    project <- handle
+  }
+  S7::check_is_S7(project, bg_handle)
   bg_require_backend_kinds(
-    handle,
+    project,
     c("stan_data", "cmdstanr_fit"),
     "bg_use_cmdstanr"
   )
 
   data_node <- bg_add_node(
-    handle,
+    project,
     kind = "stan_data",
     label = paste0(label %||% "fit", "_data")
   )
-  bg_set_node_data(handle, data_node, data)
+  bg_set_node_data(project, data_node, data)
 
   fit_params <- utils::modifyList(
     list(stan_file = stan_file),
     list(...)
   )
   fit_node <- bg_add_node(
-    handle,
+    project,
     kind = "cmdstanr_fit",
     label = label %||% "fit",
     params = fit_params,
     inputs = data_node
   )
 
-  run_handle <- bg_run(handle, targets = fit_node)
+  run_handle <- bg_run(project, targets = fit_node)
   print(run_handle)
   invisible(fit_node)
 }
@@ -79,41 +120,60 @@ bg_fit_stan <- function(handle, stan_file, data, label = NULL, ...) {
 #'
 #' Call [bg_use_brms()] first so the `brms_fit` kind is registered.
 #'
-#' @param handle A `bg_handle`.
+#' @param project A `bg_handle`.
 #' @param formula A `brmsformula` or formula object.
 #' @param data A data frame of observations.
 #' @param label Optional label for the fit node.
 #' @param ... Passed to the fit node as params (e.g. `chains = 4`).
+#' @param handle Deprecated synonym for `project`; accepted with a
+#'   once-per-session warning.
 #' @return The fit node id, invisibly. The run handle is printed.
 #' @export
-bg_fit_brms <- function(handle, formula, data, label = NULL, ...) {
-  S7::check_is_S7(handle, bg_handle)
+bg_fit_brms <- function(
+  project,
+  formula,
+  data,
+  label = NULL,
+  ...,
+  handle = NULL
+) {
+  if (!is.null(handle)) {
+    if (!missing(project)) {
+      cli::cli_abort(c(
+        "Pass the project via {.arg project} or the deprecated {.arg handle},",
+        "not both."
+      ))
+    }
+    bg_warn_deprecated_handle_arg("bg_fit_brms")
+    project <- handle
+  }
+  S7::check_is_S7(project, bg_handle)
   bg_require_backend_kinds(
-    handle,
+    project,
     c("data", "brms_fit"),
     "bg_use_brms"
   )
 
   data_node <- bg_add_node(
-    handle,
+    project,
     kind = "data",
     label = paste0(label %||% "fit", "_data")
   )
-  bg_set_node_data(handle, data_node, data)
+  bg_set_node_data(project, data_node, data)
 
   fit_params <- utils::modifyList(
     list(formula = formula),
     list(...)
   )
   fit_node <- bg_add_node(
-    handle,
+    project,
     kind = "brms_fit",
     label = label %||% "fit",
     params = fit_params,
     inputs = data_node
   )
 
-  run_handle <- bg_run(handle, targets = fit_node)
+  run_handle <- bg_run(project, targets = fit_node)
   print(run_handle)
   invisible(fit_node)
 }

@@ -1,6 +1,3 @@
-#' @importFrom rlang %||%
-NULL
-
 #' @keywords internal
 bg_validate_graph_payload <- function(raw, graph_path) {
   if (!is.list(raw)) {
@@ -58,8 +55,10 @@ bg_validate_graph_payload <- function(raw, graph_path) {
 #' Write project graph safely
 #' @param project A `bg_handle`
 #' @param graph A `dagri_graph`
+#' @return Invisible `TRUE`, after the graph is persisted and the handle's
+#'   loaded version is advanced. Aborts on closed or read-only handles,
+#'   non-increasing graph versions, and persisted-version conflicts.
 #' @keywords internal
-#' @export
 bg_commit_graph <- function(project, graph) {
   if (project@closed) {
     cli::cli_abort("Cannot commit to a closed project.")

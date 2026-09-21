@@ -676,7 +676,9 @@ bg_register_lock_finalizer <- function(handle) {
 #' Releases the single-writer lock if this handle holds it.
 #'
 #' @param project A `bg_handle`.
-#'
+#' @return The `bg_handle`, invisibly, so `bg_close()` can be used in a pipe
+#'   or chained after another method. Closing is idempotent: an already-closed
+#'   handle is returned unchanged.
 #' @export
 bg_close <- function(project) {
   S7::check_is_S7(project, bg_handle)

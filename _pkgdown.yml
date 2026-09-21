@@ -49,7 +49,6 @@ reference:
       - bg_remove_node
       - bg_set_node_data
       - bg_read_graph
-      - bg_commit_graph
   - title: Execution & Orchestration
     contents:
       - bg_repl

@@ -31,7 +31,6 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_set_node_data", classification = "experimental"),
     list(fn = "bg_remove_node", classification = "stable"),
     list(fn = "bg_read_graph", classification = "stable"),
-    list(fn = "bg_commit_graph", classification = "internal"),
 
     # === Stable: Branching ===
     list(fn = "bg_branch", classification = "stable"),

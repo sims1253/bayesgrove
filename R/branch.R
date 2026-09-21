@@ -250,7 +250,8 @@ bg_branch_continuation_clones <- function(
 #' @param project A `bg_handle`.
 #' @param node_id The ID of the node to invalidate.
 #' @param recursive Whether to recursively invalidate downstream nodes (default: TRUE).
-#'
+#' @return Invisible `TRUE`, after marking the cached artifacts of the node
+#'   (and, when `recursive = TRUE`, its descendants) as superseded.
 #' @export
 bg_invalidate <- function(project, node_id, recursive = TRUE) {
   S7::check_is_S7(project, bg_handle)
