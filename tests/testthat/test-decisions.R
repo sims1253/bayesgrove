@@ -177,6 +177,46 @@ describe("Decision and Gate Layer", {
     )
   })
 
+  it("repairs orphan gates by dropping them and unblocking the plan", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    graph <- bg_read_graph(handle)
+    edge_id <- names(graph$edges)[vapply(
+      graph$edges,
+      function(e) identical(e$from, from) && identical(e$to, to),
+      logical(1)
+    )][[1]]
+    graph <- dagriculture::dagri_add_gate(
+      graph,
+      edge_id = edge_id,
+      id = "gate_orphan"
+    )
+    bg_commit_graph(handle, graph)
+    expect_true(to %in% names(bg_plan(handle)$blocked))
+
+    # Readonly handles cannot repair, and nothing is touched.
+    ro <- bg_open(path = tmp, readonly = TRUE)
+    expect_error(
+      bg_repair_orphan_gates(ro),
+      "Cannot repair orphan gates in a readonly project"
+    )
+
+    repaired <- bg_repair_orphan_gates(handle)
+    expect_setequal(names(repaired), "gate_orphan")
+    expect_equal(repaired$gate_orphan$edge_id, edge_id)
+    expect_null(bg_read_graph(handle)$gates$gate_orphan)
+    plan <- bg_plan(handle)
+    expect_length(plan$gates_missing_specs, 0)
+    expect_false(to %in% names(plan$blocked))
+
+    # Repairing again is a no-op.
+    expect_length(bg_repair_orphan_gates(handle), 0)
+  })
+
   it("validates the handle before reading decisions", {
     expect_error(
       bg_read_decisions(list(path = tempdir())),

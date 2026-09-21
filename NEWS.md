@@ -105,6 +105,17 @@
   overwriting state or erroring confusingly. At simulation-study scale
   (~10,000 ids per project) the old 32-bit ids collided with roughly one
   percent probability, silently.
+* Every exported mutating entry point — `bg_run()`, `bg_answer_gate()`,
+  `bg_use_cmdstanr()`/`bg_use_brms()` via backend registration,
+  `bg_register_summary_kind()`, `bg_write_summaries()`, `bg_invalidate()`,
+  `bg_compact_jobs()`, and the previously guarded graph, config, registry,
+  decision, and goal writes — aborts on readonly and closed handles, so the
+  documented readonly guarantee (reads fully functional, runs alongside a
+  writer) no longer hides silent state mutation under a concurrent writer.
+* Added `bg_repair_orphan_gates()` to drop pending graph gates that lost
+  their spec — the state an interrupted gate add from an older version
+  leaves, which surfaced in `bg_plan()`/`bg_status()` but had no supported
+  remedy — so recovery no longer requires hand-editing `graph.json`.
 
 ## Documentation
 

@@ -107,6 +107,7 @@ reference:
       - bg_add_gate
       - bg_answer_gate
       - bg_pending_gates
+      - bg_repair_orphan_gates
       - bg_record_decision
       - bg_read_decisions
   - title: Extensions
