@@ -389,7 +389,7 @@ print(bg_read_graph(handle))
   and reparameterize a model.
 - The [roaches case study](case-study-roaches.html) compares competing models
   and records which branches to accept.
-- [Reproducible research](reproducible-research.html) covers reports and
+- The reproducible-research article on the package site covers reports and
   project bundles.
 
 For gates, scopes, and evidence freshness, see [Concepts](concepts.html).
