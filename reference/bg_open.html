@@ -87,7 +87,8 @@ re-register them with <code><a href="bg_register_node_kind.html">bg_register_nod
 (<code>.bayesgrove/project.lock</code>) so two writers cannot mutate a project
 concurrently. If the lock is already held, the holder's pid/host is
 reported; pass <code>force = TRUE</code> to steal a stale lock. Readonly opens skip
-locking and can run alongside a writer.</p>
+locking and can run alongside a writer; reads remain fully functional,
+while every mutating call aborts on a readonly or closed handle.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

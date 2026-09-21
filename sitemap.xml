@@ -23,6 +23,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_answer_gate.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_api_boundary.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_apply_workflow_strictness_default.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_assert_writable.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_branch.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_branch_lineage.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_build_api_boundary_registry.html</loc></url>
@@ -68,6 +69,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_summary_kind.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_remove_node.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_repair_orphan_gates.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_repl.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_apply.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_research_init.html</loc></url>
@@ -78,6 +80,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_resume.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_retire_branch.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_retire_node.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_rollback_gate_graph.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_run.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_scope_label.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_set_goal.html</loc></url>
