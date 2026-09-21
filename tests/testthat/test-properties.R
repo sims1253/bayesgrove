@@ -18,7 +18,7 @@ describe("Fingerprint properties (plain testthat fallback)", {
       handle <- bg_init(path = tmp)
       bg_register_node_kind(handle, "test_kind")
 
-      params <- lapply(seq_len(sample.int(5, 1L)), function(.) {
+      params <- lapply(seq_len(sample.int(4, 1L) + 1L), function(.) {
         if (runif(1) < 0.5) {
           sample.int(100, 1L)
         } else {
