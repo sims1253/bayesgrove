@@ -80,6 +80,11 @@ describe("Decision and Gate Layer", {
     # as an orphan instead of silently destroying the other handle's work.
     after <- bg_read_graph(handle)
     expect_equal(after$version, pre_transaction_version + 2L)
+    expect_length(after$gates, 1)
+    expect_equal(
+      bg_plan(handle)$blocked[[to]],
+      sprintf("gate: %s (missing spec)", names(after$gates)[[1]])
+    )
   })
 
   it("restores the answered gate when the decision record write fails", {
@@ -108,6 +113,7 @@ describe("Decision and Gate Layer", {
     expect_length(bg_read_decisions(handle), 0)
     expect_length(bg_plan(handle)$gates_missing_specs, 0)
   })
+
   it("surfaces graph gates that have no spec in plans, status, and answers", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
@@ -135,15 +141,32 @@ describe("Decision and Gate Layer", {
     # The plan names the orphan gate instead of a bare "gate" reason and
     # reports it for programmatic consumers.
     plan <- bg_plan(handle)
-    expect_equal(plan$blocked[[to]], "gate missing spec: gate_orphan")
+    expect_equal(plan$blocked[[to]], "gate: gate_orphan (missing spec)")
     expect_setequal(names(plan$gates_missing_specs), "gate_orphan")
     expect_equal(plan$gates_missing_specs$gate_orphan$edge_id, edge_id)
 
-    # The status no longer looks idle while a node is deadlocked.
+    # A node held by both a spec'd gate and an orphan reports both.
+    spec_gate <- bg_add_gate(
+      handle,
+      from,
+      to,
+      "Also proceed?",
+      c("yes", "no")
+    )
+    plan <- bg_plan(handle)
+    expect_equal(
+      sort(strsplit(sub("^gate: ", "", plan$blocked[[to]]), ", ")[[1]]),
+      sort(c(spec_gate$id, "gate_orphan (missing spec)"))
+    )
+    bg_answer_gate(handle, spec_gate$id, "yes", rationale = "clear it")
+
+    # The status no longer looks idle while a node is deadlocked, and its
+    # gates_missing_specs is the same named list shape the plan exposes.
+    plan <- bg_plan(handle)
     status <- bg_status(handle)
     expect_equal(status$workflow_state, "blocked")
     expect_equal(status$health, "warning")
-    expect_equal(status$gates_missing_specs, 1)
+    expect_equal(status$gates_missing_specs, plan$gates_missing_specs)
     expect_equal(status$pending_gates, 0)
     expect_true(any(grepl("no spec", status$messages)))
 

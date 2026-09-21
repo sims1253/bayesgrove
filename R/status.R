@@ -176,7 +176,9 @@ bg_status_from_bundle <- function(project, bundle) {
     runnable_nodes = length(plan$to_execute),
     blocked_nodes = length(plan$blocked) + length(held_nodes),
     pending_gates = length(gates),
-    gates_missing_specs = length(gates_missing_specs),
+    # Same named list keyed by gate ID that bg_plan() exposes, so the field
+    # name means one shape on both surfaces (use length() for a count).
+    gates_missing_specs = gates_missing_specs,
     active_jobs = num_active,
     last_run_id = last_run_id,
     health = health,

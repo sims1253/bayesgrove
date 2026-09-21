@@ -382,9 +382,10 @@ bg_derive_run_plan_state <- function(
 
   gates_missing_specs <- bg_gates_missing_specs(project, graph = graph)
 
-  # Name the orphan gates in the blocked reason of each node they block, so
-  # the plan answers *why* a node is blocked even when the gate has no spec
-  # and bg_pending_gates() shows nothing.
+  # Name the gates in the blocked reason of each node they block, so the
+  # plan answers *why* a node is blocked even when the gate has no spec and
+  # bg_pending_gates() shows nothing. Gates that do have a spec stay listed
+  # so a node held by both kinds reports both.
   blocked <- plan$graph_plan$blocked
   if (length(gates_missing_specs) > 0) {
     for (node_id in names(blocked)) {
@@ -395,9 +396,14 @@ bg_derive_run_plan_state <- function(
         character()
       node_orphans <- intersect(node_gates, names(gates_missing_specs))
       if (length(node_orphans) > 0) {
+        labelled_gates <- sprintf(
+          "%s%s",
+          node_gates,
+          ifelse(node_gates %in% node_orphans, " (missing spec)", "")
+        )
         blocked[[node_id]] <- sprintf(
-          "gate missing spec: %s",
-          paste(node_orphans, collapse = ", ")
+          "gate: %s",
+          paste(labelled_gates, collapse = ", ")
         )
       }
     }
