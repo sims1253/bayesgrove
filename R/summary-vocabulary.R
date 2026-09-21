@@ -233,7 +233,13 @@ bg_register_summary_kind <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  if (!is.character(kind) || length(kind) != 1 || !nzchar(kind)) {
+  # nzchar(NA) is TRUE, so NA must be rejected explicitly.
+  if (
+    !is.character(kind) ||
+      length(kind) != 1 ||
+      is.na(kind) ||
+      !nzchar(kind)
+  ) {
     cli::cli_abort("{.arg kind} must be a single non-empty string.")
   }
 
@@ -272,11 +278,26 @@ bg_register_summary_kind <- function(
 #' @keywords internal
 #' @noRd
 bg_nearest_summary_kind <- function(kind, known) {
-  if (length(known) == 0) {
+  # NA/empty entries cannot be suggestions; drop them so a single bad
+  # registration cannot disable the hint (or crash adist).
+  known <- known[!is.na(known) & nzchar(known)]
+
+  # adist(NA, known) yields all-NA distances and which.min() returns
+  # integer(0), so guard the kind before comparing and the index after.
+  if (
+    length(known) == 0 ||
+      !is.character(kind) ||
+      length(kind) != 1 ||
+      is.na(kind)
+  ) {
     return(NULL)
   }
 
   distances <- utils::adist(kind, known)
   nearest_idx <- which.min(distances)
+  if (length(nearest_idx) == 0) {
+    return(NULL)
+  }
+
   known[[nearest_idx]]
 }
