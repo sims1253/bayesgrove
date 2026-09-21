@@ -7,6 +7,11 @@
   It records P/A/D candidate lineages, evidence, cross-lineage comparisons,
   decisions, and policy changes. Record, Guide, and Enforce modes share the
   same research state. Snapshots, bundles, and reports include that state.
+* The research-search interface gains a `reframe` action that records a
+  corrected question or goal and requires a declared human actor. Every
+  research record is stamped with the `goal_version` it was created under;
+  after a reframe, reviews recorded under an earlier goal no longer
+  authorize acceptance, and comparisons must include a result.
 * Bundles copy Stan programs referenced by node params, and their `#include`
   closure, into the archive and rewrite the graph to project-relative paths,
   so restored projects run after the original files are gone. Only files
@@ -42,6 +47,25 @@
   main file, so editing an included file invalidates cached results.
 * Relative bundle paths resolve from the caller's working directory, not the
   temporary staging directory.
+* Research inputs that JSON serialization would silently mangle (matrices,
+  arrays, and values carrying attributes beyond names) are rejected with an
+  error instead of losing meaning, decision `basis` payloads are stored once
+  as a nested record rather than flattened into the decision fields, and
+  policy rule values must be scalars.
+* Reading a research state validates its saved question and policy, so a
+  damaged policy is rejected on read rather than when the next action
+  touches it; a revision that only reorders named fields counts as no
+  change; and policy-hold errors render their findings as data, so reasons
+  containing braces no longer break the message.
+* Damaged candidate records are rejected when a research state is read:
+  missing fields, unknown status, a `goal_version` with no matching history
+  entry, or a `parent_id` lineage with missing parents or cycles aborts
+  before the lineage can be extended.
+
+## Documentation
+
+* `bg_research_apply()` documents that the returned history records the
+  generated `id`, not `record_id`.
 
 # bayesgrove 0.7.0
 
