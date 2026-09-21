@@ -21,5 +21,7 @@ bg_connect(project, from, to, edge_type = "data", metadata = list())
 The generated edge ID.
 }
 \description{
-Connect two nodes in the bayesgrove project graph
+Fails if an edge from \code{from} to \code{to} already exists (including one created
+via \code{\link[=bg_add_node]{bg_add_node()}}'s \code{inputs} argument): parallel edges break planning, and
+there is no edge-removal API to recover from them.
 }

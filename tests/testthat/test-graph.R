@@ -102,6 +102,126 @@ describe("Graph Node Management", {
   })
 })
 
+describe("Duplicate edge prevention", {
+  it("rejects connecting the same pair of nodes twice", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+    n2 <- bg_add_node(handle, kind = "test_kind")
+
+    expect_error(
+      bg_connect(handle, n1, n2),
+      NA
+    )
+    expect_error(
+      bg_connect(handle, n1, n2),
+      "already exists"
+    )
+
+    # The rejected call must not have committed anything: exactly one edge
+    # between the pair, and the graph still plans.
+    g <- bg_read_graph(handle)
+    pair_edges <- Filter(
+      function(e) identical(e$from, n1) && identical(e$to, n2),
+      g$edges
+    )
+    expect_length(pair_edges, 1L)
+    expect_error(bg_plan(handle), NA)
+  })
+
+  it("rejects bg_connect for an edge created via bg_add_node(inputs =)", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+    n2 <- bg_add_node(handle, kind = "test_kind", inputs = n1)
+
+    expect_error(
+      bg_connect(handle, n1, n2),
+      "already exists"
+    )
+
+    g <- bg_read_graph(handle)
+    expect_equal(length(g$edges), 1L)
+    expect_error(bg_plan(handle), NA)
+  })
+
+  it("rejects repeating a node ID in bg_add_node inputs", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+
+    expect_error(
+      bg_add_node(handle, kind = "test_kind", inputs = c(n1, n1)),
+      "Duplicate input"
+    )
+
+    # The aborted call must not leave a half-built node behind.
+    g <- bg_read_graph(handle)
+    expect_equal(length(g$nodes), 1L)
+    expect_equal(length(g$edges), 0L)
+  })
+
+  it("rejects connecting a node to itself", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+
+    expect_error(
+      bg_connect(handle, n1, n1),
+      "to itself"
+    )
+
+    g <- bg_read_graph(handle)
+    expect_equal(length(g$edges), 0L)
+  })
+
+  it("still connects distinct pairs, including fan-out from one node", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    graph <- bg_read_graph(handle)
+    graph$registry$kinds[["test_kind"]] <- dagriculture::dagri_kind("test_kind")
+    graph$version <- graph$version + 1L
+    bg_commit_graph(handle, graph)
+
+    n1 <- bg_add_node(handle, kind = "test_kind")
+    n2 <- bg_add_node(handle, kind = "test_kind")
+    n3 <- bg_add_node(handle, kind = "test_kind")
+
+    expect_error(bg_connect(handle, n1, n2), NA)
+    expect_error(bg_connect(handle, n1, n3), NA)
+    expect_error(bg_connect(handle, n2, n3), NA)
+
+    g <- bg_read_graph(handle)
+    expect_equal(length(g$edges), 3L)
+    expect_error(bg_plan(handle), NA)
+  })
+})
+
 describe("Graph tree printing", {
   it("indents child nodes beneath their parent", {
     graph <- list(

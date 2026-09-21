@@ -22,7 +22,8 @@ bg_add_node(
 
 \item{params}{Named list of parameters.}
 
-\item{inputs}{Optional character vector of upstream node IDs to connect.}
+\item{inputs}{Optional character vector of upstream node IDs to connect.
+Repeating a node ID is an error: each input is connected exactly once.}
 
 \item{metadata}{Optional metadata list.}
 }

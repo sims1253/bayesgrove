@@ -1,3 +1,33 @@
+#' Reject connections that would corrupt the graph
+#'
+#' dagriculture accepts parallel edges (same `from`/`to` pair) and self-loops
+#' silently, but both make every later `dagri_plan()` abort with a spurious
+#' cycle error, and the package has no edge-removal API to recover. Guard the
+#' public connection entry points instead.
+#'
+#' @param graph A `dagriculture_graph`.
+#' @param from The upstream node ID.
+#' @param to The downstream node ID.
+#' @keywords internal
+bg_assert_connection_new <- function(graph, from, to) {
+  if (identical(from, to)) {
+    cli::cli_abort(c(
+      "Cannot connect node {.val {from}} to itself.",
+      "i" = "Self-loops are not allowed in a DAG."
+    ))
+  }
+  for (edge in graph$edges %||% list()) {
+    if (identical(edge$from, from) && identical(edge$to, to)) {
+      cli::cli_abort(c(
+        "An edge from {.val {from}} to {.val {to}} already exists ({.val {edge$id}}).",
+        "i" = "Parallel edges between the same nodes make {.fn bg_plan} fail with a false cycle error.",
+        "i" = "Edges created via {.arg inputs} in {.fn bg_add_node} count as existing edges."
+      ))
+    }
+  }
+  invisible(TRUE)
+}
+
 #' Add a node to the bayesgrove project graph
 #'
 #' @param project A `bg_handle`.
@@ -5,6 +35,7 @@
 #' @param label Optional label.
 #' @param params Named list of parameters.
 #' @param inputs Optional character vector of upstream node IDs to connect.
+#'   Repeating a node ID is an error: each input is connected exactly once.
 #' @param metadata Optional metadata list.
 #'
 #' @return The generated node ID.
@@ -35,6 +66,13 @@ bg_add_node <- function(
 
   # Connect inputs if provided
   if (!is.null(inputs)) {
+    duplicated_inputs <- inputs[duplicated(inputs)]
+    if (length(duplicated_inputs) > 0L) {
+      cli::cli_abort(c(
+        "Duplicate input {.val {duplicated_inputs[[1]]}} in {.arg inputs}.",
+        "i" = "Each input node is connected to the new node exactly once."
+      ))
+    }
     for (input in inputs) {
       edge_id <- bg_new_id("edge")
       graph <- bg_dagri_add_edge(
@@ -55,6 +93,10 @@ bg_add_node <- function(
 
 #' Connect two nodes in the bayesgrove project graph
 #'
+#' Fails if an edge from `from` to `to` already exists (including one created
+#' via [bg_add_node()]'s `inputs` argument): parallel edges break planning, and
+#' there is no edge-removal API to recover from them.
+#'
 #' @param project A `bg_handle`.
 #' @param from The upstream node ID.
 #' @param to The downstream node ID.
@@ -72,9 +114,11 @@ bg_connect <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  edge_id <- bg_new_id("edge")
-
   graph <- bg_read_graph(project)
+
+  bg_assert_connection_new(graph, from, to)
+
+  edge_id <- bg_new_id("edge")
 
   graph <- bg_dagri_add_edge(
     graph = graph,
