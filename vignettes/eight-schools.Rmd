@@ -275,8 +275,8 @@ print(bg_read_graph(handle))
 #> ── Execution Graph ──
 #>
 #> └── Schools data <stan_data> [new]
-#> ├── Centered <cmdstanr_fit> [new]
-#> └── Non-centered <cmdstanr_fit> [new]
+#>     ├── Centered <cmdstanr_fit> [new]
+#>     └── Non-centered <cmdstanr_fit> [new]
 
 bg_export_report(handle, format = "md", path = "eight-schools-report.md")
 ```
