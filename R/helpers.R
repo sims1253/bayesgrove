@@ -29,7 +29,15 @@ bg_require_rationale <- function(
   rationale,
   message = "Rationale is required."
 ) {
-  if (is.null(rationale) || !nzchar(trimws(rationale))) {
+  # nzchar(NA) is TRUE, so NA must be rejected explicitly; wrong-length input
+  # would otherwise die in a coercion below rather than with this message.
+  if (
+    is.null(rationale) ||
+      !is.character(rationale) ||
+      length(rationale) != 1 ||
+      is.na(rationale) ||
+      !nzchar(trimws(rationale))
+  ) {
     cli::cli_abort(message)
   }
 

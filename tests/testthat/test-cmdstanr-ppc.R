@@ -95,4 +95,28 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     # The p-value still uses all 250 draws.
     expect_equal(res$result$p_values$mean, 0)
   })
+
+  it("aborts naming the variable when observed y contains NAs", {
+    na_inputs <- list(yrep, list(y = c(9, NA)))
+    node <- list(params = list(stats = "mean"))
+
+    expect_error(
+      bayesgrove:::bg_executor_ppc(node, na_inputs),
+      "y.*contains.*missing values",
+      class = "rlang_error"
+    )
+  })
+
+  it("aborts naming the draws when yrep contains NAs", {
+    na_yrep <- yrep
+    na_yrep[2, 1] <- NA
+    na_inputs <- list(na_yrep, list(y = c(9, 11)))
+    node <- list(params = list(stats = "mean"))
+
+    expect_error(
+      bayesgrove:::bg_executor_ppc(node, na_inputs),
+      "yrep.*missing values",
+      class = "rlang_error"
+    )
+  })
 })

@@ -47,6 +47,23 @@
   main file, so editing an included file invalidates cached results.
 * Relative bundle paths resolve from the caller's working directory, not the
   temporary staging directory.
+* `bg_require_rationale()` rejects `NA`, wrong-length, non-character, and
+  blank rationales. `nzchar(NA)` is `TRUE`, so an `NA` rationale previously
+  passed the required-rationale gate, and length-2 input failed with a
+  coercion error.
+* An `NA` or non-character `summary_kind` fails summary validation with a
+  clean message instead of crashing in the typo-suggestion lookup;
+  `bg_nearest_summary_kind()` returns `NULL` on `NA`/empty input, and
+  `bg_register_summary_kind()` rejects an `NA` kind.
+* The ppc executor aborts up front, naming the offending variable or draws,
+  when observed `y` or `yrep` draws contain missing values, instead of
+  failing with "missing value where TRUE/FALSE needed" inside the p-value
+  comparison.
+* `bg_extract_draws()`, `bg_cmdstanr_hmc_metrics()`, and
+  `bg_brms_hmc_metrics()` abort naming the `posterior` package when it is
+  not installed. The previous bare `requireNamespace()` calls discarded
+  their result, and draw extraction had no guard at all, so users saw the
+  raw "there is no package called 'posterior'" error.
 * Research inputs that JSON serialization would silently mangle (matrices,
   arrays, and values carrying attributes beyond names) are rejected with an
   error instead of losing meaning, decision `basis` payloads are stored once

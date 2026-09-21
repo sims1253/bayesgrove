@@ -38,3 +38,22 @@ describe("CLI helper output", {
     )
   })
 })
+
+describe("bg_require_rationale", {
+  it("rejects null, NA, wrong-length, non-character, and blank rationales", {
+    for (bad in list(NULL, NA_character_, c("first", "second"), 3, "   ")) {
+      expect_error(
+        bayesgrove:::bg_require_rationale(bad),
+        "Rationale is required",
+        class = "rlang_error"
+      )
+    }
+  })
+
+  it("returns the trimmed rationale when one is supplied", {
+    expect_equal(
+      bayesgrove:::bg_require_rationale("  because of prior checks  "),
+      "because of prior checks"
+    )
+  })
+})

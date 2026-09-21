@@ -198,7 +198,11 @@ bg_executor_brms_prior_fit <- function(node, inputs) {
 #' @keywords internal
 #' @noRd
 bg_brms_hmc_metrics <- function(fit, max_treedepth = 10) {
-  requireNamespace("posterior", quietly = TRUE)
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    cli::cli_abort(
+      "The {.pkg posterior} package is required for HMC diagnostics."
+    )
+  }
 
   draws_df <- posterior::summarise_draws(posterior::as_draws(fit))
   np <- tryCatch(brms::nuts_params(fit), error = function(e) NULL)
