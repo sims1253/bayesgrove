@@ -130,13 +130,17 @@ describe("fit helper argument naming", {
   it("accepts project by name without a deprecation warning", {
     handle <- bg_init(withr::local_tempdir())
 
-    expect_error(
-      bg_fit_stan(project = handle, "missing.stan", list()),
-      "bg_use_cmdstanr"
+    expect_no_warning(
+      expect_error(
+        bg_fit_stan(project = handle, "missing.stan", list()),
+        "bg_use_cmdstanr"
+      )
     )
-    expect_error(
-      bg_fit_brms(project = handle, y ~ x, data.frame(y = 1, x = 1)),
-      "bg_use_brms"
+    expect_no_warning(
+      expect_error(
+        bg_fit_brms(project = handle, y ~ x, data.frame(y = 1, x = 1)),
+        "bg_use_brms"
+      )
     )
   })
 

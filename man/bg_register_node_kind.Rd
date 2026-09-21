@@ -28,8 +28,9 @@ bg_register_node_kind(
 }
 \value{
 Invisible \code{TRUE}, after the kind is recorded in the graph registry
-and, when \code{executor} is supplied, in the handle's runtime registry and
-the on-disk registration manifest.
+and the on-disk registration manifest. The executor is bound into the
+handle's in-memory runtime registry (and its serialized source stored in
+the manifest entry) only when \code{executor} is supplied.
 }
 \description{
 Node kinds have a structural component (stored in the graph) and a runtime
