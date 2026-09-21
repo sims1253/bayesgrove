@@ -106,8 +106,6 @@ describe("bg_executor_loo_pit (cmdstanr/brms shared)", {
     class(fit) <- c("CmdStanMCMC", class(fit))
     node <- list(params = list(pit_seed = 123L))
 
-    # The constant log_lik makes loo::psis() warn inside the executor; pin
-    # the expected Pareto diagnostics instead of hiding them.
     # The constant log_lik makes loo::psis() warn twice inside the executor;
     # expect_warning() would re-signal the second warning, so suppress and
     # rely on the deterministic reproducibility assertions below.
