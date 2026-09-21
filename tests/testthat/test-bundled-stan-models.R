@@ -57,12 +57,23 @@ describe("bundled Stan models", {
         seed = 1234
       )
 
-      variables <- fit$draws_variables()
-      expect_true("yrep" %in% variables)
-      expect_true("log_lik" %in% variables)
+      # Read the fit through the same accessors the loo/ppc executors use:
+      # fit$draws() materialized as a matrix, then indexed columns selected
+      # by name so generated quantities are found without substring matches.
+      draws_matrix <- posterior::as_draws_matrix(fit$draws())
+      yrep_cols <- bayesgrove:::bg_indexed_var_cols(
+        "yrep",
+        colnames(draws_matrix)
+      )
+      log_lik_cols <- bayesgrove:::bg_indexed_var_cols(
+        "log_lik",
+        colnames(draws_matrix)
+      )
+      expect_true(any(yrep_cols))
+      expect_true(any(log_lik_cols))
 
-      yrep <- posterior::as_draws_matrix(fit$draws(variables = "yrep"))
-      log_lik <- posterior::as_draws_matrix(fit$draws(variables = "log_lik"))
+      yrep <- draws_matrix[, yrep_cols, drop = FALSE]
+      log_lik <- draws_matrix[, log_lik_cols, drop = FALSE]
       expect_equal(dim(yrep), c(100L, n))
       expect_equal(dim(log_lik), c(100L, n))
       expect_true(all(is.finite(yrep)))
