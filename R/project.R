@@ -526,7 +526,8 @@ bg_init <- function(
 #' (`.bayesgrove/project.lock`) so two writers cannot mutate a project
 #' concurrently. If the lock is already held, the holder's pid/host is
 #' reported; pass `force = TRUE` to steal a stale lock. Readonly opens skip
-#' locking and can run alongside a writer.
+#' locking and can run alongside a writer; reads remain fully functional,
+#' while every mutating call aborts on a readonly or closed handle.
 #'
 #' @param path Path to the project directory.
 #' @param readonly Whether to open the project in read-only mode.

@@ -237,11 +237,7 @@ bg_jobs <- function(project, status = NULL, detailed = FALSE) {
 #' @export
 bg_compact_jobs <- function(project) {
   S7::check_is_S7(project, bg_handle)
-  if (isTRUE(project@readonly)) {
-    cli::cli_abort(
-      "Cannot compact jobs through a read-only handle; reopen the project with {.fn bg_open}."
-    )
-  }
+  bg_assert_writable(project, "compact jobs in")
 
   log_path <- bg_jobs_log_path(project)
   if (!file.exists(log_path)) {

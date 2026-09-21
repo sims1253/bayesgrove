@@ -255,6 +255,7 @@ bg_branch_continuation_clones <- function(
 #' @export
 bg_invalidate <- function(project, node_id, recursive = TRUE) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "invalidate nodes in")
 
   graph <- bg_read_graph(project)
   if (!node_id %in% names(graph$nodes)) {

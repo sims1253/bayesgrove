@@ -315,8 +315,16 @@ bg_set_goal <- function(
   metadata = list(),
   goal_id = NULL
 ) {
+  S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "set a goal on")
+
   if (!startsWith(branch_id, "branch:")) {
     cli::cli_abort("Goals must be recorded against a branch scope.")
+  }
+
+  branches <- bg_read_branch_registry(project)$branches %||% list()
+  if (is.null(branches[[branch_id]])) {
+    cli::cli_abort("Branch {.val {branch_id}} not found in branch registry.")
   }
 
   bg_record_decision(

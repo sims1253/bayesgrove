@@ -89,6 +89,41 @@ describe("Error Handling - Closed Project Operations", {
       ignore.case = TRUE
     )
   })
+
+  it("rejects config, registry, decision, and goal writes on a closed handle", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node_id <- bg_add_node(handle, "data", label = "A")
+    branch <- bg_branch(project = handle, node_id = node_id, label = "B")
+    bg_close(handle)
+
+    expect_error(bg_pause(handle), "Cannot pause a closed project")
+    expect_error(bg_resume(handle), "Cannot resume a closed project")
+    expect_error(
+      bg_use_workflow_packs(handle, "bayesgrove.model_checks"),
+      "Cannot activate workflow packs on a closed project"
+    )
+    expect_error(
+      bg_record_decision(
+        handle,
+        scope = "project",
+        prompt = "p",
+        choice = "c",
+        rationale = "r"
+      ),
+      "Cannot record a decision in a closed project"
+    )
+    expect_error(
+      bg_set_goal(
+        handle,
+        branch_id = branch$branch_id,
+        kind = "observable_prediction",
+        rationale = "r"
+      ),
+      "Cannot set a goal on a closed project"
+    )
+  })
 })
 
 describe("Error Handling - Readonly Mode", {
@@ -103,6 +138,170 @@ describe("Error Handling - Readonly Mode", {
       bg_add_node(handle, kind = "test_kind"),
       "readonly",
       ignore.case = TRUE
+    )
+  })
+
+  it("rejects config, registry, decision, and goal writes on a readonly handle", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node_id <- bg_add_node(handle, "data", label = "A")
+    branch <- bg_branch(project = handle, node_id = node_id, label = "B")
+
+    ro <- bg_open(path = tmp, readonly = TRUE)
+
+    config_path <- file.path(tmp, ".bayesgrove", "config.json")
+    goals_path <- file.path(tmp, ".bayesgrove", "workflow", "goals.json")
+    decisions_path <- file.path(
+      tmp,
+      ".bayesgrove",
+      "decisions",
+      "decisions.jsonl"
+    )
+    config_before <- readLines(config_path)
+    goals_before <- readLines(goals_path)
+
+    expect_error(bg_pause(ro), "Cannot pause a readonly project")
+    expect_error(bg_resume(ro), "Cannot resume a readonly project")
+    expect_error(
+      bg_use_workflow_packs(ro, "bayesgrove.model_checks"),
+      "Cannot activate workflow packs on a readonly project"
+    )
+    expect_error(
+      bg_record_decision(
+        ro,
+        scope = "project",
+        prompt = "p",
+        choice = "c",
+        rationale = "r"
+      ),
+      "Cannot record a decision in a readonly project"
+    )
+    expect_error(
+      bg_set_goal(
+        ro,
+        branch_id = branch$branch_id,
+        kind = "observable_prediction",
+        rationale = "r"
+      ),
+      "Cannot set a goal on a readonly project"
+    )
+
+    # Nothing was mutated on disk under the concurrent writer.
+    expect_false(file.exists(decisions_path))
+    expect_equal(readLines(config_path), config_before)
+    expect_equal(readLines(goals_path), goals_before)
+
+    # Reads still work on the readonly handle.
+    expect_length(bg_read_decisions(ro), 0)
+    expect_null(bg_get_goal(ro, branch$branch_id))
+    expect_true(branch$branch_id %in% names(bg_list_branches(ro)))
+
+    # A closed readonly handle keeps aborting, reporting closed first.
+    bg_close(ro)
+    expect_error(bg_pause(ro), "Cannot pause a closed project")
+
+    bg_close(handle)
+  })
+
+  it("rejects run, gate, backend, kind, summary, invalidate, and compact writes on a readonly handle", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node_id <- bg_add_node(handle, "data", label = "A")
+
+    ro <- bg_open(path = tmp, readonly = TRUE)
+
+    config_path <- file.path(tmp, ".bayesgrove", "config.json")
+    config_before <- readLines(config_path)
+
+    expect_error(bg_run(ro), "Cannot run nodes in a readonly project")
+    expect_error(
+      bg_answer_gate(ro, "gate_missing", "yes", "because"),
+      "Cannot answer a gate in a readonly project"
+    )
+    expect_error(
+      bg_use_cmdstanr(ro),
+      "Cannot register node kinds in a readonly project"
+    )
+    expect_error(
+      bg_register_summary_kind(ro, "custom_kind", title = "Custom"),
+      "Cannot register summary kinds in a readonly project"
+    )
+    expect_error(
+      bg_write_summaries(
+        ro,
+        node_id,
+        artifact_ref = NULL,
+        execution_fingerprint = "fp",
+        summaries = list(list(summary_kind = "hmc_diagnostics"))
+      ),
+      "Cannot write summaries in a readonly project"
+    )
+    expect_error(
+      bg_invalidate(ro, node_id),
+      "Cannot invalidate nodes in a readonly project"
+    )
+    expect_error(
+      bg_compact_jobs(ro),
+      "Cannot compact jobs in a readonly project"
+    )
+
+    # No runtime manifest or run state was touched on disk.
+    expect_equal(readLines(config_path), config_before)
+    expect_false(file.exists(
+      file.path(tmp, ".bayesgrove", "workflow", "summaries.jsonl")
+    ))
+
+    # Closed writable handles abort the same way, reporting closed first.
+    bg_close(handle)
+    expect_error(bg_run(handle), "Cannot run nodes in a closed project")
+    expect_error(
+      bg_compact_jobs(handle),
+      "Cannot compact jobs in a closed project"
+    )
+  })
+})
+
+describe("Error Handling - Goal Branch Validation", {
+  it("rejects a goal for a branch that is not in the registry", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    expect_error(
+      bg_set_goal(
+        handle,
+        branch_id = "branch:does_not_exist",
+        kind = "observable_prediction",
+        rationale = "r"
+      ),
+      "not found in branch registry"
+    )
+
+    # No decision record or goal was written.
+    expect_length(bg_read_decisions(handle), 0)
+    expect_length(bg_read_goal_registry(handle)$branch_goals, 0)
+  })
+
+  it("sets a goal on a registered branch", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "data")
+    node_id <- bg_add_node(handle, "data", label = "A")
+    branch <- bg_branch(project = handle, node_id = node_id, label = "B")
+
+    decision <- bg_set_goal(
+      project = handle,
+      branch_id = branch$branch_id,
+      kind = "observable_prediction",
+      rationale = "Predictions are required before accepting the branch."
+    )
+
+    expect_equal(decision$kind, "goal_update")
+    expect_equal(decision$scope, branch$branch_id)
+    expect_equal(
+      bg_get_goal(handle, branch$branch_id)$kind,
+      "observable_prediction"
     )
   })
 })

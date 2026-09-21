@@ -87,6 +87,7 @@ bg_merge_workflow_pack_refs <- function(existing, incoming) {
 #' @export
 bg_use_workflow_packs <- function(project, workflow_packs) {
   S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "activate workflow packs on")
 
   config <- bg_read_project_config(project)
   config$workflow_packs <- bg_merge_workflow_pack_refs(

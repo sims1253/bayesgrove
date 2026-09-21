@@ -237,6 +237,8 @@ bg_register_node_kind_builtin <- function(
   input_contract = NULL,
   output_type = NULL
 ) {
+  bg_assert_writable(project, "register node kinds in")
+
   # Structural graph registration (so bg_add_node accepts the kind).
   graph <- bg_read_graph(project)
   if (is.null(graph$registry$kinds[[kind]])) {
