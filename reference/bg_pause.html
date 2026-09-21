@@ -56,6 +56,12 @@ so that no new jobs are dispatched. It does not cancel currently running jobs.</
 
 </dl></div>
     <div class="section level2">
+    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
+    <p>Invisibly, a minimal acknowledgement list with elements <code>state</code>
+and <code>workflow_state</code>, both <code>"paused"</code>. Unlike <code><a href="bg_resume.html">bg_resume()</a></code>, this does
+not return the full project status; call <code><a href="bg_status.html">bg_status()</a></code> for that.</p>
+    </div>
+    <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>In a synchronous runtime the pause marker prevents the next <a href="bg_run.html">bg_run</a> call
 from starting work. Under parallel execution, pause takes effect at wave

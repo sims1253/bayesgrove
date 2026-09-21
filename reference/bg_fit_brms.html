@@ -50,14 +50,14 @@ become the fit node's params (e.g. <code>chains</code>, <code>seed</code>, <code
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_fit_brms</span><span class="op">(</span><span class="va">handle</span>, <span class="va">formula</span>, <span class="va">data</span>, label <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_fit_brms</span><span class="op">(</span><span class="va">project</span>, <span class="va">formula</span>, <span class="va">data</span>, label <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span>, handle <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-handle">handle<a class="anchor" aria-label="anchor" href="#arg-handle"></a></dt>
+<dl><dt id="arg-project">project<a class="anchor" aria-label="anchor" href="#arg-project"></a></dt>
 <dd><p>A <code>bg_handle</code>.</p></dd>
 
 
@@ -75,6 +75,11 @@ become the fit node's params (e.g. <code>chains</code>, <code>seed</code>, <code
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Passed to the fit node as params (e.g. <code>chains = 4</code>).</p></dd>
+
+
+<dt id="arg-handle">handle<a class="anchor" aria-label="anchor" href="#arg-handle"></a></dt>
+<dd><p>Deprecated synonym for <code>project</code>; accepted with a
+once-per-session warning.</p></dd>
 
 </dl></div>
     <div class="section level2">
