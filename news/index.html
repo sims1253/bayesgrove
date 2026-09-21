@@ -55,6 +55,12 @@
 <ul><li>Bundles retain data attached with <code><a href="../reference/bg_set_node_data.html">bg_set_node_data()</a></code>, even before a node runs.</li>
 <li>Fingerprints hash the <code>#include</code> closure of a Stan program, not just the main file, so editing an included file invalidates cached results.</li>
 <li>Relative bundle paths resolve from the caller’s working directory, not the temporary staging directory.</li>
+<li>
+<code>bg_require_rationale()</code> rejects <code>NA</code>, wrong-length, non-character, and blank rationales. <code>nzchar(NA)</code> is <code>TRUE</code>, so an <code>NA</code> rationale previously passed the required-rationale gate, and length-2 input failed with a coercion error.</li>
+<li>An <code>NA</code> or non-character <code>summary_kind</code> fails summary validation with a clean message instead of crashing in the typo-suggestion lookup; <code>bg_nearest_summary_kind()</code> returns <code>NULL</code> on <code>NA</code>/empty input, and <code><a href="../reference/bg_register_summary_kind.html">bg_register_summary_kind()</a></code> rejects an <code>NA</code> kind.</li>
+<li>The ppc executor aborts up front, naming the offending variable or draws, when observed <code>y</code> or <code>yrep</code> draws contain missing values, instead of failing with “missing value where TRUE/FALSE needed” inside the p-value comparison.</li>
+<li>
+<code>bg_extract_draws()</code>, <code>bg_cmdstanr_hmc_metrics()</code>, and <code>bg_brms_hmc_metrics()</code> abort naming the <code>posterior</code> package when it is not installed. The previous bare <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code> calls discarded their result, and draw extraction had no guard at all, so users saw the raw “there is no package called ‘posterior’” error.</li>
 </ul></div>
 </div>
     <div class="section level2">
