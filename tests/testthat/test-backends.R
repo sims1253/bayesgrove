@@ -287,3 +287,56 @@ describe("Executor registration (Phase 4.2)", {
     )
   })
 })
+
+describe("missing-package guards", {
+  # requireNamespace resolves from base, which local_mocked_bindings cannot
+  # mock (bayesgrove holds no binding for it). Re-parent a copy of each
+  # guarded function to a scope where requireNamespace reports the target
+  # package as missing: the copy runs the real body, so the guard branch
+  # itself is exercised without touching the installed library.
+  with_missing_package <- function(fn, package) {
+    shim <- new.env(parent = environment(fn))
+    shim$requireNamespace <- function(pkg, ...) !identical(pkg, package)
+    environment(fn) <- shim
+    fn
+  }
+
+  it("bg_extract_draws aborts naming posterior when it is unavailable", {
+    fn <- with_missing_package(
+      getFromNamespace("bg_extract_draws", "bayesgrove"),
+      "posterior"
+    )
+
+    expect_error(
+      fn(matrix(1)),
+      "posterior package is required for extracting draws",
+      class = "rlang_error"
+    )
+  })
+
+  it("bg_cmdstanr_hmc_metrics aborts naming posterior when it is unavailable", {
+    fn <- with_missing_package(
+      getFromNamespace("bg_cmdstanr_hmc_metrics", "bayesgrove"),
+      "posterior"
+    )
+
+    expect_error(
+      fn(list()),
+      "posterior package is required for HMC diagnostics",
+      class = "rlang_error"
+    )
+  })
+
+  it("bg_brms_hmc_metrics aborts naming posterior when it is unavailable", {
+    fn <- with_missing_package(
+      getFromNamespace("bg_brms_hmc_metrics", "bayesgrove"),
+      "posterior"
+    )
+
+    expect_error(
+      fn(list()),
+      "posterior package is required for HMC diagnostics",
+      class = "rlang_error"
+    )
+  })
+})

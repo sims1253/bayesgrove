@@ -44,6 +44,15 @@ bg_register_builtin_executor <- function(id, fn) {
 #' @keywords internal
 #' @noRd
 bg_extract_draws <- function(artifact, as = c("matrix", "array")) {
+  # One guard covers every caller (loo, loo_pit, ppc) so a missing
+  # posterior aborts here with a named package instead of the raw
+  # "there is no package called 'posterior'" from ::.
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    cli::cli_abort(
+      "The {.pkg posterior} package is required for extracting draws."
+    )
+  }
+
   as <- match.arg(as)
   to <- if (identical(as, "array")) {
     posterior::as_draws_array
