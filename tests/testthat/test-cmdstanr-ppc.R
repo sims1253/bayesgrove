@@ -95,4 +95,50 @@ describe("bg_executor_ppc (cmdstanr backend)", {
     # The p-value still uses all 250 draws.
     expect_equal(res$result$p_values$mean, 0)
   })
+
+  it("aborts naming the variable when observed data contains NA", {
+    # NA observations used to propagate into NA p-values and die with an
+    # opaque "missing value where TRUE/FALSE needed" in the threshold check.
+    na_inputs <- list(yrep, list(outcome = c(9, NA)))
+    node_na <- list(params = list(stats = "mean", y_var = "outcome"))
+
+    expect_error(
+      bayesgrove:::bg_executor_ppc(node_na, na_inputs),
+      "contains missing values",
+      class = "rlang_error"
+    )
+    # The message must name the offending variable, not just "y".
+    expect_error(
+      bayesgrove:::bg_executor_ppc(node_na, na_inputs),
+      "outcome"
+    )
+  })
+
+  it("aborts when the posterior-predictive draws contain NA", {
+    na_yrep <- yrep
+    na_yrep[2, 1] <- NA
+
+    expect_error(
+      bayesgrove:::bg_executor_ppc(
+        list(params = list(stats = "mean")),
+        list(na_yrep, list(y = c(9, 11)))
+      ),
+      "draws.*contain missing values",
+      class = "rlang_error"
+    )
+  })
+
+  it("aborts when a ppc statistic is NA for otherwise complete data", {
+    # sd() of a single observation is NA even with no missing values.
+    single_obs_inputs <- list(yrep, list(y = 10))
+
+    expect_error(
+      bayesgrove:::bg_executor_ppc(
+        list(params = list(stats = "sd")),
+        single_obs_inputs
+      ),
+      "statistic.*is NA",
+      class = "rlang_error"
+    )
+  })
 })

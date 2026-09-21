@@ -603,6 +603,18 @@ bg_executor_ppc <- function(node, inputs) {
     }
   }
 
+  # A single NA observation propagates through every statistic into
+  # `NA < threshold` comparisons, which die with an opaque "missing value
+  # where TRUE/FALSE needed". Reject it here, naming the variable.
+  if (anyNA(y)) {
+    cli::cli_abort(
+      paste0(
+        "Observed variable {.val {y_var}} contains missing values (NA) ",
+        "in the ppc data input."
+      )
+    )
+  }
+
   # Posterior-predictive draws (yrep) come from the fit.
   if (inherits(fit_artifact, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
@@ -620,6 +632,16 @@ bg_executor_ppc <- function(node, inputs) {
   if (ncol(yrep) == 0) {
     cli::cli_abort(
       "Could not find {.val {yrep_var}} draws in the fit for ppc."
+    )
+  }
+
+  # NA draws poison the statistics the same way NA observations do.
+  if (anyNA(yrep)) {
+    cli::cli_abort(
+      paste0(
+        "The {.val {yrep_var}} draws in the fit for ppc contain missing ",
+        "values (NA)."
+      )
     )
   }
 
@@ -648,6 +670,17 @@ bg_executor_ppc <- function(node, inputs) {
     # posterior draws matrix). Margin 2 would give the per-observation
     # distribution, not the posterior-predictive distribution of T(yrep).
     yrep_stats <- apply(yrep, 1, stat_fn)
+    # Even NA-free input can yield an NA statistic (e.g. sd() of a single
+    # observation); catch it here rather than in the threshold comparison.
+    if (is.na(y_stat) || anyNA(yrep_stats)) {
+      cli::cli_abort(
+        paste0(
+          "The ppc statistic {.val {stat_name}} is NA for observed ",
+          "{.val {y_var}} or {.val {yrep_var}} draws, so no p-value can be ",
+          "computed."
+        )
+      )
+    }
     p_values[[stat_name]] <- mean(yrep_stats >= y_stat)
   }
 
