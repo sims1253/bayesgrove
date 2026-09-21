@@ -29,8 +29,23 @@ bg_require_rationale <- function(
   rationale,
   message = "Rationale is required."
 ) {
-  if (is.null(rationale) || !nzchar(trimws(rationale))) {
+  # nzchar(NA) is TRUE, so NA must be rejected explicitly; a length-2 (or
+  # non-character) rationale previously died in a coercion error inside the
+  # length check itself.
+  if (
+    is.null(rationale) ||
+      (length(rationale) == 1L && is.na(rationale)) ||
+      (is.character(rationale) &&
+        length(rationale) == 1L &&
+        !nzchar(trimws(rationale)))
+  ) {
     cli::cli_abort(message)
+  }
+
+  if (!is.character(rationale) || length(rationale) != 1L) {
+    cli::cli_abort(
+      "{.arg rationale} must be a single non-empty string, not {.obj_type_friendly {rationale}} of length {length(rationale)}."
+    )
   }
 
   invisible(trimws(rationale))

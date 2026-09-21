@@ -188,6 +188,63 @@ describe("Error Handling - Invalid Parameters", {
   })
 })
 
+describe("Error Handling - Rationale Validation", {
+  it("rejects NA rationale instead of accepting it", {
+    # nzchar(NA) is TRUE, so NA used to slip through the required-rationale
+    # check and produce a decision record with rationale = NA.
+    expect_error(
+      bayesgrove:::bg_require_rationale(NA_character_),
+      "Rationale is required"
+    )
+    expect_error(
+      bayesgrove:::bg_require_rationale(NA),
+      "Rationale is required"
+    )
+  })
+
+  it("still rejects blank rationale with the caller's message", {
+    expect_error(
+      bayesgrove:::bg_require_rationale("  "),
+      "Rationale is required"
+    )
+    expect_error(
+      bayesgrove:::bg_require_rationale(
+        NULL,
+        message = "Custom rationale message."
+      ),
+      "Custom rationale message"
+    )
+  })
+
+  it("rejects multi-value and non-string rationale with a scalar message", {
+    expect_error(
+      bayesgrove:::bg_require_rationale(c("because", "why not")),
+      "must be a single non-empty string"
+    )
+    expect_error(
+      bayesgrove:::bg_require_rationale(3.5),
+      "must be a single non-empty string"
+    )
+  })
+
+  it("rejects NA rationale end-to-end when recording a decision", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    expect_error(
+      bg_record_decision(
+        handle,
+        scope = "project",
+        prompt = "Ship it?",
+        choice = "yes",
+        rationale = NA_character_
+      ),
+      "Rationale is required"
+    )
+    expect_length(bg_read_decisions(handle), 0)
+  })
+})
+
 describe("Error Handling - Concurrent Access", {
   it("detects version conflicts on concurrent writes", {
     tmp <- withr::local_tempdir()
