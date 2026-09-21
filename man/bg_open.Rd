@@ -31,5 +31,6 @@ A non-readonly open acquires a single-writer lock
 (\code{.bayesgrove/project.lock}) so two writers cannot mutate a project
 concurrently. If the lock is already held, the holder's pid/host is
 reported; pass \code{force = TRUE} to steal a stale lock. Readonly opens skip
-locking and can run alongside a writer.
+locking and can run alongside a writer; reads remain fully functional,
+while every mutating call aborts on a readonly or closed handle.
 }

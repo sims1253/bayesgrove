@@ -44,6 +44,7 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_add_gate", classification = "stable"),
     list(fn = "bg_answer_gate", classification = "stable"),
     list(fn = "bg_pending_gates", classification = "stable"),
+    list(fn = "bg_repair_orphan_gates", classification = "experimental"),
     list(fn = "bg_record_decision", classification = "stable"),
     list(fn = "bg_read_decisions", classification = "stable"),
     list(fn = "bg_extension_registry", classification = "experimental"),

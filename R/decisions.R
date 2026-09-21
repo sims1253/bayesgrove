@@ -1,3 +1,46 @@
+#' Roll back a gate transaction's graph commit
+#'
+#' Restores `graph.json` under `graph.json.lock` and only when the persisted
+#' graph still carries this transaction's committed version, so a commit that
+#' landed in between is never silently reverted. Callers restore their
+#' gate-spec state outside this helper.
+#'
+#' @param project A `bg_handle`.
+#' @param original_graph The pre-transaction graph to restore.
+#' @param committed_version The graph version this transaction committed.
+#' @keywords internal
+bg_rollback_gate_graph <- function(project, original_graph, committed_version) {
+  graph_path <- file.path(
+    project@path,
+    ".bayesgrove",
+    "graph",
+    "graph.json"
+  )
+  bg_with_file_lock(paste0(graph_path, ".lock"), {
+    persisted_graph <- if (file.exists(graph_path)) {
+      jsonlite::read_json(graph_path, simplifyVector = FALSE)
+    } else {
+      NULL
+    }
+    persisted_version <- as.integer(
+      persisted_graph$version %||% 0L
+    )
+    if (!identical(persisted_version, committed_version)) {
+      cli::cli_abort(c(
+        "A concurrent commit moved the persisted graph to version",
+        "{persisted_version}; this transaction committed",
+        "{committed_version}, so the concurrent commit was left",
+        "in place instead of being reverted."
+      ))
+    }
+    bg_write_json_atomic(
+      graph_path,
+      original_graph,
+      sort_keys = FALSE
+    )
+  })
+}
+
 #' Add a decision gate to an edge
 #'
 #' @param project A `bg_handle`.
@@ -78,38 +121,11 @@ bg_add_gate <- function(
       rollback_error <- tryCatch(
         {
           if (!is.null(committed_version)) {
-            # Roll back under the commit lock and only when the persisted
-            # graph still carries this transaction's version, so a commit
-            # that landed in between is never silently reverted.
-            graph_path <- file.path(
-              project@path,
-              ".bayesgrove",
-              "graph",
-              "graph.json"
+            bg_rollback_gate_graph(
+              project,
+              original_graph,
+              committed_version
             )
-            bg_with_file_lock(paste0(graph_path, ".lock"), {
-              persisted_graph <- if (file.exists(graph_path)) {
-                jsonlite::read_json(graph_path, simplifyVector = FALSE)
-              } else {
-                NULL
-              }
-              persisted_version <- as.integer(
-                persisted_graph$version %||% 0L
-              )
-              if (!identical(persisted_version, committed_version)) {
-                cli::cli_abort(c(
-                  "A concurrent commit moved the persisted graph to version",
-                  "{persisted_version}; this transaction committed",
-                  "{committed_version}, so the concurrent commit was left",
-                  "in place instead of being reverted."
-                ))
-              }
-              bg_write_json_atomic(
-                graph_path,
-                original_graph,
-                sort_keys = FALSE
-              )
-            })
           }
           project@loaded_graph_version <- original_loaded_version
           # Drop only this gate entry to avoid clobbering concurrent updates.
@@ -241,38 +257,11 @@ bg_answer_gate <- function(
       rollback_error <- tryCatch(
         {
           if (!is.null(committed_version)) {
-            # Roll back under the commit lock and only when the persisted
-            # graph still carries this transaction's version, so a commit
-            # that landed in between is never silently reverted.
-            graph_path <- file.path(
-              project@path,
-              ".bayesgrove",
-              "graph",
-              "graph.json"
+            bg_rollback_gate_graph(
+              project,
+              original_graph,
+              committed_version
             )
-            bg_with_file_lock(paste0(graph_path, ".lock"), {
-              persisted_graph <- if (file.exists(graph_path)) {
-                jsonlite::read_json(graph_path, simplifyVector = FALSE)
-              } else {
-                NULL
-              }
-              persisted_version <- as.integer(
-                persisted_graph$version %||% 0L
-              )
-              if (!identical(persisted_version, committed_version)) {
-                cli::cli_abort(c(
-                  "A concurrent commit moved the persisted graph to version",
-                  "{persisted_version}; this transaction committed",
-                  "{committed_version}, so the concurrent commit was left",
-                  "in place instead of being reverted."
-                ))
-              }
-              bg_write_json_atomic(
-                graph_path,
-                original_graph,
-                sort_keys = FALSE
-              )
-            })
           }
           project@loaded_graph_version <- original_loaded_version
           # Restore only this gate entry to avoid clobbering concurrent updates.
@@ -598,6 +587,40 @@ bg_gates_missing_specs <- function(project, graph = NULL, specs = NULL) {
     }),
     orphan_ids
   )
+}
+
+#' Remove orphan gates that cannot be answered or bypassed
+#'
+#' Drops pending graph gates that have no gate spec — the unanswerable state
+#' an interrupted `bg_add_gate()` from an older version could leave behind —
+#' and commits the cleaned graph, so recovery no longer requires
+#' hand-editing `graph.json`. Gates on edges with retired or disabled
+#' endpoints are left alone, matching what `bg_plan()` and `bg_status()`
+#' report as anomalies. A project without orphan gates is left untouched.
+#'
+#' @param project A `bg_handle`.
+#'
+#' @return Invisible named list keyed by gate ID with `gate_id`, `edge_id`,
+#'   `from_node_id`, and `to_node_id` entries for every removed gate, empty
+#'   when there was nothing to repair.
+#' @export
+bg_repair_orphan_gates <- function(project) {
+  S7::check_is_S7(project, bg_handle)
+  bg_assert_writable(project, "repair orphan gates in")
+
+  graph <- bg_read_graph(project)
+  orphans <- bg_gates_missing_specs(project, graph = graph)
+  if (length(orphans) == 0) {
+    return(invisible(list()))
+  }
+
+  for (gate_id in names(orphans)) {
+    graph$gates[[gate_id]] <- NULL
+  }
+  graph$version <- graph$version + 1L
+  bg_commit_graph(project, graph)
+
+  invisible(orphans)
 }
 
 #' Build a decision metadata list from action and payload fields
