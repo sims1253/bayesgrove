@@ -39,6 +39,7 @@
 <div class="section level3">
 <h3 id="new-features-development-version">New features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
 <ul><li>Added an experimental research-search interface: <code><a href="../reference/bg_research_init.html">bg_research_init()</a></code>, <code><a href="../reference/bg_research_state.html">bg_research_state()</a></code>, <code><a href="../reference/bg_research_propose.html">bg_research_propose()</a></code>, and <code><a href="../reference/bg_research_apply.html">bg_research_apply()</a></code>. It records P/A/D candidate lineages, evidence, cross-lineage comparisons, decisions, and policy changes. Record, Guide, and Enforce modes share the same research state. Snapshots, bundles, and reports include that state.</li>
+<li>The research-search interface gains a <code>reframe</code> action that records a corrected question or goal and requires a declared human actor. Every research record is stamped with the <code>goal_version</code> it was created under; after a reframe, reviews recorded under an earlier goal no longer authorize acceptance, and comparisons must include a result.</li>
 <li>Bundles copy Stan programs referenced by node params, and their <code>#include</code> closure, into the archive and rewrite the graph to project-relative paths, so restored projects run after the original files are gone. Only files referenced through approved params keys (<code>stan_file</code>) are copied; secrets and unreferenced siblings stay out, and the bundle manifest records a relocation table with content hashes. Package-shipped model references (<code>system.file(...)</code>) are rewritten to machine-stable <code>bayesgrove:</code> package references instead of being copied. Relative <code>stan_file</code> params resolve against the project root at bundling, fingerprinting, and execution time, so a project bundles and runs identically from any working directory.</li>
 <li>Added <code>tools/check-captured-output.R</code> and a <code>docs-check.yaml</code> workflow that verify deterministic captured README and vignette output in CI without CmdStan. The sampler vignettes stay intentionally precomputed and are refreshed only via <code>tools/precompute-vignettes.R</code>.</li>
 </ul></div>
@@ -61,6 +62,14 @@
 <li>The ppc executor aborts up front, naming the offending variable or draws, when observed <code>y</code> or <code>yrep</code> draws contain missing values, instead of failing with “missing value where TRUE/FALSE needed” inside the p-value comparison.</li>
 <li>
 <code>bg_extract_draws()</code>, <code>bg_cmdstanr_hmc_metrics()</code>, and <code>bg_brms_hmc_metrics()</code> abort naming the <code>posterior</code> package when it is not installed. The previous bare <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code> calls discarded their result, and draw extraction had no guard at all, so users saw the raw “there is no package called ‘posterior’” error.</li>
+<li>Research inputs that JSON serialization would silently mangle (matrices, arrays, and values carrying attributes beyond names) are rejected with an error instead of losing meaning, decision <code>basis</code> payloads are stored once as a nested record rather than flattened into the decision fields, and policy rule values must be scalars.</li>
+<li>Reading a research state validates its saved question and policy, so a damaged policy is rejected on read rather than when the next action touches it; a revision that only reorders named fields counts as no change; and policy-hold errors render their findings as data, so reasons containing braces no longer break the message.</li>
+<li>Damaged candidate records are rejected when a research state is read: missing fields, unknown status, a <code>goal_version</code> with no matching history entry, or a <code>parent_id</code> lineage with missing parents or cycles aborts before the lineage can be extended.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-development-version">Documentation<a class="anchor" aria-label="anchor" href="#documentation-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/bg_research_apply.html">bg_research_apply()</a></code> documents that the returned history records the generated <code>id</code>, not <code>record_id</code>.</li>
 </ul></div>
 </div>
     <div class="section level2">
