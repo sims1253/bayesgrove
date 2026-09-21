@@ -1,30 +1,17 @@
 # Parallel execution (Milestone 3) -------------------------------------------
 #
 # Integration + unit coverage for the wave scheduler's parallel path. The
-# daemon-backed tests skip on CRAN, when mirai/carrier are unavailable, and
-# whenever the session runs a dev-loaded (load_all) copy, whose namespace the
-# daemon processes can never see.
+# daemon-backed tests skip on CRAN and when mirai/carrier are unavailable.
+# They intentionally also run under pkgload::load_all(): the parallel
+# dispatcher detects dev sessions and has each daemon load the executing
+# source checkout (see bg_daemons_resolve_by_name()), so daemons run the
+# code under test rather than a stale install.
 
 describe("Parallel execution (Milestone 3)", {
   skip_on_cran()
   skip_if_not_installed("mirai")
   skip_if_not_installed("carrier")
   skip_if_not_installed("purrr")
-  # Daemons are fresh R processes that resolve the worker via
-  # getFromNamespace("bg_wave_worker", "bayesgrove"), so they can only ever
-  # run an *installed* copy. A load_all() dev namespace is invisible to them
-  # (and under load_all() even find.package() reports the dev source tree, so
-  # probing the library paths cannot tell whether the daemons would run the
-  # code under test or a stale install). Shipping the worker instead cannot
-  # work: carrier crates `.f` in a globalenv child, stripping the package
-  # namespace the worker's unqualified calls resolve in. Skip whenever this
-  # session runs a dev-loaded copy; R CMD check (and CI) test the installed
-  # package and still run all three daemon tests.
-  skip_if(
-    requireNamespace("pkgload", quietly = TRUE) &&
-      pkgload::is_dev_package("bayesgrove"),
-    "parallel worker requires the installed package; skipped under load_all"
-  )
 
   it("runs independent siblings in parallel across daemons", {
     tmp <- withr::local_tempdir()
@@ -260,5 +247,37 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
 
     expect_equal(names(requirements), c("mirai", "purrr", "carrier"))
     expect_true(utils::compareVersion(requirements[["purrr"]], "1.1.0") >= 0)
+  })
+
+  it("flags whether daemons can resolve the executing bayesgrove copy", {
+    # Daemons are fresh R processes that can only load bayesgrove from an
+    # installed library. By-name worker resolution is therefore only faithful
+    # when this process itself executes that installed copy. Under
+    # pkgload::load_all() the executing namespace lives in the source
+    # checkout: daemons must NOT resolve by name there, because that would
+    # fail without an install or silently run a stale one.
+    ns <- asNamespace("bayesgrove")
+    executing <- getNamespaceInfo(ns, "path")
+    installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
+    matches_install <- length(installed) == 1L &&
+      !is.na(installed) &&
+      identical(
+        normalizePath(executing, mustWork = FALSE),
+        normalizePath(installed, mustWork = FALSE)
+      )
+
+    from_checkout <- identical(
+      normalizePath(executing, mustWork = FALSE),
+      normalizePath(test_path("../.."), mustWork = FALSE)
+    )
+    if (from_checkout) {
+      # Dev session (test_local / test_file under load_all).
+      expect_false(bayesgrove:::bg_daemons_resolve_by_name())
+    } else {
+      # Installed session (R CMD check / library()): the executing copy is
+      # the one a daemon finds on the library path.
+      expect_true(matches_install)
+      expect_true(bayesgrove:::bg_daemons_resolve_by_name())
+    }
   })
 })

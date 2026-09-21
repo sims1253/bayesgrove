@@ -134,6 +134,38 @@ bg_mirai_daemons_active <- function() {
     status$connections[[1]] > 0
 }
 
+#' Report whether fresh mirai daemons can resolve the executing bayesgrove.
+#'
+#' Daemons are separate R processes that can only load bayesgrove from the
+#' installed library. Resolving the worker with
+#' `getFromNamespace(..., "bayesgrove")` on a daemon therefore executes the
+#' installed copy, which matches the code this process is running only when
+#' this process itself executes an installed copy. In a `pkgload::load_all()`
+#' session the executing namespace lives in the source checkout, so by-name
+#' resolution would fail outright when bayesgrove is not installed anywhere,
+#' and silently run a stale installed copy when it is.
+#'
+#' The check compares the executing namespace's path with the installed
+#' location a fresh process would load. `lib.loc` is passed explicitly because
+#' the default `find.package()` search also covers registered namespaces —
+#' including the source checkout pkgload registers in dev sessions — and
+#' pkgload additionally shims the search-path `find.package()`.
+#'
+#' @return TRUE when by-name resolution on a daemon would execute exactly the
+#'   code this process is running.
+#' @keywords internal
+#' @noRd
+bg_daemons_resolve_by_name <- function() {
+  executing <- getNamespaceInfo(asNamespace("bayesgrove"), "path")
+  installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
+  length(installed) == 1L &&
+    !is.na(installed) &&
+    identical(
+      normalizePath(executing, mustWork = FALSE),
+      normalizePath(installed, mustWork = FALSE)
+    )
+}
+
 # Parallel wave dispatch -----------------------------------------------------
 #
 # Workers run the executor and write artifact blobs. Content-addressed writes
@@ -275,6 +307,12 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
 #' `$worker_origin = TRUE` so the caller knows the blob is written but the
 #' index/summaries/job still need finalizing on the main process.
 #'
+#' Daemons resolve the worker from the installed bayesgrove when that is what
+#' this process executes; in a `pkgload::load_all()` session each daemon loads
+#' the executing source checkout itself first (see
+#' `bg_daemons_resolve_by_name()`), so dev sessions run the checkout's code on
+#' daemons instead of failing or running a stale install.
+#'
 #' @param project A `bg_handle` (main process; holds the writer lock).
 #' @param wave Character vector of node IDs in this wave.
 #' @param plan The current run plan.
@@ -297,16 +335,51 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
   # context, NOT bayesgrove's namespace, so it must reach the worker via
   # getFromNamespace rather than a bare name (which would not resolve).
   # getFromNamespace avoids the R CMD check NOTE that ::: to one's own
-  # namespace would trigger, while still resolving the internal worker on the
-  # daemon (bayesgrove must be installed there, as it is for any built-in
-  # executor). The map blocks until all daemons return.
-  raw_results <- purrr::map(
-    tasks,
-    purrr::in_parallel(function(task) {
-      worker <- utils::getFromNamespace("bg_wave_worker", "bayesgrove")
-      worker(task)
-    })
-  )
+  # namespace would trigger. The map blocks until all daemons return.
+  raw_results <- if (bg_daemons_resolve_by_name()) {
+    # Installed session (R CMD check, CI, library()): the daemon loads the
+    # same installed namespace this process is executing.
+    purrr::map(
+      tasks,
+      purrr::in_parallel(function(task) {
+        worker <- utils::getFromNamespace("bg_wave_worker", "bayesgrove")
+        worker(task)
+      })
+    )
+  } else {
+    # Dev session (pkgload::load_all()): no installed copy matches the code
+    # this process is running, so each daemon loads the executing source
+    # checkout itself before resolving the worker by name. The path check
+    # keeps this idempotent: a daemon that already loaded the checkout (an
+    # earlier task in this run, or in place of a stale installed namespace)
+    # skips the reload. pkgload is a Suggests dependency and necessarily
+    # installed wherever a load_all() session dispatches from.
+    purrr::map(
+      tasks,
+      purrr::in_parallel(
+        function(task) {
+          ns <- tryCatch(
+            asNamespace("bayesgrove"),
+            error = function(e) NULL
+          )
+          if (
+            is.null(ns) ||
+              !identical(
+                normalizePath(getNamespaceInfo(ns, "path"), mustWork = FALSE),
+                source_path
+              )
+          ) {
+            pkgload::load_all(source_path, quiet = TRUE, attach = FALSE)
+          }
+          utils::getFromNamespace("bg_wave_worker", "bayesgrove")(task)
+        },
+        source_path = normalizePath(
+          getNamespaceInfo(asNamespace("bayesgrove"), "path"),
+          mustWork = FALSE
+        )
+      )
+    )
+  }
   lapply(wave, function(node_id) {
     res <- raw_results[[node_id]]
     res$node_id <- node_id
@@ -317,11 +390,14 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 
 #' The wave worker: run one node's executor and write its CAS blob.
 #'
-#' Runs on a mirai daemon. Loads bayesgrove, resolves the executor (built-in by
-#' ref, or uses the crated user function), calls `bg_run_executor`, and writes
-#' the artifact blob via `bg_store_cas_blob` (idempotent + atomic, safe under
-#' concurrent writes). The main process writes the artifact index, summaries
-#' JSONL, and jobs JSONL. Returns
+#' Runs on a mirai daemon, where the dispatching crate has already made a
+#' bayesgrove namespace visible: the installed library copy, or (dev sessions)
+#' the source checkout the crate loaded via pkgload. Either way, the
+#' unqualified calls below resolve in this function's defining namespace.
+#' Resolves the executor (built-in by ref, or uses the crated user function),
+#' calls `bg_run_executor`, and writes the artifact blob via `bg_store_cas_blob`
+#' (idempotent + atomic, safe under concurrent writes). The main process
+#' writes the artifact index, summaries JSONL, and jobs JSONL. Returns
 #' `list(node_id, ref, summaries, ok, error)`; `ref`/`summaries` are populated
 #' on success, `error` on failure.
 #' @param task A worker task bundle from `bg_build_worker_task`.
@@ -329,19 +405,6 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 #' @keywords internal
 #' @noRd
 bg_wave_worker <- function(task) {
-  # Daemons need bayesgrove installed; require it quietly so a missing install
-  # surfaces as a clean per-node failure. (The body below uses unqualified
-  # calls. They resolve in bayesgrove's own namespace because this function's
-  # defining environment is the package, even when the daemon looked it up via
-  # getFromNamespace.)
-  if (!requireNamespace("bayesgrove", quietly = TRUE)) {
-    return(list(
-      node_id = task$node_id,
-      ok = FALSE,
-      error = list(message = "bayesgrove is not installed on the daemon")
-    ))
-  }
-
   # Open a read-only handle on the worker so bg_store_cas_blob can write the
   # blob (it only needs the path). Read-only skips the writer lock, which the
   # main process already holds; the worker only writes the content-addressed
