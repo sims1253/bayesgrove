@@ -143,16 +143,49 @@ describe("Individual schema structure", {
 })
 
 describe("Protocol schema validation against live objects", {
+  # A prior-workflow project with a completed fit deterministically emits
+  # obligations and actions, so the schema-validated branches below always run
+  # instead of depending on whatever a bare project happens to emit.
+  make_prior_workflow_project <- function(cleanup_env = parent.frame()) {
+    tmp <- tempfile("protocol-schema-")
+    dir.create(tmp, recursive = TRUE)
+    withr::defer(unlink(tmp, recursive = TRUE), envir = cleanup_env)
+
+    handle <- bg_init(
+      path = tmp,
+      workflow_packs = list("bayesgrove.prior_workflow")
+    )
+
+    bg_register_node_kind(handle, "source", executor = function(node, inputs) {
+      list(rows = 10L)
+    })
+    bg_register_node_kind(handle, "fit", executor = function(node, inputs) {
+      list(
+        result = list(ok = TRUE),
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          passed = TRUE,
+          severity = "ok",
+          metrics = list()
+        ))
+      )
+    })
+
+    source_id <- bg_add_node(handle, kind = "source", label = "Data")
+    fit_id <- bg_add_node(
+      handle,
+      kind = "fit",
+      label = "Baseline fit",
+      inputs = source_id
+    )
+    bg_run(handle, targets = fit_id)
+    handle
+  }
+
   it("validates bg_next_actions result structure", {
     skip_if_not_installed("jsonlite")
 
-    project_dir <- withr::local_tempdir()
-    # Create a minimal test project
-    handle <- bg_init(project_dir)
-    bg_close(handle)
-
-    project <- bg_open(project_dir)
-    withr::defer(bg_close(project), envir = parent.frame())
+    project <- make_prior_workflow_project()
 
     # Get next_actions result
     result <- bg_next_actions(project)
@@ -162,40 +195,30 @@ describe("Protocol schema validation against live objects", {
   })
 
   it("validates obligation item structure", {
-    project_dir <- withr::local_tempdir()
-    handle <- bg_init(project_dir)
-    bg_close(handle)
-
-    project <- bg_open(project_dir)
-    withr::defer(bg_close(project), envir = parent.frame())
+    project <- make_prior_workflow_project()
 
     result <- bg_next_actions(project)
 
-    if (length(result$obligations) > 0) {
-      obl <- result$obligations[[1]]
-      expect_true(bg_validate_protocol_object(obl, "bg_obligation_item"))
-    } else {
-      # No obligations to validate, but structure is valid
-      expect_true(TRUE)
+    expect_gt(length(result$obligations), 0)
+    for (obl in result$obligations) {
+      expect_true(
+        bg_validate_protocol_object(obl, "bg_obligation_item"),
+        info = obl$kind %||% obl$obligation_id
+      )
     }
   })
 
   it("validates action item structure", {
-    project_dir <- withr::local_tempdir()
-    handle <- bg_init(project_dir)
-    bg_close(handle)
-
-    project <- bg_open(project_dir)
-    withr::defer(bg_close(project), envir = parent.frame())
+    project <- make_prior_workflow_project()
 
     result <- bg_next_actions(project)
 
-    if (length(result$actions) > 0) {
-      act <- result$actions[[1]]
-      expect_true(bg_validate_protocol_object(act, "bg_action_item"))
-    } else {
-      # No actions to validate, but structure is valid
-      expect_true(TRUE)
+    expect_gt(length(result$actions), 0)
+    for (act in result$actions) {
+      expect_true(
+        bg_validate_protocol_object(act, "bg_action_item"),
+        info = act$kind %||% act$action_id
+      )
     }
   })
 
