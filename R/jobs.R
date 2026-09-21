@@ -1,6 +1,3 @@
-#' @importFrom rlang %||%
-NULL
-
 #' File-system path to the jobs JSONL log for a project.
 #'
 #' @param project A `bg_handle`.

@@ -1,6 +1,3 @@
-#' @importFrom rlang %||%
-NULL
-
 #' @keywords internal
 bg_validate_graph_payload <- function(raw, graph_path) {
   if (!is.list(raw)) {
