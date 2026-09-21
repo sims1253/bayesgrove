@@ -38,6 +38,11 @@
 ## Bug fixes
 
 * Bundles retain data attached with `bg_set_node_data()`, even before a node runs.
+* Adding an edge between a pair of nodes that is already connected
+  (`bg_connect()`, `bg_add_node(inputs = )`, branching) fails with an
+  actionable error instead of creating parallel edges that later made every
+  plan abort with a bogus "graph contains a cycle" diagnosis, a state that
+  could only be repaired by hand-editing `graph.json`.
 * Fingerprints hash the `#include` closure of a Stan program, not just the
   main file, so editing an included file invalidates cached results.
 * Relative bundle paths resolve from the caller's working directory, not the

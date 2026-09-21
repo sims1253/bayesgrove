@@ -37,6 +37,25 @@ bg_dagri_add_edge <- function(
   type = "data",
   metadata = list()
 ) {
+  # dagriculture accepts parallel edges between the same pair of nodes, but
+  # its topological planner cannot handle them (it counts in-degrees per edge
+  # while traversing de-duplicated adjacency), so every duplicate later fails
+  # planning with a bogus "cycle" error. Reject duplicates here so the guard
+  # holds for every bayesgrove layer that adds an edge.
+  duplicate_ids <- names(Filter(
+    function(edge) {
+      identical(edge$from, from) && identical(edge$to, to)
+    },
+    graph$edges %||% list()
+  ))
+  if (length(duplicate_ids) > 0) {
+    cli::cli_abort(c(
+      "An edge from {.val {from}} to {.val {to}} already exists",
+      "({.val {duplicate_ids[[1]]}}).",
+      "Parallel edges between the same pair of nodes are not supported."
+    ))
+  }
+
   dagriculture::dagri_add_edge(
     graph = graph,
     from = from,
