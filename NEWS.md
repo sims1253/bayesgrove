@@ -48,6 +48,10 @@
 
 ## Bug fixes
 
+* Parallel dispatch runs the source checkout on mirai daemons in
+  `pkgload::load_all()` dev sessions instead of failing or silently running a
+  stale installed copy, and daemons reload the checkout whenever its sources
+  change between dispatches.
 * Bundles retain data attached with `bg_set_node_data()`, even before a node runs.
 * Adding an edge between a pair of nodes that is already connected
   (`bg_connect()`, `bg_add_node(inputs = )`, branching) fails with an

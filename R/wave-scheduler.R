@@ -150,6 +150,11 @@ bg_mirai_daemons_active <- function() {
 #' the default `find.package()` search also covers registered namespaces —
 #' including the source checkout pkgload registers in dev sessions — and
 #' pkgload additionally shims the search-path `find.package()`.
+#' `find.package()` reports only the first match per package, so this scalar
+#' query always returns exactly one path — the first copy on `.libPaths()` a
+#' fresh daemon would load — or `NA_character_` when no installed copy exists.
+#' The comparison is therefore always against that first copy, which is
+#' precisely the namespace a by-name daemon resolution would execute.
 #'
 #' @return TRUE when by-name resolution on a daemon would execute exactly the
 #'   code this process is running.
@@ -158,13 +163,57 @@ bg_mirai_daemons_active <- function() {
 bg_daemons_resolve_by_name <- function() {
   executing <- getNamespaceInfo(asNamespace("bayesgrove"), "path")
   installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
-  length(installed) == 1L &&
-    !is.na(installed) &&
+  !is.na(installed) &&
     identical(
       normalizePath(executing, mustWork = FALSE),
       normalizePath(installed, mustWork = FALSE)
     )
 }
+
+#' Fingerprint the package sources of a checkout.
+#'
+#' Aggregates names, sizes, and modification times over the checkout's `R/`
+#' sources into one short string. The dev-session dispatch crate ships this so
+#' each daemon can tell whether the checkout changed since the daemon last
+#' loaded it — a mid-session re-run of `pkgload::load_all()` after editing
+#' code — and reload when it did. The value only needs to be comparable with
+#' `identical()`, not collision-proof: name + size + mtime over every source
+#' file is a cheap and reliable change signal for the dev loop.
+#' @param path Package source root (the executing namespace's path).
+#' @return Length-1 character string identifying the current source state.
+#' @keywords internal
+#' @noRd
+bg_checkout_fingerprint <- function(path) {
+  sources <- list.files(
+    file.path(path, "R"),
+    pattern = "\\.[RrSsQq]$",
+    full.names = TRUE
+  )
+  if (length(sources) == 0L) {
+    # No R/ sources to aggregate (not a source checkout shape): fall back to
+    # the DESCRIPTION contents so the fingerprint still tracks the package.
+    return(digest::digest(file.path(path, "DESCRIPTION"), file = TRUE))
+  }
+  info <- file.info(sources, extra_cols = FALSE)
+  digest::digest(paste(
+    basename(sources),
+    info$size,
+    format(info$mtime, "%Y-%m-%dT%H:%M:%OS6", tz = "UTC"),
+    sep = ":",
+    collapse = "|"
+  ))
+}
+
+# Per-daemon state for the dev-session dispatch path. mirai daemons evaluate
+# every call in a reset global environment, but loaded namespaces persist for
+# the daemon's lifetime, so this package-level environment is the one place a
+# daemon can remember the source state it last executed. The namespace locks
+# once loaded, which freezes the bg_daemon_state *binding* but not the
+# environment's contents: the dispatch crate records the fingerprint with a
+# two-step assign, because a chained ns$bg_daemon_state$fingerprint <- value
+# re-assigns the outer locked binding and errors on the daemon. See
+# bg_dispatch_wave_parallel().
+bg_daemon_state <- new.env(parent = emptyenv())
 
 # Parallel wave dispatch -----------------------------------------------------
 #
@@ -311,7 +360,11 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
 #' this process executes; in a `pkgload::load_all()` session each daemon loads
 #' the executing source checkout itself first (see
 #' `bg_daemons_resolve_by_name()`), so dev sessions run the checkout's code on
-#' daemons instead of failing or running a stale install.
+#' daemons instead of failing or running a stale install. The dev-session crate
+#' also fingerprints the checkout's sources at dispatch time, and each daemon
+#' reloads the checkout whenever that fingerprint no longer matches the source
+#' state it last loaded, so a mid-session re-run of `load_all()` with edited
+#' code cannot leave daemons executing the previous revision.
 #'
 #' @param project A `bg_handle` (main process; holds the writer lock).
 #' @param wave Character vector of node IDs in this wave.
@@ -349,10 +402,20 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
   } else {
     # Dev session (pkgload::load_all()): no installed copy matches the code
     # this process is running, so each daemon loads the executing source
-    # checkout itself before resolving the worker by name. The path check
-    # keeps this idempotent: a daemon that already loaded the checkout (an
-    # earlier task in this run, or in place of a stale installed namespace)
-    # skips the reload. pkgload is a Suggests dependency and necessarily
+    # checkout itself before resolving the worker by name. The crate ships a
+    # fingerprint of the checkout's sources computed at dispatch time, and
+    # each daemon compares it with the fingerprint it last loaded, recorded
+    # in bg_daemon_state inside the daemon's loaded namespace (namespaces
+    # survive mirai's per-call environment reset; globalenv does not). Note
+    # the namespace probe below cannot return NULL when an installed
+    # bayesgrove exists: asNamespace() loads it from the library rather than
+    # erroring. The path check catches that, so a daemon reloads whenever it
+    # holds anything but this exact checkout — a fresh daemon, the installed
+    # copy the probe itself pulled in, or a checkout loaded from an earlier
+    # state of the sources (a mid-session re-run of load_all() after editing
+    # code). The recorded fingerprint makes the load idempotent: a daemon
+    # already running this exact source state skips the reload, across tasks
+    # and waves alike. pkgload is a Suggests dependency and necessarily
     # installed wherever a load_all() session dispatches from.
     purrr::map(
       tasks,
@@ -362,20 +425,32 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
             asNamespace("bayesgrove"),
             error = function(e) NULL
           )
-          if (
-            is.null(ns) ||
-              !identical(
-                normalizePath(getNamespaceInfo(ns, "path"), mustWork = FALSE),
-                source_path
-              )
-          ) {
+          loaded <- !is.null(ns) &&
+            identical(
+              normalizePath(getNamespaceInfo(ns, "path"), mustWork = FALSE),
+              source_path
+            )
+          cached <- if (loaded) {
+            ns$bg_daemon_state$checkout_fingerprint
+          } else {
+            NULL
+          }
+          if (!identical(cached, source_fingerprint)) {
             pkgload::load_all(source_path, quiet = TRUE, attach = FALSE)
+            # Re-resolve and record in the namespace just loaded; `ns` above
+            # may be stale now. Two-step assign: the chained form would
+            # re-assign the locked bg_daemon_state binding (see its comment).
+            state <- asNamespace("bayesgrove")$bg_daemon_state
+            state$checkout_fingerprint <- source_fingerprint
           }
           utils::getFromNamespace("bg_wave_worker", "bayesgrove")(task)
         },
         source_path = normalizePath(
           getNamespaceInfo(asNamespace("bayesgrove"), "path"),
           mustWork = FALSE
+        ),
+        source_fingerprint = bg_checkout_fingerprint(
+          getNamespaceInfo(asNamespace("bayesgrove"), "path")
         )
       )
     )

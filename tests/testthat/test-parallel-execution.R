@@ -155,6 +155,75 @@ describe("Parallel execution (Milestone 3)", {
     expect_false(bg_result(handle, root)$saw_input)
     expect_true(bg_result(handle, leaf)$saw_input)
   })
+
+  it("reloads the checkout on daemons when its source fingerprint changes", {
+    # Regression: the daemon-side load used to be keyed on the checkout path
+    # alone, so daemons that had already loaded the checkout kept executing
+    # its previous state after a mid-session re-run of load_all() with edited
+    # code. The dev-session dispatch crate now ships a fingerprint of the
+    # package sources (bg_checkout_fingerprint()), and each daemon compares
+    # it with the fingerprint it last loaded, recorded in the daemon's loaded
+    # namespace (bg_daemon_state), and reloads the checkout when they differ.
+    #
+    # The fingerprint is mocked to change between the two dispatches below,
+    # so the test is deterministic and fast (no real source files are
+    # touched). The executor reads the recorded fingerprint on whatever
+    # daemon runs it, so the results prove whether the reload actually
+    # happened: without the fingerprint comparison the second dispatch would
+    # keep reporting the first fingerprint.
+    skip_if(
+      bayesgrove:::bg_daemons_resolve_by_name(),
+      "fingerprint-based reload only applies to load_all() dev sessions"
+    )
+    counter <- local({
+      n <- 0L
+      function(path) {
+        n <<- n + 1L
+        paste0("mocked-fingerprint-", n)
+      }
+    })
+    local_mocked_bindings(
+      bg_checkout_fingerprint = counter,
+      .package = "bayesgrove"
+    )
+
+    # Two sibling base nodes form one wave with length > 1, so each run takes
+    # exactly one parallel dispatch and therefore consumes one fingerprint.
+    # Reading bg_daemon_state via ::: works on the daemon even though the
+    # checkout is loaded with attach = FALSE, because ::: resolves through
+    # the namespace registry rather than the search path.
+    executor_src <- paste0(
+      "function(node, inputs) list(",
+      "loaded = bayesgrove:::bg_daemon_state$checkout_fingerprint, ",
+      "probe = 'fingerprint')"
+    )
+    probe_run <- function() {
+      tmp <- withr::local_tempdir()
+      handle <- bg_init(path = tmp)
+      bg_register_node_kind(
+        handle,
+        "data",
+        executor = eval(parse(text = executor_src))
+      )
+      a <- bg_add_node(handle, kind = "data", label = "a")
+      b <- bg_add_node(handle, kind = "data", label = "b")
+      run_res <- bg_run(handle, parallel = "always")
+      expect_equal(run_res$status, "succeeded")
+      expect_equal(run_res$summary$total_executed, 2)
+      c(bg_result(handle, a)$loaded, bg_result(handle, b)$loaded)
+    }
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+
+    first <- probe_run()
+    expect_equal(first, rep("mocked-fingerprint-1", 2))
+
+    # Same daemons, "edited" sources: the changed fingerprint must make each
+    # daemon reload the checkout before resolving the worker.
+    second <- probe_run()
+    expect_equal(second, rep("mocked-fingerprint-2", 2))
+  })
 })
 
 describe("bg_prepare_executor_for_ship (crating)", {
@@ -256,11 +325,17 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
     # pkgload::load_all() the executing namespace lives in the source
     # checkout: daemons must NOT resolve by name there, because that would
     # fail without an install or silently run a stale one.
+    #
+    # Skipped under covr: instrumentation loads a traced copy of the package
+    # from a temporary path that is neither the source checkout nor the
+    # installed location a fresh daemon would load, so both session arms of
+    # this probe describe a session shape covr does not really represent and
+    # the expectations would not hold there.
+    skip_on_covr()
     ns <- asNamespace("bayesgrove")
     executing <- getNamespaceInfo(ns, "path")
     installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
-    matches_install <- length(installed) == 1L &&
-      !is.na(installed) &&
+    matches_install <- !is.na(installed) &&
       identical(
         normalizePath(executing, mustWork = FALSE),
         normalizePath(installed, mustWork = FALSE)
