@@ -231,3 +231,23 @@ describe("Monotonic seq for JSONL records (Phase 2.5)", {
     }
   })
 })
+
+describe("Rationale gating", {
+  it("rejects a NA rationale before writing a decision record", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    expect_error(
+      bg_record_decision(
+        handle,
+        scope = "project",
+        prompt = "Which prior?",
+        choice = "normal",
+        rationale = NA_character_
+      ),
+      "Rationale is required for reproducibility",
+      class = "rlang_error"
+    )
+    expect_length(bg_read_decisions(handle), 0)
+  })
+})

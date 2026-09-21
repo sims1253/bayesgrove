@@ -86,7 +86,14 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
   }
 
   kind <- summary$summary_kind %||% NULL
-  if (!is.character(kind) || length(kind) != 1 || !nzchar(kind)) {
+  # nzchar(NA) is TRUE, so NA must be rejected explicitly alongside
+  # non-character and wrong-length input.
+  if (
+    !is.character(kind) ||
+      length(kind) != 1 ||
+      is.na(kind) ||
+      !nzchar(kind)
+  ) {
     cli::cli_abort(
       "Summary for node {.val {node_id}} must have a single non-empty {.field summary_kind}."
     )

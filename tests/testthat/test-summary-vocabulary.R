@@ -134,4 +134,61 @@ describe("Summary vocabulary (Phase 3)", {
     known <- bg_known_summary_kinds(reopened)
     expect_true("persisted_check" %in% known)
   })
+
+  it("aborts when summary_kind is NA or non-character", {
+    expect_error(
+      bayesgrove:::bg_validate_summary(
+        list(summary_kind = NA_character_, severity = "ok", metrics = list()),
+        "n1",
+        c("prior_spec", "hmc_diagnostics")
+      ),
+      "single non-empty",
+      class = "rlang_error"
+    )
+
+    expect_error(
+      bayesgrove:::bg_validate_summary(
+        list(summary_kind = 3, severity = "ok", metrics = list()),
+        "n1",
+        c("prior_spec")
+      ),
+      "single non-empty",
+      class = "rlang_error"
+    )
+  })
+
+  it("returns NULL instead of crashing on NA or empty nearest-kind lookups", {
+    known <- c("prior_spec", "hmc_diagnostics")
+
+    expect_null(bayesgrove:::bg_nearest_summary_kind(NA_character_, known))
+    expect_null(bayesgrove:::bg_nearest_summary_kind(NULL, known))
+    expect_null(bayesgrove:::bg_nearest_summary_kind(
+      "hmc_diagnostic",
+      character()
+    ))
+    # NA entries in the known set are dropped rather than fatal.
+    expect_equal(
+      bayesgrove:::bg_nearest_summary_kind(
+        "hmc_diagnostic",
+        c("prior_spec", NA)
+      ),
+      "prior_spec"
+    )
+    expect_equal(
+      bayesgrove:::bg_nearest_summary_kind("hmc_diagnostic", known),
+      "hmc_diagnostics"
+    )
+  })
+
+  it("rejects a NA kind in bg_register_summary_kind", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    expect_error(
+      bg_register_summary_kind(handle, kind = NA_character_),
+      "single non-empty string",
+      class = "rlang_error"
+    )
+    expect_false(anyNA(bayesgrove:::bg_known_summary_kinds(handle)))
+  })
 })
