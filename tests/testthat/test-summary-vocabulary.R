@@ -68,6 +68,57 @@ describe("Summary vocabulary (Phase 3)", {
     expect_match(run_res$error$message, "invalid")
   })
 
+  it("aborts when summary_kind is NA instead of crashing on the suggestion", {
+    # nzchar(NA) is TRUE, so NA used to pass validation and then crash in
+    # bg_nearest_summary_kind (adist yields all-NA distances, which.min
+    # returns integer(0)).
+    known <- c("prior_spec", "hmc_diagnostics")
+
+    expect_error(
+      bayesgrove:::bg_validate_summary(
+        list(summary_kind = NA_character_, severity = "ok", metrics = list()),
+        "n1",
+        known
+      ),
+      "single non-empty summary_kind",
+      class = "rlang_error"
+    )
+  })
+
+  it("aborts when summary_kind is not a string", {
+    expect_error(
+      bayesgrove:::bg_validate_summary(
+        list(summary_kind = 123, severity = "ok", metrics = list()),
+        "n1",
+        c("prior_spec", "hmc_diagnostics")
+      ),
+      "single non-empty summary_kind",
+      class = "rlang_error"
+    )
+  })
+
+  it("fails the run cleanly when an executor emits an NA summary_kind", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      list(
+        result = 1,
+        summaries = list(list(
+          # E.g. an upstream sapply() that produced NA.
+          summary_kind = NA_character_,
+          severity = "ok",
+          metrics = list()
+        ))
+      )
+    })
+    n1 <- bg_add_node(handle, kind = "data", label = "A")
+
+    run_res <- bg_run(handle, targets = n1)
+    expect_equal(run_res$status, "failed")
+    expect_match(run_res$error$message, "single non-empty")
+  })
+
   it("round-trips a valid summary", {
     tmp <- withr::local_tempdir()
     handle <- bg_init(path = tmp)
