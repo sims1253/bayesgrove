@@ -1,13 +1,25 @@
 # Parallel execution (Milestone 3) -------------------------------------------
 #
 # Integration + unit coverage for the wave scheduler's parallel path. The
-# daemon-backed tests skip on CRAN and when mirai/carrier are unavailable.
+# daemon-backed tests skip on CRAN, when mirai/carrier are unavailable, and
+# when the installed package is not visible to daemons (e.g. a load_all()
+# dev namespace, which daemon processes cannot see).
 
 describe("Parallel execution (Milestone 3)", {
   skip_on_cran()
   skip_if_not_installed("mirai")
   skip_if_not_installed("carrier")
   skip_if_not_installed("purrr")
+  # Daemons resolve the worker via getFromNamespace("bg_wave_worker",
+  # "bayesgrove") in their own fresh processes, so the package must be
+  # installed on the library path: a load_all() dev namespace is invisible to
+  # daemons, and the worker closure itself cannot be shipped instead (carrier
+  # does not crate namespace bindings). find.package() would report the dev
+  # source tree under load_all(), so probe the library paths directly.
+  skip_if(
+    !any(file.exists(file.path(.libPaths(), "bayesgrove"))),
+    "parallel worker requires the installed package; skipped under load_all"
+  )
 
   it("runs independent siblings in parallel across daemons", {
     tmp <- withr::local_tempdir()
