@@ -9,6 +9,11 @@ bg_close(project)
 \arguments{
 \item{project}{A \code{bg_handle}.}
 }
+\value{
+The \code{bg_handle}, invisibly, so \code{bg_close()} can be used in a pipe
+or chained after another method. Closing is idempotent: an already-closed
+handle is returned unchanged.
+}
 \description{
 Releases the single-writer lock if this handle holds it.
 }

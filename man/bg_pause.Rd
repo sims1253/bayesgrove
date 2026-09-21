@@ -9,6 +9,11 @@ bg_pause(project)
 \arguments{
 \item{project}{A \code{bg_handle}.}
 }
+\value{
+Invisibly, a minimal acknowledgement list with elements \code{state}
+and \code{workflow_state}, both \code{"paused"}. Unlike \code{\link[=bg_resume]{bg_resume()}}, this does
+not return the full project status; call \code{\link[=bg_status]{bg_status()}} for that.
+}
 \description{
 Pausing the workflow stops auto-advancing and marks the workflow state
 so that no new jobs are dispatched. It does not cancel currently running jobs.

@@ -46,7 +46,9 @@ bg_snapshot <- function(project) {
 #' wave starts. [bg_resume] clears the flag. This API is experimental.
 #'
 #' @param project A `bg_handle`.
-#'
+#' @return Invisibly, a minimal acknowledgement list with elements `state`
+#'   and `workflow_state`, both `"paused"`. Unlike [bg_resume()], this does
+#'   not return the full project status; call [bg_status()] for that.
 #' @export
 bg_pause <- function(project) {
   S7::check_is_S7(project, bg_handle)
@@ -69,7 +71,10 @@ bg_pause <- function(project) {
 #' with [bg_pause]. This API is experimental.
 #'
 #' @param project A `bg_handle`.
-#'
+#' @return The result of [bg_status()] for the project, invisibly, so the
+#'   resumed workflow state can be inspected immediately. Unlike [bg_pause()],
+#'   which returns a minimal acknowledgement list, this returns the full
+#'   status.
 #' @export
 bg_resume <- function(project) {
   S7::check_is_S7(project, bg_handle)

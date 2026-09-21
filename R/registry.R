@@ -157,7 +157,9 @@ bg_use_default_workflow <- function(project) {
 #' @param output_type Optional output type string.
 #' @param param_schema Optional parameter schema.
 #' @param executor Optional R function to execute nodes of this kind.
-#'
+#' @return Invisible `TRUE`, after the kind is recorded in the graph registry
+#'   and, when `executor` is supplied, in the handle's runtime registry and
+#'   the on-disk registration manifest.
 #' @export
 bg_register_node_kind <- function(
   project,

@@ -9,6 +9,12 @@ bg_resume(project)
 \arguments{
 \item{project}{A \code{bg_handle}.}
 }
+\value{
+The result of \code{\link[=bg_status]{bg_status()}} for the project, invisibly, so the
+resumed workflow state can be inspected immediately. Unlike \code{\link[=bg_pause]{bg_pause()}},
+which returns a minimal acknowledgement list, this returns the full
+status.
+}
 \description{
 Removes the pause marker, allowing the workflow to resume execution. Pair
 with \link{bg_pause}. This API is experimental.

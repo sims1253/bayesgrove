@@ -13,6 +13,10 @@ bg_invalidate(project, node_id, recursive = TRUE)
 
 \item{recursive}{Whether to recursively invalidate downstream nodes (default: TRUE).}
 }
+\value{
+Invisible \code{TRUE}, after marking the cached artifacts of the node
+(and, when \code{recursive = TRUE}, its descendants) as superseded.
+}
 \description{
 Invalidation marks the indexed result as superseded so the node can be recomputed.
 It does not alter the structural graph state.

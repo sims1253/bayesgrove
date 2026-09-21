@@ -11,6 +11,11 @@ bg_commit_graph(project, graph)
 
 \item{graph}{A \code{dagri_graph}}
 }
+\value{
+Invisible \code{TRUE}, after the graph is persisted and the handle's
+loaded version is advanced. Aborts on closed or read-only handles,
+non-increasing graph versions, and persisted-version conflicts.
+}
 \description{
 Write project graph safely
 }
