@@ -59,9 +59,11 @@ bg_add_gate <- function(
     metadata = metadata
   )
 
+  committed_version <- NULL
   tryCatch(
     {
       bg_commit_graph(project, graph)
+      committed_version <- graph$version
       bg_modify_gate_specs(project, function(specs) {
         specs[[gate_id]] <- gate_spec
         specs
@@ -70,13 +72,40 @@ bg_add_gate <- function(
     error = function(e) {
       rollback_error <- tryCatch(
         {
-          graph_path <- file.path(
-            project@path,
-            ".bayesgrove",
-            "graph",
-            "graph.json"
-          )
-          bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
+          if (!is.null(committed_version)) {
+            # Roll back under the commit lock and only when the persisted
+            # graph still carries this transaction's version, so a commit
+            # that landed in between is never silently reverted.
+            graph_path <- file.path(
+              project@path,
+              ".bayesgrove",
+              "graph",
+              "graph.json"
+            )
+            bg_with_file_lock(paste0(graph_path, ".lock"), {
+              persisted_graph <- if (file.exists(graph_path)) {
+                jsonlite::read_json(graph_path, simplifyVector = FALSE)
+              } else {
+                NULL
+              }
+              persisted_version <- as.integer(
+                persisted_graph$version %||% 0L
+              )
+              if (!identical(persisted_version, committed_version)) {
+                cli::cli_abort(c(
+                  "A concurrent commit moved the persisted graph to version",
+                  "{persisted_version}; this transaction committed",
+                  "{committed_version}, so the concurrent commit was left",
+                  "in place instead of being reverted."
+                ))
+              }
+              bg_write_json_atomic(
+                graph_path,
+                original_graph,
+                sort_keys = FALSE
+              )
+            })
+          }
           project@loaded_graph_version <- original_loaded_version
           # Drop only this gate entry to avoid clobbering concurrent updates.
           bg_modify_gate_specs(project, function(current_specs) {
@@ -92,7 +121,7 @@ bg_add_gate <- function(
         cli::cli_abort(c(
           "Failed to add gate transactionally.",
           "Primary error: {e$message}",
-          "Rollback error: {rollback_e$message}"
+          "Rollback error: {rollback_error$message}"
         ))
       }
 
@@ -191,9 +220,11 @@ bg_answer_gate <- function(
     )
   )
 
+  committed_version <- NULL
   tryCatch(
     {
       bg_commit_graph(project, graph)
+      committed_version <- graph$version
       bg_modify_gate_specs(project, function(current_specs) {
         current_specs[[id]] <- NULL
         current_specs
@@ -203,13 +234,40 @@ bg_answer_gate <- function(
     error = function(e) {
       rollback_error <- tryCatch(
         {
-          graph_path <- file.path(
-            project@path,
-            ".bayesgrove",
-            "graph",
-            "graph.json"
-          )
-          bg_write_json_atomic(graph_path, original_graph, sort_keys = FALSE)
+          if (!is.null(committed_version)) {
+            # Roll back under the commit lock and only when the persisted
+            # graph still carries this transaction's version, so a commit
+            # that landed in between is never silently reverted.
+            graph_path <- file.path(
+              project@path,
+              ".bayesgrove",
+              "graph",
+              "graph.json"
+            )
+            bg_with_file_lock(paste0(graph_path, ".lock"), {
+              persisted_graph <- if (file.exists(graph_path)) {
+                jsonlite::read_json(graph_path, simplifyVector = FALSE)
+              } else {
+                NULL
+              }
+              persisted_version <- as.integer(
+                persisted_graph$version %||% 0L
+              )
+              if (!identical(persisted_version, committed_version)) {
+                cli::cli_abort(c(
+                  "A concurrent commit moved the persisted graph to version",
+                  "{persisted_version}; this transaction committed",
+                  "{committed_version}, so the concurrent commit was left",
+                  "in place instead of being reverted."
+                ))
+              }
+              bg_write_json_atomic(
+                graph_path,
+                original_graph,
+                sort_keys = FALSE
+              )
+            })
+          }
           project@loaded_graph_version <- original_loaded_version
           # Restore only this gate entry to avoid clobbering concurrent updates.
           bg_modify_gate_specs(project, function(current_specs) {
