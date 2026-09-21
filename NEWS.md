@@ -43,6 +43,20 @@
 ## Bug fixes
 
 * Bundles retain data attached with `bg_set_node_data()`, even before a node runs.
+* Adding an edge between a pair of nodes that is already connected
+  (`bg_connect()`, `bg_add_node(inputs = )`, branching) fails with an
+  actionable error instead of creating parallel edges that later made every
+  plan abort with a bogus "graph contains a cycle" diagnosis, a state that
+  could only be repaired by hand-editing `graph.json`.
+* `bg_add_gate()` commits the structural gate and the semantic gate spec as
+  one transaction with rollback, so an interrupted add no longer leaves a
+  gate without a spec blocking its downstream node invisibly; the rollback
+  takes the graph lock and leaves concurrent commits untouched. Orphan
+  gates from older projects are surfaced: `bg_plan()` names them in the
+  blocked reason and reports them in `gates_missing_specs`, `bg_status()`
+  reports the anomaly with `workflow_state = "blocked"` and
+  `health = "warning"` alongside the same `gates_missing_specs` list, and
+  `bg_answer_gate()` explains why such a gate cannot be answered.
 * Fingerprints hash the `#include` closure of a Stan program, not just the
   main file, so editing an included file invalidates cached results.
 * Relative bundle paths resolve from the caller's working directory, not the

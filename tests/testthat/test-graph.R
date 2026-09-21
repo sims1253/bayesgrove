@@ -100,6 +100,38 @@ describe("Graph Node Management", {
     expect_equal(g4$nodes[[n1]]$metadata$author, "a")
     expect_equal(g4$nodes[[n1]]$metadata$version, 2L)
   })
+
+  it("rejects duplicate edges instead of creating unplannable parallel edges", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source", label = "Input")
+    to <- bg_add_node(handle, kind = "source", label = "Output", inputs = from)
+
+    # Connecting an existing pair again is rejected, not silently duplicated.
+    expect_error(
+      bg_connect(handle, from, to),
+      "already exists"
+    )
+    expect_error(
+      bg_connect(handle, from, to),
+      "Parallel edges"
+    )
+
+    # A node cannot declare the same input twice either.
+    expect_error(
+      bg_add_node(handle, kind = "source", inputs = c(from, to, from)),
+      "already exists"
+    )
+
+    # The rejected calls leave the graph untouched: parallel edges used to
+    # make every later bg_plan() fail with a bogus cycle error.
+    graph <- bg_read_graph(handle)
+    expect_equal(length(graph$nodes), 2)
+    expect_equal(length(graph$edges), 1)
+    expect_length(bg_plan(handle)$blocked, 0)
+  })
 })
 
 describe("Graph tree printing", {

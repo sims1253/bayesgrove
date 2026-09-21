@@ -19,6 +19,164 @@ describe("Decision and Gate Layer", {
     expect_true(gate$id %in% names(bg_read_gate_specs(handle)))
   })
 
+  it("rolls back the committed graph when the gate spec write fails", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    before <- bg_read_graph(handle)
+
+    spec_writes <- 0L
+    local_mocked_bindings(bg_modify_gate_specs = function(...) {
+      spec_writes <<- spec_writes + 1L
+      if (identical(spec_writes, 1L)) {
+        stop("injected gate spec write failure")
+      }
+      list()
+    })
+
+    expect_error(
+      bg_add_gate(handle, from, to, "Proceed?", c("yes", "no")),
+      "Failed to add gate transactionally"
+    )
+
+    # The structural gate did not survive: the graph is back to its
+    # pre-transaction state and no orphan blocks the downstream node.
+    after <- bg_read_graph(handle)
+    expect_equal(after, before)
+    expect_length(bg_read_gate_specs(handle), 0)
+    expect_length(bg_plan(handle)$blocked, 0)
+  })
+
+  it("leaves a concurrent graph commit in place when rolling back", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    pre_transaction_version <- bg_read_graph(handle)$version
+    graph_path <- file.path(tmp, ".bayesgrove", "graph", "graph.json")
+
+    local_mocked_bindings(bg_modify_gate_specs = function(project, ...) {
+      # Simulate another handle committing between this transaction's graph
+      # commit and its spec write, then fail the spec write.
+      concurrent <- bg_read_graph(project)
+      concurrent$version <- concurrent$version + 1L
+      bg_write_json_atomic(graph_path, unclass(concurrent), sort_keys = FALSE)
+      stop("injected gate spec write failure")
+    })
+
+    expect_error(
+      bg_add_gate(handle, from, to, "Proceed?", c("yes", "no")),
+      "concurrent"
+    )
+
+    # The concurrent commit was not reverted: the graph moved two versions
+    # past the pre-transaction state (this transaction's commit, then the
+    # concurrent one), and the structural gate that survived stays visible
+    # as an orphan instead of silently destroying the other handle's work.
+    after <- bg_read_graph(handle)
+    expect_equal(after$version, pre_transaction_version + 2L)
+    expect_length(after$gates, 1)
+    expect_equal(
+      bg_plan(handle)$blocked[[to]],
+      sprintf("gate: %s (missing spec)", names(after$gates)[[1]])
+    )
+  })
+
+  it("restores the answered gate when the decision record write fails", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    gate <- bg_add_gate(handle, from, to, "Proceed?", c("yes", "no"))
+
+    local_mocked_bindings(bg_write_decision_record = function(...) {
+      stop("injected decision record write failure")
+    })
+
+    expect_error(
+      bg_answer_gate(handle, gate$id, "yes", rationale = "Reviewed"),
+      "Failed to answer gate transactionally"
+    )
+
+    # The gate is pending again in the graph and in the specs, and no
+    # decision was recorded.
+    graph <- bg_read_graph(handle)
+    expect_equal(graph$gates[[gate$id]]$status, "pending")
+    expect_true(gate$id %in% names(bg_read_gate_specs(handle)))
+    expect_length(bg_read_decisions(handle), 0)
+    expect_length(bg_plan(handle)$gates_missing_specs, 0)
+  })
+
+  it("surfaces graph gates that have no spec in plans, status, and answers", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_use_default_workflow(handle)
+
+    from <- bg_add_node(handle, kind = "source")
+    to <- bg_add_node(handle, kind = "source", inputs = from)
+    expect_false(to %in% names(bg_plan(handle)$blocked))
+
+    # Construct the orphan state an interrupted bg_add_gate leaves behind:
+    # structural gate committed, semantic spec never written.
+    graph <- bg_read_graph(handle)
+    edge_id <- names(graph$edges)[vapply(
+      graph$edges,
+      function(e) identical(e$from, from) && identical(e$to, to),
+      logical(1)
+    )][[1]]
+    graph <- dagriculture::dagri_add_gate(
+      graph,
+      edge_id = edge_id,
+      id = "gate_orphan"
+    )
+    bg_commit_graph(handle, graph)
+
+    # The plan names the orphan gate instead of a bare "gate" reason and
+    # reports it for programmatic consumers.
+    plan <- bg_plan(handle)
+    expect_equal(plan$blocked[[to]], "gate: gate_orphan (missing spec)")
+    expect_setequal(names(plan$gates_missing_specs), "gate_orphan")
+    expect_equal(plan$gates_missing_specs$gate_orphan$edge_id, edge_id)
+
+    # A node held by both a spec'd gate and an orphan reports both.
+    spec_gate <- bg_add_gate(
+      handle,
+      from,
+      to,
+      "Also proceed?",
+      c("yes", "no")
+    )
+    plan <- bg_plan(handle)
+    expect_equal(
+      sort(strsplit(sub("^gate: ", "", plan$blocked[[to]]), ", ")[[1]]),
+      sort(c(spec_gate$id, "gate_orphan (missing spec)"))
+    )
+    bg_answer_gate(handle, spec_gate$id, "yes", rationale = "clear it")
+
+    # The status no longer looks idle while a node is deadlocked, and its
+    # gates_missing_specs is the same named list shape the plan exposes.
+    plan <- bg_plan(handle)
+    status <- bg_status(handle)
+    expect_equal(status$workflow_state, "blocked")
+    expect_equal(status$health, "warning")
+    expect_equal(status$gates_missing_specs, plan$gates_missing_specs)
+    expect_equal(status$pending_gates, 0)
+    expect_true(any(grepl("no spec", status$messages)))
+
+    # The orphan cannot be answered, and the error says why.
+    expect_error(
+      bg_answer_gate(handle, "gate_orphan", "yes", rationale = "try"),
+      "without a spec"
+    )
+  })
+
   it("validates the handle before reading decisions", {
     expect_error(
       bg_read_decisions(list(path = tempdir())),
