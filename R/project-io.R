@@ -59,7 +59,6 @@ bg_validate_graph_payload <- function(raw, graph_path) {
 #' @param project A `bg_handle`
 #' @param graph A `dagri_graph`
 #' @keywords internal
-#' @export
 bg_commit_graph <- function(project, graph) {
   if (project@closed) {
     cli::cli_abort("Cannot commit to a closed project.")
