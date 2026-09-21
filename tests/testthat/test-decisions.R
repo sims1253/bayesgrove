@@ -251,3 +251,71 @@ describe("Rationale gating", {
     expect_length(bg_read_decisions(handle), 0)
   })
 })
+
+describe("gate and decision id collision handling", {
+  it("regenerates a colliding gate id instead of aliasing the gate spec", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "data")
+    n1 <- bg_add_node(handle, "data")
+    n2 <- bg_add_node(handle, "data", inputs = n1)
+    n3 <- bg_add_node(handle, "data", inputs = n1)
+    first <- bg_add_gate(handle, n1, n2, "Proceed?", c("yes", "no"))
+
+    draws <- 0L
+    local_mocked_bindings(bg_new_id = function(prefix) {
+      draws <<- draws + 1L
+      if (draws == 1L) first$id else sprintf("%s_retry%d", prefix, draws)
+    })
+
+    second <- bg_add_gate(handle, n1, n3, "Also proceed?", c("yes", "no"))
+
+    expect_true(startsWith(second$id, "gate_retry"))
+    expect_gt(draws, 1L)
+
+    # Both gates exist structurally and as specs; the first is unchanged.
+    graph <- bg_read_graph(handle)
+    expect_length(graph$gates, 2L)
+    specs <- bg_read_gate_specs(handle)
+    expect_length(specs, 2L)
+    expect_equal(specs[[first$id]]$prompt, "Proceed?")
+  })
+
+  it("regenerates a colliding decision id instead of overwriting the log", {
+    handle <- bg_init(path = withr::local_tempdir())
+
+    first <- bg_record_decision(
+      handle,
+      scope = "project",
+      prompt = "Keep model?",
+      choice = "yes",
+      rationale = "Diagnostics looked good"
+    )
+
+    draws <- 0L
+    local_mocked_bindings(bg_new_id = function(prefix) {
+      draws <<- draws + 1L
+      if (draws == 1L) {
+        first$decision_id
+      } else {
+        sprintf("%s_retry%d", prefix, draws)
+      }
+    })
+
+    second <- bg_record_decision(
+      handle,
+      scope = "project",
+      prompt = "Keep prior?",
+      choice = "yes",
+      rationale = "Prior predictive check passed"
+    )
+
+    expect_true(startsWith(second$decision_id, "dec_retry"))
+    expect_gt(draws, 1L)
+
+    # Both decisions survive under their own ids in the last-record-wins log.
+    decisions <- bg_read_decisions(handle)
+    expect_length(decisions, 2L)
+    expect_equal(decisions[[first$decision_id]]$prompt, "Keep model?")
+    expect_equal(decisions[[second$decision_id]]$prompt, "Keep prior?")
+  })
+})

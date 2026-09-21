@@ -124,3 +124,29 @@ describe("Job Tracking Layer", {
     expect_equal(seqs, 1:3)
   })
 })
+
+describe("job id collision handling", {
+  it("regenerates a colliding job id instead of aliasing the log entry", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+
+    first <- bg_create_job(handle, run_id = "r1", node_id = "n1")
+
+    draws <- 0L
+    local_mocked_bindings(bg_new_id = function(prefix) {
+      draws <<- draws + 1L
+      if (draws == 1L) first$job_id else sprintf("%s_retry%d", prefix, draws)
+    })
+
+    second <- bg_create_job(handle, run_id = "r1", node_id = "n2")
+
+    expect_true(startsWith(second$job_id, "job_retry"))
+    expect_gt(draws, 1L)
+
+    # Both jobs survive under their own ids; the first was not overwritten.
+    jobs <- bg_jobs(handle)
+    expect_length(jobs, 2L)
+    expect_equal(jobs[[first$job_id]]$node_id, "n1")
+    expect_equal(jobs[[second$job_id]]$node_id, "n2")
+  })
+})

@@ -32,6 +32,8 @@ bg_write_summaries <- function(
   for (summary in summaries) {
     bg_validate_summary(summary, node_id, known_kinds)
 
+    # Four runif() draws (4 x 32-bit granularity) under a 64-bit digest keep
+    # summary ids collision-safe at simulation-study scale (#27).
     summary_id <- sprintf(
       "sum_%s",
       digest::digest(
@@ -39,10 +41,10 @@ bg_write_summaries <- function(
           node_id,
           execution_fingerprint,
           summary$summary_kind,
-          runif(1),
+          paste(runif(4), collapse = "|"),
           sep = "|"
         ),
-        algo = "xxhash32"
+        algo = "xxhash64"
       )
     )
 

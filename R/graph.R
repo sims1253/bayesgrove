@@ -19,9 +19,9 @@ bg_add_node <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  node_id <- bg_new_id("node")
-
   graph <- bg_read_graph(project)
+
+  node_id <- bg_new_unique_id("node", names(graph$nodes))
 
   # Add the node
   graph <- bg_dagri_add_node(
@@ -36,7 +36,7 @@ bg_add_node <- function(
   # Connect inputs if provided
   if (!is.null(inputs)) {
     for (input in inputs) {
-      edge_id <- bg_new_id("edge")
+      edge_id <- bg_new_unique_id("edge", names(graph$edges))
       graph <- bg_dagri_add_edge(
         graph = graph,
         from = input,
@@ -72,9 +72,9 @@ bg_connect <- function(
 ) {
   S7::check_is_S7(project, bg_handle)
 
-  edge_id <- bg_new_id("edge")
-
   graph <- bg_read_graph(project)
+
+  edge_id <- bg_new_unique_id("edge", names(graph$edges))
 
   graph <- bg_dagri_add_edge(
     graph = graph,
