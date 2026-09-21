@@ -101,7 +101,11 @@ bg_hmc_divergence_rate <- function(metrics) {
 #' @keywords internal
 #' @noRd
 bg_cmdstanr_hmc_metrics <- function(fit) {
-  requireNamespace("posterior", quietly = TRUE)
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    cli::cli_abort(
+      "The {.pkg posterior} package is required for HMC diagnostics."
+    )
+  }
 
   diag <- fit$diagnostic_summary()
   draws_df <- posterior::summarise_draws(fit$draws())
@@ -603,6 +607,18 @@ bg_executor_ppc <- function(node, inputs) {
     }
   }
 
+  # NA observations propagate through the p-value comparison and abort with
+  # "missing value where TRUE/FALSE needed" far from the cause; fail here,
+  # naming the offending variable.
+  if (anyNA(y)) {
+    cli::cli_abort(
+      paste0(
+        "Observed variable {.val {y_var}} in the ppc data input contains ",
+        "missing values; ppc requires complete observations."
+      )
+    )
+  }
+
   # Posterior-predictive draws (yrep) come from the fit.
   if (inherits(fit_artifact, "brmsfit")) {
     if (!requireNamespace("brms", quietly = TRUE)) {
@@ -620,6 +636,15 @@ bg_executor_ppc <- function(node, inputs) {
   if (ncol(yrep) == 0) {
     cli::cli_abort(
       "Could not find {.val {yrep_var}} draws in the fit for ppc."
+    )
+  }
+
+  if (anyNA(yrep)) {
+    cli::cli_abort(
+      paste0(
+        "Draws for {.val {yrep_var}} in the ppc fit contain missing values; ",
+        "ppc requires complete draws."
+      )
     )
   }
 
