@@ -151,8 +151,8 @@ bg_mirai_daemons_active <- function() {
 #' including the source checkout pkgload registers in dev sessions — and
 #' pkgload additionally shims the search-path `find.package()`.
 #' `find.package()` reports only the first match per package, so this scalar
-#' query always returns exactly one path — the first copy on `.libPaths()` a
-#' fresh daemon would load — or `NA_character_` when no installed copy exists.
+#' query returns one path — the first copy on `.libPaths()` a fresh daemon
+#' would load — or `character(0)` when no installed copy exists.
 #' The comparison is therefore always against that first copy, which is
 #' precisely the namespace a by-name daemon resolution would execute.
 #'
@@ -163,7 +163,7 @@ bg_mirai_daemons_active <- function() {
 bg_daemons_resolve_by_name <- function() {
   executing <- getNamespaceInfo(asNamespace("bayesgrove"), "path")
   installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
-  !is.na(installed) &&
+  length(installed) == 1L &&
     identical(
       normalizePath(executing, mustWork = FALSE),
       normalizePath(installed, mustWork = FALSE)
@@ -365,6 +365,8 @@ bg_prepare_executor_for_ship <- function(kind_reg, kind) {
 #' reloads the checkout whenever that fingerprint no longer matches the source
 #' state it last loaded, so a mid-session re-run of `load_all()` with edited
 #' code cannot leave daemons executing the previous revision.
+#' Workers load the current files on disk. After editing, re-run `load_all()`
+#' before dispatch to keep the main process consistent with those files.
 #'
 #' @param project A `bg_handle` (main process; holds the writer lock).
 #' @param wave Character vector of node IDs in this wave.
