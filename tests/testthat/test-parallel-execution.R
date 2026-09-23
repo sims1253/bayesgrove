@@ -1,30 +1,17 @@
 # Parallel execution (Milestone 3) -------------------------------------------
 #
 # Integration + unit coverage for the wave scheduler's parallel path. The
-# daemon-backed tests skip on CRAN, when mirai/carrier are unavailable, and
-# whenever the session runs a dev-loaded (load_all) copy, whose namespace the
-# daemon processes can never see.
+# daemon-backed tests skip on CRAN and when mirai/carrier are unavailable.
+# They intentionally also run under pkgload::load_all(): the parallel
+# dispatcher detects dev sessions and has each daemon load the executing
+# source checkout (see bg_daemons_resolve_by_name()), so daemons run the
+# code under test rather than a stale install.
 
 describe("Parallel execution (Milestone 3)", {
   skip_on_cran()
   skip_if_not_installed("mirai")
   skip_if_not_installed("carrier")
   skip_if_not_installed("purrr")
-  # Daemons are fresh R processes that resolve the worker via
-  # getFromNamespace("bg_wave_worker", "bayesgrove"), so they can only ever
-  # run an *installed* copy. A load_all() dev namespace is invisible to them
-  # (and under load_all() even find.package() reports the dev source tree, so
-  # probing the library paths cannot tell whether the daemons would run the
-  # code under test or a stale install). Shipping the worker instead cannot
-  # work: carrier crates `.f` in a globalenv child, stripping the package
-  # namespace the worker's unqualified calls resolve in. Skip whenever this
-  # session runs a dev-loaded copy; R CMD check (and CI) test the installed
-  # package and still run all three daemon tests.
-  skip_if(
-    requireNamespace("pkgload", quietly = TRUE) &&
-      pkgload::is_dev_package("bayesgrove"),
-    "parallel worker requires the installed package; skipped under load_all"
-  )
 
   it("runs independent siblings in parallel across daemons", {
     tmp <- withr::local_tempdir()
@@ -168,6 +155,75 @@ describe("Parallel execution (Milestone 3)", {
     expect_false(bg_result(handle, root)$saw_input)
     expect_true(bg_result(handle, leaf)$saw_input)
   })
+
+  it("reloads the checkout on daemons when its source fingerprint changes", {
+    # Regression: the daemon-side load used to be keyed on the checkout path
+    # alone, so daemons that had already loaded the checkout kept executing
+    # its previous state after a mid-session re-run of load_all() with edited
+    # code. The dev-session dispatch crate now ships a fingerprint of the
+    # package sources (bg_checkout_fingerprint()), and each daemon compares
+    # it with the fingerprint it last loaded, recorded in the daemon's loaded
+    # namespace (bg_daemon_state), and reloads the checkout when they differ.
+    #
+    # The fingerprint is mocked to change between the two dispatches below,
+    # so the test is deterministic and fast (no real source files are
+    # touched). The executor reads the recorded fingerprint on whatever
+    # daemon runs it, so the results prove whether the reload actually
+    # happened: without the fingerprint comparison the second dispatch would
+    # keep reporting the first fingerprint.
+    skip_if(
+      bayesgrove:::bg_daemons_resolve_by_name(),
+      "fingerprint-based reload only applies to load_all() dev sessions"
+    )
+    counter <- local({
+      n <- 0L
+      function(path) {
+        n <<- n + 1L
+        paste0("mocked-fingerprint-", n)
+      }
+    })
+    local_mocked_bindings(
+      bg_checkout_fingerprint = counter,
+      .package = "bayesgrove"
+    )
+
+    # Two sibling base nodes form one wave with length > 1, so each run takes
+    # exactly one parallel dispatch and therefore consumes one fingerprint.
+    # Reading bg_daemon_state via ::: works on the daemon even though the
+    # checkout is loaded with attach = FALSE, because ::: resolves through
+    # the namespace registry rather than the search path.
+    executor_src <- paste0(
+      "function(node, inputs) list(",
+      "loaded = bayesgrove:::bg_daemon_state$checkout_fingerprint, ",
+      "probe = 'fingerprint')"
+    )
+    probe_run <- function() {
+      tmp <- withr::local_tempdir()
+      handle <- bg_init(path = tmp)
+      bg_register_node_kind(
+        handle,
+        "data",
+        executor = eval(parse(text = executor_src))
+      )
+      a <- bg_add_node(handle, kind = "data", label = "a")
+      b <- bg_add_node(handle, kind = "data", label = "b")
+      run_res <- bg_run(handle, parallel = "always")
+      expect_equal(run_res$status, "succeeded")
+      expect_equal(run_res$summary$total_executed, 2)
+      c(bg_result(handle, a)$loaded, bg_result(handle, b)$loaded)
+    }
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+
+    first <- probe_run()
+    expect_equal(first, rep("mocked-fingerprint-1", 2))
+
+    # Same daemons, "edited" sources: the changed fingerprint must make each
+    # daemon reload the checkout before resolving the worker.
+    second <- probe_run()
+    expect_equal(second, rep("mocked-fingerprint-2", 2))
+  })
 })
 
 describe("bg_prepare_executor_for_ship (crating)", {
@@ -260,5 +316,43 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
 
     expect_equal(names(requirements), c("mirai", "purrr", "carrier"))
     expect_true(utils::compareVersion(requirements[["purrr"]], "1.1.0") >= 0)
+  })
+
+  it("flags whether daemons can resolve the executing bayesgrove copy", {
+    # Daemons are fresh R processes that can only load bayesgrove from an
+    # installed library. By-name worker resolution is therefore only faithful
+    # when this process itself executes that installed copy. Under
+    # pkgload::load_all() the executing namespace lives in the source
+    # checkout: daemons must NOT resolve by name there, because that would
+    # fail without an install or silently run a stale one.
+    #
+    # Skipped under covr: instrumentation loads a traced copy of the package
+    # from a temporary path that is neither the source checkout nor the
+    # installed location a fresh daemon would load, so both session arms of
+    # this probe describe a session shape covr does not really represent and
+    # the expectations would not hold there.
+    skip_on_covr()
+    ns <- asNamespace("bayesgrove")
+    executing <- getNamespaceInfo(ns, "path")
+    installed <- find.package("bayesgrove", lib.loc = .libPaths(), quiet = TRUE)
+    matches_install <- !is.na(installed) &&
+      identical(
+        normalizePath(executing, mustWork = FALSE),
+        normalizePath(installed, mustWork = FALSE)
+      )
+
+    from_checkout <- identical(
+      normalizePath(executing, mustWork = FALSE),
+      normalizePath(test_path("../.."), mustWork = FALSE)
+    )
+    if (from_checkout) {
+      # Dev session (test_local / test_file under load_all).
+      expect_false(bayesgrove:::bg_daemons_resolve_by_name())
+    } else {
+      # Installed session (R CMD check / library()): the executing copy is
+      # the one a daemon finds on the library path.
+      expect_true(matches_install)
+      expect_true(bayesgrove:::bg_daemons_resolve_by_name())
+    }
   })
 })
