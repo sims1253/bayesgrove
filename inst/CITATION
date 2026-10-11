@@ -33,3 +33,55 @@ bibentry(
     "Bayesian Workflow. arXiv preprint arXiv:2011.01808."
   )
 )
+
+bibentry(
+  bibtype = "Book",
+  title = "Bayesian Workflow",
+  author = c(
+    person("Andrew", "Gelman"),
+    person("Aki", "Vehtari"),
+    person("Richard", "McElreath"),
+    person("Daniel", "Simpson"),
+    person(c("Charles", "C."), "Margossian"),
+    person("Yuling", "Yao"),
+    person("Lauren", "Kennedy"),
+    person("Jonah", "Gabry"),
+    person("Paul-Christian", "Bürkner"),
+    person("Martin", "Modrák"),
+    person("Vianey", "Leos Barajas")
+  ),
+  year = "2026",
+  publisher = "Chapman & Hall/CRC",
+  isbn = "9780367490140",
+  url = "https://avehtari.github.io/Bayesian-Workflow/",
+  textVersion = paste(
+    "Gelman, A., Vehtari, A., McElreath, R., Simpson, D., Margossian, C. C.,",
+    "Yao, Y., Kennedy, L., Gabry, J., Buerkner, P.-C., Modrak, M., &",
+    "Leos Barajas, V. (2026). Bayesian Workflow. Chapman & Hall/CRC.",
+    "https://avehtari.github.io/Bayesian-Workflow/"
+  )
+)
+
+bibentry(
+  bibtype = "Article",
+  title = paste(
+    "Some models are useful, but how do we know which ones?",
+    "Towards a unified Bayesian model taxonomy"
+  ),
+  author = c(
+    person("Paul-Christian", "Bürkner"),
+    person("Maximilian", "Scholz"),
+    person(c("Stefan", "T."), "Radev")
+  ),
+  year = "2023",
+  journal = "Statistics Surveys",
+  volume = "17",
+  pages = "216--310",
+  doi = "10.1214/23-SS145",
+  textVersion = paste(
+    "Buerkner, P.-C., Scholz, M., & Radev, S. T. (2023).",
+    "Some models are useful, but how do we know which ones?",
+    "Towards a unified Bayesian model taxonomy.",
+    "Statistics Surveys, 17, 216-310. doi:10.1214/23-SS145"
+  )
+)

@@ -67,6 +67,19 @@ for simulation studies, teaching, and sharing project bundles, or use the
 [function reference](https://sims1253.github.io/bayesgrove/reference/index.html).
 Run `bg_api_boundary()` to check which functions are stable or experimental.
 
-The package draws on *Bayesian Workflow* (Gelman et al., 2020) and
-simulation-based calibration (Talts et al., 2018). Use `citation("bayesgrove")`
-for citations.
+## Background
+
+bayesgrove encodes the Bayesian workflow described by Gelman et al. (2020)
+and in the [*Bayesian Workflow*](https://avehtari.github.io/Bayesian-Workflow/)
+book (Gelman, Vehtari, McElreath, et al., 2026) as software: a guide for people learning it, and a constrained environment for
+experienced analysts and agents. Its research-search vocabulary, which describes
+a model as a joint distribution (P), posterior approximator (A), and training
+data (D) judged by goal-dependent utilities, comes from the Bayesian model
+taxonomy of Bürkner, Scholz, and Radev (2023). Simulation-based calibration
+follows Talts et al. (2018).
+
+The graph engine is [dagriculture](https://github.com/sims1253/dagriculture).
+[Glade](https://github.com/sims1253/glade) is an experimental interface built
+on the same R API.
+
+Use `citation("bayesgrove")` for citations.

@@ -7,7 +7,10 @@ Description: Records Bayesian model reviews: diagnostics create
     decision is recorded. Provides typed graph construction, deterministic
     fingerprinting, content-addressed artifact storage, decision logging, a
     summary-driven workflow protocol, and built-in cmdstanr/brms executors for
-    HMC, LOO, and posterior-predictive diagnostics.
+    HMC, LOO, and posterior-predictive diagnostics. Implements the Bayesian
+    workflow of Gelman et al. (2020) <doi:10.48550/arXiv.2011.01808> and
+    describes models with the taxonomy of Bürkner, Scholz, and Radev (2023)
+    <doi:10.1214/23-SS145>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: false
