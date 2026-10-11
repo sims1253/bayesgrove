@@ -37,6 +37,31 @@
   resolve against the project root at bundling, fingerprinting, and
   execution time, so a project bundles and runs identically from any working
   directory.
+* Each successful execution records its provenance in its final job record:
+  the execution's own artifact and fingerprint, the inputs passed to the
+  executor (in order), what it consumed (data inputs, the fit a check
+  evaluated, and SHA-256 hashes of file-path data), the settings it actually
+  used as read back from the result, the environment of the process that
+  ran it, and a P/A/D snapshot with SHA-256 component digests. Parallel runs
+  record the same provenance from what workers return. Summaries written by
+  an execution carry its `job_id`, and `bg_write_summaries()` rejects
+  caller-supplied `job_id`s. Executors can report provenance through
+  `metadata$provenance`; the built-in fit executors report their data input
+  and effective sampler settings, and `loo`, `ppc`, and `loo_pit` report the
+  fit they evaluated.
+* `bg_register_node_kind()` gains a `pad` argument that classifies a kind's
+  parameters as P, A, D, `locator`, or `other`. The declaration is stored in
+  the runtime manifest and restored on open. The built-in fit kinds
+  (`cmdstanr_fit`, `prior_fit`, `brms_fit`, `brms_prior_fit`) declare one.
+* New experimental `bg_node_pad()` returns the provenance of the execution
+  that produced a node's current artifact, or `NULL` when there is none.
+* `bg_run()` gains `rerun`, which executes the listed nodes even when their
+  result is cached. Their descendants wait for the rerun but are not
+  re-executed. Use it to record provenance for results computed before this
+  version.
+* The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
+  explicitly, from node params or else the `brms.backend` and
+  `brms.algorithm` options, so the recorded values are the ones used.
 * Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
   verify deterministic captured README and vignette output in CI without
   CmdStan. The sampler vignettes stay intentionally precomputed and are
@@ -48,6 +73,11 @@
   any successful apply. This version reads version 1 states without
   migration, but older bayesgrove versions reject version 2, so compatibility
   is one-way.
+* Summary freshness also requires a summary's `artifact_ref` to be the
+  artifact its fingerprint currently resolves to. A same-fingerprint rerun
+  that produces a different artifact therefore makes earlier summaries stale,
+  for every node sharing the fingerprint. Stale summaries remain readable
+  with `bg_read_summaries(include_stale = TRUE)`.
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
 * Removed the ignored `auto_advance` argument from `bg_status()`.
 * Removed `bg_export_report(out_file = )`; use `path = ` instead.

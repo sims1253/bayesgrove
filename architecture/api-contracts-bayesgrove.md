@@ -41,6 +41,20 @@ also covers descendants. It does not delete the graph nodes.
 See [fingerprinting](../R/fingerprint.R), [invalidation](../R/branch.R),
 and [result storage](../R/run.R).
 
+The index shares one artifact per fingerprint across nodes, and a
+fingerprint names a computation rather than the inputs it realized. So each
+succeeded job's final record carries `provenance`: its own `artifact_ref`
+(equal to the job's `result_ref`), `fingerprint`, the `inputs` passed to the
+executor in order, what it `consumed`, the `effective` settings read back
+from the result, the `environment` of the process that ran it, and a `pad`
+snapshot whose P/A/D components carry SHA-256 digests over canonical JSON.
+The main process writes it on both the sequential and the parallel path.
+`bg_node_pad()` resolves a node to the most recent succeeded job that
+produced its current artifact at its fingerprint. `bg_run(rerun = )`
+re-executes cached nodes to record their own provenance.
+See [execution provenance](../R/provenance.R) and
+[architecture/rules-and-evidence.md](rules-and-evidence.md).
+
 ## Reviews and decisions
 
 A gate specification refers to a graph edge. `bg_pending_gates()` joins it
@@ -51,7 +65,11 @@ answer with its edge context.
 Workflow packs derive obligations from summaries and project context.
 Blocking obligations create execution holds. Decisions record choices,
 rationales, scope, and evidence references; summaries carry fingerprints so
-packs can distinguish current evidence from stale evidence.
+packs can distinguish current evidence from stale evidence. A summary is
+fresh only while its fingerprint is the node's predicted fingerprint and its
+`artifact_ref` is the artifact that fingerprint resolves to. Summaries
+written by an execution carry its `job_id`; `bg_write_summaries()` rejects
+caller-supplied ones.
 
 See [decisions and gates](../R/decisions.R),
 [summary freshness](../R/summary-freshness.R), and
