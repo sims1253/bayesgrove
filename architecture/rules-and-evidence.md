@@ -95,8 +95,9 @@ Evidence and review semantics are unchanged from the research-search contract.
 
 **Severity.** Guide reports every finding. Enforce holds an action only for
 blocking findings. Legacy rules are blocking, so current behavior is
-preserved. The research-search contract's "any unmet rule holds" sentence
-becomes "any unmet blocking rule holds."
+preserved. The research-search contract's statement that Enforce "prevents
+an operation when any applicable rule remains unmet" becomes "when any
+applicable blocking rule remains unmet."
 
 ### Three rule validators
 
@@ -170,7 +171,10 @@ identical, and an error otherwise.
    cannot be removed. Overridden rules keep `source` (the author) and gain
    `overridden_by` (a list of `<id>@<version>`).
 4. Appends `R.rules`, qualified as `<R.id>/<rule id>`, with
-   `source = "<R.id>@<R.version>"`.
+   `source = "<R.id>@<R.version>"`. An own rule whose qualified id already
+   exists among the inherited rules is an error. This can happen when `R`
+   extends another version of itself. Change an inherited rule with `override`
+   instead.
 
 Cycles and unknown parents are errors. Because `disable` and `override` are
 applied inside each ruleset's own resolution, a parent's choices are settled
@@ -344,7 +348,8 @@ equals the job's `result_ref`.
   report `consumed$data_files`, the SHA-256 of the file contents at execution
   time. They also report `effective`, read back from the fitted object on the
   process that ran it:
-  - cmdstanr `effective$A`: from `fit$metadata()`, the CmdStan version,
+  - cmdstanr `effective$A`: from `fit$metadata()`, the Stan version
+    (`stan_version_major`/`_minor`/`_patch`; there is no single version key),
     algorithm (`fixed_param` mode is `algorithm == "fixed_param"`),
     `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, and seed;
     chains from `fit$num_chains()`.
