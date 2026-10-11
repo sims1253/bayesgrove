@@ -86,9 +86,13 @@
   `compare` nodes are not supported yet.
 * Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
   references, job ids, and summary ids are engine-owned: research actions
-  that supply them are rejected. Apply derives them again under the research
+  that use these names as action fields or P/A/D component fields are
+  rejected. Deeper caller data is stored as opaque data and never read as
+  provenance. Apply derives the engine-owned fields again under the research
   lock, and a proposal whose derivation changed, for example because the node
-  was re-run, is stale. Reports list bindings and derived evidence.
+  was re-run, is stale. Reading the state checks the structure of derived
+  evidence. Research id lists, including `basis`, must be unnamed lists of
+  ids. Reports list bindings and derived evidence.
 * The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
   explicitly, from node params or else the `brms.backend` and
   `brms.algorithm` options, so the recorded values are the ones used.

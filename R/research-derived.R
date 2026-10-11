@@ -442,3 +442,82 @@ bg_research_validate_binding <- function(binding) {
   }
   invisible(NULL)
 }
+
+#' Validate the structure of stored derived evidence.
+#'
+#' Evidence without `provenance` is asserted and is not inspected. Derived
+#' evidence must have the stored shape, belong to a bound candidate, and name
+#' that binding's artifact as its subject. This catches malformed state on
+#' read, independent of the graph and registries. It does not authenticate a
+#' fabricated file.
+#' @keywords internal
+#' @noRd
+bg_research_validate_evidence <- function(state) {
+  evidence <- state$evidence
+  if (length(evidence) && is.null(names(evidence))) {
+    cli::cli_abort("Evidence must be named by its IDs.")
+  }
+  scalar_string <- function(x) {
+    is.character(x) && length(x) == 1L && !is.na(x) && nzchar(x)
+  }
+  provenance_fields <- c(
+    "kind",
+    "node_id",
+    "job_id",
+    "artifact_ref",
+    "subject_artifact_ref",
+    "summary_ids"
+  )
+  result_fields <- c("summary_kind", "severity", "passed", "metrics")
+  for (id in names(evidence)) {
+    record <- evidence[[id]]
+    provenance <- if (is.list(record)) record$provenance
+    if (is.null(provenance)) {
+      next
+    }
+    bg_research_fields(
+      provenance,
+      provenance_fields,
+      provenance_fields,
+      "provenance"
+    )
+    if (
+      !identical(provenance$kind, "derived") ||
+        !all(vapply(
+          provenance[setdiff(provenance_fields, "summary_ids")],
+          scalar_string,
+          logical(1)
+        )) ||
+        !is.list(provenance$summary_ids) ||
+        length(provenance$summary_ids) == 0L ||
+        !all(vapply(provenance$summary_ids, scalar_string, logical(1)))
+    ) {
+      cli::cli_abort("Derived provenance of evidence {.val {id}} is malformed.")
+    }
+    result <- record$result
+    bg_research_fields(result, result_fields, result_fields, "result")
+    passed <- result$passed
+    if (
+      !scalar_string(result$summary_kind) ||
+        !scalar_string(result$severity) ||
+        !(is.null(passed) || (is.logical(passed) && length(passed) == 1L)) ||
+        !is.list(result$metrics) ||
+        !identical(record$check, result$summary_kind)
+    ) {
+      cli::cli_abort("Derived result of evidence {.val {id}} is malformed.")
+    }
+    candidate_id <- record$candidate_id
+    binding <- if (scalar_string(candidate_id)) {
+      state$candidates[[candidate_id]]$binding
+    }
+    if (
+      is.null(binding) ||
+        !identical(provenance$subject_artifact_ref, binding$artifact_ref)
+    ) {
+      cli::cli_abort(
+        "Derived evidence {.val {id}} must name the artifact its candidate is bound to."
+      )
+    }
+  }
+  invisible(NULL)
+}

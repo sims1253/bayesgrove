@@ -52,6 +52,11 @@ recorded as \code{result}, with its \code{provenance}. \code{sbc} and \code{comp
 not supported yet.
 
 Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
-references, job ids, and summary ids are engine-owned: an action that
-supplies any of them is rejected.
+references, job ids, and summary ids are engine-owned: an action that uses
+one of these names as an action field or as a field of a P/A/D component
+is rejected. Data nested deeper in a description or an asserted result is
+opaque and never read as provenance; only the engine's own \code{binding} and
+\code{provenance} records are authoritative. Derived evidence authenticates
+which artifacts an execution consumed and produced, but trusts what the
+executor reports, so hosts must control executor registration.
 }

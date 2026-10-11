@@ -60,8 +60,12 @@ cleared in a revision. Components are replaced whole, not recursively merged.
 A revision that changes nothing is rejected.
 
 `binding`, `provenance`, `pad`, digests, fingerprints, artifact references, job
-ids, and summary ids are engine-owned. An action that supplies any of them, at
-the top level or inside a P/A/D component, is rejected.
+ids, and summary ids are engine-owned. An action that uses one of these names as
+an action field or as a field of a P/A/D component is rejected. Data nested
+deeper in a description or an asserted result is opaque caller data: it is
+stored as given and never read as provenance. Only the engine's own `binding`
+and `provenance` records are authoritative. Id lists, including those in
+`basis`, must be unnamed lists of id strings.
 
 Plain lists, strings, finite numbers, logical values, and NULL are supported.
 Named fields must be unique. Arrays are lists on reading. Executable functions,
@@ -108,12 +112,24 @@ succeeded execution with the same output and fingerprint. Anything else is
 rejected, naming the P/A/D components in which the other execution differs
 when that is known. Summaries are matched by the job id the engine stamped on
 them, and the most recent summary of the selected kind is used. `sbc` and
-`compare` nodes are not supported yet. The record stores
+`compare` nodes, identified by their canonical kind names, are not supported
+yet. The record stores
 `result = list(summary_kind, severity, passed, metrics)` and
 `provenance = list(kind = "derived", node_id, job_id, artifact_ref,
 subject_artifact_ref, summary_ids)`. Evidence without `provenance` is asserted.
 `require_evidence` and `require_utility_evidence` with
 `provenance = "derived"` accept only derived evidence.
+
+Derived evidence authenticates execution linkage: which artifacts an execution
+consumed and produced. It trusts executor semantics. A custom executor can
+report a subject it did not evaluate, so a host must control executor
+registration, replacement, and restoration, as it controls actor identity and
+predicate registration.
+
+Reading the state validates derived evidence structurally: `provenance` and
+`result` must have the stored shape, and the candidate must be bound to the
+artifact named as `subject_artifact_ref`. Otherwise the state is malformed.
+This catches damaged state; it does not authenticate a fabricated file.
 
 Propose derives bindings and evidence and reports them in the proposal's
 `derivation`. Apply derives them again under the research lock. A different

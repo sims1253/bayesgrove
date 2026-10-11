@@ -159,6 +159,93 @@ describe("engine-owned fields", {
   })
 })
 
+describe("reserved names below the component level", {
+  it("stores nested caller data as opaque data that never counts as derived", {
+    rule <- bg_rule(
+      id = "derived-hmc",
+      on = "accept",
+      require = list(
+        type = "require_evidence",
+        check = "hmc_diagnostics",
+        provenance = "derived"
+      ),
+      message = "Derive the diagnostics from the run."
+    )
+    p <- derived_project(mode = "enforce", rules = list(rule))
+    nested <- list(
+      model = "m1",
+      notes = list(digest = "abc", provenance = list(kind = "derived"))
+    )
+    root <- act(p, "create", label = "Nested", components = list(P = nested))
+    candidate <- candidate_of(p, root)
+    expect_identical(candidate$components$P$notes$digest, "abc")
+    expect_false("binding" %in% names(candidate))
+
+    evidence <- act(
+      p,
+      "evidence",
+      candidate_id = root,
+      label = "Asserted with nested provenance",
+      check = "hmc_diagnostics",
+      utility = "convergence",
+      result = list(
+        provenance = list(kind = "derived", job_id = "job_x"),
+        summary_ids = list("sum_x")
+      )
+    )
+    record <- evidence_of(p, evidence)
+    expect_null(record$provenance)
+    expect_identical(record$result$provenance$kind, "derived")
+    held <- propose(p, "accept", candidate_id = root, evidence_ids = evidence)
+    expect_false(held$allowed)
+    expect_named(held$findings, "derived-hmc")
+  })
+
+  it("accepts only unnamed lists of IDs in basis", {
+    p <- derived_project()
+    root <- act(p, "create", label = "Root", components = list(P = list(m = 1)))
+    evidence <- act(
+      p,
+      "evidence",
+      candidate_id = root,
+      label = "Asserted",
+      check = "hmc_diagnostics",
+      utility = "convergence",
+      result = list(ok = TRUE)
+    )
+    for (ids in list(
+      list(provenance = evidence),
+      c(job = evidence),
+      list(list(evidence))
+    )) {
+      expect_error(
+        propose(
+          p,
+          "note",
+          candidate_id = root,
+          basis = list(evidence_ids = ids)
+        ),
+        "unnamed list of record IDs"
+      )
+    }
+    expect_error(
+      propose(
+        p,
+        "review",
+        candidate_id = root,
+        evidence_ids = list(provenance = evidence)
+      ),
+      "unnamed list of record IDs"
+    )
+    expect_no_error(propose(
+      p,
+      "note",
+      candidate_id = root,
+      basis = list(evidence_ids = list(evidence))
+    ))
+  })
+})
+
 describe("binding a candidate", {
   it("binds a create and defaults components to the snapshot without digests", {
     p <- derived_project()
@@ -408,6 +495,32 @@ describe("derived evidence", {
     )
   })
 
+  it("stores exactly one result, the checked one", {
+    p <- derived_project()
+    root <- act(p, "create", label = "Scale 3", node_id = p$fit)
+    proposal <- propose(
+      p,
+      "evidence",
+      candidate_id = root,
+      label = "Sampler diagnostics",
+      node_id = p$fit,
+      utility = "convergence"
+    )
+    # A caller cannot smuggle a result into the applied action either.
+    tampered <- proposal
+    tampered$action["result"] <- list(NULL)
+    expect_error(bg_research_apply(p$handle, tampered), "exactly one")
+
+    state <- bg_research_apply(p$handle, proposal)
+    record <- state$evidence[[tail(state$history, 1)[[1]]$id]]
+    expect_identical(sum(names(record) == "result"), 1L)
+    expect_false(any(startsWith(names(record), "result.")))
+    expect_identical(
+      bg_canonical_json(record$result),
+      bg_canonical_json(proposal$derivation$result)
+    )
+  })
+
   it("derives a check's diagnostics through the check path", {
     p <- derived_project()
     root <- act(p, "create", label = "Scale 3", node_id = p$fit)
@@ -654,6 +767,19 @@ describe("derived evidence", {
       propose(p, "evidence", candidate_id = bound, label = "x", utility = "u"),
       "exactly one"
     )
+    # Presence decides the form: an explicit NULL result is still a result.
+    expect_error(
+      propose(
+        p,
+        "evidence",
+        candidate_id = bound,
+        label = "x",
+        utility = "convergence",
+        node_id = p$fit,
+        result = NULL
+      ),
+      "exactly one"
+    )
     expect_error(
       propose(
         p,
@@ -759,7 +885,7 @@ describe("rules see derived evidence", {
   it("lets create and revise rules see the prospective binding", {
     bound_only <- bg_rule(
       id = "bound-only",
-      on = "create",
+      on = c("create", "revise"),
       require = list(type = "test.bound"),
       message = "Bind candidates to runs."
     )
@@ -779,6 +905,122 @@ describe("rules see derived evidence", {
       )$allowed
     )
     expect_true(propose(p, "create", label = "x", node_id = p$fit)$allowed)
+
+    root <- act(p, "create", label = "Bound", node_id = p$fit)
+    expect_false(
+      propose(
+        p,
+        "revise",
+        candidate_id = root,
+        label = "Unbound",
+        components = list(P = list(m = 2))
+      )$allowed
+    )
+    other <- add_fit(p, scale = 4)
+    expect_true(
+      propose(
+        p,
+        "revise",
+        candidate_id = root,
+        label = "Scale 4",
+        node_id = other
+      )$allowed
+    )
+  })
+})
+
+describe("stored derived evidence", {
+  it("is malformed unless its structure and binding are consistent", {
+    p <- derived_project()
+    bound <- act(p, "create", label = "Bound", node_id = p$fit)
+    plain <- act(
+      p,
+      "create",
+      label = "Plain",
+      components = list(P = list(m = 1))
+    )
+    derived <- act(
+      p,
+      "evidence",
+      candidate_id = bound,
+      label = "Derived",
+      node_id = p$fit,
+      utility = "convergence"
+    )
+    asserted <- act(
+      p,
+      "evidence",
+      candidate_id = plain,
+      label = "Asserted",
+      check = "hmc_diagnostics",
+      utility = "convergence",
+      result = list(max_rhat = 1)
+    )
+    original <- bg_research_state(p$handle)
+    provenance <- original$evidence[[derived]]$provenance
+    mutations <- list(
+      # A hand-edited asserted record on an unbound candidate.
+      function(state) {
+        state$evidence[[asserted]]$provenance <- list(kind = "derived")
+        state
+      },
+      function(state) {
+        state$evidence[[asserted]]$provenance <- provenance
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$provenance$kind <- "asserted"
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$provenance$job_id <- NULL
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$provenance$summary_ids <- list()
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$provenance$summary_ids <- list("")
+        state
+      },
+      function(state) {
+        state$evidence[[
+          derived
+        ]]$provenance$subject_artifact_ref <- "cas:sha256:0"
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$result <- list(max_rhat = 1)
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$result$passed <- "yes"
+        state
+      },
+      function(state) {
+        state$evidence[[derived]]$check <- "other_check"
+        state
+      },
+      function(state) {
+        state$candidates[[bound]]$binding <- NULL
+        state
+      }
+    )
+    for (mutate in mutations) {
+      bg_write_json_atomic(
+        bg_research_path(p$handle),
+        mutate(original),
+        sort_keys = FALSE
+      )
+      expect_error(bg_research_state(p$handle), "Malformed")
+    }
+    bg_write_json_atomic(
+      bg_research_path(p$handle),
+      original,
+      sort_keys = FALSE
+    )
+    expect_identical(bg_research_state(p$handle), original)
   })
 })
 

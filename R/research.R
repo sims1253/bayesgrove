@@ -139,6 +139,15 @@ bg_research_state <- function(project) {
       )
     }
   )
+  tryCatch(
+    bg_research_validate_evidence(state),
+    error = function(e) {
+      cli::cli_abort(
+        "Malformed evidence records at {.path {path}}.",
+        parent = e
+      )
+    }
+  )
   state
 }
 
@@ -217,8 +226,13 @@ bg_research_validate_candidates <- function(state) {
 #' not supported yet.
 #'
 #' Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
-#' references, job ids, and summary ids are engine-owned: an action that
-#' supplies any of them is rejected.
+#' references, job ids, and summary ids are engine-owned: an action that uses
+#' one of these names as an action field or as a field of a P/A/D component
+#' is rejected. Data nested deeper in a description or an asserted result is
+#' opaque and never read as provenance; only the engine's own `binding` and
+#' `provenance` records are authoritative. Derived evidence authenticates
+#' which artifacts an execution consumed and produced, but trusts what the
+#' executor reports, so hosts must control executor registration.
 #'
 #' @param project A `bg_handle`.
 #' @param action A named list with `kind` and the fields for that operation.
@@ -454,8 +468,21 @@ bg_research_actor <- function(actor) {
   actor
 }
 
+# Id lists are unnamed lists (or vectors) of id strings. Names or nested
+# records would be dropped by flattening, so they are rejected.
 bg_research_ids <- function(ids, records, field, minimum = 1L) {
-  ids <- unlist(ids, use.names = FALSE)
+  entries <- if (is.list(ids)) ids else as.list(ids)
+  scalar <- vapply(
+    entries,
+    function(id) is.character(id) && length(id) == 1L,
+    logical(1)
+  )
+  if (!is.null(names(entries)) || !all(scalar)) {
+    cli::cli_abort(
+      "{.val {field}} must be an unnamed list of record IDs."
+    )
+  }
+  ids <- unlist(entries, use.names = FALSE)
   if (
     !is.character(ids) ||
       anyNA(ids) ||
@@ -579,7 +606,7 @@ bg_research_prepare <- function(
   derivation <- NULL
   if (action$kind %in% c("create", "revise")) {
     bg_research_string(action$label, "label")
-    binding <- if (!is.null(action$node_id)) {
+    binding <- if ("node_id" %in% names(action)) {
       bg_research_binding(project, state, action$node_id)
     }
     revision <- bg_research_revision(candidate, action, binding)
@@ -595,12 +622,14 @@ bg_research_prepare <- function(
   }
   if (action$kind == "evidence") {
     bg_research_string(action$label, "label")
-    if (is.null(action$result) == is.null(action$node_id)) {
+    # Presence, not value, decides the form: a derived action never carries a
+    # result key, not even NULL.
+    if (("result" %in% names(action)) == ("node_id" %in% names(action))) {
       cli::cli_abort(
         "Evidence supplies exactly one of {.field result} (asserted) or {.field node_id} (derived from a run)."
       )
     }
-    if (is.null(action$node_id)) {
+    if (!"node_id" %in% names(action)) {
       bg_research_string(action$check, "check")
       if (length(action$result) == 0L) {
         cli::cli_abort("Evidence must include a result.")
@@ -748,13 +777,18 @@ bg_research_transition <- function(state, proposal) {
       if (!is.null(binding)) list(binding = binding)
     )
   } else if (a$kind == "evidence") {
-    # Derived evidence keeps its node in provenance, with the derived result.
+    # Derived evidence keeps its node in provenance. Its result and
+    # provenance are exactly the checked derivation, never caller fields.
     derived <- proposal$derivation
-    state$evidence[[id]] <- c(
+    record <- c(
       stamp,
-      a[setdiff(names(a), c("kind", "basis", "node_id"))],
-      if (!is.null(derived)) derived[c("result", "provenance")]
+      a[setdiff(names(a), c("kind", "basis", "node_id", "provenance"))]
     )
+    if (!is.null(derived)) {
+      record["result"] <- list(derived$result)
+      record["provenance"] <- list(derived$provenance)
+    }
+    state$evidence[[id]] <- record
   } else if (a$kind == "compare") {
     state$comparisons[[id]] <- c(
       stamp,

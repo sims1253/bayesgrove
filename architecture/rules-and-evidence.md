@@ -278,8 +278,13 @@ artifact content addresses.
 ### Engine-owned fields
 
 `binding`, `provenance`, `pad`, digests, fingerprints, artifact references,
-job ids, and summary ids are engine-owned. A public action that contains any
-of them is rejected. The engine derives them:
+job ids, and summary ids are engine-owned. A public action that uses one of
+these names as an action field, or as a field of a P/A/D component, is
+rejected. Data nested deeper in a caller's description or asserted result is
+opaque: it is stored as given and never read as provenance. Only the engine's
+own `binding` and `provenance` records are authoritative. Id lists such as
+`basis$evidence_ids` must be unnamed lists of id strings. The engine derives
+the engine-owned fields:
 
 - during `propose`, to report them and evaluate rules;
 - again during `apply`, under the research lock.
@@ -526,9 +531,19 @@ A check that evaluated the bound fit's exact output is evidence about that
 fit even if the graph has since changed. Re-running nodes never rewrites
 evidence.
 
+Reading the state validates derived evidence structurally: its `provenance`
+and `result` have the stored shape, and its candidate is bound to the artifact
+named as `subject_artifact_ref`. This catches malformed state; it does not
+authenticate a fabricated file.
+
+Derived evidence authenticates execution linkage, that is, which artifacts an
+execution consumed and produced. It trusts executor semantics: a custom
+executor can report a subject it did not evaluate, so hosts must control
+executor registration, replacement, and restoration.
+
 `sbc` (which runs its own model on simulated data) and `compare` (which
 covers several models) report no subject and are not supported in this
-series. Their provenance needs its own design.
+series. The exclusion is by canonical node kind name. Their provenance needs its own design.
 
 **Availability limits.** These can make *new* derivation impossible, but they
 never make existing dated evidence false:
