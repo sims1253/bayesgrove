@@ -77,8 +77,9 @@ Relative paths are resolved from the current working directory.</p></dd>
 <p>External files referenced by approved node params are copied into the
 archive and their references relocated, so a restored project works after
 the original files (and machine) are gone:</p><ul><li><p>Approved keys: <code>stan_file</code>. The referenced Stan program is copied together
-with every file reachable through <code>#include "..."</code> directives (resolved
-relative to the including file, as stanc3 does). The key list is grounded
+with every file reachable through <code>#include</code> directives, bare, quoted,
+or angle-bracketed (resolved relative to the including file, as stanc3
+does). The key list is grounded
 in what the executors actually read.</p></li>
 <li><p>References into the installed bayesgrove package (e.g.
 <code>system.file("stan", ...)</code> models) are rewritten to a machine-stable

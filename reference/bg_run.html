@@ -62,7 +62,12 @@ summary in one wave takes effect before the next wave is dispatched.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_run</span><span class="op">(</span><span class="va">project</span>, targets <span class="op">=</span> <span class="cn">NULL</span>, parallel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"never"</span>, <span class="st">"always"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">bg_run</span><span class="op">(</span></span>
+<span>  <span class="va">project</span>,</span>
+<span>  targets <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"never"</span>, <span class="st">"always"</span><span class="op">)</span>,</span>
+<span>  rerun <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -83,10 +88,33 @@ dispatches waves in parallel when mirai daemons are active, otherwise falls
 back to sequential execution. <code>"never"</code> always runs sequentially.
 <code>"always"</code> requires mirai and active daemons, erroring if unavailable.</p></dd>
 
+
+<dt id="arg-rerun">rerun<a class="anchor" aria-label="anchor" href="#arg-rerun"></a></dt>
+<dd><p>Optional character vector of node IDs to execute even when
+their result is cached. Use it to record provenance for results computed
+before provenance existed, or to bind a node to its own output when it
+reuses another node's cached artifact. The listed nodes form a pending set
+for this call: a pending node's cached output does not count as
+available, so its descendants wait until it has executed, and it leaves
+the set once its execution is finalized. Gates and workflow holds apply
+as usual; a held node stays unexecuted and is reported in
+<code>metadata$rerun_pending</code> of the returned handle. Descendants are not
+re-executed implicitly, because their fingerprints are unchanged; list
+them too to refresh them. With <code>targets</code>, the listed nodes are added to
+the targets.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>bg_run_handle</code> list.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Each successful execution records its provenance in its final job record
+(see <code><a href="bg_jobs.html">bg_jobs()</a></code> and <code><a href="bg_node_pad.html">bg_node_pad()</a></code>): the inputs passed to the executor,
+what the executor consumed, the settings it actually used, the environment
+that ran it, and a P/A/D snapshot when the node kind declares one.
+Summaries written by an execution carry its <code>job_id</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

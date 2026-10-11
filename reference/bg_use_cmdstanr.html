@@ -73,7 +73,12 @@ summaries with severity rules; no user-written diagnostic code is required.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The <code>ppc</code> kind's posterior-predictive p-values are conservative checks:
+    <p>Each execution records provenance in its job record (see <code><a href="bg_node_pad.html">bg_node_pad()</a></code>).
+The fit kinds report the data input they consumed and the sampler settings
+read back from the fitted object, and declare a P/A/D classification of
+their parameters (see the <code>pad</code> argument of <code><a href="bg_register_node_kind.html">bg_register_node_kind()</a></code>).
+The <code>loo</code>, <code>ppc</code>, and <code>loo_pit</code> kinds report the fit input they evaluated.</p>
+<p>The <code>ppc</code> kind's posterior-predictive p-values are conservative checks:
 an extreme value flags substantial misfit, but an unremarkable value is weak
 evidence that the model is adequate. Treat the graphical check via
 <code><a href="bg_plot.html">bg_plot()</a></code> as the primary posterior-predictive diagnostic and the

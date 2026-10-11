@@ -50,7 +50,8 @@ component (the executor, stored in the handle).</p>
 <span>  input_contract <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  output_type <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  param_schema <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  executor <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  executor <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  pad <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -79,7 +80,43 @@ component (the executor, stored in the handle).</p>
 
 
 <dt id="arg-executor">executor<a class="anchor" aria-label="anchor" href="#arg-executor"></a></dt>
-<dd><p>Optional R function to execute nodes of this kind.</p></dd>
+<dd><p>Optional R function to execute nodes of this kind. It is
+called as <code>executor(node, inputs)</code>, where <code>inputs</code> is a list of upstream
+artifacts named by node id. It may return the artifact itself, or an
+envelope <code>list(result = , summaries = , metadata = )</code>. Without
+<code>summaries</code>, a list is treated as an envelope only when it has exactly
+one of <code>result</code> or <code>artifact</code>, has <code>metadata</code>, and has no other entries;
+any other list is stored as the artifact. A
+<code>metadata$provenance = list(consumed = , effective = )</code> entry reports what
+the execution consumed (<code>consumed$D</code>, the data input ids it used;
+<code>consumed$subject</code>, the input id of the fit a check evaluated;
+<code>consumed$data_files</code>, <code>list(node_id, path)</code> entries naming file-path
+inputs it read) and the settings it actually used (<code>effective$P</code>,
+<code>effective$A</code>). Without a report, every input counts as consumed data.
+For kinds that declare <code>pad</code>, file-backed data is supported only as a
+non-empty regular file hashed before the run at the identical path,
+resolved in the executing process: every consumed <code>D</code> input whose value
+is a character string must be such a file (empty files, devices, FIFOs,
+and other special files are unsupported and never opened), every
+<code>data_files</code> entry must name a consumed <code>D</code> input at that path, the
+<code>stan_file</code> source and its includes must exist, and none of these may
+change during execution. Otherwise the provenance records a
+<code>capture_error</code> and no P/A/D snapshot; inputs that were not consumed are
+never checked.</p></dd>
+
+
+<dt id="arg-pad">pad<a class="anchor" aria-label="anchor" href="#arg-pad"></a></dt>
+<dd><p>Optional P/A/D classification of the kind's parameters: a named
+list with character vectors <code>P</code> (model), <code>A</code> (algorithm), <code>D</code> (data),
+<code>locator</code> (parameters that select inputs, such as <code>data_input</code>), and
+<code>other</code> (parameters that don't change the result's meaning, such as
+diagnostic thresholds). Each parameter may appear in one category only.
+When a node's parameters are all classified, each execution records a
+P/A/D snapshot with SHA-256 digests in its provenance (see
+<code><a href="bg_node_pad.html">bg_node_pad()</a></code>); an unclassified parameter means no snapshot is
+recorded. The declaration is stored in the runtime manifest and restored
+by <code><a href="bg_open.html">bg_open()</a></code>. If provenance cannot be captured at all, the succeeded
+job records <code>capture_error</code> instead of <code>provenance</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

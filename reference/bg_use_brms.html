@@ -71,6 +71,14 @@ graphs need not label plain data frames with a Stan-specific kind.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Invisibly, the project handle.</p>
     </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>The brms fit executors pass <code>backend</code> and <code>algorithm</code> to <code><a href="https://paulbuerkner.com/brms/reference/brm.html" class="external-link">brms::brm()</a></code>
+explicitly, from node params or else the <code>brms.backend</code> and
+<code>brms.algorithm</code> options resolved at execution time. Their job records'
+provenance (see <code><a href="bg_node_pad.html">bg_node_pad()</a></code>) carries the family, the applied priors,
+and the sampler settings read back from the fit.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
