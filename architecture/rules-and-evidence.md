@@ -317,7 +317,23 @@ equals the job's `result_ref`.
   bindings or derived evidence. `bg_run(project, rerun = <node ids>)` (new)
   executes the listed nodes even on a cache hit and binds their own output.
   This is the recovery path, including for a clone that reuses another node's
-  cached artifact, which invalidation cannot reach.
+  cached artifact, which invalidation cannot reach. Semantics:
+  - The listed nodes form a pending-rerun set for that call.
+  - A pending node's cached output does not count as available, so its
+    descendants are not ready until it has executed and been finalized.
+  - A node leaves the set after successful finalization, so plan refreshes
+    don't run it again.
+  - Gates and holds apply as usual. A held node stays unexecuted and is
+    reported.
+  - Descendants are not re-executed implicitly, because their fingerprints are
+    unchanged. List them too to refresh them. Until then, their recorded
+    consumption truthfully names the earlier artifact.
+- **Summary freshness** additionally requires a summary's `artifact_ref` to
+  equal the node's active artifact. Without this, a same-fingerprint rerun
+  would leave the earlier run's diagnostics marked fresh, also for other nodes
+  sharing the index entry. Cached freshness flags are recomputed before
+  wave-boundary hold evaluation. Stale summaries stay readable as history, and
+  research evidence keeps referring to them by id.
 
 **Executor reports.** An executor may return
 `metadata$provenance = list(consumed, effective)`. Built-in executors do:
@@ -465,17 +481,21 @@ For derived evidence:
 2. The node is resolved to its producing execution (above).
 3. Eligibility is decided by content identity. Graph reachability and the
    current graph are not consulted.
-   - **Self**: if the node's resolved artifact equals the binding's
-     `artifact_ref`, the evidence is the bound fit's own diagnostics. The
-     summaries come from the bound `job_id`, or, if that job lacks the check,
-     from another succeeded job with the same output and fingerprint. This way
-     a byte-identical rerun does not lock out a fit's own diagnostics.
-   - **Check**: otherwise, the representative execution's
-     `consumed$subject` input must have consumed exactly the binding's
-     `artifact_ref`.
-4. The selected `check` is a summary kind among the chosen execution's
-   summaries, matched by the engine-stamped `job_id`. If several match, the
-   most recent in log order is used.
+   The two paths are tried in this order:
+   - **Check** (first): if the representative execution reports
+     `consumed$subject` and that input's consumed `artifact_ref` equals the
+     binding's `artifact_ref`, the evidence comes from that execution. This
+     holds even if the check returned its subject unchanged.
+   - **Self** (otherwise): if the node's resolved artifact equals the
+     binding's `artifact_ref`, the evidence is the bound fit's own
+     diagnostics. The eligible jobs are the bound `job_id` and every other
+     succeeded job with the same output and fingerprint, so a byte-identical
+     rerun does not lock out a fit's own diagnostics.
+   - Otherwise the action fails.
+4. Summaries are matched by the engine-stamped `job_id` of the eligible jobs.
+   An omitted `check` must resolve to exactly one summary kind across them.
+   For the selected kind, the most recent matching summary in log order is
+   used.
    `check` may be omitted when exactly one kind matches. `label` is required.
    `utility` follows the vocabulary rules.
 
