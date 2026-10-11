@@ -204,7 +204,20 @@ bg_normalize_execution_result <- function(result) {
   }
 
   if (!"summaries" %in% names(result)) {
-    return(list(artifact = result, summaries = list(), metadata = list()))
+    # Without summaries, only an explicit envelope is unwrapped: a
+    # `result`/`artifact` entry plus `metadata`, and no other names. Any
+    # other list is an ordinary artifact.
+    envelope <- all(names(result) %in% c("result", "artifact", "metadata")) &&
+      "metadata" %in% names(result) &&
+      sum(c("result", "artifact") %in% names(result)) == 1L
+    if (!envelope) {
+      return(list(artifact = result, summaries = list(), metadata = list()))
+    }
+    return(list(
+      artifact = result$result %||% result$artifact,
+      summaries = list(),
+      metadata = result$metadata %||% list()
+    ))
   }
 
   artifact <- result$result %||% result$artifact %||% result$value
@@ -794,7 +807,8 @@ bg_run <- function(
           job_id = wave_jobs[[node_id]],
           summaries = res$summaries,
           metadata = res$metadata,
-          environment = res$environment
+          environment = res$environment,
+          files = res$files
         )
         results[[node_id]] <- res
       }
@@ -1019,12 +1033,14 @@ bg_execute_node <- function(
     ))
   }
 
+  # Single-bracket assignment keeps an input whose artifact is NULL; `[[<-`
+  # would delete it and hand the executor fewer inputs than were bound.
   resolved_inputs <- list()
   for (b in input_bindings) {
-    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
+    resolved_inputs[b$from_node_id] <- list(bg_fetch_artifact(
       handle,
       b$artifact_ref
-    )
+    ))
   }
 
   # Generic data_ref resolution: any node whose params carry a single "cas:"
@@ -1054,7 +1070,15 @@ bg_execute_node <- function(
 
   tryCatch(
     {
-      normalized <- bg_run_executor(node, resolved_inputs, kind_reg)
+      # Hash the Stan source and file-path inputs before and after the
+      # executor, in the process that runs it.
+      execution <- bg_with_file_identities(
+        node,
+        resolved_inputs,
+        handle@path,
+        function() bg_run_executor(node, resolved_inputs, kind_reg)
+      )
+      normalized <- execution$value
       environment <- bg_execution_environment()
 
       ref <- bg_store_artifact(
@@ -1081,7 +1105,8 @@ bg_execute_node <- function(
         job_id = job_id,
         summaries = normalized$summaries,
         metadata = normalized$metadata,
-        environment = environment
+        environment = environment,
+        files = execution$files
       )
 
       list(ok = TRUE, ref = ref, summaries = written_summaries)

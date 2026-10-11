@@ -221,8 +221,8 @@ bg_daemon_state <- new.env(parent = emptyenv())
 # are idempotent and atomic, so workers can write concurrently. The main
 # process is the single writer of the artifact index, summaries JSONL, and
 # jobs JSONL. Each worker returns list(node_id, ref, summaries, metadata,
-# environment, error); the main process records provenance and updates the
-# plan and run state from these results.
+# environment, files, error); the main process records provenance and updates
+# the plan and run state from these results.
 
 #' Build a worker task bundle for one node in a wave.
 #'
@@ -243,12 +243,14 @@ bg_daemon_state <- new.env(parent = emptyenv())
 bg_build_worker_task <- function(project, node_id, plan, graph, kind_reg) {
   node <- graph$nodes[[node_id]]
 
+  # Single-bracket assignment keeps NULL artifacts as inputs (see
+  # bg_execute_node()).
   resolved_inputs <- list()
   for (b in plan$input_bindings[[node_id]] %||% list()) {
-    resolved_inputs[[b$from_node_id]] <- bg_fetch_artifact(
+    resolved_inputs[b$from_node_id] <- list(bg_fetch_artifact(
       project,
       b$artifact_ref
-    )
+    ))
   }
 
   data_ref <- node$params$data_ref %||% NULL
@@ -477,8 +479,8 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 #' (idempotent + atomic, safe under concurrent writes). The main process
 #' writes the artifact index, summaries JSONL, and jobs JSONL (including the
 #' job's provenance). Returns
-#' `list(node_id, ref, summaries, metadata, environment, ok, error)`;
-#' `ref`/`summaries`/`metadata`/`environment` are populated on success,
+#' `list(node_id, ref, summaries, metadata, environment, files, ok, error)`;
+#' `ref`/`summaries`/`metadata`/`environment`/`files` are populated on success,
 #' `error` on failure.
 #' @param task A worker task bundle from `bg_build_worker_task`.
 #' @return Result list for the main process to finalize.
@@ -513,15 +515,21 @@ bg_wave_worker <- function(task) {
 
   tryCatch(
     {
-      normalized <- bg_run_executor(
+      # File identities are taken here, on the worker's filesystem, before
+      # and after the executor runs.
+      execution <- bg_with_file_identities(
         task$node,
         task$resolved_inputs,
-        kind_reg
+        task$project_path,
+        function() {
+          bg_run_executor(task$node, task$resolved_inputs, kind_reg)
+        }
       )
+      normalized <- execution$value
       ref <- bg_store_cas_blob(project, normalized$artifact)
-      # The executor metadata (its provenance report) and this worker's
-      # environment manifest travel back so the main process can record the
-      # execution's provenance as it ran here.
+      # The executor metadata (its provenance report), the file identities,
+      # and this worker's environment manifest travel back so the main process
+      # can record the execution's provenance as it ran here.
       list(
         node_id = task$node_id,
         ok = TRUE,
@@ -529,6 +537,7 @@ bg_wave_worker <- function(task) {
         summaries = normalized$summaries,
         metadata = normalized$metadata,
         environment = bg_execution_environment(),
+        files = execution$files,
         fingerprint = task$fingerprint
       )
     },

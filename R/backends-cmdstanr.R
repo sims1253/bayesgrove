@@ -314,7 +314,8 @@ bg_resolve_fit_data <- function(node, inputs, default = NULL) {
 #' Build a fit executor's provenance report for its selected data.
 #'
 #' Reports the single consumed data input and, when that data is a file path,
-#' the SHA-256 of the file contents at execution time.
+#' names it in `consumed$data_files`. The engine attaches the file's SHA-256,
+#' taken before the executor ran.
 #' @param selection Result of `bg_resolve_fit_data()`.
 #' @param effective `list(P, A)` read back from the fitted object.
 #' @keywords internal
@@ -359,24 +360,24 @@ bg_readback_value <- function(value) {
   if (length(value) == 1L) value else as.list(value)
 }
 
-#' Read the CmdStan version from cmdstanr fit metadata.
+#' Read the Stan version from cmdstanr fit metadata.
 #'
-#' Prefers an explicit `cmdstan_version`; otherwise uses the Stan version
-#' CmdStan wrote into the output CSV (`stan_version_major/minor/patch`), which
-#' is the version of the CmdStan release that ran the fit.
+#' CmdStan writes the version as three fields
+#' (`stan_version_major`/`_minor`/`_patch`); there is no single version key.
 #' @keywords internal
 #' @noRd
-bg_cmdstan_version_readback <- function(meta) {
-  explicit <- meta$cmdstan_version %||% NULL
-  if (!is.null(explicit) && length(explicit) >= 1L) {
-    return(as.character(explicit[[1]]))
-  }
+bg_stan_version_readback <- function(meta) {
   parts <- list(
     meta$stan_version_major,
     meta$stan_version_minor,
     meta$stan_version_patch
   )
-  if (any(vapply(parts, function(p) length(p) == 0L, logical(1)))) {
+  available <- vapply(
+    parts,
+    function(p) length(p) >= 1L && is.atomic(p) && !is.na(p[[1]]),
+    logical(1)
+  )
+  if (!all(available)) {
     return("unavailable")
   }
   paste(
@@ -408,7 +409,7 @@ bg_cmdstan_sampler_settings <- function(meta, chains = NULL) {
   }
 
   list(
-    cmdstan_version = bg_cmdstan_version_readback(meta),
+    stan_version = bg_stan_version_readback(meta),
     algorithm = algorithm,
     chains = bg_readback_value(chains),
     iter_warmup = bg_readback_value(meta$iter_warmup),

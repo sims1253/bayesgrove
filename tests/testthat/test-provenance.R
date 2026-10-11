@@ -136,7 +136,11 @@ describe("execution provenance in job records", {
       .package = "bayesgrove"
     )
     expect_equal(res$status, "succeeded")
-    expect_null(final_job_for(handle, src)$provenance)
+    job <- final_job_for(handle, src)
+    expect_null(job[["provenance"]])
+    # The failure is durable, distinguishing it from a legacy execution.
+    expect_identical(job$capture_error, "capture broke")
+    expect_null(bg_node_pad(handle, src))
   })
 })
 
@@ -382,5 +386,241 @@ describe("execution-stamped summaries", {
       list(list(summary_kind = "hmc_diagnostics"))
     )
     expect_null(written[[1]]$job_id)
+  })
+})
+
+describe("file identities captured around execution", {
+  # Kinds whose executor edits the file it is handed while it runs, as a long
+  # fit would observe if its Stan source or data file were edited meanwhile.
+  register_mutating_kinds <- function(handle) {
+    bg_register_node_kind(
+      handle,
+      "path_src",
+      executor = function(node, inputs) {
+        node$params$path
+      }
+    )
+    bg_register_node_kind(
+      handle,
+      "stan_mutator",
+      executor = function(node, inputs) {
+        before <- readLines(node$params$stan_file)
+        if (isTRUE(node$params$mutate)) {
+          cat(
+            "// edited during the fit\n",
+            file = node$params$stan_file,
+            append = TRUE
+          )
+        }
+        list(
+          result = list(lines = length(before)),
+          metadata = list(provenance = list(consumed = list(D = character())))
+        )
+      },
+      pad = list(P = "stan_file", other = "mutate")
+    )
+    bg_register_node_kind(
+      handle,
+      "data_mutator",
+      executor = function(node, inputs) {
+        path <- inputs[[1]]
+        read <- readLines(path)
+        if (isTRUE(node$params$mutate)) {
+          cat("tampered\n", file = path, append = TRUE)
+        }
+        list(
+          result = list(read = read),
+          metadata = list(
+            provenance = list(
+              consumed = list(
+                D = names(inputs)[[1]],
+                # A self-reported hash is never certified; the engine's wins.
+                data_files = list(list(
+                  node_id = names(inputs)[[1]],
+                  sha256 = "forged"
+                ))
+              )
+            )
+          )
+        )
+      },
+      pad = list(other = "mutate")
+    )
+  }
+
+  it("records the Stan source hash taken before the executor ran", {
+    handle <- bg_init(path = withr::local_tempdir())
+    register_mutating_kinds(handle)
+    stan_file <- withr::local_tempfile(fileext = ".stan")
+    writeLines("parameters { real mu; }", stan_file)
+    before <- digest::digest(file = stan_file, algo = "sha256")
+    node <- bg_add_node(
+      handle,
+      kind = "stan_mutator",
+      params = list(stan_file = stan_file, mutate = FALSE)
+    )
+    bg_run(handle)
+    prov <- final_job_for(handle, node)$provenance
+    expect_identical(prov$pad$P$stan_source, before)
+    expect_null(prov$capture_error)
+  })
+
+  it("records no pad when the Stan source changed during execution", {
+    handle <- bg_init(path = withr::local_tempdir())
+    register_mutating_kinds(handle)
+    stan_file <- withr::local_tempfile(fileext = ".stan")
+    writeLines("parameters { real mu; }", stan_file)
+    node <- bg_add_node(
+      handle,
+      kind = "stan_mutator",
+      params = list(stan_file = stan_file, mutate = TRUE)
+    )
+    expect_equal(bg_run(handle)$status, "succeeded")
+
+    job <- final_job_for(handle, node)
+    prov <- job$provenance
+    expect_null(prov$pad)
+    expect_true("pad" %in% names(prov))
+    expect_match(prov$capture_error, "changed during execution")
+    expect_match(prov$capture_error, "stan_file", fixed = TRUE)
+    # The edited source also changes the node's predicted fingerprint, so the
+    # execution no longer backs the node's current artifact.
+    expect_null(bg_node_pad(handle, node))
+  })
+
+  it("supplies pre-invocation hashes for reported data files", {
+    handle <- bg_init(path = withr::local_tempdir())
+    register_mutating_kinds(handle)
+    data_file <- withr::local_tempfile(fileext = ".csv")
+    writeLines("y", data_file)
+    src <- bg_add_node(
+      handle,
+      kind = "path_src",
+      params = list(path = data_file)
+    )
+    fit <- bg_add_node(
+      handle,
+      kind = "data_mutator",
+      params = list(mutate = FALSE),
+      inputs = src
+    )
+    bg_run(handle)
+    prov <- final_job_for(handle, fit)$provenance
+    sha <- digest::digest(file = data_file, algo = "sha256")
+    expect_identical(prov$consumed$data_files[[1]]$sha256, sha)
+    expect_identical(prov$pad$D$data, list(paste0("sha256:", sha)))
+  })
+
+  it("records no pad when a data file changed during execution", {
+    handle <- bg_init(path = withr::local_tempdir())
+    register_mutating_kinds(handle)
+    data_file <- withr::local_tempfile(fileext = ".csv")
+    writeLines("y", data_file)
+    before <- digest::digest(file = data_file, algo = "sha256")
+    src <- bg_add_node(
+      handle,
+      kind = "path_src",
+      params = list(path = data_file)
+    )
+    fit <- bg_add_node(
+      handle,
+      kind = "data_mutator",
+      params = list(mutate = TRUE),
+      inputs = src
+    )
+    bg_run(handle)
+    prov <- final_job_for(handle, fit)$provenance
+    expect_null(prov$pad)
+    expect_match(prov$capture_error, "data file", fixed = TRUE)
+    expect_match(prov$capture_error, src, fixed = TRUE)
+    # Only the pre-invocation hash is ever recorded.
+    expect_identical(prov$consumed$data_files[[1]]$sha256, before)
+  })
+
+  it("detects changed and vanished files in the snapshot helper", {
+    path <- withr::local_tempfile()
+    writeLines("a", path)
+    node <- list(params = list())
+    unchanged <- bg_with_file_identities(
+      node,
+      list(n = path),
+      NULL,
+      function() 1
+    )
+    expect_identical(unchanged$value, 1)
+    expect_identical(unchanged$files$changed, character())
+    expect_identical(unchanged$files$data_files$n$node_id, "n")
+
+    removed <- bg_with_file_identities(
+      node,
+      list(n = path),
+      NULL,
+      function() unlink(path)
+    )
+    expect_length(removed$files$changed, 1L)
+  })
+})
+
+describe("executor envelopes and inputs", {
+  it("unwraps an envelope with metadata and no summaries", {
+    expect_identical(
+      bg_normalize_execution_result(list(result = 1, metadata = list(x = 2))),
+      list(artifact = 1, summaries = list(), metadata = list(x = 2))
+    )
+    expect_identical(
+      bg_normalize_execution_result(
+        list(artifact = 1, metadata = list())
+      )$artifact,
+      1
+    )
+    # Ordinary list artifacts stay whole.
+    ordinary <- list(
+      list(result = 1, other = 2, metadata = 3),
+      list(result = 1),
+      list(metadata = 1),
+      list(result = 1, artifact = 2, metadata = 3)
+    )
+    for (value in ordinary) {
+      expect_identical(bg_normalize_execution_result(value)$artifact, value)
+    }
+  })
+
+  it("records a report returned without summaries", {
+    handle <- make_provenance_project()
+    src <- bg_add_node(handle, kind = "src")
+    bg_register_node_kind(handle, "quiet", executor = function(node, inputs) {
+      list(
+        result = "fit",
+        metadata = list(
+          provenance = list(
+            consumed = list(subject = names(inputs)[[1]]),
+            effective = list(A = list(chains = 2L))
+          )
+        )
+      )
+    })
+    node <- bg_add_node(handle, kind = "quiet", inputs = src)
+    bg_run(handle)
+
+    expect_identical(bg_result(handle, node), "fit")
+    prov <- final_job_for(handle, node)$provenance
+    expect_identical(prov$consumed$subject, src)
+    expect_identical(prov$effective$A$chains, 2L)
+  })
+
+  it("passes NULL upstream artifacts to the executor", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "nothing", executor = function(node, inputs) {
+      NULL
+    })
+    bg_register_node_kind(handle, "count", executor = function(node, inputs) {
+      list(n = length(inputs), ids = names(inputs))
+    })
+    up <- bg_add_node(handle, kind = "nothing")
+    down <- bg_add_node(handle, kind = "count", inputs = up)
+    bg_run(handle)
+
+    expect_identical(bg_result(handle, down), list(n = 1L, ids = up))
+    expect_length(final_job_for(handle, down)$provenance$inputs, 1L)
   })
 })

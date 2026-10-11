@@ -14,9 +14,10 @@ bg_node_pad(project, node_id)
 \value{
 The execution's provenance list with its \code{job_id}, or \code{NULL} when
 the node has no fresh artifact or the artifact has no recorded
-provenance (for example, executions from before provenance was
-recorded). Run the node, or re-execute it with
-\code{bg_run(project, rerun = node_id)}, to record one.
+provenance: executions from before provenance was recorded, and
+executions whose capture failed (their job records \code{capture_error}).
+Run the node, or re-execute it with \code{bg_run(project, rerun = node_id)},
+to record one.
 }
 \description{
 Resolves \code{node_id} to the execution that produced the artifact it currently
@@ -30,8 +31,11 @@ that execution's output.
 The returned provenance records the execution's own output
 (\code{artifact_ref}), its \code{fingerprint}, the \code{inputs} passed to the executor
 (in order), what it \code{consumed} (\code{D} input ids, the check \code{subject}, and
-hashed \code{data_files}), the \code{effective} settings read back from the result,
-the \code{environment} of the process that ran it, and the \code{pad} snapshot
-(P/A/D components with SHA-256 digests, or \code{NULL} when the node kind has no
-complete \code{\link[=bg_register_node_kind]{bg_register_node_kind()}} \code{pad} declaration).
+\code{data_files} with SHA-256 hashes taken before the executor ran), the
+\code{effective} settings read back from the result, the \code{environment} of the
+process that ran it, and the \code{pad} snapshot (P/A/D components with SHA-256
+digests, or \code{NULL} when the node kind has no complete
+\code{\link[=bg_register_node_kind]{bg_register_node_kind()}} \code{pad} declaration). When the Stan source or a
+file-path input changed while the executor ran, \code{pad} is \code{NULL} and
+\code{capture_error} names the changed files.
 }

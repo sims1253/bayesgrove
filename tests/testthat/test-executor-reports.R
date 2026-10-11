@@ -181,7 +181,7 @@ describe("effective-settings read-back", {
     )
     effective <- bg_cmdstanr_effective(fit)
     expect_length(effective$P, 0L)
-    expect_identical(effective$A$cmdstan_version, "2.36.0")
+    expect_identical(effective$A$stan_version, "2.36.0")
     expect_identical(effective$A$algorithm, "hmc")
     expect_identical(effective$A$chains, 4L)
     expect_identical(effective$A$iter_warmup, 200)
@@ -207,10 +207,14 @@ describe("effective-settings read-back", {
     effective <- bg_cmdstanr_effective(fit)
     expect_identical(effective$A$chains, "unavailable")
     expect_identical(effective$A$seed, "unavailable")
-    expect_identical(effective$A$cmdstan_version, "unavailable")
+    expect_identical(effective$A$stan_version, "unavailable")
     expect_identical(
-      bg_cmdstan_version_readback(list(cmdstan_version = "2.35.0")),
-      "2.35.0"
+      bg_stan_version_readback(list(
+        stan_version_major = 2,
+        stan_version_minor = NA,
+        stan_version_patch = 0
+      )),
+      "unavailable"
     )
   })
 

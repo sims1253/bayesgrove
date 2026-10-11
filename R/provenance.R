@@ -193,7 +193,8 @@ bg_json_roundtrip <- function(x) {
 #' `bg_normalize_executor_report()`).
 #' @param D Character vector of consumed data input ids.
 #' @param subject Input id of the fit a check evaluated.
-#' @param data_files List of `list(node_id, path, sha256)` entries.
+#' @param data_files List of `list(node_id, path)` entries naming the
+#'   file-path inputs the executor read. The engine supplies their hashes.
 #' @param effective `list(P, A)` of settings read back from the result.
 #' @keywords internal
 #' @noRd
@@ -220,35 +221,152 @@ bg_executor_report <- function(
   list(provenance = report)
 }
 
+#' Whether a value is a single path naming an existing regular file.
+#' @keywords internal
+#' @noRd
+bg_is_file_path <- function(value) {
+  is.character(value) &&
+    length(value) == 1L &&
+    !is.na(value) &&
+    nzchar(value) &&
+    file.exists(value) &&
+    !dir.exists(value)
+}
+
 #' Report a selected data input that is a file path.
 #'
-#' Hashes the file contents at execution time. Returns an empty list when the
-#' data is not a single existing file path.
+#' Names the input and path only. The engine hashes every file-path input in
+#' the executing process before the executor runs, and supplies those hashes,
+#' so a report never certifies bytes read after execution. Returns an empty
+#' list when the data is not a single existing file path.
 #' @keywords internal
 #' @noRd
 bg_data_file_report <- function(input_id, data) {
-  is_path <- is.character(data) &&
-    length(data) == 1L &&
-    !is.na(data) &&
-    nzchar(data) &&
-    file.exists(data) &&
-    !dir.exists(data)
-  if (!is_path) {
-    return(list())
-  }
-
-  sha256 <- tryCatch(
-    digest::digest(file = data, algo = "sha256"),
-    error = function(e) NULL
-  )
-  if (is.null(sha256)) {
+  if (!bg_is_file_path(data)) {
     return(list())
   }
   list(list(
     node_id = input_id,
-    path = normalizePath(data, mustWork = FALSE),
-    sha256 = sha256
+    path = normalizePath(data, mustWork = FALSE)
   ))
+}
+
+# --- File identities -------------------------------------------------------
+#
+# Files an execution reads are identified by content, hashed in the process
+# that runs the executor *before* it runs: the Stan source closure of a
+# `stan_file` param and every input that is a file path. They are hashed again
+# after the executor returns. A file that changed in between makes the
+# execution unbindable (provenance without `pad`, with `capture_error`).
+
+#' SHA-256 of a file, or `NA` when it cannot be read.
+#' @keywords internal
+#' @noRd
+bg_hash_file_or_na <- function(path) {
+  tryCatch(
+    digest::digest(file = path, algo = "sha256"),
+    error = function(e) NA_character_
+  )
+}
+
+#' Hash the files an execution reads.
+#'
+#' @param node The node as passed to the executor (resolved params).
+#' @param inputs The executor inputs, named by upstream node id.
+#' @param project_path Project root for resolving a relative `stan_file`.
+#' @return `list(stan_file = list(path, sha256) or NULL,
+#'   data_files = named list of list(node_id, path, sha256))`.
+#' @keywords internal
+#' @noRd
+bg_execution_file_identities <- function(node, inputs, project_path = NULL) {
+  stan_file <- node$params$stan_file %||% NULL
+  stan <- NULL
+  if (is.character(stan_file) && length(stan_file) == 1L) {
+    stan <- list(
+      path = stan_file,
+      sha256 = tryCatch(
+        bg_source_hash_component(node, project_path),
+        error = function(e) NA_character_
+      )
+    )
+  }
+
+  data_files <- list()
+  for (id in names(inputs) %||% character()) {
+    value <- inputs[[id]]
+    if (nzchar(id) && bg_is_file_path(value)) {
+      path <- normalizePath(value, mustWork = FALSE)
+      data_files[[id]] <- list(
+        node_id = id,
+        path = path,
+        sha256 = bg_hash_file_or_na(path)
+      )
+    }
+  }
+
+  list(stan_file = stan, data_files = data_files)
+}
+
+#' Run an executor between two file-identity snapshots.
+#'
+#' Hashes before invocation, calls `run()`, and hashes again. Never fails on
+#' hashing; an unreadable or changed file is reported in `changed`.
+#' @param run A zero-argument function invoking the executor.
+#' @return `list(value = run(), files = list(stan_file, data_files, changed))`.
+#' @keywords internal
+#' @noRd
+bg_with_file_identities <- function(node, inputs, project_path, run) {
+  snapshot <- function() {
+    tryCatch(
+      bg_execution_file_identities(node, inputs, project_path),
+      error = function(e) list(error = conditionMessage(e))
+    )
+  }
+  before <- snapshot()
+  value <- run()
+  after <- snapshot()
+
+  changed <- character()
+  if (!is.null(before$error) || !is.null(after$error)) {
+    changed <- c(
+      changed,
+      sprintf(
+        "file identities could not be captured (%s)",
+        before$error %||% after$error
+      )
+    )
+  }
+  if (!is.null(before$stan_file)) {
+    before_hash <- before$stan_file$sha256
+    if (
+      is.na(before_hash) ||
+        !identical(before_hash, after$stan_file$sha256 %||% NA_character_)
+    ) {
+      changed <- c(
+        changed,
+        sprintf("stan_file %s (source closure)", before$stan_file$path)
+      )
+    }
+  }
+  for (id in names(before$data_files) %||% character()) {
+    entry <- before$data_files[[id]]
+    after_hash <- after$data_files[[id]]$sha256 %||% NA_character_
+    if (is.na(entry$sha256) || !identical(entry$sha256, after_hash)) {
+      changed <- c(
+        changed,
+        sprintf("data file %s (input %s)", entry$path, id)
+      )
+    }
+  }
+
+  list(
+    value = value,
+    files = list(
+      stan_file = before$stan_file,
+      data_files = before$data_files %||% list(),
+      changed = changed
+    )
+  )
 }
 
 #' Normalize an executor's provenance report against the execution inputs.
@@ -287,23 +405,21 @@ bg_normalize_executor_report <- function(metadata, input_ids) {
     subject <- NULL
   }
 
+  is_scalar_string <- function(x) is.character(x) && length(x) == 1L
   data_files <- Filter(
     function(entry) {
       is.list(entry) &&
-        is.character(entry$path) &&
-        length(entry$path) == 1L &&
-        is.character(entry$sha256) &&
-        length(entry$sha256) == 1L
+        (is_scalar_string(entry$node_id) || is_scalar_string(entry$path))
     },
     if (is.list(consumed$data_files)) consumed$data_files else list()
   )
+  # Executors only name the files they read; hashes come from the engine's
+  # pre-invocation snapshot (see bg_resolve_data_files()).
   data_files <- lapply(data_files, function(entry) {
-    node_id <- entry$node_id
-    if (!(is.character(node_id) && length(node_id) == 1L)) {
-      # A single consumed input unambiguously owns an unlabelled file.
-      node_id <- if (length(d_ids) == 1L) d_ids[[1]] else NULL
-    }
-    list(node_id = node_id, path = entry$path, sha256 = entry$sha256)
+    list(
+      node_id = if (is_scalar_string(entry$node_id)) entry$node_id else NULL,
+      path = if (is_scalar_string(entry$path)) entry$path else NULL
+    )
   })
 
   list(
@@ -374,7 +490,8 @@ bg_executor_identity <- function(project, kind_reg, node) {
 #' @param declaration Normalized `pad` declaration of the node's kind.
 #' @param provenance The execution provenance so far (JSON-normalized).
 #' @param executor Executor identity string.
-#' @param project_path Project root for resolving relative `stan_file`s.
+#' @param stan_source Pre-invocation hash of the `stan_file` source closure,
+#'   from the executing process.
 #' @keywords internal
 #' @noRd
 bg_pad_snapshot <- function(
@@ -382,7 +499,7 @@ bg_pad_snapshot <- function(
   declaration,
   provenance,
   executor,
-  project_path = NULL
+  stan_source = NULL
 ) {
   if (is.null(declaration)) {
     return(NULL)
@@ -403,13 +520,14 @@ bg_pad_snapshot <- function(
     params[keep]
   }
 
-  # A Stan program is identified by the contents of its source closure. The
-  # path only locates it, so bundling and relocation keep the same identity.
+  # A Stan program is identified by the contents of its source closure, as
+  # hashed before the executor ran. The path only locates it, so bundling and
+  # relocation keep the same identity.
   p_params <- pick("P")
   p_locator <- bg_empty_named_list()
-  stan_source <- NULL
-  if ("stan_file" %in% names(p_params)) {
-    stan_source <- bg_source_hash_component(node, project_path)
+  if (!"stan_file" %in% names(p_params)) {
+    stan_source <- NULL
+  } else {
     p_locator$stan_file <- p_params$stan_file
     p_params <- p_params[setdiff(names(p_params), "stan_file")]
     if (length(p_params) == 0L) {
@@ -475,6 +593,39 @@ bg_pad_snapshot <- function(
 
 # --- Provenance capture ----------------------------------------------------
 
+#' Attach pre-invocation hashes to the data files an executor reported.
+#'
+#' A reported entry is matched to the engine's snapshot by input id, else by
+#' path. Entries naming no snapshotted file-path input are dropped: the engine
+#' only records hashes it took itself, before the executor ran.
+#' @param reported Normalized `consumed$data_files` entries.
+#' @param snapshot Named list of `list(node_id, path, sha256)` by input id.
+#' @keywords internal
+#' @noRd
+bg_resolve_data_files <- function(reported, snapshot) {
+  snapshot <- snapshot %||% list()
+  paths <- vapply(snapshot, function(entry) entry$path, character(1))
+  resolved <- list()
+  for (entry in reported %||% list()) {
+    id <- entry$node_id %||% NULL
+    if (is.null(id) || !id %in% names(snapshot)) {
+      id <- NULL
+      if (!is.null(entry$path)) {
+        match <- names(paths)[
+          paths == normalizePath(entry$path, mustWork = FALSE)
+        ]
+        id <- if (length(match) > 0L) match[[1]] else NULL
+      }
+    }
+    if (is.null(id) || id %in% names(resolved)) {
+      next
+    }
+    file <- snapshot[[id]]
+    resolved[[id]] <- list(node_id = id, path = file$path, sha256 = file$sha256)
+  }
+  unname(resolved)
+}
+
 #' Build the provenance record of one successful execution.
 #'
 #' @param project A `bg_handle` (main process).
@@ -486,6 +637,8 @@ bg_pad_snapshot <- function(
 #'   executor's inputs, in executor order.
 #' @param metadata The executor's normalized `metadata`.
 #' @param environment Environment manifest of the process that ran the node.
+#' @param files File identities captured around the executor in the process
+#'   that ran it (see `bg_with_file_identities()`).
 #' @keywords internal
 #' @noRd
 bg_build_execution_provenance <- function(
@@ -496,13 +649,18 @@ bg_build_execution_provenance <- function(
   artifact_ref,
   input_bindings,
   metadata,
-  environment
+  environment,
+  files = NULL
 ) {
   inputs <- lapply(input_bindings %||% list(), function(binding) {
     list(node_id = binding$from_node_id, artifact_ref = binding$artifact_ref)
   })
   input_ids <- unique(vapply(inputs, `[[`, character(1), "node_id"))
   report <- bg_normalize_executor_report(metadata, input_ids)
+  report$consumed$data_files <- bg_resolve_data_files(
+    report$consumed$data_files,
+    files$data_files
+  )
 
   provenance <- bg_json_roundtrip(list(
     artifact_ref = artifact_ref,
@@ -512,12 +670,32 @@ bg_build_execution_provenance <- function(
     effective = report$effective,
     environment = bg_as_named_list(environment)
   ))
+
+  # File identities must come from before the executor ran. Without them, or
+  # when a file changed during execution, the record stays but carries no
+  # pad, so it cannot be bound.
+  capture_error <- if (is.null(files)) {
+    "file identities were not captured for this execution"
+  } else if (length(files$changed) > 0L) {
+    paste0(
+      "files changed during execution: ",
+      paste(files$changed, collapse = "; ")
+    )
+  } else {
+    NULL
+  }
+  if (!is.null(capture_error)) {
+    provenance["pad"] <- list(NULL)
+    provenance$capture_error <- capture_error
+    return(provenance)
+  }
+
   provenance["pad"] <- list(bg_pad_snapshot(
     node = node,
     declaration = bg_normalize_pad_declaration(kind_reg$pad %||% NULL),
     provenance = provenance,
     executor = bg_executor_identity(project, kind_reg, node),
-    project_path = project@path
+    stan_source = files$stan_file$sha256 %||% NULL
   ))
   provenance
 }
@@ -525,19 +703,24 @@ bg_build_execution_provenance <- function(
 #' Capture execution provenance without ever failing the run.
 #'
 #' Read-back and snapshot code is defensive, but provenance is a record, not
-#' a precondition: any unexpected error warns and records no provenance.
+#' a precondition: any unexpected error warns and records no provenance. The
+#' error message is returned so the job record can keep it durably.
+#' @return `list(provenance, error)`; exactly one is non-`NULL`.
 #' @keywords internal
 #' @noRd
 bg_capture_execution_provenance <- function(project, node_id, graph, ...) {
   node <- graph$nodes[[node_id]]
   tryCatch(
-    bg_build_execution_provenance(project, node, ...),
+    list(
+      provenance = bg_build_execution_provenance(project, node, ...),
+      error = NULL
+    ),
     error = function(e) {
       cli::cli_warn(c(
         "Could not record execution provenance for node {.val {node_id}}.",
         "x" = conditionMessage(e)
       ))
-      NULL
+      list(provenance = NULL, error = conditionMessage(e))
     }
   )
 }
@@ -556,7 +739,9 @@ bg_execution_environment <- function() {
 #'
 #' Shared by the sequential path and the main-process finalization of the
 #' parallel path, so both write the same records. Summaries are stamped with
-#' the execution's `job_id`.
+#' the execution's `job_id`. When provenance capture fails, the succeeded job
+#' carries `capture_error` instead of `provenance`, which distinguishes it
+#' from executions recorded before provenance existed.
 #' @return The persisted summaries.
 #' @keywords internal
 #' @noRd
@@ -571,7 +756,8 @@ bg_record_execution <- function(
   job_id,
   summaries,
   metadata,
-  environment
+  environment,
+  files
 ) {
   written <- bg_persist_summaries(
     project = project,
@@ -582,7 +768,7 @@ bg_record_execution <- function(
     job_id = job_id
   )
 
-  provenance <- bg_capture_execution_provenance(
+  captured <- bg_capture_execution_provenance(
     project,
     node_id,
     graph,
@@ -591,7 +777,8 @@ bg_record_execution <- function(
     artifact_ref = artifact_ref,
     input_bindings = input_bindings,
     metadata = metadata,
-    environment = environment
+    environment = environment,
+    files = files
   )
 
   bg_update_job(
@@ -600,7 +787,8 @@ bg_record_execution <- function(
     status = "succeeded",
     result_ref = artifact_ref,
     finished_at = bg_now_timestamp(),
-    provenance = provenance
+    provenance = captured$provenance,
+    capture_error = captured$error
   )
 
   written
@@ -642,7 +830,7 @@ bg_execution_jobs <- function(project, artifact_ref, fingerprint, jobs = NULL) {
   jobs <- jobs %||% bg_jobs(project)
   eligible <- Filter(
     function(job) {
-      provenance <- job$provenance %||% NULL
+      provenance <- job[["provenance"]]
       identical(job$status, "succeeded") &&
         is.list(provenance) &&
         identical(provenance$artifact_ref, artifact_ref) &&
@@ -724,18 +912,22 @@ bg_resolve_node_execution <- function(
 #' The returned provenance records the execution's own output
 #' (`artifact_ref`), its `fingerprint`, the `inputs` passed to the executor
 #' (in order), what it `consumed` (`D` input ids, the check `subject`, and
-#' hashed `data_files`), the `effective` settings read back from the result,
-#' the `environment` of the process that ran it, and the `pad` snapshot
-#' (P/A/D components with SHA-256 digests, or `NULL` when the node kind has no
-#' complete [bg_register_node_kind()] `pad` declaration).
+#' `data_files` with SHA-256 hashes taken before the executor ran), the
+#' `effective` settings read back from the result, the `environment` of the
+#' process that ran it, and the `pad` snapshot (P/A/D components with SHA-256
+#' digests, or `NULL` when the node kind has no complete
+#' [bg_register_node_kind()] `pad` declaration). When the Stan source or a
+#' file-path input changed while the executor ran, `pad` is `NULL` and
+#' `capture_error` names the changed files.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id A node id.
 #' @return The execution's provenance list with its `job_id`, or `NULL` when
 #'   the node has no fresh artifact or the artifact has no recorded
-#'   provenance (for example, executions from before provenance was
-#'   recorded). Run the node, or re-execute it with
-#'   `bg_run(project, rerun = node_id)`, to record one.
+#'   provenance: executions from before provenance was recorded, and
+#'   executions whose capture failed (their job records `capture_error`).
+#'   Run the node, or re-execute it with `bg_run(project, rerun = node_id)`,
+#'   to record one.
 #' @export
 bg_node_pad <- function(project, node_id) {
   S7::check_is_S7(project, bg_handle)

@@ -166,13 +166,21 @@ bg_use_default_workflow <- function(project) {
 #' @param param_schema Optional parameter schema.
 #' @param executor Optional R function to execute nodes of this kind. It is
 #'   called as `executor(node, inputs)`, where `inputs` is a list of upstream
-#'   artifacts named by node id. It may return the artifact itself, or
-#'   `list(result = , summaries = , metadata = )`. A
+#'   artifacts named by node id. It may return the artifact itself, or an
+#'   envelope `list(result = , summaries = , metadata = )`. Without
+#'   `summaries`, a list is treated as an envelope only when it has exactly
+#'   one of `result` or `artifact`, has `metadata`, and has no other entries;
+#'   any other list is stored as the artifact. A
 #'   `metadata$provenance = list(consumed = , effective = )` entry reports what
 #'   the execution consumed (`consumed$D`, the data input ids it used;
-#'   `consumed$subject`, the input id of the fit a check evaluated) and the
-#'   settings it actually used (`effective$P`, `effective$A`). Without a
-#'   report, every input counts as consumed data.
+#'   `consumed$subject`, the input id of the fit a check evaluated;
+#'   `consumed$data_files`, `list(node_id, path)` entries naming file-path
+#'   inputs it read) and the settings it actually used (`effective$P`,
+#'   `effective$A`). Without a report, every input counts as consumed data.
+#'   File contents are hashed by the engine in the executing process before
+#'   the executor runs, both for a `stan_file` param and for every input that
+#'   is a file path; if one changes during execution, the provenance records
+#'   a `capture_error` and no P/A/D snapshot.
 #' @param pad Optional P/A/D classification of the kind's parameters: a named
 #'   list with character vectors `P` (model), `A` (algorithm), `D` (data),
 #'   `locator` (parameters that select inputs, such as `data_input`), and
@@ -182,7 +190,8 @@ bg_use_default_workflow <- function(project) {
 #'   P/A/D snapshot with SHA-256 digests in its provenance (see
 #'   [bg_node_pad()]); an unclassified parameter means no snapshot is
 #'   recorded. The declaration is stored in the runtime manifest and restored
-#'   by [bg_open()].
+#'   by [bg_open()]. If provenance cannot be captured at all, the succeeded
+#'   job records `capture_error` instead of `provenance`.
 #' @return Invisible `TRUE`, after the kind is recorded in the graph registry
 #'   and the on-disk registration manifest. The executor is bound into the
 #'   handle's in-memory runtime registry (and its serialized source stored in

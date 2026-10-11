@@ -27,13 +27,21 @@ bg_register_node_kind(
 
 \item{executor}{Optional R function to execute nodes of this kind. It is
 called as \code{executor(node, inputs)}, where \code{inputs} is a list of upstream
-artifacts named by node id. It may return the artifact itself, or
-\code{list(result = , summaries = , metadata = )}. A
+artifacts named by node id. It may return the artifact itself, or an
+envelope \code{list(result = , summaries = , metadata = )}. Without
+\code{summaries}, a list is treated as an envelope only when it has exactly
+one of \code{result} or \code{artifact}, has \code{metadata}, and has no other entries;
+any other list is stored as the artifact. A
 \code{metadata$provenance = list(consumed = , effective = )} entry reports what
 the execution consumed (\code{consumed$D}, the data input ids it used;
-\code{consumed$subject}, the input id of the fit a check evaluated) and the
-settings it actually used (\code{effective$P}, \code{effective$A}). Without a
-report, every input counts as consumed data.}
+\code{consumed$subject}, the input id of the fit a check evaluated;
+\code{consumed$data_files}, \code{list(node_id, path)} entries naming file-path
+inputs it read) and the settings it actually used (\code{effective$P},
+\code{effective$A}). Without a report, every input counts as consumed data.
+File contents are hashed by the engine in the executing process before
+the executor runs, both for a \code{stan_file} param and for every input that
+is a file path; if one changes during execution, the provenance records
+a \code{capture_error} and no P/A/D snapshot.}
 
 \item{pad}{Optional P/A/D classification of the kind's parameters: a named
 list with character vectors \code{P} (model), \code{A} (algorithm), \code{D} (data),
@@ -44,7 +52,8 @@ When a node's parameters are all classified, each execution records a
 P/A/D snapshot with SHA-256 digests in its provenance (see
 \code{\link[=bg_node_pad]{bg_node_pad()}}); an unclassified parameter means no snapshot is
 recorded. The declaration is stored in the runtime manifest and restored
-by \code{\link[=bg_open]{bg_open()}}.}
+by \code{\link[=bg_open]{bg_open()}}. If provenance cannot be captured at all, the succeeded
+job records \code{capture_error} instead of \code{provenance}.}
 }
 \value{
 Invisible \code{TRUE}, after the kind is recorded in the graph registry
