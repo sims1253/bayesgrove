@@ -474,25 +474,30 @@ describe("Parallel execution provenance", {
       node$params$path
     })
     # Each reader appends to its file when asked, as an edit during a long
-    # fit would.
-    bg_register_node_kind(handle, "reader", executor = function(node, inputs) {
-      path <- inputs[[1]]
-      read <- readLines(path)
-      if (isTRUE(node$params$mutate)) {
-        cat("tampered\n", file = path, append = TRUE)
-      }
-      list(
-        result = list(read = read),
-        metadata = list(
-          provenance = list(
-            consumed = list(
-              D = names(inputs),
-              data_files = list(list(node_id = names(inputs)[[1]]))
+    # fit would. The kind declares a pad, so the file rule applies.
+    bg_register_node_kind(
+      handle,
+      "reader",
+      executor = function(node, inputs) {
+        path <- inputs[[1]]
+        read <- readLines(path)
+        if (isTRUE(node$params$mutate)) {
+          cat("tampered\n", file = path, append = TRUE)
+        }
+        list(
+          result = list(read = read),
+          metadata = list(
+            provenance = list(
+              consumed = list(
+                D = names(inputs),
+                data_files = list(list(node_id = names(inputs)[[1]]))
+              )
             )
           )
         )
-      )
-    })
+      },
+      pad = list(other = "mutate")
+    )
     files <- file.path(data_dir, c("a.csv", "b.csv"))
     for (f in files) {
       writeLines("y", f)

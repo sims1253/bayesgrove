@@ -49,9 +49,10 @@
   `metadata$provenance`; the built-in fit executors report their data input
   and effective sampler settings, and `loo`, `ppc`, and `loo_pit` report the
   fit they evaluated. An executor may now return
-  `list(result = , metadata = )` without `summaries`. File-backed data is
-  supported only as a regular file hashed before the run at the identical
-  path, resolved in the process that runs the executor: a consumed data
+  `list(result = , metadata = )` without `summaries`. For kinds that declare
+  a pad, file-backed data is supported only as a regular file hashed before
+  the run at the identical path, resolved in the process that runs the
+  executor: a consumed data
   input whose value is a string must be such a file and, like the
   `stan_file` source, must not change during execution; otherwise the
   record keeps a `capture_error` and no P/A/D snapshot. If provenance cannot

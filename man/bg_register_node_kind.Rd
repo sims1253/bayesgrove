@@ -38,8 +38,9 @@ the execution consumed (\code{consumed$D}, the data input ids it used;
 \code{consumed$data_files}, \code{list(node_id, path)} entries naming file-path
 inputs it read) and the settings it actually used (\code{effective$P},
 \code{effective$A}). Without a report, every input counts as consumed data.
-File-backed data is supported only as a regular file hashed before the
-run at the identical path, resolved in the executing process: every
+For kinds that declare \code{pad}, file-backed data is supported only as a
+regular file hashed before the run at the identical path, resolved in
+the executing process: every
 consumed \code{D} input whose value is a character string must be such a
 file, every \code{data_files} entry must name a consumed \code{D} input at that
 path, and neither those files nor the \code{stan_file} source may change

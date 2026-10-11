@@ -253,7 +253,8 @@ bg_data_file_report <- function(input_id, data) {
 
 # --- File identities -------------------------------------------------------
 #
-# File-backed data is supported only as a regular file hashed before the run
+# For kinds that declare a pad (the rule protects the P/A/D snapshot),
+# file-backed data is supported only as a regular file hashed before the run
 # at the identical path, resolved in the executing process. That process
 # (bg_execute_node() sequentially, the worker in parallel) snapshots, before
 # and after the executor runs, the Stan source closure of the node's
@@ -801,6 +802,15 @@ bg_build_execution_provenance <- function(
     environment = bg_as_named_list(environment)
   ))
 
+  # The file rule protects the P/A/D snapshot. A kind without a pad
+  # declaration has no snapshot to protect, so its record carries the
+  # consumed files that did resolve but never a capture_error from the rule.
+  declaration <- bg_normalize_pad_declaration(kind_reg$pad %||% NULL)
+  if (is.null(declaration)) {
+    provenance["pad"] <- list(NULL)
+    return(provenance)
+  }
+
   # File identities must come from before the executor ran, for exactly the
   # files it consumed. Otherwise the record stays but carries no pad, so it
   # cannot be bound.
@@ -833,7 +843,7 @@ bg_build_execution_provenance <- function(
 
   provenance["pad"] <- list(bg_pad_snapshot(
     node = node,
-    declaration = bg_normalize_pad_declaration(kind_reg$pad %||% NULL),
+    declaration = declaration,
     provenance = provenance,
     executor = bg_executor_identity(project, kind_reg, node),
     stan_source = files$stan_file$sha256 %||% NULL
@@ -1057,9 +1067,9 @@ bg_resolve_node_execution <- function(
 #' `effective` settings read back from the result, the `environment` of the
 #' process that ran it, and the `pad` snapshot (P/A/D components with SHA-256
 #' digests, or `NULL` when the node kind has no complete
-#' [bg_register_node_kind()] `pad` declaration). File-backed data counts only
-#' as a regular file hashed before the run at the identical path; when that
-#' rule is violated, or the Stan source or a consumed file changed while the
+#' [bg_register_node_kind()] `pad` declaration). For kinds that declare a
+#' pad, file-backed data counts only as a regular file hashed before the run
+#' at the identical path; when that rule is violated, or the Stan source or a consumed file changed while the
 #' executor ran, `pad` is `NULL` and `capture_error` says why.
 #'
 #' @param project A `bg_handle`.

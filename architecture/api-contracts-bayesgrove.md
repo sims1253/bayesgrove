@@ -51,13 +51,15 @@ snapshot whose P/A/D components carry SHA-256 digests over canonical JSON.
 The main process writes it on both the sequential and the parallel path.
 File contents (a `stan_file` source closure and file-path inputs) are hashed
 in the process that runs the executor, before it runs, and paths are
-normalized there. File-backed data is supported only as a regular file
-hashed before the run at the identical path: every consumed D input whose
+normalized there. For kinds that declare `pad`, file-backed data is
+supported only as a regular file hashed before the run at the identical
+path: every consumed D input whose
 value is a string must be one, every reported data file must name a
 consumed D input at that path, and these files and the Stan source must not
 change during execution. Any violation fails closed: the record keeps a
 `capture_error` and no `pad`, so it cannot be bound. Inputs that were not
-consumed are never checked. If capture fails outright, the succeeded job
+consumed are never checked, and kinds without a pad declaration record no
+`capture_error` from this rule. If capture fails outright, the succeeded job
 carries a `capture_error` instead of `provenance`, distinguishing it from
 executions recorded before provenance existed.
 `bg_node_pad()` resolves a node to the most recent succeeded job that

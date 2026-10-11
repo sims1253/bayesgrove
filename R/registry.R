@@ -177,8 +177,9 @@ bg_use_default_workflow <- function(project) {
 #'   `consumed$data_files`, `list(node_id, path)` entries naming file-path
 #'   inputs it read) and the settings it actually used (`effective$P`,
 #'   `effective$A`). Without a report, every input counts as consumed data.
-#'   File-backed data is supported only as a regular file hashed before the
-#'   run at the identical path, resolved in the executing process: every
+#'   For kinds that declare `pad`, file-backed data is supported only as a
+#'   regular file hashed before the run at the identical path, resolved in
+#'   the executing process: every
 #'   consumed `D` input whose value is a character string must be such a
 #'   file, every `data_files` entry must name a consumed `D` input at that
 #'   path, and neither those files nor the `stan_file` source may change

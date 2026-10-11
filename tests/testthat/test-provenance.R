@@ -562,6 +562,54 @@ describe("file identities captured around execution", {
   })
 })
 
+describe("file rule scope", {
+  # The same executor consumes an ordinary string (not a path) as data; only
+  # a kind that declares a pad has a snapshot for the file rule to protect.
+  string_executor <- function(node, inputs) {
+    list(
+      result = toupper(inputs[[1]]),
+      metadata = list(
+        provenance = list(consumed = list(D = names(inputs)[[1]]))
+      )
+    )
+  }
+
+  run_string_consumer <- function(pad) {
+    handle <- bg_init(
+      path = withr::local_tempdir(.local_envir = parent.frame())
+    )
+    bg_register_node_kind(handle, "word", executor = function(node, inputs) {
+      "not a path"
+    })
+    bg_register_node_kind(
+      handle,
+      "consumer",
+      executor = string_executor,
+      pad = pad
+    )
+    word <- bg_add_node(handle, kind = "word")
+    consumer <- bg_add_node(handle, kind = "consumer", inputs = word)
+    expect_equal(bg_run(handle)$status, "succeeded")
+    list(provenance = final_job_for(handle, consumer)$provenance, word = word)
+  }
+
+  it("records no capture_error for kinds without a pad declaration", {
+    out <- run_string_consumer(pad = NULL)
+    expect_null(out$provenance$capture_error)
+    expect_null(out$provenance$pad)
+    # Everything else is still recorded.
+    expect_identical(out$provenance$consumed$D, list(out$word))
+    expect_length(out$provenance$inputs, 1L)
+    expect_true("r" %in% names(out$provenance$environment))
+  })
+
+  it("still fails closed for kinds that declare a pad", {
+    out <- run_string_consumer(pad = list())
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "missing")
+  })
+})
+
 describe("executor envelopes and inputs", {
   it("unwraps an envelope with metadata and no summaries", {
     expect_identical(
