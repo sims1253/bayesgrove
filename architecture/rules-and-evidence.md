@@ -216,16 +216,19 @@ predicates   NULL, or list of list(id, version) for custom predicates in use
 ```
 
 - `sources` lists every `id@version` with its content digest. Digests are
-  SHA-256 over canonical JSON (sorted keys, `auto_unbox`, `digits = I(17)`),
-  the same serialization as fingerprints.
+  SHA-256 over canonical JSON (named lists sorted recursively, `auto_unbox`,
+  `digits = I(17)`), computed by one central helper.
 - `policy_digest` covers the resolved `rules`, `vocabulary`, and `predicates`.
 - `configure` replaces the whole policy, so absent fields become `NULL`, and
   does not change `goal_version`.
 - The initialization and configure history entries store the requested input
   **and** the resolved policy. History alone can therefore reconstruct every
   policy that was in force.
-- A proposal carries the resolved `policy_digest`. Apply resolves again, and a
-  different digest is a stale proposal.
+- A proposal that installs a policy (`configure`) carries its resolved
+  `policy_digest`. Apply resolves again, and a different digest is a stale
+  proposal.
+- Ordinary actions are evaluated against the stored policy and pinned
+  predicate versions. They never consult the live ruleset registry.
 
 ### Functions
 
@@ -254,124 +257,164 @@ rule shapes and the optional policy, `binding`, and `provenance` fields.
 
 ## 2. Run-derived evidence
 
+Provenance is keyed on **executions and content-addressed artifacts**, not on
+the current graph. The artifact index shares one artifact reference per
+fingerprint across nodes. A fingerprint names a computation, not the realized
+inputs it consumed (non-recursive invalidation can change upstream data under
+an unchanged fingerprint). So the engine records, at execution time, what
+each execution actually consumed and ran. Verification then compares
+artifact content addresses.
+
 ### Engine-owned fields
 
 `binding`, `provenance`, `pad`, digests, fingerprints, artifact references,
-and summary ids are engine-owned. A public action that contains any of them
-is rejected. The engine derives them:
+job ids, and summary ids are engine-owned. A public action that contains any
+of them is rejected. The engine derives them:
 
 - during `propose`, to report them and evaluate rules;
 - again during `apply`, under the research lock.
 
 If the apply-time derivation differs from the proposal's, the proposal is
-stale. The caller reads the state and proposes again. The transition stores
-exactly the derivation that apply checked.
+stale. The transition stores exactly the derivation that apply checked.
 
-### P/A/D declarations
+### Execution records
 
-A node kind can declare its P/A/D classification:
+Each successful execution (a job in `jobs.jsonl`, one per executed node)
+records `provenance` in its final job record:
+
+```text
+provenance = list(
+  artifact_ref,        # this execution's own output
+  fingerprint,
+  inputs,              # list(list(node_id, artifact_ref)), in the exact order
+                       # passed to the executor
+  consumed = list(D = <input node ids>, subject = <input node id or NULL>),
+  effective,           # executor-reported settings actually used (below)
+  pad                  # P/A/D snapshot with digests (below)
+)
+```
+
+- `inputs` is built from the same input bindings `bg_execute_node()` uses to
+  assemble the executor's `inputs`. Execution, D, and subject resolution
+  therefore share one ordering. Fingerprint edge ordering is not used.
+- Summaries written by the execution store its `job_id`.
+- Job compaction keeps each job's final record, so provenance survives
+  compaction.
+- Parallel execution records provenance in the main process, which is the
+  single writer, like index binding.
+- Executions from before this change have no `provenance` and cannot support
+  bindings or derived evidence. Invalidating and re-running the node records
+  it.
+
+**Executor reports.** An executor may return
+`metadata$provenance = list(consumed, effective)`. Built-in executors do:
+
+- **Fits** report `consumed$D`, the single data input they selected (using the
+  same helper that selects the data), and `effective`, read back from the
+  fitted object where possible:
+  - cmdstanr: CmdStan version, chains, warmup and sampling iterations,
+    `adapt_delta`, `max_treedepth`, seed, and whether `fixed_param` was used;
+  - brms: backend, algorithm, the backend's version, chains, iterations,
+    `adapt_delta`, `max_treedepth`, seed, family, and priors as brms applied
+    them.
+- **brms executors** pass `backend` and `algorithm` explicitly, from node
+  params or the session options resolved at execution time, so the recorded
+  value is the one used.
+- **Check executors** (`loo`, `ppc`, `loo_pit`) report `consumed$subject`, the
+  input id of the fit they evaluated, chosen by the same code that selects it.
+- An executor that reports nothing gets `consumed$D` = all inputs,
+  `consumed$subject` = NULL, and `effective` = empty.
+
+### P/A/D declarations and snapshots
+
+A node kind can declare a classification of its parameters:
 
 ```r
 bg_register_node_kind(..., pad = list(
   P = c("formula", "family", "priors"),
   A = c("chains", "iter_warmup", "iter_sampling", "adapt_delta",
-        "max_treedepth", "seed"),
+        "max_treedepth", "seed", "backend", "algorithm"),
   D = c("data_input"),
-  other = c("thresholds"),
-  fixed = list(),                       # settings the executor hard-codes
-  defaults = list(chains = 4, iter_warmup = 1000, iter_sampling = 1000,
-                  adapt_delta = 0.8, max_treedepth = 10)
+  other = c("thresholds")
 ))
 ```
 
-The declaration is persisted with the kind in the runtime manifest.
+The declaration is persisted and restored with the kind in the runtime
+manifest. Classification is total: when `pad` is declared, every parameter on
+an executed node must appear in exactly one of `P`, `A`, `D`, or `other`.
+`other` is for parameters that don't change the fitted model. An unclassified
+parameter means the execution records no `pad`, so it cannot be bound.
 
-**Classification is total.** Every parameter present on a node must appear in
-exactly one of `P`, `A`, `D`, or `other`. `other` is reserved for parameters
-that don't change the fitted model, such as diagnostic thresholds. Binding a
-node that has an unclassified parameter fails.
+The execution's `pad` snapshot:
 
-`bg_node_pad(project, node_id)` (exported, experimental) derives each
-component. A component digest is SHA-256 over the canonical JSON of the
-component without its digest field:
+- **P**: the kind, the P parameters, and for a `stan_file` the hash of its
+  source closure **contents** (the path is only a locator and is excluded, so
+  bundling and relocation keep the same identity).
+- **A**: the executor reference or hash, the A parameters, `effective`, and
+  the environment manifest.
+- **D**: the D parameters, and each `consumed$D` input's node id and the
+  `artifact_ref` actually consumed. The upstream artifact is the realized
+  data, and its content address is the data identity.
 
-- **P**:
-  - the kind;
-  - the P parameters, with `defaults` applied;
-  - for a `stan_file`, the hash of the source closure **contents** (the path
-    is only a locator and is excluded from the digest, so bundling and
-    relocation keep the same identity).
-- **A**:
-  - the executor reference, or a hash of the user executor;
-  - the A parameters, with `defaults` applied;
-  - `fixed`;
-  - the environment manifest (R and backend versions), which `bg_plan()`
-    already uses in fingerprints.
-- **D**:
-  - the D parameters;
-  - for each upstream input in input order, its name and the content address
-    (CAS reference) of the artifact currently bound to that upstream node.
-
-  D therefore identifies the realized data consumed, not the computation that
-  produced it, and environment changes don't alter D. Binding requires every
-  upstream input to have a current, node-bound artifact, located through the
-  same lookup as Derived evidence below. A missing one fails with a message to
-  run the upstream node.
+Each component carries a `digest`: SHA-256 over canonical JSON of the
+component without the digest field.
 
 Built-in declarations:
 
-| kind | P | A | D | other | fixed |
-| --- | --- | --- | --- | --- | --- |
-| `cmdstanr_fit` | `stan_file` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed` | `data_input` | `thresholds` | none |
-| `prior_fit` | `stan_file` | `iter_warmup`, `iter_sampling`, `seed` | `data_input` | none | `chains = 1`, `fixed_param = TRUE` |
-| `brms_fit` | `formula`, `family`, `priors` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed` | `data_input` | `thresholds` | none |
-| `brms_prior_fit` | `formula` | `chains`, `iter_warmup`, `iter_sampling`, `seed` | `data_input` | none | `sample_prior = "only"` |
+| kind | P | A | D | other |
+| --- | --- | --- | --- | --- |
+| `cmdstanr_fit` | `stan_file` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed` | `data_input` | `thresholds` |
+| `prior_fit` | `stan_file` | `iter_warmup`, `iter_sampling`, `seed` | `data_input` | none |
+| `brms_fit` | `formula`, `family`, `priors` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed`, `backend`, `algorithm` | `data_input` | `thresholds` |
+| `brms_prior_fit` | `formula` | `chains`, `iter_warmup`, `iter_sampling`, `seed`, `backend`, `algorithm` | `data_input` | none |
 
-Each row's `defaults` list the executor's own fallbacks. A parameter the
-executor ignores is not classified. If such a parameter is present on a node,
-binding fails, so a binding never claims an influence that doesn't exist.
+Parameters an executor ignores are deliberately unclassified, so a node
+carrying them records no `pad`. Settings an executor hard-codes, such as
+`chains = 1` for `prior_fit`, appear in `effective`.
+
+`bg_node_pad(project, node_id)` (exported, experimental) returns the
+`provenance` of the execution that produced the node's current artifact (see
+Resolution), or `NULL` if there is none.
+
+### Resolution: from a node to an execution
+
+To resolve a node:
+
+1. Compute its predicted fingerprint with `bg_predicted_fingerprints()`.
+2. Take the artifact the runner would use for that fingerprint and node
+   (`bg_check_artifact()` semantics).
+3. Find the producing execution: the latest job, by `seq`, whose
+   `provenance$artifact_ref` equals that artifact and whose fingerprint
+   matches. The artifact must exist in the CAS with a valid digest.
+
+The producing job may belong to another node with the same fingerprint (cache
+reuse). That is truthful, because the artifact the node resolves to *is* that
+execution's output. A node with no fresh artifact, or whose artifact has no
+recorded provenance, cannot be resolved. The error says to run it, or to
+invalidate and re-run it.
 
 ### Binding a candidate
 
-`create` and `revise` accept an optional `node_id`. The node must exist and
-its kind must declare `pad`. The prospective candidate stores:
+`create` and `revise` accept an optional `node_id`. The node is resolved
+(above), and the execution must have a `pad`. The prospective candidate
+stores:
 
 ```text
-binding = list(node_id, pad, research_version, graph_version)
+binding = list(node_id, job_id, artifact_ref, pad, research_version)
 ```
-
-`pad` is the derived P/A/D with digests. The two versions record when the
-binding was derived.
 
 Transitions:
 
 | action | parent | `node_id` | result |
 | --- | --- | --- | --- |
-| `create` | none | given | Bound. `components` defaults to the derived `pad` without digests. |
+| `create` | none | given | Bound. `components` defaults to the snapshot `pad` without digests. |
 | `create` | none | absent | Unbound, as today. |
 | `revise` | any | absent | **Unbound.** Bindings are never inherited, because a revision may describe a different model. |
 | `revise` | unbound | given | Bound. `changed` comes from the `components` diff, as today, and may be empty. Adding a binding is itself the change. |
-| `revise` | bound | given | Bound. `changed` is the union of components with differing digests and components whose description changed. An empty union is rejected, so an unchanged `bg_branch()` clone does not count as a revision. |
+| `revise` | bound | given | Bound. `changed` is the union of components with differing snapshot digests and components whose description changed. An empty union is rejected, so an unchanged `bg_branch()` clone resolving to the same execution is not a revision. |
 
 `components` remains the caller's description, and rule paths read it. The
 binding is authoritative for provenance.
-
-### Evidence subjects
-
-A check node's evidence belongs to a fit only through the input that its
-executor actually consumes. A check kind declares this with
-`evidence_subject`:
-
-| kind | `evidence_subject` |
-| --- | --- |
-| `cmdstanr_fit`, `prior_fit`, `brms_fit`, `brms_prior_fit` | `self` |
-| `loo` | its first input, in dagriculture input order |
-| `ppc` | the input named by `fit_input`, else the first input |
-| `loo_pit` | the input named by `fit_input`, else the first input |
-
-`sbc` (which runs its own model on simulated data) and `compare` (which
-covers several models) are not supported in this series. Their provenance
-needs its own design.
 
 ### Derived evidence
 
@@ -380,42 +423,39 @@ An `evidence` action uses exactly one of two forms:
 - **Asserted:** `result` is given. This is today's behavior.
 - **Derived:** `node_id` is given, and `result` must be absent.
 
-For derived evidence, the engine checks:
+For derived evidence:
 
 1. The candidate is bound.
-2. The node's kind declares `evidence_subject`, and the subject resolves to the
-   bound node. Graph reachability alone is not sufficient.
-3. The bound node's current P/A/D digests equal the binding's. Otherwise the
-   action fails, names the changed component, and suggests a revision.
-4. The evidence node has a current, own execution:
-   - its predicted fingerprint (from `bg_predicted_fingerprints()`, which
-     resolves upstream fingerprints topologically) has an **active binding for
-     this node id** in the artifact index (cache reuse from another node
-     doesn't count);
-   - the bound artifact's CAS content exists and matches its digest;
-   - for the selected `check` (a summary kind), the summaries have this node
-     id, the predicted fingerprint, and an `artifact_ref` equal to the bound
-     artifact.
-
-   If several summaries match, the most recently created one is used.
-5. `check` may be omitted when exactly one summary kind matches. `label` is
-   required. `utility` follows the vocabulary rules.
+2. The node is resolved to its producing execution (above).
+3. That execution evaluated the bound execution's output. Either it **is** the
+   bound execution (a fit's own diagnostics), or its `consumed$subject`
+   input's consumed `artifact_ref` equals the binding's `artifact_ref`. The
+   check is content identity. Graph reachability and the current graph are not
+   consulted.
+4. The selected `check` is a summary kind among that execution's summaries
+   (matched by `job_id`). If several match, the latest by `seq` is used.
+   `check` may be omitted when exactly one kind matches. `label` is required.
+   `utility` follows the vocabulary rules.
 
 The record stores:
 
 ```text
-result     = list(summary_kind, severity, passed, metrics) from the summary
-provenance = list(kind = "derived", node_id, subject_node_id,
-                  fingerprint, artifact_ref, summary_ids)
+result     = list(summary_kind, severity, passed, metrics)
+provenance = list(kind = "derived", node_id, job_id, artifact_ref,
+                  subject_artifact_ref, summary_ids)
 ```
 
 Evidence without `provenance` is asserted. The `provenance = "derived"`
 argument of `require_evidence` and `require_utility_evidence` requires the
 derived form.
 
-Derived evidence is a dated record. Re-running a node does not rewrite it.
-The binding check in step 3 prevents a new run from being attributed to a
-candidate whose model has changed.
+A check that evaluated the bound fit's exact output is evidence about that
+fit even if the graph has since changed. Re-running nodes never rewrites
+evidence.
+
+`sbc` (which runs its own model on simulated data) and `compare` (which
+covers several models) report no subject and are not supported in this
+series. Their provenance needs its own design.
 
 ## 3. The official ruleset
 
@@ -445,8 +485,8 @@ third-party ruleset.
 
 1. Rule API: evaluation semantics, predicates, rulesets, resolution, pinning,
    schema 2, and `bg_use_rules()`, `bg_rules()`, `bg_ruleset_check()`.
-2. Run-derived evidence: `pad` and `evidence_subject` on node kinds,
-   `bg_node_pad()`, bindings, derived evidence, built-in declarations.
+2. Run-derived evidence: execution provenance in job records, executor
+   reports, `pad` declarations, `bg_node_pad()`, bindings, derived evidence.
 3. Official ruleset `bayesgrove.workflow` with vocabulary, rules, and
    references.
 4. New evidence for uncovered utilities: estimation speed from sampler timing,
