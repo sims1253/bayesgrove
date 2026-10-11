@@ -168,6 +168,7 @@ bg_research_validate_candidates <- function(state) {
       cli::cli_abort("Candidate fields or ID are invalid.")
     }
     bg_research_components(candidate$components)
+    bg_research_validate_binding(candidate$binding)
     bg_research_string(candidate$status, "status")
     if (
       !candidate$status %in% c("open", "closed") ||
@@ -198,8 +199,30 @@ bg_research_validate_candidates <- function(state) {
 #' the action to the current state version. [bg_research_apply()] validates
 #' it again before writing.
 #'
+#' `create` and `revise` accept an optional `node_id`, which binds the
+#' candidate to the execution that produced the node's current artifact (see
+#' [bg_node_pad()]). That execution must have recorded a P/A/D snapshot. A
+#' bound `create` may omit `components`, which then default to the snapshot
+#' without digests; a bound `revise` may omit them to keep the parent's. A
+#' `revise` without `node_id` is unbound: bindings are never inherited. A
+#' revision of a bound parent must change a snapshot digest or the
+#' description, so an unchanged clone of the same run is rejected.
+#'
+#' `evidence` takes exactly one of `result` (asserted evidence) or `node_id`
+#' (evidence derived from a run, for a bound candidate). Derived evidence
+#' comes from a check that evaluated the bound fit's exact output or, failing
+#' that, from the bound fit's own executions. Its `check` may be omitted when
+#' exactly one summary kind matches; the most recent matching summary is
+#' recorded as `result`, with its `provenance`. `sbc` and `compare` nodes are
+#' not supported yet.
+#'
+#' Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
+#' references, job ids, and summary ids are engine-owned: an action that
+#' supplies any of them is rejected.
+#'
 #' @param project A `bg_handle`.
 #' @param action A named list with `kind` and the fields for that operation.
+#'   See `vignette("research-search")` for every action.
 #' @param actor Named list with `id` and `type` (`human` or `agent`).
 #' @param rationale Why this action is proposed.
 #' @return A proposal with `version`, `action`, `actor`, `rationale`, `allowed`,
@@ -208,14 +231,16 @@ bg_research_validate_candidates <- function(state) {
 #'   Enforce holds an action only for blocking findings. A `configure` proposal
 #'   also carries the resolved `policy` and its `policy_digest`; apply resolves
 #'   the requested rules again, and a different digest makes the proposal
-#'   stale.
+#'   stale. An action with `node_id` carries the engine's `derivation`: the
+#'   `binding` of a candidate, or the `result` and `provenance` of derived
+#'   evidence.
 #' @export
 bg_research_propose <- function(project, action, actor, rationale) {
   state <- bg_research_state(project)
   if (is.null(state)) {
     cli::cli_abort("Start an investigation with {.fn bg_research_init}.")
   }
-  bg_research_prepare(state, action, actor, rationale)
+  bg_research_prepare(state, action, actor, rationale, project)
 }
 
 #' Apply a proposed research operation
@@ -223,6 +248,11 @@ bg_research_propose <- function(project, action, actor, rationale) {
 #' Rejects stale proposals and rechecks the current rules. One atomic write
 #' saves both the research change and its history entry. Blocked operations
 #' and failed writes leave the previous state intact.
+#'
+#' Bindings and derived evidence are derived again under the research lock.
+#' If the derivation differs from the proposal's, for example because the node
+#' was re-run in between, the proposal is stale. The record stores exactly the
+#' derivation that apply checked.
 #'
 #' @param project A writable `bg_handle`.
 #' @param proposal A result of [bg_research_propose()].
@@ -252,11 +282,23 @@ bg_research_apply <- function(project, proposal) {
       state,
       proposal$action,
       proposal$actor,
-      proposal$rationale
+      proposal$rationale,
+      project
     )
     # Only policy-installing proposals resolve again; a registry change since
     # the proposal makes it stale.
     if (!identical(proposal$policy_digest, checked$policy_digest)) {
+      stale()
+    }
+    # Engine-owned fields are derived again under the lock. An execution that
+    # changed since the proposal makes it stale; the transition stores
+    # exactly this derivation.
+    if (
+      !identical(
+        bg_canonical_json(proposal$derivation),
+        bg_canonical_json(checked$derivation)
+      )
+    ) {
       stale()
     }
     if (!checked$allowed) {
@@ -301,7 +343,7 @@ bg_use_rules <- function(project, rules, mode = NULL, actor, rationale) {
     cli::cli_abort("Start an investigation with {.fn bg_research_init}.")
   }
   action <- list(kind = "configure", mode = mode %||% state$mode, rules = rules)
-  proposal <- bg_research_prepare(state, action, actor, rationale)
+  proposal <- bg_research_prepare(state, action, actor, rationale, project)
   invisible(bg_research_apply(project, proposal))
 }
 
@@ -462,7 +504,13 @@ bg_research_components <- function(components, previous = list()) {
   bg_research_data(Filter(Negate(is.null), previous))
 }
 
-bg_research_prepare <- function(state, action, actor, rationale) {
+bg_research_prepare <- function(
+  state,
+  action,
+  actor,
+  rationale,
+  project = NULL
+) {
   action <- bg_research_data(action)
   actor <- bg_research_actor(actor)
   bg_research_string(rationale, "rationale")
@@ -470,11 +518,12 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     cli::cli_abort("{.arg action} must be a named list.")
   }
   bg_research_string(action$kind, "action.kind")
+  bg_research_reject_engine_owned(action)
   fields <- switch(
     action$kind,
-    create = c("label", "components"),
-    revise = c("candidate_id", "label", "components"),
-    evidence = c("candidate_id", "label", "check", "result"),
+    create = "label",
+    revise = c("candidate_id", "label"),
+    evidence = c("candidate_id", "label"),
     compare = c("candidate_ids", "evidence_ids", "criteria", "result"),
     review = c("candidate_id", "evidence_ids"),
     accept = c("candidate_id", "evidence_ids"),
@@ -486,7 +535,12 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     reframe = c("question", "goal"),
     cli::cli_abort("Unknown research action {.val {action$kind}}.")
   )
-  optional <- if (action$kind == "evidence") "utility"
+  optional <- switch(
+    action$kind,
+    create = c("components", "node_id"),
+    revise = c("components", "node_id"),
+    evidence = c("check", "utility", "result", "node_id")
+  )
   bg_research_fields(
     action,
     c("kind", fields),
@@ -522,31 +576,45 @@ bg_research_prepare <- function(state, action, actor, rationale) {
       }
     }
   }
+  derivation <- NULL
   if (action$kind %in% c("create", "revise")) {
     bg_research_string(action$label, "label")
-    components <- bg_research_components(
-      action$components,
-      candidate$components %||% list()
-    )
-    if (
-      action$kind == "revise" &&
-        identical(components, bg_research_data(candidate$components))
-    ) {
-      cli::cli_abort(
-        "A revision must change P, A, or D. Record a note or gather evidence instead."
-      )
+    binding <- if (!is.null(action$node_id)) {
+      bg_research_binding(project, state, action$node_id)
     }
+    revision <- bg_research_revision(candidate, action, binding)
     # The prospective candidate has no id, so it never sees parent evidence.
-    candidate <- list(components = components, parent_id = candidate$id)
+    candidate <- list(
+      components = revision$components,
+      parent_id = candidate$id,
+      binding = binding
+    )
+    if (!is.null(binding)) {
+      derivation <- list(binding = binding)
+    }
   }
   if (action$kind == "evidence") {
     bg_research_string(action$label, "label")
-    bg_research_string(action$check, "check")
+    if (is.null(action$result) == is.null(action$node_id)) {
+      cli::cli_abort(
+        "Evidence supplies exactly one of {.field result} (asserted) or {.field node_id} (derived from a run)."
+      )
+    }
+    if (is.null(action$node_id)) {
+      bg_research_string(action$check, "check")
+      if (length(action$result) == 0L) {
+        cli::cli_abort("Evidence must include a result.")
+      }
+    } else {
+      derived <- bg_research_derive_evidence(project, candidate, action)
+      if (is.null(action$check)) {
+        action$check <- derived$check
+        action <- action[order(names(action), method = "radix")]
+      }
+      derivation <- derived[c("result", "provenance")]
+    }
     action <- bg_research_fill_utility(action, state$vocabulary)
     bg_research_string(action$utility, "utility")
-    if (is.null(action$result) || length(action$result) == 0L) {
-      cli::cli_abort("Evidence must include a result.")
-    }
   }
   if (action$kind %in% c("review", "accept", "reject")) {
     ids <- bg_research_ids(action$evidence_ids, state$evidence, "evidence_ids")
@@ -639,6 +707,9 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     findings = findings,
     allowed = state$mode != "enforce" || !any(blocking)
   )
+  if (!is.null(derivation)) {
+    proposal$derivation <- derivation
+  }
   if (action$kind == "configure") {
     proposal$policy <- policy
     proposal$policy_digest <- bg_research_policy_digest(policy)
@@ -663,28 +734,27 @@ bg_research_transition <- function(state, proposal) {
     } else {
       NULL
     }
-    components <- bg_research_components(
-      a$components,
-      parent$components %||% list()
-    )
+    binding <- proposal$derivation$binding
+    revision <- bg_research_revision(parent, a, binding)
     state$candidates[[id]] <- c(
       stamp,
       list(
         label = a$label,
         parent_id = parent$id,
-        components = components,
-        changed = as.list(names(a$components)[
-          !vapply(
-            names(a$components),
-            function(k) identical(components[[k]], parent$components[[k]]),
-            logical(1)
-          )
-        ]),
+        components = revision$components,
+        changed = revision$changed,
         status = "open"
-      )
+      ),
+      if (!is.null(binding)) list(binding = binding)
     )
   } else if (a$kind == "evidence") {
-    state$evidence[[id]] <- c(stamp, a[setdiff(names(a), c("kind", "basis"))])
+    # Derived evidence keeps its node in provenance, with the derived result.
+    derived <- proposal$derivation
+    state$evidence[[id]] <- c(
+      stamp,
+      a[setdiff(names(a), c("kind", "basis", "node_id"))],
+      if (!is.null(derived)) derived[c("result", "provenance")]
+    )
   } else if (a$kind == "compare") {
     state$comparisons[[id]] <- c(
       stamp,
@@ -751,17 +821,52 @@ bg_research_report <- function(state) {
     ""
   )
   for (candidate in state$candidates) {
+    binding <- candidate$binding
     lines <- c(
       lines,
       sprintf(
-        "- %s (%s): %s; parent: %s; changed: %s.",
+        "- %s (%s): %s; parent: %s; changed: %s.%s",
         candidate$label,
         candidate$id,
         candidate$status,
         candidate$parent_id %||% "none",
-        paste(unlist(candidate$changed), collapse = ", ")
+        paste(unlist(candidate$changed), collapse = ", "),
+        if (is.null(binding)) {
+          ""
+        } else {
+          sprintf(
+            " Bound to node %s (job %s, artifact %s).",
+            binding$node_id,
+            binding$job_id,
+            binding$artifact_ref
+          )
+        }
       )
     )
+  }
+  derived <- Filter(
+    function(e) identical(e$provenance$kind, "derived"),
+    state$evidence
+  )
+  if (length(derived)) {
+    lines <- c(lines, "", "### Derived evidence", "")
+    for (evidence in derived) {
+      provenance <- evidence$provenance
+      lines <- c(
+        lines,
+        sprintf(
+          "- %s (%s) for %s: %s, severity %s; from node %s (job %s, summary %s).",
+          evidence$label,
+          evidence$id,
+          evidence$candidate_id,
+          evidence$check,
+          evidence$result$severity %||% "unknown",
+          provenance$node_id,
+          provenance$job_id,
+          paste(unlist(provenance$summary_ids), collapse = ", ")
+        )
+      )
+    }
   }
   lines <- c(lines, "", "### Research history", "")
   for (event in state$history) {

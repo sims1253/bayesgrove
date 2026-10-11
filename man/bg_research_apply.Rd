@@ -19,3 +19,9 @@ Rejects stale proposals and rechecks the current rules. One atomic write
 saves both the research change and its history entry. Blocked operations
 and failed writes leave the previous state intact.
 }
+\details{
+Bindings and derived evidence are derived again under the research lock.
+If the derivation differs from the proposal's, for example because the node
+was re-run in between, the proposal is stale. The record stores exactly the
+derivation that apply checked.
+}
