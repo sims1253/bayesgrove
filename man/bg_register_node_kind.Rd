@@ -39,13 +39,15 @@ the execution consumed (\code{consumed$D}, the data input ids it used;
 inputs it read) and the settings it actually used (\code{effective$P},
 \code{effective$A}). Without a report, every input counts as consumed data.
 For kinds that declare \code{pad}, file-backed data is supported only as a
-regular file hashed before the run at the identical path, resolved in
-the executing process: every
-consumed \code{D} input whose value is a character string must be such a
-file, every \code{data_files} entry must name a consumed \code{D} input at that
-path, and neither those files nor the \code{stan_file} source may change
-during execution. Otherwise the provenance records a \code{capture_error}
-and no P/A/D snapshot; inputs that were not consumed are never checked.}
+non-empty regular file hashed before the run at the identical path,
+resolved in the executing process: every consumed \code{D} input whose value
+is a character string must be such a file (empty files, devices, FIFOs,
+and other special files are unsupported and never opened), every
+\code{data_files} entry must name a consumed \code{D} input at that path, the
+\code{stan_file} source and its includes must exist, and none of these may
+change during execution. Otherwise the provenance records a
+\code{capture_error} and no P/A/D snapshot; inputs that were not consumed are
+never checked.}
 
 \item{pad}{Optional P/A/D classification of the kind's parameters: a named
 list with character vectors \code{P} (model), \code{A} (algorithm), \code{D} (data),

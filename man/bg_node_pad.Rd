@@ -36,7 +36,9 @@ The returned provenance records the execution's own output
 process that ran it, and the \code{pad} snapshot (P/A/D components with SHA-256
 digests, or \code{NULL} when the node kind has no complete
 \code{\link[=bg_register_node_kind]{bg_register_node_kind()}} \code{pad} declaration). For kinds that declare a
-pad, file-backed data counts only as a regular file hashed before the run
-at the identical path; when that rule is violated, or the Stan source or a consumed file changed while the
-executor ran, \code{pad} is \code{NULL} and \code{capture_error} says why.
+pad, file-backed data counts only as a non-empty regular file hashed
+before the run at the identical path, and the Stan source and its includes
+must exist; when that rule is violated, or the Stan source or a consumed
+file changed while the executor ran, \code{pad} is \code{NULL} and \code{capture_error}
+says why.
 }

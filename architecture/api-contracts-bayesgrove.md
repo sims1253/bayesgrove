@@ -52,11 +52,11 @@ The main process writes it on both the sequential and the parallel path.
 File contents (a `stan_file` source closure and file-path inputs) are hashed
 in the process that runs the executor, before it runs, and paths are
 normalized there. For kinds that declare `pad`, file-backed data is
-supported only as a regular file hashed before the run at the identical
-path: every consumed D input whose
-value is a string must be one, every reported data file must name a
-consumed D input at that path, and these files and the Stan source must not
-change during execution. Any violation fails closed: the record keeps a
+supported only as a non-empty regular file hashed before the run at the
+identical path: every consumed D input whose value is a string must be one
+(empty and special files are unsupported and never opened), every reported
+data file must name a consumed D input at that path, the Stan source and its
+includes must exist, and none of these may change during execution. Any violation fails closed: the record keeps a
 `capture_error` and no `pad`, so it cannot be bound. Inputs that were not
 consumed are never checked, and kinds without a pad declaration record no
 `capture_error` from this rule. If capture fails outright, the succeeded job

@@ -178,13 +178,15 @@ bg_use_default_workflow <- function(project) {
 #'   inputs it read) and the settings it actually used (`effective$P`,
 #'   `effective$A`). Without a report, every input counts as consumed data.
 #'   For kinds that declare `pad`, file-backed data is supported only as a
-#'   regular file hashed before the run at the identical path, resolved in
-#'   the executing process: every
-#'   consumed `D` input whose value is a character string must be such a
-#'   file, every `data_files` entry must name a consumed `D` input at that
-#'   path, and neither those files nor the `stan_file` source may change
-#'   during execution. Otherwise the provenance records a `capture_error`
-#'   and no P/A/D snapshot; inputs that were not consumed are never checked.
+#'   non-empty regular file hashed before the run at the identical path,
+#'   resolved in the executing process: every consumed `D` input whose value
+#'   is a character string must be such a file (empty files, devices, FIFOs,
+#'   and other special files are unsupported and never opened), every
+#'   `data_files` entry must name a consumed `D` input at that path, the
+#'   `stan_file` source and its includes must exist, and none of these may
+#'   change during execution. Otherwise the provenance records a
+#'   `capture_error` and no P/A/D snapshot; inputs that were not consumed are
+#'   never checked.
 #' @param pad Optional P/A/D classification of the kind's parameters: a named
 #'   list with character vectors `P` (model), `A` (algorithm), `D` (data),
 #'   `locator` (parameters that select inputs, such as `data_input`), and

@@ -562,6 +562,158 @@ describe("file identities captured around execution", {
   })
 })
 
+describe("special, empty, and missing files", {
+  # A path source feeding a pad-declaring consumer that either consumes the
+  # path as D (reading it) or declares it unconsumed and never touches it.
+  run_path_consumer <- function(path, consume) {
+    handle <- bg_init(
+      path = withr::local_tempdir(.local_envir = parent.frame())
+    )
+    bg_register_node_kind(handle, "path", executor = function(node, inputs) {
+      node$params$path
+    })
+    bg_register_node_kind(
+      handle,
+      "consumer",
+      executor = function(node, inputs) {
+        id <- names(inputs)[[1]]
+        if (isTRUE(node$params$consume)) {
+          readLines(inputs[[1]], n = 1L)
+          D <- id
+        } else {
+          D <- character()
+        }
+        list(
+          result = list(consumed = node$params$consume),
+          metadata = list(provenance = list(consumed = list(D = D)))
+        )
+      },
+      pad = list(other = "consume")
+    )
+    src <- bg_add_node(handle, kind = "path", params = list(path = path))
+    node <- bg_add_node(
+      handle,
+      kind = "consumer",
+      params = list(consume = consume),
+      inputs = src
+    )
+    expect_equal(bg_run(handle)$status, "succeeded")
+    final_job_for(handle, node)$provenance
+  }
+
+  it("never opens paths whose size is zero or unknown", {
+    skip_on_os("windows")
+    expect_identical(bg_path_kind("/dev/null"), "empty_or_special")
+    expect_identical(bg_path_kind("/dev/zero"), "empty_or_special")
+    # Hashing /dev/zero would never finish; it is not opened at all.
+    expect_identical(bg_hash_file_or_na("/dev/zero"), NA_character_)
+    expect_identical(bg_snapshot_path("/dev/zero")$kind, "empty_or_special")
+
+    regular <- withr::local_tempfile()
+    writeLines("abc", regular)
+    expect_identical(bg_path_kind(regular), "file")
+    expect_identical(
+      bg_hash_file_or_na(regular),
+      digest::digest(file = regular, algo = "sha256")
+    )
+  })
+
+  it("snapshots a FIFO without opening it", {
+    skip_on_os("windows")
+    skip_if(!nzchar(Sys.which("mkfifo")), "mkfifo is not available")
+    fifo <- file.path(withr::local_tempdir(), "pipe")
+    status <- suppressWarnings(system2("mkfifo", fifo))
+    skip_if(!identical(status, 0L) || !file.exists(fifo), "mkfifo failed")
+
+    # Opening a FIFO without a writer blocks; classification only stats it.
+    expect_identical(bg_path_kind(fifo), "empty_or_special")
+    executed <- bg_with_file_identities(
+      list(params = list()),
+      list(n = fifo),
+      NULL,
+      function() "done"
+    )
+    expect_identical(executed$value, "done")
+    expect_identical(executed$files$data_files$n$kind, "empty_or_special")
+  })
+
+  it("fails closed when a special file is consumed", {
+    skip_on_os("windows")
+    prov <- run_path_consumer("/dev/null", consume = TRUE)
+    expect_null(prov$pad)
+    expect_match(prov$capture_error, "empty_or_special")
+  })
+
+  it("ignores special files that are not consumed", {
+    skip_on_os("windows")
+    for (path in c("/dev/null", "/dev/zero")) {
+      prov <- run_path_consumer(path, consume = FALSE)
+      expect_null(prov$capture_error, info = path)
+      expect_true(is.list(prov$pad), info = path)
+    }
+  })
+
+  it("does not support empty data files for pads", {
+    empty <- withr::local_tempfile(fileext = ".csv")
+    file.create(empty)
+    prov <- run_path_consumer(empty, consume = TRUE)
+    expect_null(prov$pad)
+    expect_match(prov$capture_error, "empty_or_special")
+  })
+
+  it("fails closed when the declared Stan source is missing", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(
+      handle,
+      "stan_like",
+      executor = function(node, inputs) list(ok = TRUE),
+      pad = list(P = "stan_file")
+    )
+    missing_file <- file.path(withr::local_tempdir(), "absent.stan")
+    node <- bg_add_node(
+      handle,
+      kind = "stan_like",
+      params = list(stan_file = missing_file)
+    )
+    expect_equal(bg_run(handle)$status, "succeeded")
+
+    prov <- final_job_for(handle, node)$provenance
+    expect_null(prov$pad)
+    expect_match(prov$capture_error, "missing, incomplete")
+    # Planning keeps its sentinel, so fingerprints are unchanged.
+    graph_node <- bg_read_graph(handle)$nodes[[node]]
+    expect_identical(
+      bg_source_hash_component(graph_node, handle@path),
+      "missing_stan_file"
+    )
+  })
+
+  it("fails closed when the Stan source has a missing include", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(
+      handle,
+      "stan_like",
+      executor = function(node, inputs) list(ok = TRUE),
+      pad = list(P = "stan_file")
+    )
+    stan_file <- file.path(withr::local_tempdir(), "model.stan")
+    writeLines(
+      c("#include \"absent.stan\"", "parameters { real mu; }"),
+      stan_file
+    )
+    node <- bg_add_node(
+      handle,
+      kind = "stan_like",
+      params = list(stan_file = stan_file)
+    )
+    bg_run(handle)
+
+    prov <- final_job_for(handle, node)$provenance
+    expect_null(prov$pad)
+    expect_match(prov$capture_error, "missing, incomplete")
+  })
+})
+
 describe("file rule scope", {
   # The same executor consumes an ordinary string (not a path) as data; only
   # a kind that declares a pad has a snapshot for the file rule to protect.

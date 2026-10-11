@@ -254,20 +254,55 @@ bg_data_file_report <- function(input_id, data) {
 # --- File identities -------------------------------------------------------
 #
 # For kinds that declare a pad (the rule protects the P/A/D snapshot),
-# file-backed data is supported only as a regular file hashed before the run
-# at the identical path, resolved in the executing process. That process
+# file-backed data is supported only as a non-empty regular file hashed
+# before the run at the identical path, resolved in the executing process.
+# Empty and special files are classified from file.info() alone and never
+# opened, so devices and FIFOs cannot block a snapshot. That process
 # (bg_execute_node() sequentially, the worker in parallel) snapshots, before
 # and after the executor runs, the Stan source closure of the node's
 # `stan_file` param and every input whose value is a character scalar, and
 # normalizes the paths the executor reports. The main process then compares
 # normalized absolute paths only (see `bg_reconcile_data_files()`).
 
-#' SHA-256 of a file, or `NA` when it cannot be read.
+#' Classify a path without opening it.
+#'
+#' Only `file.info()` is consulted, so special files are never opened:
+#' devices, FIFOs, sockets, and `/proc` entries report size 0 and are
+#' classified `"empty_or_special"` together with empty regular files.
+#' @return One of `"missing"`, `"directory"`, `"empty_or_special"`, `"file"`.
+#' @keywords internal
+#' @noRd
+bg_path_kind <- function(path) {
+  info <- tryCatch(
+    file.info(path, extra_cols = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(info) || is.na(info$isdir)) {
+    return("missing")
+  }
+  if (isTRUE(info$isdir)) {
+    return("directory")
+  }
+  if (is.na(info$size) || info$size <= 0) {
+    return("empty_or_special")
+  }
+  "file"
+}
+
+#' SHA-256 of a regular, non-empty file, or `NA`.
+#'
+#' Reads exactly the size `file.info()` reported, so a file that grows, or a
+#' special file that slipped past the size check, cannot make hashing hang.
+#' Anything that is not a non-empty regular file is never opened.
 #' @keywords internal
 #' @noRd
 bg_hash_file_or_na <- function(path) {
+  if (!identical(bg_path_kind(path), "file")) {
+    return(NA_character_)
+  }
+  size <- file.info(path, extra_cols = FALSE)$size
   tryCatch(
-    digest::digest(file = path, algo = "sha256"),
+    digest::digest(file = path, algo = "sha256", length = size),
     error = function(e) NA_character_
   )
 }
@@ -275,8 +310,8 @@ bg_hash_file_or_na <- function(path) {
 #' Snapshot one input value as a filesystem reference.
 #'
 #' @return `list(path, kind, sha256)`: `path` normalized in this process;
-#'   `kind` one of `"file"`, `"directory"`, `"missing"`; `sha256` the content
-#'   hash of a regular file, or `NA` (also for an unreadable file).
+#'   `kind` from `bg_path_kind()`; `sha256` the content hash of a non-empty
+#'   regular file, or `NA` (also for an unreadable file).
 #' @keywords internal
 #' @noRd
 bg_snapshot_path <- function(value) {
@@ -284,13 +319,7 @@ bg_snapshot_path <- function(value) {
     return(list(path = value, kind = "missing", sha256 = NA_character_))
   }
   path <- normalizePath(value, mustWork = FALSE)
-  kind <- if (!file.exists(path)) {
-    "missing"
-  } else if (dir.exists(path)) {
-    "directory"
-  } else {
-    "file"
-  }
+  kind <- bg_path_kind(path)
   list(
     path = path,
     kind = kind,
@@ -300,6 +329,36 @@ bg_snapshot_path <- function(value) {
       NA_character_
     }
   )
+}
+
+#' Hash a node's Stan source closure for an execution snapshot.
+#'
+#' Unlike the fingerprint component, which records a `"missing_stan_file"`
+#' sentinel so planning still works, an execution snapshot fails (`NA`) when
+#' the source or any `#include` is missing, or when a closure member is not a
+#' non-empty regular file (it is then never opened).
+#' @keywords internal
+#' @noRd
+bg_stan_source_snapshot <- function(node, project_path = NULL) {
+  stan_file <- node$params$stan_file
+  if (!is.null(project_path)) {
+    stan_file <- bg_resolve_project_source(project_path, stan_file)
+  }
+  if (!identical(bg_path_kind(stan_file), "file")) {
+    return(NA_character_)
+  }
+  closure <- bg_stan_source_closure(normalizePath(stan_file, mustWork = FALSE))
+  incomplete <- length(closure$missing) > 0L ||
+    length(closure$missing_directives) > 0L ||
+    !all(vapply(
+      closure$files,
+      function(file) identical(bg_path_kind(file), "file"),
+      logical(1)
+    ))
+  if (incomplete) {
+    return(NA_character_)
+  }
+  bg_source_closure_hash(stan_file)
 }
 
 #' Snapshot the files an execution may read.
@@ -319,7 +378,7 @@ bg_execution_file_identities <- function(node, inputs, project_path = NULL) {
     stan <- list(
       path = stan_file,
       sha256 = tryCatch(
-        bg_source_hash_component(node, project_path),
+        bg_stan_source_snapshot(node, project_path),
         error = function(e) NA_character_
       )
     )
@@ -652,8 +711,9 @@ bg_pad_snapshot <- function(
 
 #' Reconcile consumed files with the engine's pre-run file identities.
 #'
-#' File-backed data is supported only as a regular file hashed before the
-#' run at the identical path, resolved in the executing process. Paths here
+#' File-backed data is supported only as a non-empty regular file hashed
+#' before the run at the identical path, resolved in the executing process.
+#' Paths here
 #' are already normalized there, so they are compared as strings. Fails
 #' closed: any violation is an error, which leaves the execution without a
 #' pad.
@@ -662,8 +722,8 @@ bg_pad_snapshot <- function(
 #'   (by `node_id`, or by a `path` equal to that input's snapshot path), and
 #'   a reported `path` must equal the snapshot path.
 #' - Every consumed D input whose value is a character scalar is a
-#'   filesystem reference: it must have been a readable regular file before
-#'   the run, unchanged afterwards. Its pre-run hash is its data identity;
+#'   filesystem reference: it must have been a readable, non-empty regular
+#'   file before the run, unchanged afterwards. Its pre-run hash is its data identity;
 #'   the CAS ref of the path string is never used.
 #' - Inputs outside consumed D are never checked.
 #' @param reported `consumed$data_files` entries from the normalized report.
@@ -727,7 +787,10 @@ bg_reconcile_data_files <- function(reported, snapshot, d_ids = character()) {
       errors <- c(
         errors,
         sprintf(
-          "input %s (%s) was not a readable regular file before the run (%s)",
+          paste(
+            "input %s (%s) was not a readable, non-empty regular file",
+            "before the run (%s)"
+          ),
           id,
           file$path,
           if (identical(file$kind, "file")) "unreadable" else file$kind
@@ -828,7 +891,14 @@ bg_build_execution_provenance <- function(
     if (!is.null(stan) && (isTRUE(stan$changed) || is.na(stan$sha256))) {
       errors <- c(
         sprintf(
-          "stan_file %s (source closure) changed during execution",
+          if (is.na(stan$sha256)) {
+            paste(
+              "stan_file %s (source closure) was missing, incomplete,",
+              "or not a regular file before the run"
+            )
+          } else {
+            "stan_file %s (source closure) changed during execution"
+          },
           stan$path
         ),
         errors
@@ -1068,9 +1138,11 @@ bg_resolve_node_execution <- function(
 #' process that ran it, and the `pad` snapshot (P/A/D components with SHA-256
 #' digests, or `NULL` when the node kind has no complete
 #' [bg_register_node_kind()] `pad` declaration). For kinds that declare a
-#' pad, file-backed data counts only as a regular file hashed before the run
-#' at the identical path; when that rule is violated, or the Stan source or a consumed file changed while the
-#' executor ran, `pad` is `NULL` and `capture_error` says why.
+#' pad, file-backed data counts only as a non-empty regular file hashed
+#' before the run at the identical path, and the Stan source and its includes
+#' must exist; when that rule is violated, or the Stan source or a consumed
+#' file changed while the executor ran, `pad` is `NULL` and `capture_error`
+#' says why.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id A node id.
