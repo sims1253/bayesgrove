@@ -207,6 +207,10 @@ optional: a check without one does not constrain the evidence's `utility`.
     evidence's `utility`.
 - If evidence omits `utility` and its check maps to exactly one utility, that
   utility is filled in.
+- A rule on a utility is only as strong as the check mappings. Evidence keeps
+  the utility its action names, even when derived, so a check without a
+  mapping can stand in for any utility. A ruleset that gates on a utility
+  should map every declared check, as the official ruleset does.
 - Records made before a vocabulary was installed are never revalidated.
 
 **Registry.** Built-in rulesets ship as `inst/rulesets/<id>.json` and load
@@ -567,8 +571,12 @@ never make existing dated evidence false:
   - Goal kinds `observable_prediction` and `latent_inference`, matching the
     existing packs.
   - Checks that map the built-in summary kinds to the utilities they inform.
-- **Rules.** The goal-dependent requirements of the paper's utility decision
-  trees, expressed only with built-in predicates. Every rule carries
+    Every check is mapped, and only computation diagnostics inform
+    convergence.
+- **Rules.** A selected baseline informed by the paper's utility decision
+  trees, not a full encoding of them, expressed only with built-in
+  predicates. Fairness gates and trade-offs between utilities stay with the
+  lab, which adapts the ruleset through `extends`. Every rule carries
   `references` to the paper and to *Bayesian Workflow* (2026) chapters.
   Blocking rules cover only established practice: convergence evidence derived
   from the run before acceptance, and human review of computation diagnostics.

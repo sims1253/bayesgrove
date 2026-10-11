@@ -104,7 +104,8 @@
       },
       {
         "id": "prior_spec",
-        "title": "Recorded prior specification"
+        "title": "Recorded prior specification",
+        "utilities": ["structural_faithfulness", "interpretability"]
       },
       {
         "id": "prior_predictive_check",
@@ -148,7 +149,8 @@
       },
       {
         "id": "model_comparison",
-        "title": "Model comparison decision context"
+        "title": "Model comparison decision context",
+        "utilities": ["predictive_performance", "parsimony"]
       },
       {
         "id": "projpred_selection",
@@ -177,7 +179,12 @@
       },
       {
         "id": "pad_annotation",
-        "title": "PAD annotation"
+        "title": "PAD annotation",
+        "utilities": [
+          "structural_faithfulness",
+          "interpretability",
+          "parsimony"
+        ]
       }
     ]
   },

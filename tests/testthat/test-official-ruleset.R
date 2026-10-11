@@ -565,6 +565,92 @@ test_that("enforce mode accepts a run-bound candidate with derived diagnostics",
   expect_equal(tail(state$history, 1)[[1]]$action$kind, "accept")
 })
 
+test_that("every check is mapped and only diagnostics inform convergence", {
+  official_local_registry()
+  checks <- official_json()$vocabulary$checks
+  mapped <- lapply(checks, function(check) unlist(check$utilities))
+  names(mapped) <- official_ids(checks)
+  expect_true(all(lengths(mapped) > 0L))
+  expect_true(all(unlist(mapped) %in% official_utilities))
+  informs_convergence <- vapply(
+    mapped,
+    function(utilities) "convergence" %in% utilities,
+    logical(1)
+  )
+  expect_setequal(
+    names(mapped)[informs_convergence],
+    c("hmc_diagnostics", "optimizer_diagnostics")
+  )
+})
+
+test_that("derived evidence from another check cannot stand in for convergence", {
+  official_local_registry()
+  h <- make_provenance_project()
+  bg_register_node_kind(
+    h,
+    "prior_fit",
+    executor = function(node, inputs) {
+      list(
+        result = list(mean = inputs[[1]]$value),
+        summaries = list(list(
+          summary_kind = "prior_spec",
+          severity = "ok",
+          metrics = list(prior = "normal(0, 1)")
+        )),
+        metadata = list(provenance = list(consumed = list(D = names(inputs))))
+      )
+    },
+    pad = list(P = "model")
+  )
+  src <- bg_add_node(h, kind = "src")
+  fit <- bg_add_node(
+    h,
+    kind = "prior_fit",
+    params = list(model = "m1"),
+    inputs = src
+  )
+  bg_run(h)
+  bg_research_init(
+    h,
+    "Which model answers the question?",
+    list(kind = "observable_prediction"),
+    official_human,
+    "enforce",
+    official_ref
+  )
+  id <- official_apply(h, "create", label = "Prior only", node_id = fit)
+  proposal <- official_propose(
+    h,
+    "evidence",
+    candidate_id = id,
+    label = "Prior as convergence",
+    node_id = fit,
+    utility = "convergence"
+  )
+  expect_false(proposal$allowed)
+  expect_true("bayesgrove.workflow/vocabulary" %in% names(proposal$findings))
+  expect_error(bg_research_apply(h, proposal), "held by policy")
+
+  # Under a utility it informs, the record is allowed but does not unblock
+  # acceptance.
+  prior <- official_apply(
+    h,
+    "evidence",
+    candidate_id = id,
+    label = "Prior",
+    node_id = fit,
+    utility = "structural_faithfulness"
+  )
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = prior
+  )
+  expect_false(proposal$allowed)
+  expect_true("convergence-derived" %in% official_finding_ids(proposal))
+})
+
 test_that("the conditional review rules are silent without their evidence", {
   official_local_registry()
   h <- official_fixture("observable_prediction", "guide")

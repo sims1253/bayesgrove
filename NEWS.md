@@ -30,7 +30,8 @@
   (experimental), available as `"bayesgrove.workflow@1"`. Its vocabulary
   declares the ten model utilities and the `observable_prediction` and
   `latent_inference` goal kinds of Bürkner, Scholz, and Radev (2023), and maps
-  the built-in summary kinds to the utilities they inform. Its nine rules,
+  every built-in summary kind to the utilities it informs; only computation
+  diagnostics inform convergence. Its nine rules,
   referenced to the paper and to *Bayesian Workflow* (2026) and written with
   built-in predicates only, are a selected, tree-informed workflow baseline
   rather than a full encoding of the paper's utility trees. Three explicit
