@@ -42,7 +42,7 @@ that motivated it. These must refer to existing records and remain in history.
 | --- | --- | --- |
 | `create` | `label`, `components` | Create a root candidate. |
 | `revise` | `candidate_id`, `label`, `components` | Replace the supplied P/A/D components in a descendant. Other components are inherited. |
-| `evidence` | `candidate_id`, `label`, `check`, `utility`, `result` | Attach a result to an exact candidate. `utility` may be omitted when the vocabulary maps the check to exactly one utility. |
+| `evidence` | `candidate_id`, `label`, `check`, `utility`, `result` | Attach a result to an exact candidate. `utility` may be omitted when the vocabulary maps the check to exactly one utility. A check without a `utilities` mapping does not constrain `utility`. |
 | `compare` | `candidate_ids`, `evidence_ids`, `criteria`, `result` | Record a comparison covering at least two candidates, including closed ones. |
 | `review` | `candidate_id`, `evidence_ids` | Record review of specific evidence. |
 | `accept`, `reject` | `candidate_id`, `evidence_ids` | Record a judgment for the investigation's goal. Rejection does not close a lineage. |
