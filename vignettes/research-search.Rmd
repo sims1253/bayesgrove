@@ -193,6 +193,88 @@ proposal <- bg_research_propose(h, acceptance, human,
 proposal$allowed
 ```
 
+## Share rules as a ruleset
+
+Rules are data. `bg_rule()` validates one rule: the actions it governs (`on`),
+optional `when` conditions, one requirement, and a `severity`. Enforce holds an
+action only for blocking findings; advisory findings guide without holding.
+A ruleset collects rules under a dotted id and version, and can declare the
+utilities, goal kinds, and checks it uses. This one extends nothing.
+
+```{r}
+review_ppc <- bg_rule(
+  id = "review-ppc",
+  on = "accept",
+  require = list(type = "require_review", check = "ppc"),
+  message = "Review the predictive evidence before accepting this candidate."
+)
+tail_check <- bg_rule(
+  id = "tail-check",
+  on = "accept",
+  when = list(list(type = "goal_kind", values = "observable_prediction")),
+  require = list(type = "require_evidence", check = "tail_ppc"),
+  severity = "advisory",
+  message = "Consider a check focused on the upper tail."
+)
+lab <- bg_ruleset(
+  "lab.positive",
+  "1.0.0",
+  title = "Positive measurements",
+  vocabulary = list(
+    utilities = list(list(id = "predictive_performance")),
+    goal_kinds = list(list(id = "observable_prediction")),
+    checks = list(
+      list(id = "ppc", utilities = "predictive_performance"),
+      list(id = "tail_ppc", utilities = "predictive_performance")
+    )
+  ),
+  rules = list(review_ppc, tail_check)
+)
+bg_ruleset_check(lab)[c("ok", "rule_count")]
+```
+
+Registering a ruleset makes it available by reference in this session.
+`bg_use_rules()` replaces the whole policy through a recorded `configure`
+action. The state pins the resolved rules and vocabulary, so later changes to
+the registry do not change the policy in force. `bg_rules()` returns what an
+agent should read before acting.
+
+```{r}
+bg_register_ruleset(lab)
+state <- bg_use_rules(h, "lab.positive@1", mode = "enforce", actor = human,
+                      rationale = "Adopt the shared rules for this lab.")
+active <- bg_rules(h)
+active$ruleset[c("id", "version")]
+vapply(active$rules, `[[`, character(1), "id")
+
+proposal <- bg_research_propose(h, acceptance, human,
+                                "Reconsider the candidate under the shared rules.")
+proposal$allowed
+vapply(proposal$findings, `[[`, character(1), "severity")
+```
+
+The review from the previous goal no longer counts, so the blocking rule holds
+the acceptance. The advisory finding alone would not. The vocabulary maps
+`tail_ppc` to a single utility, so evidence for that check can omit `utility`.
+After the tail check and a review under the current goal, no findings remain.
+
+```{r}
+state <- record(
+  list(kind = "evidence", candidate_id = lognormal, label = "Illustrative tail check",
+       check = "tail_ppc", result = list(source = "illustrative")),
+  "Check the upper tail for the revised goal."
+)
+state$evidence[[tail(state$history, 1)[[1]]$id]]$utility
+state <- record(list(kind = "review", candidate_id = lognormal,
+                     evidence_ids = lognormal_evidence),
+                "Review the predictive check again under the revised goal.")
+proposal <- bg_research_propose(h, acceptance, human,
+                                "Accept for the revised goal, subject to further checks.")
+proposal$allowed
+length(proposal$findings)
+state <- bg_research_apply(h, proposal)
+```
+
 ## Reopen and share
 
 ```{r}
@@ -205,6 +287,7 @@ bg_close(h)
 
 `bg_snapshot()`, `bg_bundle()`, and `bg_export_report()` include research state.
 The [research-search contract](https://github.com/sims1253/bayesgrove/blob/master/architecture/research-search.md)
-lists all action fields and declarative rule types, including specification
-constraints and evidence requirements. There is no built-in universal model
+lists all action fields, and the
+[rule contract](https://github.com/sims1253/bayesgrove/blob/master/architecture/rules-and-evidence.md)
+specifies rules, predicates, rulesets, and pinning. There is no built-in universal model
 score: comparisons state their criteria and retain their evidence.
