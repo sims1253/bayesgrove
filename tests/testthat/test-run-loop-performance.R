@@ -173,3 +173,54 @@ describe("Run-loop performance (Phase 6)", {
     expect_lte(fresh_calls, n_history + 1L + 2L * n_waves)
   })
 })
+
+describe("Stan include scanning performance", {
+  skip_on_cran()
+
+  # A stanc-valid program dominated by comments (with slashes, quotes, and
+  # hashes inside them) plus a few real includes.
+  comment_heavy_program <- function(n_comments) {
+    c(
+      "#include \"functions.stan\"",
+      rep(
+        "// a comment with / slashes, \"quotes\", and # hashes in it ...",
+        n_comments
+      ),
+      "/*",
+      rep(" * #include absent.stan inside a block comment", 10L),
+      " */",
+      "parameters { real theta; }",
+      "model { #include prior.stan",
+      "}"
+    )
+  }
+  scan_seconds <- function(text) {
+    # The fastest of a few runs, to keep timer noise out of the comparison.
+    min(vapply(
+      1:3,
+      function(i) system.time(bg_stan_include_targets(text))[["elapsed"]],
+      numeric(1)
+    ))
+  }
+
+  it("scans a comment-heavy program in linear time", {
+    small <- comment_heavy_program(1000L)
+    expect_identical(
+      bg_stan_include_targets(small),
+      c("functions.stan", "prior.stan")
+    )
+    small_seconds <- scan_seconds(small)
+    # A quadratic scan took several seconds on a program this size.
+    expect_lt(small_seconds, 0.5)
+
+    # Four times the input stays well under ten times the time.
+    large_seconds <- scan_seconds(comment_heavy_program(4000L))
+    expect_lt(large_seconds, max(10 * small_seconds, 0.5))
+  })
+
+  it("returns immediately for programs without includes", {
+    text <- rep("// no includes here, only / and \" and #", 5000L)
+    expect_identical(bg_stan_include_targets(text), character())
+    expect_lt(scan_seconds(text), 0.5)
+  })
+})

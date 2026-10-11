@@ -183,6 +183,14 @@ bg_resolve_source_params <- function(params, project_path) {
 #'   angle-bracketed form wins. A bare run is greedy, so `//` inside it is
 #'   part of the path.
 #'
+#' The scanner only extracts includes and is tolerant of syntax stanc
+#' rejects (a byte-order mark, an unterminated string or comment, a stray
+#' `#`); such programs fail when stanc compiles them anyway.
+#'
+#' The scan is linear in the program size: delimiter positions are indexed
+#' once and walked with forward-only cursors, and text without `#include`
+#' returns immediately.
+#'
 #' Every form names a file that stanc3 resolves relative to the directory of
 #' the file containing the directive (the default include path), and
 #' fingerprints, bundles, and execution snapshots all share this parser.
@@ -193,61 +201,74 @@ bg_resolve_source_params <- function(params, project_path) {
 #' @noRd
 bg_stan_include_targets <- function(text) {
   text <- paste(text, collapse = "\n")
-  if (!nzchar(text)) {
+  if (!grepl("#include", text, fixed = TRUE)) {
     return(character())
   }
   bytes <- charToRaw(text)
   n <- length(bytes)
-  byte <- function(char) charToRaw(char)
-  slash <- byte("/")
-  star <- byte("*")
-  quote <- byte("\"")
-  hash <- byte("#")
-  lt <- byte("<")
-  gt <- byte(">")
-  cr <- byte("\r")
-  lf <- byte("\n")
-  blanks <- c(byte(" "), byte("\t"), as.raw(12L))
+  slash <- charToRaw("/")
+  star <- charToRaw("*")
+  quote <- charToRaw("\"")
+  hash <- charToRaw("#")
+  lt <- charToRaw("<")
+  gt <- charToRaw(">")
+  cr <- charToRaw("\r")
+  lf <- charToRaw("\n")
+  blanks <- c(charToRaw(" "), charToRaw("\t"), as.raw(12L))
   directive <- charToRaw("#include")
 
-  # First position >= from holding one of `targets`, or NA.
-  next_of <- function(targets, from) {
-    if (from > n) {
-      return(NA_integer_)
+  # Forward-only cursor over the sorted positions of a byte class. Every
+  # lookup starts at or after the scan position, which never moves back,
+  # so each position is passed over at most once.
+  cursor <- function(positions) {
+    index <- 1L
+    function(from) {
+      while (index <= length(positions) && positions[[index]] < from) {
+        index <<- index + 1L
+      }
+      if (index <= length(positions)) positions[[index]] else NA_integer_
     }
-    hit <- which(bytes[from:n] %in% targets)
-    if (length(hit) == 0L) NA_integer_ else from + hit[[1]] - 1L
   }
+  next_token <- cursor(which(bytes %in% c(slash, quote, hash)))
+  next_slash <- cursor(which(bytes == slash))
+  next_quote <- cursor(which(bytes == quote))
+  next_gt <- cursor(which(bytes == gt))
+  next_newline <- cursor(which(bytes %in% c(cr, lf)))
+  next_space <- cursor(which(bytes %in% c(blanks, cr, lf)))
   # Length of a delimited target starting at `at` (opening delimiter
   # included), or 0 when it is not closed before a line break.
-  delimited_length <- function(at, close) {
-    end <- next_of(c(close, cr, lf), at + 1L)
-    if (is.na(end) || bytes[[end]] != close) 0L else end - at + 1L
+  delimited_length <- function(at, next_close) {
+    close <- next_close(at + 1L)
+    newline <- next_newline(at + 1L)
+    if (is.na(close) || (!is.na(newline) && newline < close)) {
+      0L
+    } else {
+      close - at + 1L
+    }
   }
 
   targets <- character()
-  i <- 1L
-  while (i <= n) {
+  i <- next_token(1L)
+  while (!is.na(i)) {
     current <- bytes[[i]]
     following <- if (i < n) bytes[[i + 1L]] else as.raw(0L)
     if (current == slash && following == star) {
-      end <- next_of(slash, i + 3L)
+      end <- next_slash(i + 3L)
       while (!is.na(end) && bytes[[end - 1L]] != star) {
-        end <- next_of(slash, end + 1L)
+        end <- next_slash(end + 1L)
       }
       if (is.na(end)) {
         break
       }
       i <- end + 1L
     } else if (current == slash && following == slash) {
-      end <- next_of(c(cr, lf), i + 2L)
+      end <- next_newline(i + 2L)
       if (is.na(end)) {
         break
       }
       i <- end + 1L
     } else if (current == quote) {
-      span <- delimited_length(i, quote)
-      i <- i + max(span, 1L)
+      i <- i + max(delimited_length(i, next_quote), 1L)
     } else if (
       current == hash &&
         i + 7L <= n &&
@@ -260,36 +281,37 @@ bg_stan_include_targets <- function(text) {
       if (k == i + 8L) {
         # stanc rejects `#include` without following whitespace.
         i <- i + 1L
-        next
-      }
-      bare_end <- next_of(c(blanks, cr, lf), k)
-      bare <- (if (is.na(bare_end)) n + 1L else bare_end) - k
-      delimited <- if (k > n) {
-        0L
-      } else if (bytes[[k]] == quote) {
-        delimited_length(k, quote)
-      } else if (bytes[[k]] == lt) {
-        delimited_length(k, gt)
       } else {
-        0L
-      }
-      if (delimited > 0L && delimited >= bare) {
-        target <- if (delimited > 2L) {
-          rawToChar(bytes[(k + 1L):(k + delimited - 2L)])
+        bare_end <- next_space(k)
+        bare <- (if (is.na(bare_end)) n + 1L else bare_end) - k
+        delimited <- if (k > n) {
+          0L
+        } else if (bytes[[k]] == quote) {
+          delimited_length(k, next_quote)
+        } else if (bytes[[k]] == lt) {
+          delimited_length(k, next_gt)
         } else {
-          ""
+          0L
         }
-        i <- k + delimited
-      } else {
-        target <- if (bare > 0L) rawToChar(bytes[k:(k + bare - 1L)]) else ""
-        i <- k + max(bare, 1L)
-      }
-      if (nzchar(target)) {
-        targets <- c(targets, target)
+        if (delimited > 0L && delimited >= bare) {
+          target <- if (delimited > 2L) {
+            rawToChar(bytes[(k + 1L):(k + delimited - 2L)])
+          } else {
+            ""
+          }
+          i <- k + delimited
+        } else {
+          target <- if (bare > 0L) rawToChar(bytes[k:(k + bare - 1L)]) else ""
+          i <- k + max(bare, 1L)
+        }
+        if (nzchar(target)) {
+          targets <- c(targets, target)
+        }
       }
     } else {
       i <- i + 1L
     }
+    i <- next_token(i)
   }
   targets
 }
