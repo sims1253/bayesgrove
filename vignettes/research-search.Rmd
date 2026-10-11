@@ -431,7 +431,7 @@ whose check or utility the vocabulary does not declare, or whose utility the
 check does not inform.
 Evidence asserted by a caller, like the illustrative record below, never
 satisfies the derived-convergence rule: it needs evidence the engine derives
-from a run bound to the candidate.
+from a run bound to the candidate, as in "Bind a candidate to a run" above.
 
 ```{r}
 record2 <- function(action, rationale, actor = human) {

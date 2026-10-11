@@ -413,11 +413,8 @@ test_that("evidence satisfies the advisory rules but asserted evidence never sat
     evidence_ids = c(hmc, others)
   )
   # Only the derived-convergence rule remains: asserted convergence evidence,
-  # even when reviewed, is not derived from a run.
-  # STAGING: derived evidence is not implemented on this branch yet, so no
-  # candidate can satisfy convergence-derived and Enforce can never accept.
-  # This assertion changes when derived evidence lands: a candidate bound to a
-  # run with derived hmc_diagnostics evidence must then satisfy the rule.
+  # even when reviewed, is not derived from a run. The run-bound counterpart
+  # is "enforce mode accepts a run-bound candidate with derived diagnostics".
   expect_equal(official_finding_ids(proposal), "convergence-derived")
   expect_equal(
     proposal$findings[[1]]$require$provenance,
@@ -464,10 +461,8 @@ test_that("enforce mode holds only for blocking findings", {
     candidate_id = id,
     evidence_ids = hmc
   )
-  # STAGING: derived evidence is not implemented on this branch yet, so no
-  # candidate can satisfy convergence-derived and Enforce can never accept.
-  # This assertion changes when derived evidence lands: a candidate bound to a
-  # run with derived hmc_diagnostics evidence must then satisfy the rule.
+  # The candidate is not bound to a run, so its reviewed but asserted
+  # diagnostics still leave convergence-derived unsatisfied.
   expect_false(proposal$allowed)
   severities <- official_severities(proposal)
   expect_equal(
@@ -506,6 +501,66 @@ test_that("enforce mode holds only for blocking findings", {
   expect_true(proposal$allowed)
   expect_true(all(official_severities(proposal) == "advisory"))
   expect_length(proposal$findings, 3)
+  state <- bg_research_apply(h, proposal)
+  expect_equal(tail(state$history, 1)[[1]]$action$kind, "accept")
+})
+
+test_that("enforce mode accepts a run-bound candidate with derived diagnostics", {
+  official_local_registry()
+  h <- make_provenance_project()
+  src <- bg_add_node(h, kind = "src")
+  fit <- bg_add_node(
+    h,
+    kind = "fit",
+    params = list(model = "m1", scale = 3, data_input = src),
+    inputs = src
+  )
+  bg_run(h)
+  bg_research_init(
+    h,
+    "Which model answers the question?",
+    list(kind = "latent_inference"),
+    official_human,
+    "enforce",
+    official_ref
+  )
+  id <- official_apply(h, "create", label = "Scale 3", node_id = fit)
+  hmc <- official_apply(
+    h,
+    "evidence",
+    candidate_id = id,
+    label = "Sampler diagnostics",
+    node_id = fit
+  )
+  evidence <- bg_research_state(h)$evidence[[hmc]]
+  expect_identical(evidence$check, "hmc_diagnostics")
+  expect_identical(evidence$utility, "convergence")
+  expect_identical(evidence$provenance$kind, "derived")
+
+  # Derived evidence satisfies convergence-derived, but the HMC diagnostics
+  # still need a human review.
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = hmc
+  )
+  expect_false(proposal$allowed)
+  severities <- official_severities(proposal)
+  expect_equal(
+    names(severities)[severities == "blocking"],
+    "review-hmc-diagnostics"
+  )
+
+  official_apply(h, "review", candidate_id = id, evidence_ids = hmc)
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = hmc
+  )
+  expect_true(proposal$allowed)
+  expect_true(all(official_severities(proposal) == "advisory"))
   state <- bg_research_apply(h, proposal)
   expect_equal(tail(state$history, 1)[[1]]$action$kind, "accept")
 })
@@ -582,8 +637,7 @@ test_that("optimizer diagnostics activate the optimizer review rule", {
   expect_false(
     "review-optimizer-diagnostics" %in% official_finding_ids(proposal)
   )
-  # STAGING: still held only by convergence-derived until derived evidence
-  # lands; this assertion changes then.
+  # Still held by convergence-derived: the evidence is asserted.
   expect_false(proposal$allowed)
   blocking <- official_severities(proposal)
   expect_equal(
