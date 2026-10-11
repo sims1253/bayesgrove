@@ -214,6 +214,13 @@ bg_rule_condition <- function(condition, label) {
         "Unknown rule predicate {.val {condition$type}}. Custom predicate ids contain a dot."
       )
     }
+    # Argument names depend on the registration; a NULL value never has a
+    # meaning, so it is rejected regardless of registration.
+    if (any(vapply(condition, is.null, logical(1)))) {
+      cli::cli_abort(
+        "{.val {label}} passes a NULL argument to predicate {.val {condition$type}}."
+      )
+    }
     return(condition)
   }
   allowed <- c("type", spec$required, spec$optional)
@@ -251,6 +258,11 @@ bg_rule_condition <- function(condition, label) {
 # Validates the fields shared by raw and resolved rules; returns them in
 # canonical form, with arrays as lists.
 bg_rule_body <- function(rule) {
+  # Absent, null, and empty optional fields mean the same thing; drop them so
+  # JSON-authored and R-built rules share a digest.
+  empty <- vapply(rule, function(value) length(value) == 0L, logical(1))
+  optional <- c(bg_rule_optional_fields(), "overridden_by")
+  rule <- rule[!(names(rule) %in% optional & empty)]
   on <- unlist(rule$on, use.names = FALSE)
   if (
     !is.character(on) ||
@@ -266,7 +278,6 @@ bg_rule_body <- function(rule) {
       cli::cli_abort("Rule {.field when} must be a list of conditions.")
     }
     rule$when <- lapply(rule$when, bg_rule_condition, label = "rule.when")
-    if (length(rule$when) == 0L) rule$when <- NULL
   }
   rule$require <- bg_rule_condition(rule$require, "rule.require")
   if (
@@ -528,7 +539,9 @@ bg_rule <- function(
     interpretation = interpretation,
     references = references
   )
-  bg_rule_check_raw(bg_research_data(Filter(Negate(is.null), rule)))
+  rule <- bg_rule_check_raw(bg_research_data(Filter(Negate(is.null), rule)))
+  bg_rule_abort_problems(bg_rule_predicate_problems(list(rule), FALSE))
+  rule
 }
 
 # --- Custom predicates ---
@@ -550,10 +563,13 @@ bg_rule <- function(
 #' @param fn A function `fn(subject, args)` returning `TRUE` or `FALSE`.
 #'   `subject` is `list(state, action, candidate, actor)`, where `state` is the
 #'   research state before the action. `args` holds the condition's arguments.
-#' @param arguments Argument names that conditions may supply.
+#' @param arguments Argument names every condition must supply, with a
+#'   non-`NULL` value.
+#' @param optional Argument names a condition may supply.
 #' @param version Implementation version recorded when a policy is installed.
 #' @param replace Replace an existing registration with the same `id`.
-#' @return The registration, invisibly: `list(id, version, arguments)`.
+#' @return The registration, invisibly: `list(id, version, arguments,
+#'   optional)`.
 #' @export
 #' @examples
 #' bg_register_rule_predicate(
@@ -566,7 +582,8 @@ bg_register_rule_predicate <- function(
   fn,
   arguments = character(),
   version = "1",
-  replace = FALSE
+  replace = FALSE,
+  optional = character()
 ) {
   bg_research_string(id, "id")
   if (!grepl(bg_rule_dotted_pattern, id)) {
@@ -577,8 +594,12 @@ bg_register_rule_predicate <- function(
   if (!is.function(fn)) {
     cli::cli_abort("{.arg fn} must be a function of {.code (subject, args)}.")
   }
-  arguments <- unlist(bg_rule_strings(arguments, "arguments", TRUE))
-  if ("type" %in% arguments || anyDuplicated(arguments)) {
+  arguments <- unlist(bg_rule_strings(arguments, "arguments", TRUE)) %||%
+    character()
+  optional <- unlist(bg_rule_strings(optional, "optional", TRUE)) %||%
+    character()
+  names <- c(arguments, optional)
+  if ("type" %in% names || anyDuplicated(names)) {
     cli::cli_abort("Predicate arguments must be unique and must not be type.")
   }
   bg_research_string(version, "version")
@@ -590,21 +611,46 @@ bg_register_rule_predicate <- function(
       "Predicate {.val {id}} is already registered. Use {.code replace = TRUE}."
     )
   }
-  .bg_rules_env$predicates[[id]] <- list(
+  registration <- list(
     id = id,
     version = version,
-    arguments = arguments %||% character(),
-    fn = fn
+    arguments = arguments,
+    optional = optional
   )
-  invisible(list(
-    id = id,
-    version = version,
-    arguments = arguments %||% character()
-  ))
+  .bg_rules_env$predicates[[id]] <- c(registration, list(fn = fn))
+  invisible(registration)
 }
 
-# Problems with custom predicates in a rule list: unknown ids or arguments.
-bg_rule_predicate_problems <- function(rules) {
+# Argument problems for one custom condition against its registration: every
+# declared argument is required and non-NULL; others must be optional.
+bg_rule_argument_problems <- function(condition, entry) {
+  supplied <- setdiff(names(condition), "type")
+  given <- supplied[!vapply(condition[supplied], is.null, logical(1))]
+  unknown <- setdiff(supplied, c(entry$arguments, entry$optional))
+  missing <- setdiff(entry$arguments, given)
+  c(
+    if (length(unknown)) {
+      sprintf(
+        "passes unknown argument(s) %s to predicate '%s'",
+        paste0("'", unknown, "'", collapse = ", "),
+        condition$type
+      )
+    },
+    if (length(missing)) {
+      sprintf(
+        "omits required argument(s) %s of predicate '%s'",
+        paste0("'", missing, "'", collapse = ", "),
+        condition$type
+      )
+    }
+  )
+}
+
+# Problems with custom predicates in a rule list. Installing a policy
+# (`unknown = TRUE`) also rejects unregistered predicates. With `pins`, only
+# predicates registered at the pinned version are checked, so a session with
+# a different implementation can still read the state.
+bg_rule_predicate_problems <- function(rules, unknown = TRUE, pins = NULL) {
   problems <- character()
   for (rule in rules) {
     for (condition in bg_rule_conditions(rule)) {
@@ -613,31 +659,45 @@ bg_rule_predicate_problems <- function(rules) {
       }
       entry <- .bg_rules_env$predicates[[condition$type]]
       if (is.null(entry)) {
-        problems <- c(
-          problems,
-          sprintf(
-            "Rule '%s' uses unknown predicate '%s'.",
-            rule$id,
-            condition$type
+        if (unknown) {
+          problems <- c(
+            problems,
+            sprintf(
+              "Rule '%s' uses unknown predicate '%s'.",
+              rule$id,
+              condition$type
+            )
           )
-        )
+        }
         next
       }
-      unknown <- setdiff(names(condition), c("type", entry$arguments))
-      if (length(unknown)) {
-        problems <- c(
-          problems,
-          sprintf(
-            "Rule '%s' passes unknown argument(s) %s to predicate '%s'.",
-            rule$id,
-            paste0("'", unknown, "'", collapse = ", "),
-            condition$type
-          )
-        )
+      pinned <- Filter(function(p) identical(p$id, condition$type), pins)
+      if (
+        !is.null(pins) &&
+          (!length(pinned) || !identical(pinned[[1]]$version, entry$version))
+      ) {
+        next
       }
+      problems <- c(
+        problems,
+        sprintf(
+          "Rule '%s' %s.",
+          rule$id,
+          bg_rule_argument_problems(condition, entry)
+        )
+      )
     }
   }
   unique(problems)
+}
+
+bg_rule_abort_problems <- function(problems) {
+  if (length(problems)) {
+    cli::cli_abort(c(
+      "Rules use custom predicates incorrectly.",
+      stats::setNames(problems, rep("x", length(problems)))
+    ))
+  }
 }
 
 # Pins each custom predicate in use as list(id, version); NULL if none.
@@ -682,6 +742,10 @@ bg_rule_predicate <- function(condition, subject, pins) {
         pinned[[1]]$version
       ))
     }
+    problems <- bg_rule_argument_problems(condition, entry)
+    if (length(problems)) {
+      return(sprintf("Condition %s.", paste(problems, collapse = "; ")))
+    }
     fn <- entry$fn
   }
   args <- condition[setdiff(names(condition), "type")]
@@ -724,6 +788,7 @@ bg_vocabulary_normalize <- function(vocabulary) {
     label <- paste0("vocabulary.", category)
     entries <- lapply(entries, function(entry) {
       bg_research_fields(entry, "id", fields, label)
+      entry <- entry[names(entry) == "id" | lengths(entry) > 0L]
       for (key in intersect(c("id", "title", "description"), names(entry))) {
         bg_research_string(entry[[key]], paste0(label, ".", key))
       }
@@ -896,6 +961,7 @@ bg_ruleset_normalize <- function(ruleset) {
   }
   if (!is.null(ruleset$rules)) {
     ruleset$rules <- bg_rule_list(ruleset$rules, "raw")
+    bg_rule_abort_problems(bg_rule_predicate_problems(ruleset$rules, FALSE))
   }
   # Empty optional fields carry no meaning; drop them so digests agree.
   keep <- vapply(
@@ -933,6 +999,8 @@ bg_ruleset_override_patch <- function(target, patch) {
   )
   probe[names(set)] <- set
   probe <- bg_rule_body(probe)
+  probe$id <- target
+  bg_rule_abort_problems(bg_rule_predicate_problems(list(probe), FALSE))
   patch[names(set)] <- probe[names(set)]
   patch
 }

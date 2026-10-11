@@ -301,10 +301,24 @@ test_that("custom predicate registration and use are validated", {
     bg_register_rule_predicate("lab.x", identity, arguments = "type"),
     "must not be type"
   )
-  bg_register_rule_predicate(
+  expect_error(
+    bg_register_rule_predicate(
+      "lab.x",
+      identity,
+      arguments = "a",
+      optional = "a"
+    ),
+    "unique"
+  )
+  registration <- bg_register_rule_predicate(
     "lab.x",
     function(subject, args) TRUE,
-    arguments = "a"
+    arguments = "a",
+    optional = "b"
+  )
+  expect_equal(
+    registration,
+    list(id = "lab.x", version = "1", arguments = "a", optional = "b")
   )
   h <- rules_fixture()
   unknown <- bg_rule(
@@ -313,22 +327,106 @@ test_that("custom predicate registration and use are validated", {
     require = list(type = "lab.missing"),
     message = "m"
   )
-  bad_args <- bg_rule(
-    id = "b",
-    on = "note",
-    require = list(type = "lab.x", b = 1),
-    message = "m"
+  rule_with <- function(require) {
+    list(id = "b", on = "note", require = require, message = "m")
+  }
+  bad <- list(
+    unknown_arg = list(type = "lab.x", a = 1, c = 1),
+    missing_arg = list(type = "lab.x", b = 1),
+    null_arg = list(type = "lab.x", a = NULL),
+    null_optional = list(type = "lab.x", a = 1, b = NULL)
   )
   before <- bg_research_state(h)
   expect_error(
     rules_propose(h, "configure", mode = "guide", rules = list(unknown)),
     "unavailable predicates"
   )
-  expect_error(
-    rules_propose(h, "configure", mode = "guide", rules = list(bad_args)),
-    "unavailable predicates"
-  )
+  for (require in bad) {
+    rule <- rule_with(require)
+    expect_error(do.call(bg_rule, rule))
+    expect_error(bg_ruleset("lab.r", "1.0.0", rules = list(rule)))
+    expect_error(
+      rules_propose(h, "configure", mode = "guide", rules = list(rule))
+    )
+    expect_error(bg_ruleset(
+      "lab.r",
+      "1.0.0",
+      extends = "lab.p@1",
+      override = list("lab.p/b" = list(require = require))
+    ))
+  }
   expect_identical(bg_research_state(h), before)
+  # The optional argument may be omitted.
+  ok <- do.call(bg_rule, rule_with(list(type = "lab.x", a = 1)))
+  expect_no_error(
+    rules_propose(h, "configure", mode = "guide", rules = list(ok))
+  )
+  # An unregistered predicate is checked once it is installed.
+  later <- do.call(bg_rule, rule_with(list(type = "lab.later")))
+  bg_register_rule_predicate(
+    "lab.later",
+    function(subject, args) TRUE,
+    arguments = "label"
+  )
+  report <- bg_ruleset_check(bg_ruleset_normalize(list(
+    id = "lab.r",
+    version = "1.0.0",
+    rules = list(later)
+  )))
+  expect_false(report$ok)
+  expect_match(report$errors, "omits required argument")
+})
+
+test_that("declared predicate arguments are required at evaluation", {
+  local_rule_registry()
+  bg_register_rule_predicate(
+    "lab.has_label",
+    function(subject, args) identical(subject$action$label, args$label),
+    arguments = "label"
+  )
+  rule <- bg_rule(
+    id = "labelled",
+    on = "note",
+    require = list(type = "lab.has_label", label = "Approved"),
+    message = "Use the approved label."
+  )
+  h <- rules_fixture(list(rule), mode = "enforce")
+  id <- rules_create(h)
+  state <- bg_research_state(h)
+  # Re-registered at the pinned version with a different declaration.
+  bg_register_rule_predicate(
+    "lab.has_label",
+    function(subject, args) identical(subject$action$label, args$label),
+    arguments = c("label", "case"),
+    replace = TRUE
+  )
+  action <- list(kind = "note", candidate_id = id)
+  findings <- bg_research_findings(
+    state,
+    action,
+    state$candidates[[id]],
+    human
+  )
+  expect_named(findings, "labelled")
+  expect_match(findings$labelled$failures[[1]], "omits required argument")
+  # A stored condition with a missing or NULL declared argument never passes.
+  state$rules[[1]]$require <- list(type = "lab.has_label")
+  findings <- bg_research_findings(
+    state,
+    action,
+    state$candidates[[id]],
+    human
+  )
+  expect_match(findings$labelled$failures[[1]], "'label', 'case'")
+  state$rules[[1]]$require["label"] <- list(NULL)
+  bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+  expect_error(bg_research_state(h), "Malformed")
+  # On read, a predicate registered at the pinned version is checked too.
+  state$rules[[1]]$require <- list(type = "lab.has_label", label = "Approved")
+  bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+  expect_error(bg_research_state(h), "Malformed")
+  .bg_rules_env$predicates[["lab.has_label"]] <- NULL
+  expect_no_error(bg_research_state(h))
 })
 
 test_that("compare decides applicability per candidate", {
@@ -1279,6 +1377,68 @@ test_that("versions have one spelling and selection ignores registration order",
     bg_register_ruleset(lab_base("1.10.0", message = "other")),
     "different content"
   )
+})
+
+test_that("null and empty optional fields do not change ruleset digests", {
+  local_rule_registry()
+  # Hand-written so nulls and empty arrays reach the reader as authored.
+  json <- '{
+    "id": "lab.nulls",
+    "version": "1.0.0",
+    "rules": [{
+      "id": "review-ppc",
+      "on": ["accept"],
+      "when": null,
+      "severity": null,
+      "explanation": null,
+      "references": [],
+      "require": {"type": "require_review", "check": "ppc"},
+      "message": "Review the predictive check."
+    }],
+    "vocabulary": {"checks": [{"id": "ppc", "title": null, "utilities": []}]}
+  }'
+  from_json <- jsonlite::parse_json(json)
+  expect_true("when" %in% names(from_json$rules[[1]]))
+  from_r <- bg_ruleset(
+    "lab.nulls",
+    "1.0.0",
+    rules = list(review_rule()),
+    vocabulary = list(checks = list(list(id = "ppc")))
+  )
+  expect_identical(bg_ruleset_normalize(from_json), from_r)
+  expect_identical(
+    bg_canonical_digest(bg_ruleset_normalize(from_json)),
+    bg_canonical_digest(from_r)
+  )
+  bg_register_ruleset(from_r)
+  expect_no_error(bg_register_ruleset(from_json))
+  expect_identical(
+    bg_rule(
+      id = "review-ppc",
+      on = "accept",
+      when = list(),
+      references = character(),
+      require = list(type = "require_review", check = "ppc"),
+      message = "Review the predictive check."
+    ),
+    review_rule()
+  )
+  # In an override, an empty field removes the inherited one like NULL does.
+  bg_register_ruleset(bg_ruleset(
+    "lab.base",
+    "1.0.0",
+    rules = list(review_rule(references = "Book"))
+  ))
+  policy <- bg_research_policy(
+    "guide",
+    bg_ruleset(
+      "lab.child",
+      "1.0.0",
+      extends = "lab.base@1",
+      override = list("lab.base/review-ppc" = list(references = list()))
+    )
+  )
+  expect_false("references" %in% names(policy$rules[[1]]))
 })
 
 test_that("canonical digests match an independent fixture", {

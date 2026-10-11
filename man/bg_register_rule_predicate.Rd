@@ -9,7 +9,8 @@ bg_register_rule_predicate(
   fn,
   arguments = character(),
   version = "1",
-  replace = FALSE
+  replace = FALSE,
+  optional = character()
 )
 }
 \arguments{
@@ -20,14 +21,17 @@ ids are reserved for built-in predicates.}
 \code{subject} is \code{list(state, action, candidate, actor)}, where \code{state} is the
 research state before the action. \code{args} holds the condition's arguments.}
 
-\item{arguments}{Argument names that conditions may supply.}
+\item{arguments}{Argument names every condition must supply, with a
+non-\code{NULL} value.}
 
 \item{version}{Implementation version recorded when a policy is installed.}
 
 \item{replace}{Replace an existing registration with the same \code{id}.}
+
+\item{optional}{Argument names a condition may supply.}
 }
 \value{
-The registration, invisibly: \code{list(id, version, arguments)}.
+The registration, invisibly: \code{list(id, version, arguments, optional)}.
 }
 \description{
 Adds a predicate to this session's registry. Persisted rules refer to the

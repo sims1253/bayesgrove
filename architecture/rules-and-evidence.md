@@ -117,7 +117,7 @@ deferred to evaluation.
 
 ```r
 bg_register_rule_predicate(id, fn, arguments = character(), version = "1",
-                           replace = FALSE)
+                           replace = FALSE, optional = character())
 ```
 
 - `id` must contain a dot (`mylab.prereg_match`). Undotted ids are reserved
@@ -129,8 +129,13 @@ bg_register_rule_predicate(id, fn, arguments = character(), version = "1",
   id, and the pinned policy records each custom predicate's `version` (see
   Pinning). A predicate registered with a different version fails at
   evaluation.
-- `configure` and `bg_ruleset_check()` reject unknown predicate ids and
-  unknown arguments.
+- Every name in `arguments` is required and must be non-`NULL`; `optional`
+  lists arguments a condition may omit. `NULL` arguments are always invalid.
+- `configure` and `bg_ruleset_check()` reject unknown predicate ids, unknown
+  arguments, and missing required arguments. Rule constructors and state
+  reads check arguments when the predicate is registered (on read, at the
+  pinned version). At evaluation, a missing or `NULL` required argument is a
+  failure, so it can never satisfy a rule.
 
 **Portability.** Pinning makes the declarative rules identical everywhere.
 A custom predicate behaves identically only where a compatible, trusted
