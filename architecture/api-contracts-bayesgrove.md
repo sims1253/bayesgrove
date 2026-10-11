@@ -49,6 +49,12 @@ executor in order, what it `consumed`, the `effective` settings read back
 from the result, the `environment` of the process that ran it, and a `pad`
 snapshot whose P/A/D components carry SHA-256 digests over canonical JSON.
 The main process writes it on both the sequential and the parallel path.
+File contents (a `stan_file` source closure and file-path inputs) are hashed
+in the process that runs the executor, before it runs; a file that changed by
+the time the executor returned leaves the record with a `capture_error` and
+no `pad`, so it cannot be bound. If capture fails outright, the succeeded job
+carries a `capture_error` instead of `provenance`, distinguishing it from
+executions recorded before provenance existed.
 `bg_node_pad()` resolves a node to the most recent succeeded job that
 produced its current artifact at its fingerprint. `bg_run(rerun = )`
 re-executes cached nodes to record their own provenance.

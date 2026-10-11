@@ -74,8 +74,13 @@ describe("cmdstanr integration (Phase 4.5)", {
     expect_equal(effective$chains, 1)
     expect_equal(effective$iter_warmup, 200)
     expect_equal(effective$iter_sampling, 200)
+    # Not set on the node, so CmdStan's defaults are what the fit used.
+    expect_equal(effective$adapt_delta, 0.8)
+    expect_equal(effective$max_treedepth, 10)
+    expect_equal(effective$seed, 123)
+    expect_null(prov$capture_error)
     expect_true(is.character(effective$algorithm))
-    expect_true(is.character(effective$cmdstan_version))
+    expect_match(effective$stan_version, "^[0-9]+\\.[0-9]+\\.[0-9]+$")
 
     # Every cmdstanr_fit param is classified, so a P/A/D snapshot exists and
     # the Stan program is identified by its contents.

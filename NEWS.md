@@ -48,7 +48,14 @@
   caller-supplied `job_id`s. Executors can report provenance through
   `metadata$provenance`; the built-in fit executors report their data input
   and effective sampler settings, and `loo`, `ppc`, and `loo_pit` report the
-  fit they evaluated.
+  fit they evaluated. An executor may now return
+  `list(result = , metadata = )` without `summaries`. File contents (a
+  `stan_file` source closure and every input that is a file path) are hashed
+  in the process that runs the executor, before it runs, and checked again
+  after; if a file changed, the record keeps a `capture_error` and no P/A/D
+  snapshot. If provenance cannot be captured at all, the succeeded job
+  records a `capture_error` instead of `provenance`, so it is distinguishable
+  from executions made before this version.
 * `bg_register_node_kind()` gains a `pad` argument that classifies a kind's
   parameters as P, A, D, `locator`, or `other`. The declaration is stored in
   the runtime manifest and restored on open. The built-in fit kinds
@@ -96,6 +103,16 @@
 
 ## Bug fixes
 
+* An upstream result that is `NULL` is passed to downstream executors as an
+  input instead of being silently dropped.
+* `bg_run()` replaces a refreshed plan's holds, blockers, and input bindings
+  instead of merging them, so a workflow hold cleared mid-run no longer keeps
+  the run "blocked", and a retargeted run no longer reports blockers of
+  nodes outside its targets.
+* Under parallel dispatch, an error while finalizing one node's result (for
+  example an invalid summary) fails that node's job, still finalizes its
+  siblings, and returns the failed run handle, instead of leaving jobs
+  "running" and throwing.
 * Parallel dispatch runs the source checkout on mirai daemons in
   `pkgload::load_all()` dev sessions instead of failing or silently running a
   stale installed copy, and daemons reload the checkout whenever its sources

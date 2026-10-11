@@ -60,6 +60,36 @@ describe("brms integration (Phase 4.5)", {
     expect_identical(prov$effective$P$family$family, "gaussian")
     expect_true(is.list(prov$pad))
 
+    # Applied priors are read back from prior_summary(): gaussian defaults
+    # include at least the intercept and sigma priors.
+    priors <- prov$effective$P$priors
+    expect_true(is.list(priors) && length(priors) > 0L)
+    expect_true(all(vapply(
+      priors,
+      function(p) is.character(p$class),
+      logical(1)
+    )))
+
+    # Sampler settings come from the backend's own record of the run.
+    sampler <- prov$effective$A$sampler
+    expect_equal(sampler$chains, 1)
+    expect_equal(sampler$iter_warmup, 200)
+    expect_equal(sampler$iter_sampling, 200)
+    # The executor passes control explicitly, so the backend records it; a
+    # backend that does not expose a setting must say so rather than guess.
+    for (setting in list(
+      list(name = "adapt_delta", value = 0.8),
+      list(name = "max_treedepth", value = 10),
+      list(name = "seed", value = 42)
+    )) {
+      recorded <- sampler[[setting$name]]
+      expect_true(
+        identical(recorded, "unavailable") ||
+          isTRUE(all.equal(as.numeric(recorded), setting$value)),
+        info = setting$name
+      )
+    }
+
     fit <- bg_result(handle, n_fit)
     loo_result <- bayesgrove:::bg_executor_loo(
       list(params = list()),
