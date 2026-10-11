@@ -70,6 +70,32 @@
   result is cached. Their descendants wait for the rerun but are not
   re-executed. Use it to record provenance for results computed before this
   version.
+* Research candidates can be bound to runs. `create` and `revise` accept an
+  optional `node_id`, which binds the candidate to the execution that
+  produced the node's current artifact and stores its job, artifact, and
+  P/A/D snapshot as `binding`. A bound `create` without `components` is
+  described by that snapshot. Revisions without `node_id` are unbound, and a
+  revision of a bound candidate must change a snapshot digest or the
+  description, so an unchanged clone of the same run is rejected.
+* `evidence` actions can derive evidence from a run: supply `node_id`
+  instead of `result` for a bound candidate. The evidence comes from a check
+  that evaluated the bound fit's exact output, or else from the bound fit's
+  own executions, and records the latest matching summary as `result` with
+  its `provenance`. `require_evidence()` and `require_utility_evidence()`
+  rules with `provenance = "derived"` are now satisfiable. `sbc` and
+  `compare` nodes are not supported yet.
+* Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
+  references, job ids, and summary ids are engine-owned: research actions
+  that use these names as action fields or P/A/D component fields are
+  rejected. Deeper caller data is stored as opaque data and never read as
+  provenance. Apply derives the engine-owned fields again under the research
+  lock, and a proposal whose derivation changed, for example because the node
+  was re-run, is stale. Reading the state checks the structure of derived
+  evidence, and apply never writes a state that would fail that check.
+  Research id lists, including `basis`, must be unnamed lists of ids. Reports
+  list bindings and derived evidence.
+* Summaries reject a dimensioned `passed`, `summary_kind`, or `severity`
+  (for example a matrix); `passed` may still be a logical vector.
 * The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
   explicitly, from node params or else the `brms.backend` and
   `brms.algorithm` options, so the recorded values are the ones used.

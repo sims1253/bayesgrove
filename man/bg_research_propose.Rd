@@ -9,7 +9,8 @@ bg_research_propose(project, action, actor, rationale)
 \arguments{
 \item{project}{A \code{bg_handle}.}
 
-\item{action}{A named list with \code{kind} and the fields for that operation.}
+\item{action}{A named list with \code{kind} and the fields for that operation.
+See \code{vignette("research-search")} for every action.}
 
 \item{actor}{Named list with \code{id} and \code{type} (\code{human} or \code{agent}).}
 
@@ -22,11 +23,40 @@ and \code{findings}. A finding is the rule with its \code{severity}, plus
 Enforce holds an action only for blocking findings. A \code{configure} proposal
 also carries the resolved \code{policy} and its \code{policy_digest}; apply resolves
 the requested rules again, and a different digest makes the proposal
-stale.
+stale. An action with \code{node_id} carries the engine's \code{derivation}: the
+\code{binding} of a candidate, or the \code{result} and \code{provenance} of derived
+evidence.
 }
 \description{
 Validates an action without changing the project. In Guide and Enforce
 modes, returns findings with explanations and references. A proposal binds
 the action to the current state version. \code{\link[=bg_research_apply]{bg_research_apply()}} validates
 it again before writing.
+}
+\details{
+\code{create} and \code{revise} accept an optional \code{node_id}, which binds the
+candidate to the execution that produced the node's current artifact (see
+\code{\link[=bg_node_pad]{bg_node_pad()}}). That execution must have recorded a P/A/D snapshot. A
+bound \code{create} may omit \code{components}, which then default to the snapshot
+without digests; a bound \code{revise} may omit them to keep the parent's. A
+\code{revise} without \code{node_id} is unbound: bindings are never inherited. A
+revision of a bound parent must change a snapshot digest or the
+description, so an unchanged clone of the same run is rejected.
+
+\code{evidence} takes exactly one of \code{result} (asserted evidence) or \code{node_id}
+(evidence derived from a run, for a bound candidate). Derived evidence
+comes from a check that evaluated the bound fit's exact output or, failing
+that, from the bound fit's own executions. Its \code{check} may be omitted when
+exactly one summary kind matches; the most recent matching summary is
+recorded as \code{result}, with its \code{provenance}. \code{sbc} and \code{compare} nodes are
+not supported yet.
+
+Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
+references, job ids, and summary ids are engine-owned: an action that uses
+one of these names as an action field or as a field of a P/A/D component
+is rejected. Data nested deeper in a description or an asserted result is
+opaque and never read as provenance; only the engine's own \code{binding} and
+\code{provenance} records are authoritative. Derived evidence authenticates
+which artifacts an execution consumed and produced, but trusts what the
+executor reports, so hosts must control executor registration.
 }
