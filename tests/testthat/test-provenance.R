@@ -693,7 +693,10 @@ describe("special, empty, and missing files", {
     for (directive in c(
       "#include \"absent.stan\"",
       "#include absent.stan",
-      "#include <absent.stan>"
+      "#include <absent.stan>",
+      "parameters { real nu; } #include absent.stan",
+      "#include\n  absent.stan",
+      "#include parts//absent.stan"
     )) {
       handle <- bg_init(path = withr::local_tempdir())
       bg_register_node_kind(
@@ -715,6 +718,40 @@ describe("special, empty, and missing files", {
       expect_null(prov$pad, info = directive)
       expect_match(prov$capture_error, "missing, incomplete", info = directive)
     }
+  })
+
+  it("ignores includes inside comments", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(
+      handle,
+      "stan_like",
+      executor = function(node, inputs) list(ok = TRUE),
+      pad = list(P = "stan_file")
+    )
+    stan_file <- file.path(withr::local_tempdir(), "model.stan")
+    writeLines(
+      c(
+        "/*",
+        "#include absent.stan",
+        "*/",
+        "// #include absent.stan",
+        "parameters { real mu; }"
+      ),
+      stan_file
+    )
+    node <- bg_add_node(
+      handle,
+      kind = "stan_like",
+      params = list(stan_file = stan_file)
+    )
+    bg_run(handle)
+
+    prov <- final_job_for(handle, node)$provenance
+    expect_null(prov$capture_error)
+    expect_identical(
+      prov$pad$P$stan_source,
+      digest::digest(file = stan_file, algo = "sha256")
+    )
   })
 
   it("detects an unquoted include edited during execution", {

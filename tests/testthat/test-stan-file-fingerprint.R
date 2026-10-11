@@ -275,28 +275,130 @@ describe("Stan-file source hashing (Phase 4)", {
 })
 
 describe("Stan #include directive forms", {
-  it("parses bare, quoted, and angle-bracket targets", {
-    lines <- c(
-      "#include prior.stan",
-      "  #include \"parts/prior.stan\"  // comment",
-      "#include <prior.stan>",
-      "#include prior.stan// comment",
-      "#includeprior.stan",
-      "x = 1; #include prior.stan",
-      "parameters { real mu; }"
-    )
+  it("scans includes the way the stanc3 lexer does", {
+    targets <- function(text) bg_stan_include_targets(text)
+    # Bare, quoted, and angle-bracketed targets.
+    expect_identical(targets("#include prior.stan"), "prior.stan")
     expect_identical(
-      bg_stan_include_targets(lines),
-      c(
-        "prior.stan",
-        "parts/prior.stan",
-        "prior.stan",
-        "prior.stan",
-        NA,
-        NA,
-        NA
-      )
+      targets("  #include \"parts/prior.stan\""),
+      "parts/prior.stan"
     )
+    expect_identical(targets("#include <prior.stan> // note"), "prior.stan")
+    # Inline: an include may follow other tokens on the line.
+    expect_identical(targets("model { #include prior.stan\n}"), "prior.stan")
+    # Split line: whitespace after #include may span newlines.
+    expect_identical(targets("#include\n  prior.stan"), "prior.stan")
+    # A bare target is a greedy run of non-whitespace, `//` included.
+    expect_identical(targets("#include parts//prior.stan"), "parts//prior.stan")
+    expect_identical(targets("#include prior.stan// note"), "prior.stan//")
+    # Comments and string literals never yield includes.
+    expect_identical(targets("// #include absent.stan"), character())
+    expect_identical(
+      targets("/*\n#include absent.stan\n*/ #include out.stan"),
+      "out.stan"
+    )
+    expect_identical(targets("/*/ #include in.stan */"), character())
+    expect_identical(targets("print(\"#include no.stan\");"), character())
+    # CRLF line endings end bare targets and line comments.
+    expect_identical(
+      targets(
+        "#include \"a.stan\"\r\n// #include no.stan\r\n#include b.stan\r\n"
+      ),
+      c("a.stan", "b.stan")
+    )
+    # Without following whitespace it is not an include.
+    expect_identical(targets("#includeprior.stan"), character())
+    # ocamllex takes the longest match, so trailing characters make the
+    # whole run a bare target.
+    expect_identical(targets("#include \"x\"y"), "\"x\"y")
+  })
+
+  it("keeps fingerprints of quoted-include models identical to before", {
+    # A model whose only real include is an ordinary quoted line, plus bare
+    # includes that are commented out. The expected value is the component
+    # computed by the parser that only recognized quoted includes.
+    root <- withr::local_tempdir()
+    dir.create(file.path(root, "parts"))
+    write_bytes <- function(lines, path) {
+      writeBin(charToRaw(paste0(paste(lines, collapse = "\n"), "\n")), path)
+    }
+    write_bytes(
+      c(
+        "// #include absent.stan",
+        "/*",
+        "#include absent.stan",
+        "*/",
+        "parameters { real theta; }",
+        "model {",
+        "  #include \"parts/prior.stan\"",
+        "}"
+      ),
+      file.path(root, "main.stan")
+    )
+    write_bytes("theta ~ normal(0, 1);", file.path(root, "parts", "prior.stan"))
+    stan_file <- file.path(root, "main.stan")
+
+    closure <- bg_stan_source_closure(normalizePath(stan_file))
+    expect_identical(basename(closure$files), c("main.stan", "prior.stan"))
+    expect_length(closure$missing, 0L)
+    expect_identical(
+      bg_source_hash_component(list(params = list(stan_file = stan_file))),
+      "efb913e3577625747a18bf93d4765492f8d713aca15041f0cb3997117dba90e4"
+    )
+  })
+
+  it("follows inline, split-line, and `//`-path includes in fingerprints", {
+    for (case in list(
+      list(directive = "model { #include prior.stan\n}", target = "prior.stan"),
+      list(directive = "#include\n  prior.stan", target = "prior.stan"),
+      list(
+        directive = "#include parts//prior.stan",
+        target = file.path("parts", "prior.stan")
+      )
+    )) {
+      root <- withr::local_tempdir()
+      dir.create(file.path(root, "parts"))
+      stan_file <- file.path(root, "main.stan")
+      writeLines(c("parameters { real theta; }", case$directive), stan_file)
+      include <- file.path(root, case$target)
+      writeLines("// prior", include)
+      node <- list(params = list(stan_file = stan_file))
+
+      before <- bg_source_hash_component(node)
+      writeLines("// edited prior", include)
+      expect_false(
+        identical(before, bg_source_hash_component(node)),
+        info = case$directive
+      )
+    }
+  })
+
+  it("adds no dependency for commented-out includes", {
+    root <- withr::local_tempdir()
+    stan_file <- file.path(root, "main.stan")
+    writeLines("parameters { real theta; }", stan_file)
+    node <- list(params = list(stan_file = stan_file))
+    plain <- bg_source_hash_component(node)
+
+    writeLines(
+      c(
+        "/*",
+        "#include absent.stan",
+        "*/",
+        "// #include absent.stan",
+        "parameters { real theta; }"
+      ),
+      stan_file
+    )
+    closure <- bg_stan_source_closure(normalizePath(stan_file))
+    expect_length(closure$files, 1L)
+    expect_length(closure$missing, 0L)
+    # Single-file programs keep the plain file digest.
+    expect_identical(
+      bg_source_hash_component(node),
+      digest::digest(file = stan_file, algo = "sha256")
+    )
+    expect_false(identical(plain, bg_source_hash_component(node)))
   })
 
   it("invalidates the fingerprint when an include in any form is edited", {

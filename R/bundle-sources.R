@@ -167,39 +167,146 @@ bg_resolve_source_params <- function(params, project_path) {
   params
 }
 
-#' Extract `#include` targets from Stan program lines.
+#' Extract `#include` targets from Stan program text.
 #'
-#' Stan accepts the target bare (`#include rel/path.stan`, the form the
-#' reference manual documents), in double quotes, or in angle brackets, with
-#' optional leading whitespace and an optional trailing line comment. All
-#' three forms name a file that stanc3 resolves relative to the directory of
-#' the file containing the directive (the default include path), so every
-#' form is followed by fingerprints, bundles, and execution snapshots alike.
-#' @param lines Character vector of Stan program text.
-#' @return Character vector of targets (NA where a line carries none).
+#' A small scanner over the whole program that mirrors the include and
+#' comment rules of the stanc3 lexer (`src/frontend/lexer.mll`):
+#'
+#' - `/* ... */` and `//` to the end of the line are comments and never yield
+#'   includes; neither does the inside of a string literal
+#'   (`"` followed by anything but `"`, CR, or LF, then `"`).
+#' - `#include` may appear anywhere a token may, including mid-line, and
+#'   must be followed by one or more spaces, tabs, form feeds, or newlines.
+#' - The target is the longest of `"name"` (no `"`, CR, or LF inside),
+#'   `<name>` (no `>`, CR, or LF inside), or a bare run of non-whitespace
+#'   characters, as ocamllex picks the longest match; on a tie the quoted or
+#'   angle-bracketed form wins. A bare run is greedy, so `//` inside it is
+#'   part of the path.
+#'
+#' Every form names a file that stanc3 resolves relative to the directory of
+#' the file containing the directive (the default include path), and
+#' fingerprints, bundles, and execution snapshots all share this parser.
+#' @param text Character vector of Stan program text; elements are joined
+#'   with newlines.
+#' @return Character vector of non-empty targets, in program order.
 #' @keywords internal
 #' @noRd
-bg_stan_include_targets <- function(lines) {
-  pattern <- paste0(
-    "^[[:space:]]*#include[[:space:]]+",
-    "(\"([^\"]+)\"|<([^>]+)>|([^[:space:]\"<]+))"
-  )
-  hits <- regmatches(lines, regexec(pattern, lines))
-  vapply(
-    hits,
-    function(m) {
-      if (length(m) == 0L) {
-        return(NA_character_)
+bg_stan_include_targets <- function(text) {
+  text <- paste(text, collapse = "\n")
+  if (!nzchar(text)) {
+    return(character())
+  }
+  bytes <- charToRaw(text)
+  n <- length(bytes)
+  byte <- function(char) charToRaw(char)
+  slash <- byte("/")
+  star <- byte("*")
+  quote <- byte("\"")
+  hash <- byte("#")
+  lt <- byte("<")
+  gt <- byte(">")
+  cr <- byte("\r")
+  lf <- byte("\n")
+  blanks <- c(byte(" "), byte("\t"), as.raw(12L))
+  directive <- charToRaw("#include")
+
+  # First position >= from holding one of `targets`, or NA.
+  next_of <- function(targets, from) {
+    if (from > n) {
+      return(NA_integer_)
+    }
+    hit <- which(bytes[from:n] %in% targets)
+    if (length(hit) == 0L) NA_integer_ else from + hit[[1]] - 1L
+  }
+  # Length of a delimited target starting at `at` (opening delimiter
+  # included), or 0 when it is not closed before a line break.
+  delimited_length <- function(at, close) {
+    end <- next_of(c(close, cr, lf), at + 1L)
+    if (is.na(end) || bytes[[end]] != close) 0L else end - at + 1L
+  }
+
+  targets <- character()
+  i <- 1L
+  while (i <= n) {
+    current <- bytes[[i]]
+    following <- if (i < n) bytes[[i + 1L]] else as.raw(0L)
+    if (current == slash && following == star) {
+      end <- next_of(slash, i + 3L)
+      while (!is.na(end) && bytes[[end - 1L]] != star) {
+        end <- next_of(slash, end + 1L)
       }
-      if (nzchar(m[[5]])) {
-        # A bare target ends at whitespace or at a trailing `//` comment.
-        m[[5]] <- sub("//.*$", "", m[[5]])
+      if (is.na(end)) {
+        break
       }
-      target <- m[3:5][nzchar(m[3:5])]
-      if (length(target) == 0L) NA_character_ else target[[1]]
-    },
-    character(1)
-  )
+      i <- end + 1L
+    } else if (current == slash && following == slash) {
+      end <- next_of(c(cr, lf), i + 2L)
+      if (is.na(end)) {
+        break
+      }
+      i <- end + 1L
+    } else if (current == quote) {
+      span <- delimited_length(i, quote)
+      i <- i + max(span, 1L)
+    } else if (
+      current == hash &&
+        i + 7L <= n &&
+        identical(bytes[i:(i + 7L)], directive)
+    ) {
+      k <- i + 8L
+      while (k <= n && bytes[[k]] %in% c(blanks, cr, lf)) {
+        k <- k + 1L
+      }
+      if (k == i + 8L) {
+        # stanc rejects `#include` without following whitespace.
+        i <- i + 1L
+        next
+      }
+      bare_end <- next_of(c(blanks, cr, lf), k)
+      bare <- (if (is.na(bare_end)) n + 1L else bare_end) - k
+      delimited <- if (k > n) {
+        0L
+      } else if (bytes[[k]] == quote) {
+        delimited_length(k, quote)
+      } else if (bytes[[k]] == lt) {
+        delimited_length(k, gt)
+      } else {
+        0L
+      }
+      if (delimited > 0L && delimited >= bare) {
+        target <- if (delimited > 2L) {
+          rawToChar(bytes[(k + 1L):(k + delimited - 2L)])
+        } else {
+          ""
+        }
+        i <- k + delimited
+      } else {
+        target <- if (bare > 0L) rawToChar(bytes[k:(k + bare - 1L)]) else ""
+        i <- k + max(bare, 1L)
+      }
+      if (nzchar(target)) {
+        targets <- c(targets, target)
+      }
+    } else {
+      i <- i + 1L
+    }
+  }
+  targets
+}
+
+#' Read a Stan program's text for include scanning.
+#'
+#' Reads at most the size `file.info()` reported, so the read is bounded.
+#' Callers only pass paths `bg_path_kind()` classified as non-empty regular
+#' files.
+#' @keywords internal
+#' @noRd
+bg_read_stan_text <- function(path) {
+  size <- file.info(path, extra_cols = FALSE)$size
+  bytes <- readBin(path, what = "raw", n = size)
+  # NUL bytes cannot appear in an R string; they never form an include.
+  bytes[bytes == as.raw(0L)] <- charToRaw(" ")
+  rawToChar(bytes)
 }
 
 #' Collect a Stan program plus its on-disk `#include` closure.
@@ -245,7 +352,7 @@ bg_stan_source_closure <- function(stan_file) {
 
     targets <- Filter(
       Negate(is.na),
-      bg_stan_include_targets(readLines(current, warn = FALSE))
+      bg_stan_include_targets(bg_read_stan_text(current))
     )
     for (target in targets) {
       resolved <- normalizePath(

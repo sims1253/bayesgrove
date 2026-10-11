@@ -107,14 +107,17 @@
 
 ## Bug fixes
 
-* Fingerprints, bundles, and execution provenance now follow every form of
-  Stan `#include` directive: bare (`#include prior.stan`, the form the Stan
-  reference manual documents), quoted, and angle-bracketed, each with
-  optional leading whitespace and a trailing line comment. Previously only
-  quoted includes were followed, so editing a bare include did not
-  invalidate cached results and bundles did not copy it. Models that use
-  bare or angle-bracketed includes get new fingerprints, so their first run
-  after upgrading recomputes them once.
+* Fingerprints, bundles, and execution provenance now find Stan `#include`
+  directives the way stanc does: bare (`#include prior.stan`, the form the
+  Stan reference manual documents), quoted, or angle-bracketed targets,
+  anywhere a token may appear (also mid-line, and with the target on the
+  next line), while includes inside `//` and `/* */` comments or string
+  literals are ignored. Previously only quoted includes at the start of a
+  line were followed (even inside block comments), so editing a bare
+  include did not invalidate cached results and bundles did not copy it.
+  Models whose includes are all ordinary quoted lines keep their
+  fingerprints; models using other forms, or with a quoted include inside
+  a block comment, get new fingerprints and recompute once.
 * Reading a Stan program's include closure never opens a path that is not
   a non-empty regular file (stat only). An include, or a `stan_file`,
   naming a FIFO, device, or empty file is treated as missing, so planning,

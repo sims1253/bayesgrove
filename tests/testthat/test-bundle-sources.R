@@ -145,28 +145,40 @@ describe("portable bundle sources (referenced-sources policy)", {
   it("copies includes written in every directive form", {
     proj <- withr::local_tempdir()
     src_root <- withr::local_tempdir()
+    dir.create(file.path(src_root, "parts"))
     main_stan <- file.path(src_root, "main.stan")
     writeLines(
       c(
         "#include bare.stan  // functions",
         "#include \"quoted.stan\"",
         "#include <angled.stan>",
-        "parameters { real theta; }"
+        "#include parts//slashed.stan",
+        "#include",
+        "  split.stan",
+        "/*",
+        "#include commented.stan",
+        "*/",
+        "// #include commented.stan",
+        "parameters { real theta; } model { #include inline.stan",
+        "}"
       ),
       main_stan
     )
-    for (name in c("bare", "quoted", "angled")) {
+    names <- c("bare", "quoted", "angled", "split", "inline")
+    for (name in names) {
       writeLines(
         sprintf("// %s", name),
         file.path(src_root, paste0(name, ".stan"))
       )
     }
+    writeLines("// slashed", file.path(src_root, "parts", "slashed.stan"))
 
     handle <- bg_init(proj)
     bg_register_node_kind(handle, "fit")
     bg_add_node(handle, kind = "fit", params = list(stan_file = main_stan))
     bundle_path <- file.path(withr::local_tempdir(), "forms.tar.gz")
-    bg_bundle(handle, path = bundle_path)
+    # The commented-out include is not a dependency, so nothing is missing.
+    expect_no_warning(bg_bundle(handle, path = bundle_path))
     unlink(src_root, recursive = TRUE)
 
     extract_dir <- withr::local_tempdir()
@@ -177,14 +189,16 @@ describe("portable bundle sources (referenced-sources policy)", {
       simplifyVector = FALSE
     )
     entry <- manifest$source_policy$relocation[[main_stan]]
-    expect_length(entry$files, 4L)
+    expect_length(entry$files, 7L)
     restored_dir <- dirname(file.path(restored_proj, entry$archived))
-    for (name in c("bare", "quoted", "angled")) {
+    for (name in names) {
       expect_true(
         file.exists(file.path(restored_dir, paste0(name, ".stan"))),
         info = name
       )
     }
+    expect_true(file.exists(file.path(restored_dir, "parts", "slashed.stan")))
+    expect_false(file.exists(file.path(restored_dir, "commented.stan")))
   })
 
   it("keeps referenced project files outside .bayesgrove portable too", {
