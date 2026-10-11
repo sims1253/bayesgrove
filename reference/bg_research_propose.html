@@ -62,7 +62,8 @@ it again before writing.</p>
 
 
 <dt id="arg-action">action<a class="anchor" aria-label="anchor" href="#arg-action"></a></dt>
-<dd><p>A named list with <code>kind</code> and the fields for that operation.</p></dd>
+<dd><p>A named list with <code>kind</code> and the fields for that operation.
+See <code><a href="../articles/research-search.html">vignette("research-search")</a></code> for every action.</p></dd>
 
 
 <dt id="arg-actor">actor<a class="anchor" aria-label="anchor" href="#arg-actor"></a></dt>
@@ -81,7 +82,35 @@ and <code>findings</code>. A finding is the rule with its <code>severity</code>,
 Enforce holds an action only for blocking findings. A <code>configure</code> proposal
 also carries the resolved <code>policy</code> and its <code>policy_digest</code>; apply resolves
 the requested rules again, and a different digest makes the proposal
-stale.</p>
+stale. An action with <code>node_id</code> carries the engine's <code>derivation</code>: the
+<code>binding</code> of a candidate, or the <code>result</code> and <code>provenance</code> of derived
+evidence.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>create</code> and <code>revise</code> accept an optional <code>node_id</code>, which binds the
+candidate to the execution that produced the node's current artifact (see
+<code><a href="bg_node_pad.html">bg_node_pad()</a></code>). That execution must have recorded a P/A/D snapshot. A
+bound <code>create</code> may omit <code>components</code>, which then default to the snapshot
+without digests; a bound <code>revise</code> may omit them to keep the parent's. A
+<code>revise</code> without <code>node_id</code> is unbound: bindings are never inherited. A
+revision of a bound parent must change a snapshot digest or the
+description, so an unchanged clone of the same run is rejected.</p>
+<p><code>evidence</code> takes exactly one of <code>result</code> (asserted evidence) or <code>node_id</code>
+(evidence derived from a run, for a bound candidate). Derived evidence
+comes from a check that evaluated the bound fit's exact output or, failing
+that, from the bound fit's own executions. Its <code>check</code> may be omitted when
+exactly one summary kind matches; the most recent matching summary is
+recorded as <code>result</code>, with its <code>provenance</code>. <code>sbc</code> and <code>compare</code> nodes are
+not supported yet.</p>
+<p>Bindings, provenance, P/A/D snapshots, digests, fingerprints, artifact
+references, job ids, and summary ids are engine-owned: an action that uses
+one of these names as an action field or as a field of a P/A/D component
+is rejected. Data nested deeper in a description or an asserted result is
+opaque and never read as provenance; only the engine's own <code>binding</code> and
+<code>provenance</code> records are authoritative. Derived evidence authenticates
+which artifacts an execution consumed and produced, but trusts what the
+executor reports, so hosts must control executor registration.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

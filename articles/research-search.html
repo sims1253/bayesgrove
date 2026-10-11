@@ -334,9 +334,121 @@ review under the current goal, no findings remain.</p>
 <span><span class="va">state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_apply.html">bg_research_apply</a></span><span class="op">(</span><span class="va">h</span>, <span class="va">proposal</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="bind-a-candidate-to-a-run">Bind a candidate to a run<a class="anchor" aria-label="anchor" href="#bind-a-candidate-to-a-run"></a>
+</h2>
+<p>So far, every result was asserted by the caller. A candidate can also
+be bound to a node in the execution graph. The engine then records which
+execution it describes and derives evidence from that execution’s
+summaries, instead of trusting a pasted result.</p>
+<p>This needs a node kind that declares how its parameters split into P,
+A, and D. The small kind below stands in for a real fit, so the example
+runs without Stan. Its executor reports the data input it used and
+writes one summary.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">runs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"research-runs-"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span><span class="va">runs</span>, <span class="st">"measurements"</span>, executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2.1</span>, <span class="fl">3.4</span>, <span class="fl">1.8</span>, <span class="fl">2.9</span>, <span class="fl">4.2</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_register_node_kind.html">bg_register_node_kind</a></span><span class="op">(</span></span>
+<span>  <span class="va">runs</span>, <span class="st">"lognormal_fit"</span>,</span>
+<span>  executor <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">node</span>, <span class="va">inputs</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">inputs</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      result <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>meanlog <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span>, sdlog <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      summaries <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>        summary_kind <span class="op">=</span> <span class="st">"posterior_predictive_check"</span>, severity <span class="op">=</span> <span class="st">"ok"</span>,</span>
+<span>        passed <span class="op">=</span> <span class="cn">TRUE</span>, metrics <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>share_positive <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>      <span class="op">)</span><span class="op">)</span>,</span>
+<span>      metadata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>provenance <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>consumed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>D <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">inputs</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  pad <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>P <span class="op">=</span> <span class="st">"likelihood"</span>, A <span class="op">=</span> <span class="st">"method"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">measurements</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span><span class="va">runs</span>, kind <span class="op">=</span> <span class="st">"measurements"</span><span class="op">)</span></span>
+<span><span class="va">lognormal_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_add_node.html">bg_add_node</a></span><span class="op">(</span></span>
+<span>  <span class="va">runs</span>, kind <span class="op">=</span> <span class="st">"lognormal_fit"</span>, inputs <span class="op">=</span> <span class="va">measurements</span>,</span>
+<span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>likelihood <span class="op">=</span> <span class="st">"lognormal"</span>, method <span class="op">=</span> <span class="st">"moments"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_run.html">bg_run</a></span><span class="op">(</span><span class="va">runs</span><span class="op">)</span><span class="op">$</span><span class="va">status</span></span>
+<span><span class="co">#&gt; [1] "succeeded"</span></span></code></pre></div>
+<p>This investigation requires derived predictive evidence before
+acceptance. <code>create</code> with <code>node_id</code> binds the
+candidate to the execution behind the node’s current artifact. Without
+<code>components</code>, the description defaults to that execution’s
+P/A/D snapshot.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">derived_rule</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_rule.html">bg_rule</a></span><span class="op">(</span></span>
+<span>  id <span class="op">=</span> <span class="st">"derived-ppc"</span>,</span>
+<span>  on <span class="op">=</span> <span class="st">"accept"</span>,</span>
+<span>  require <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"require_evidence"</span>, check <span class="op">=</span> <span class="st">"posterior_predictive_check"</span>,</span>
+<span>                 provenance <span class="op">=</span> <span class="st">"derived"</span><span class="op">)</span>,</span>
+<span>  message <span class="op">=</span> <span class="st">"Derive the predictive check from the run before accepting."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">run_state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_init.html">bg_research_init</a></span><span class="op">(</span></span>
+<span>  <span class="va">runs</span>, <span class="st">"How should we model these positive measurements?"</span>,</span>
+<span>  goal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"observable_prediction"</span><span class="op">)</span>, actor <span class="op">=</span> <span class="va">human</span>,</span>
+<span>  mode <span class="op">=</span> <span class="st">"enforce"</span>, rules <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">derived_rule</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">run_record</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">action</span>, <span class="va">rationale</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/bg_research_apply.html">bg_research_apply</a></span><span class="op">(</span><span class="va">runs</span>, <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span><span class="va">runs</span>, <span class="va">action</span>, <span class="va">human</span>, <span class="va">rationale</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">run_state</span> <span class="op">&lt;-</span> <span class="fu">run_record</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"create"</span>, label <span class="op">=</span> <span class="st">"Lognormal run"</span>, node_id <span class="op">=</span> <span class="va">lognormal_fit</span><span class="op">)</span>,</span>
+<span>  <span class="st">"Describe the fit that was actually run."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">bound</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">run_state</span><span class="op">$</span><span class="va">history</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">id</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">run_state</span><span class="op">$</span><span class="va">candidates</span><span class="op">[[</span><span class="va">bound</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">binding</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "node_id"          "job_id"           "artifact_ref"     "pad"             </span></span>
+<span><span class="co">#&gt; [5] "research_version"</span></span>
+<span><span class="va">run_state</span><span class="op">$</span><span class="va">candidates</span><span class="op">[[</span><span class="va">bound</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">components</span><span class="op">$</span><span class="va">P</span><span class="op">$</span><span class="va">params</span></span>
+<span><span class="co">#&gt; $likelihood</span></span>
+<span><span class="co">#&gt; [1] "lognormal"</span></span></code></pre></div>
+<p>The binding stores the node, the job that produced its artifact, the
+artifact’s content address, and the P/A/D snapshot with digests. These
+fields are engine-owned: an action that supplies them is rejected.
+Revising with another <code>node_id</code> records which of P, A, and D
+changed by comparing digests. A revision without <code>node_id</code> is
+unbound, because it may describe a different model.</p>
+<p>Evidence with <code>node_id</code> instead of <code>result</code> is
+derived. The node here is the bound fit itself, so its own summary is
+used. A check node that evaluated the bound fit’s exact output works as
+well. <code>check</code> can be omitted because only one summary kind
+matches.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">run_state</span> <span class="op">&lt;-</span> <span class="fu">run_record</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"evidence"</span>, candidate_id <span class="op">=</span> <span class="va">bound</span>, label <span class="op">=</span> <span class="st">"Positive support"</span>,</span>
+<span>       node_id <span class="op">=</span> <span class="va">lognormal_fit</span>, utility <span class="op">=</span> <span class="st">"predictive_performance"</span><span class="op">)</span>,</span>
+<span>  <span class="st">"Use the check the run wrote."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">derived</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">run_state</span><span class="op">$</span><span class="va">history</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">id</span></span>
+<span><span class="va">run_state</span><span class="op">$</span><span class="va">evidence</span><span class="op">[[</span><span class="va">derived</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">check</span></span>
+<span><span class="co">#&gt; [1] "posterior_predictive_check"</span></span>
+<span><span class="va">run_state</span><span class="op">$</span><span class="va">evidence</span><span class="op">[[</span><span class="va">derived</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"severity"</span>, <span class="st">"passed"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $severity</span></span>
+<span><span class="co">#&gt; [1] "ok"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $passed</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="va">run_state</span><span class="op">$</span><span class="va">evidence</span><span class="op">[[</span><span class="va">derived</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">provenance</span><span class="op">$</span><span class="va">kind</span></span>
+<span><span class="co">#&gt; [1] "derived"</span></span>
+<span></span>
+<span><span class="va">proposal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span></span>
+<span>  <span class="va">runs</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"accept"</span>, candidate_id <span class="op">=</span> <span class="va">bound</span>, evidence_ids <span class="op">=</span> <span class="va">derived</span><span class="op">)</span>,</span>
+<span>  <span class="va">human</span>, <span class="st">"Accept on evidence derived from the run."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">proposal</span><span class="op">$</span><span class="va">allowed</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">runs</span><span class="op">)</span></span></code></pre></div>
+<p>Asserted evidence for the same check would not satisfy this rule.
+Apply derives bindings and evidence again under the research lock. If
+the node was re-run between proposal and apply, the proposal is
+stale.</p>
+</div>
+<div class="section level2">
 <h2 id="reopen-and-share">Reopen and share<a class="anchor" aria-label="anchor" href="#reopen-and-share"></a>
 </h2>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="va">h</span><span class="op">@</span><span class="va">path</span></span>
 <span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">h</span><span class="op">)</span></span>
 <span><span class="va">h</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
@@ -345,9 +457,9 @@ review under the current goal, no findings remain.</p>
 <p><code><a href="../reference/bg_snapshot.html">bg_snapshot()</a></code>, <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code>, and
 <code><a href="../reference/bg_export_report.html">bg_export_report()</a></code> include research state. The <a href="https://github.com/sims1253/bayesgrove/blob/master/architecture/research-search.md" class="external-link">research-search
 contract</a> lists all action fields, and the <a href="https://github.com/sims1253/bayesgrove/blob/master/architecture/rules-and-evidence.md" class="external-link">rule
-contract</a> specifies rules, predicates, rulesets, and pinning. There
-is no built-in universal model score: comparisons state their criteria
-and retain their evidence.</p>
+contract</a> specifies rules, predicates, rulesets, pinning, bindings,
+and derived evidence. There is no built-in universal model score:
+comparisons state their criteria and retain their evidence.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
