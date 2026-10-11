@@ -127,6 +127,9 @@ bg_research_state <- function(project) {
   ) {
     cli::cli_abort("Malformed or unsupported research state at {.path {path}}.")
   }
+  # Raw and resolved rules are read in their validated form, as construction
+  # returns them: empty optional fields are absent. Legacy rules are unchanged.
+  state["rules"] <- list(bg_research_policy_stored(state))
   tryCatch(
     bg_research_validate_candidates(state),
     error = function(e) {
@@ -258,7 +261,7 @@ bg_research_apply <- function(project, proposal) {
     }
     if (!checked$allowed) {
       blocking <- Filter(
-        function(f) identical(f$severity, "blocking"),
+        bg_rule_blocking,
         checked$findings
       )
       reasons <- vapply(blocking, `[[`, character(1), "message")
@@ -625,11 +628,7 @@ bg_research_prepare <- function(state, action, actor, rationale) {
   } else {
     bg_research_findings(state, action, candidate, actor)
   }
-  blocking <- vapply(
-    findings,
-    function(f) identical(f$severity, "blocking"),
-    logical(1)
-  )
+  blocking <- vapply(findings, bg_rule_blocking, logical(1))
   proposal <- list(
     project_id = state$project_id,
     version = state$version,

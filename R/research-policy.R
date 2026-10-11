@@ -46,8 +46,12 @@ bg_research_policy_digest <- function(policy) {
   ))
 }
 
-# Validates the structure of a stored policy. Predicate availability is only
-# checked at evaluation.
+# Fail closed: only an explicit "advisory" severity lets Enforce allow an
+# action with a finding.
+bg_rule_blocking <- function(rule) !identical(rule$severity, "advisory")
+
+# Validates the structure of a stored policy and returns its rules in
+# validated form. Predicate availability is only checked at evaluation.
 bg_research_policy_stored <- function(state) {
   fields <- c("mode", "rules", "ruleset", "vocabulary", "predicates")
   if (anyDuplicated(names(state)[names(state) %in% fields])) {
@@ -85,7 +89,7 @@ bg_research_policy_stored <- function(state) {
   }
   # Structure only; predicate availability and arguments are checked at
   # evaluation, so reads never depend on the session registry.
-  bg_rule_list(state$rules, shapes)
+  rules <- bg_rule_list(state$rules, shapes)
   if (!is.null(state$ruleset)) {
     ruleset <- state$ruleset
     bg_research_fields(
@@ -138,7 +142,7 @@ bg_research_policy_stored <- function(state) {
       cli::cli_abort("Pinned predicates must have unique dotted ids.")
     }
   }
-  invisible(state)
+  rules
 }
 
 bg_research_policy_view <- function(state) {

@@ -1447,6 +1447,71 @@ test_that("null and empty optional fields do not change ruleset digests", {
   expect_false("references" %in% names(policy$rules[[1]]))
 })
 
+test_that("only an explicit advisory severity lets Enforce allow an action", {
+  for (severity in list(NULL, list(), character(), "other", list("advisory"))) {
+    rule <- review_rule()
+    rule["severity"] <- list(severity)
+    expect_equal(bg_rule_effective(rule)$severity, "blocking")
+    expect_true(bg_rule_blocking(rule))
+  }
+  expect_false(bg_rule_blocking(review_rule(severity = "advisory")))
+  # Evaluation fails closed even if a malformed severity reaches it.
+  h <- rules_fixture(list(review_rule()), mode = "enforce")
+  id <- rules_create(h)
+  ev <- rules_evidence(h, id)
+  state <- bg_research_state(h)
+  state$rules[[1]]["severity"] <- list(list())
+  proposal <- bg_research_prepare(
+    state,
+    list(kind = "accept", candidate_id = id, evidence_ids = ev),
+    human,
+    "Accept."
+  )
+  expect_false(proposal$allowed)
+  expect_equal(proposal$findings[[1]]$severity, "blocking")
+})
+
+test_that("stored empty or null severities read as blocking and hold", {
+  local_rule_registry()
+  bg_register_ruleset(bg_ruleset(
+    "lab.base",
+    "1.0.0",
+    rules = list(review_rule())
+  ))
+  for (rules in list(list(review_rule()), "lab.base@1")) {
+    for (severity in c("[]", "null")) {
+      h <- rules_fixture(rules, mode = "enforce")
+      id <- rules_create(h)
+      ev <- rules_evidence(h, id)
+      path <- bg_research_path(h)
+      text <- readLines(path)
+      # Hand-written, as jsonlite would never emit an empty severity.
+      at <- grep('"Review the predictive check."', text, fixed = TRUE)[[1]]
+      text[at] <- sub(
+        '"Review the predictive check."',
+        paste0('"Review the predictive check.", "severity": ', severity),
+        text[at],
+        fixed = TRUE
+      )
+      writeLines(text, path)
+      raw <- jsonlite::read_json(path, simplifyVector = FALSE)$rules[[1]]
+      expect_true("severity" %in% names(raw))
+      state <- bg_research_state(h)
+      expect_false("severity" %in% names(state$rules[[1]]))
+      proposal <- rules_propose(
+        h,
+        "accept",
+        candidate_id = id,
+        evidence_ids = ev
+      )
+      expect_false(proposal$allowed)
+      expect_equal(proposal$findings[[1]]$severity, "blocking")
+      expect_error(bg_research_apply(h, proposal), "held by policy")
+      expect_length(bg_research_state(h)$decisions, 0)
+    }
+  }
+})
+
 test_that("canonical digests match an independent fixture", {
   x <- list(
     b = list(z = 1L, a = c(0.1, 2)),

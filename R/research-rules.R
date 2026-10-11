@@ -463,7 +463,7 @@ bg_rule_effective <- function(rule) {
     on = unlist(rule$on, use.names = FALSE),
     when = rule$when %||% list(),
     require = rule$require,
-    severity = rule$severity %||% "blocking"
+    severity = if (bg_rule_blocking(rule)) "blocking" else "advisory"
   )
 }
 
