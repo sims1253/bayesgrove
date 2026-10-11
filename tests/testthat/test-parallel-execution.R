@@ -356,3 +356,320 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
     }
   })
 })
+
+describe("Parallel execution provenance", {
+  skip_on_cran()
+  skip_if_not_installed("mirai")
+  skip_if_not_installed("carrier")
+  skip_if_not_installed("purrr")
+
+  # Each node reports its consumed inputs and an effective setting read on
+  # the process that ran it (its pid), so the record can be traced to the
+  # worker.
+  make_reporting_graph <- function(handle) {
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      list(
+        result = list(suffix = node$params$suffix %||% "root"),
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          severity = "ok",
+          passed = TRUE,
+          metrics = list(max_rhat = 1)
+        )),
+        metadata = list(
+          provenance = list(
+            consumed = list(D = names(inputs)),
+            effective = list(A = list(pid = Sys.getpid()))
+          )
+        )
+      )
+    })
+    root <- bg_add_node(handle, kind = "data", label = "root")
+    leaves <- vapply(
+      c("1", "2"),
+      function(suffix) {
+        bg_add_node(
+          handle,
+          kind = "data",
+          label = paste0("leaf", suffix),
+          params = list(suffix = suffix),
+          inputs = root
+        )
+      },
+      character(1)
+    )
+    list(root = root, leaves = unname(leaves))
+  }
+
+  final_job <- function(handle, node_id) {
+    jobs <- Filter(
+      function(job) identical(job$node_id, node_id),
+      bg_jobs(handle)
+    )
+    jobs[[length(jobs)]]
+  }
+
+  it("records provenance from worker metadata on the main process", {
+    handle <- bg_init(path = withr::local_tempdir())
+    ids <- make_reporting_graph(handle)
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run_res <- bg_run(handle, parallel = "always")
+    expect_equal(run_res$status, "succeeded")
+
+    root_job <- final_job(handle, ids$root)
+    for (leaf in ids$leaves) {
+      job <- final_job(handle, leaf)
+      prov <- job$provenance
+      expect_identical(prov$artifact_ref, job$result_ref, info = leaf)
+      expect_identical(prov$consumed$D, list(ids$root), info = leaf)
+      expect_identical(
+        prov$inputs[[1]]$artifact_ref,
+        root_job$result_ref,
+        info = leaf
+      )
+      # The effective setting describes the worker that ran the executor.
+      expect_false(identical(prov$effective$A$pid, Sys.getpid()), info = leaf)
+      expect_true("bayesgrove" %in% names(prov$environment), info = leaf)
+
+      summaries <- Filter(
+        function(s) identical(s$node_id, leaf),
+        bg_read_summaries(handle)
+      )
+      expect_identical(summaries[[1]]$job_id, job$job_id, info = leaf)
+    }
+  })
+
+  it("reruns cached nodes under parallel dispatch", {
+    handle <- bg_init(path = withr::local_tempdir())
+    ids <- make_reporting_graph(handle)
+    bg_run(handle, parallel = "never")
+    before <- vapply(
+      ids$leaves,
+      function(leaf) final_job(handle, leaf)$job_id,
+      character(1)
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run_res <- bg_run(handle, parallel = "always", rerun = ids$leaves)
+    expect_equal(run_res$status, "succeeded")
+    expect_equal(run_res$summary$total_executed, 2L)
+    expect_identical(run_res$metadata$rerun_pending, character())
+    for (i in seq_along(ids$leaves)) {
+      job <- final_job(handle, ids$leaves[[i]])
+      expect_false(identical(job$job_id, before[[i]]))
+      expect_identical(
+        bg_node_pad(handle, ids$leaves[[i]])$job_id,
+        job$job_id
+      )
+    }
+  })
+
+  it("takes file identities on the worker, before the executor runs", {
+    handle <- bg_init(path = withr::local_tempdir())
+    data_dir <- withr::local_tempdir()
+    bg_register_node_kind(handle, "path", executor = function(node, inputs) {
+      node$params$path
+    })
+    # Each reader appends to its file when asked, as an edit during a long
+    # fit would. The kind declares a pad, so the file rule applies.
+    bg_register_node_kind(
+      handle,
+      "reader",
+      executor = function(node, inputs) {
+        path <- inputs[[1]]
+        read <- readLines(path)
+        if (isTRUE(node$params$mutate)) {
+          cat("tampered\n", file = path, append = TRUE)
+        }
+        list(
+          result = list(read = read),
+          metadata = list(
+            provenance = list(
+              consumed = list(
+                D = names(inputs),
+                data_files = list(list(node_id = names(inputs)[[1]]))
+              )
+            )
+          )
+        )
+      },
+      pad = list(other = "mutate")
+    )
+    files <- file.path(data_dir, c("a.csv", "b.csv"))
+    for (f in files) {
+      writeLines("y", f)
+    }
+    hashes <- vapply(
+      files,
+      function(f) digest::digest(file = f, algo = "sha256"),
+      character(1)
+    )
+    sources <- vapply(
+      files,
+      function(f) bg_add_node(handle, kind = "path", params = list(path = f)),
+      character(1)
+    )
+    readers <- c(
+      bg_add_node(
+        handle,
+        kind = "reader",
+        params = list(mutate = FALSE),
+        inputs = sources[[1]]
+      ),
+      bg_add_node(
+        handle,
+        kind = "reader",
+        params = list(mutate = TRUE),
+        inputs = sources[[2]]
+      )
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    bg_run(handle, parallel = "always")
+
+    clean <- final_job(handle, readers[[1]])$provenance
+    expect_identical(clean$consumed$data_files[[1]]$sha256, unname(hashes[[1]]))
+    expect_null(clean$capture_error)
+
+    changed <- final_job(handle, readers[[2]])$provenance
+    expect_match(changed$capture_error, "changed during execution")
+    expect_identical(
+      changed$consumed$data_files[[1]]$sha256,
+      unname(hashes[[2]])
+    )
+  })
+
+  it("fails only the node whose finalization errors", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "src", executor = function(node, inputs) 1)
+    # A worker can succeed while returning a summary the main process
+    # rejects (an invalid severity).
+    bg_register_node_kind(handle, "leaf", executor = function(node, inputs) {
+      list(
+        result = node$params$label,
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          severity = node$params$severity,
+          passed = TRUE
+        ))
+      )
+    })
+    root <- bg_add_node(handle, kind = "src")
+    bad <- bg_add_node(
+      handle,
+      kind = "leaf",
+      params = list(label = "bad", severity = "catastrophic"),
+      inputs = root
+    )
+    good <- bg_add_node(
+      handle,
+      kind = "leaf",
+      params = list(label = "good", severity = "ok"),
+      inputs = root
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run <- bg_run(handle, parallel = "always")
+
+    expect_equal(run$status, "failed")
+    expect_match(run$error$message, "invalid")
+    statuses <- vapply(bg_jobs(handle), `[[`, character(1), "status")
+    expect_false(any(statuses == "running"))
+    expect_identical(final_job(handle, bad)$status, "failed")
+    expect_identical(final_job(handle, good)$status, "succeeded")
+    expect_false(is.null(final_job(handle, good)$provenance))
+  })
+
+  it("removes finalized reruns from the pending set when a sibling fails", {
+    handle <- bg_init(path = withr::local_tempdir())
+    flag <- file.path(withr::local_tempdir(), "fail")
+    bg_register_node_kind(handle, "flaky", executor = function(node, inputs) {
+      if (isTRUE(node$params$may_fail) && file.exists(node$params$flag)) {
+        stop("flaky failure")
+      }
+      list(draw = stats::runif(1))
+    })
+    ok <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "ok",
+      params = list(flag = flag, may_fail = FALSE)
+    )
+    bad <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "bad",
+      params = list(flag = flag, may_fail = TRUE)
+    )
+    bg_run(handle, parallel = "never")
+    writeLines("x", flag)
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run <- bg_run(handle, parallel = "always", rerun = c(ok, bad))
+    expect_equal(run$status, "failed")
+    expect_identical(run$metadata$rerun_pending, bad)
+    expect_identical(final_job(handle, ok)$status, "succeeded")
+    expect_identical(final_job(handle, bad)$status, "failed")
+  })
+
+  it("resolves reported paths on a worker with another working directory", {
+    handle <- bg_init(path = withr::local_tempdir())
+    worker_dir <- withr::local_tempdir()
+    writeLines("y", file.path(worker_dir, "input.csv"))
+    bg_register_node_kind(handle, "path", executor = function(node, inputs) {
+      node$params$path
+    })
+    # Readers receive the relative path "input.csv", which only resolves in
+    # the daemons' working directory, and report it as read.
+    bg_register_node_kind(
+      handle,
+      "reader",
+      executor = function(node, inputs) {
+        id <- names(inputs)[[1]]
+        list(
+          result = readLines(inputs[[1]]),
+          metadata = list(
+            provenance = list(
+              consumed = list(
+                D = id,
+                data_files = list(list(node_id = id, path = inputs[[1]]))
+              )
+            )
+          )
+        )
+      },
+      pad = list(other = "n")
+    )
+    src <- bg_add_node(
+      handle,
+      kind = "path",
+      params = list(path = "input.csv")
+    )
+    readers <- vapply(
+      1:2,
+      function(n) {
+        bg_add_node(handle, kind = "reader", params = list(n = n), inputs = src)
+      },
+      character(1)
+    )
+
+    withr::with_dir(worker_dir, mirai::daemons(2, dispatcher = TRUE))
+    # Deferred after worker_dir, so the daemons stop before it is removed.
+    withr::defer(mirai::daemons(NULL))
+    expect_equal(bg_run(handle, parallel = "always")$status, "succeeded")
+
+    expected <- normalizePath(file.path(worker_dir, "input.csv"))
+    for (reader in readers) {
+      prov <- final_job(handle, reader)$provenance
+      expect_null(prov$capture_error, info = reader)
+      expect_identical(prov$consumed$data_files[[1]]$path, expected)
+      expect_true(is.list(prov$pad), info = reader)
+    }
+  })
+})

@@ -108,4 +108,119 @@ describe("Run-loop performance (Phase 6)", {
     # call. A generous constant bound (5) is far below the O(N) regime of 20.
     expect_lte(parse_count, 5L)
   })
+
+  it("refreshes summary freshness per wave without rescanning history", {
+    # bg_run() recomputes cached freshness flags at every wave boundary. Only
+    # summaries recorded at fingerprints executed in the wave can change, so
+    # a long summary history must be scanned once (when the run reads it),
+    # not once per wave: O(history + new), not O(history x waves).
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(handle, "trivial", executor = function(node, inputs) {
+      list(
+        result = node$label,
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          severity = "ok",
+          passed = TRUE
+        ))
+      )
+    })
+    history_node <- bg_add_node(handle, kind = "trivial", label = "history")
+    bg_run(handle)
+    job <- Filter(
+      function(j) identical(j$node_id, history_node),
+      bg_jobs(handle)
+    )[[1]]
+    n_history <- 200L
+    bg_write_summaries(
+      handle,
+      history_node,
+      job$result_ref,
+      job$provenance$fingerprint,
+      rep(list(list(summary_kind = "hmc_diagnostics")), n_history)
+    )
+
+    n_waves <- 10L
+    prev <- NULL
+    for (i in seq_len(n_waves)) {
+      args <- list(
+        handle,
+        kind = "trivial",
+        label = sprintf("n%02d", i),
+        params = list(step = i)
+      )
+      if (!is.null(prev)) {
+        args <- c(args, inputs = prev)
+      }
+      prev <- do.call(bg_add_node, args)
+    }
+
+    original_fresh <- bayesgrove:::bg_summary_is_fresh
+    fresh_calls <- 0L
+    run_res <- testthat::with_mocked_bindings(
+      bg_run(handle),
+      bg_summary_is_fresh = function(...) {
+        fresh_calls <<- fresh_calls + 1L
+        original_fresh(...)
+      },
+      .package = "bayesgrove"
+    )
+    expect_equal(run_res$summary$total_executed, n_waves)
+
+    # One pass over the history when the run starts, plus one check per new
+    # summary. Rescanning per wave would need n_history * n_waves calls.
+    expect_lte(fresh_calls, n_history + 1L + 2L * n_waves)
+  })
+})
+
+describe("Stan include scanning performance", {
+  skip_on_cran()
+
+  # A stanc-valid program dominated by comments (with slashes, quotes, and
+  # hashes inside them) plus a few real includes.
+  comment_heavy_program <- function(n_comments) {
+    c(
+      "#include \"functions.stan\"",
+      rep(
+        "// a comment with / slashes, \"quotes\", and # hashes in it ...",
+        n_comments
+      ),
+      "/*",
+      rep(" * #include absent.stan inside a block comment", 10L),
+      " */",
+      "parameters { real theta; }",
+      "model { #include prior.stan",
+      "}"
+    )
+  }
+  scan_seconds <- function(text) {
+    # The fastest of a few runs, to keep timer noise out of the comparison.
+    min(vapply(
+      1:3,
+      function(i) system.time(bg_stan_include_targets(text))[["elapsed"]],
+      numeric(1)
+    ))
+  }
+
+  it("scans a comment-heavy program in linear time", {
+    small <- comment_heavy_program(1000L)
+    expect_identical(
+      bg_stan_include_targets(small),
+      c("functions.stan", "prior.stan")
+    )
+    small_seconds <- scan_seconds(small)
+    # A quadratic scan took several seconds on a program this size.
+    expect_lt(small_seconds, 0.5)
+
+    # Four times the input stays well under ten times the time.
+    large_seconds <- scan_seconds(comment_heavy_program(4000L))
+    expect_lt(large_seconds, max(10 * small_seconds, 0.5))
+  })
+
+  it("returns immediately for programs without includes", {
+    text <- rep("// no includes here, only / and \" and #", 5000L)
+    expect_identical(bg_stan_include_targets(text), character())
+    expect_lt(scan_seconds(text), 0.5)
+  })
 })

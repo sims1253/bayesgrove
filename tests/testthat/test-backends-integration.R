@@ -58,6 +58,41 @@ describe("cmdstanr integration (Phase 4.5)", {
     expect_gte(length(hmc), 1)
     expect_equal(hmc[[1]]$summary_kind, "hmc_diagnostics")
     expect_true(hmc[[1]]$severity %in% c("ok", "warning", "error"))
+
+    # The job records the execution's provenance with the settings read back
+    # from the fitted object, and the summary is stamped with the job.
+    fit_jobs <- Filter(
+      function(job) identical(job$node_id, n_fit),
+      bg_jobs(handle, status = "succeeded")
+    )
+    job <- fit_jobs[[length(fit_jobs)]]
+    prov <- job$provenance
+    expect_identical(prov$artifact_ref, job$result_ref)
+    expect_identical(prov$consumed$D, list(n_data))
+    expect_identical(hmc[[1]]$job_id, job$job_id)
+    effective <- prov$effective$A
+    expect_equal(effective$chains, 1)
+    expect_equal(effective$iter_warmup, 200)
+    expect_equal(effective$iter_sampling, 200)
+    # Not set on the node, so CmdStan's defaults are what the fit used.
+    expect_equal(effective$adapt_delta, 0.8)
+    expect_equal(effective$max_treedepth, 10)
+    expect_equal(effective$seed, 123)
+    expect_null(prov$capture_error)
+    expect_true(is.character(effective$algorithm))
+    expect_match(effective$stan_version, "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+
+    # Every cmdstanr_fit param is classified, so a P/A/D snapshot exists and
+    # the Stan program is identified by its contents.
+    pad <- bg_node_pad(handle, n_fit)
+    expect_identical(pad$job_id, job$job_id)
+    expect_identical(
+      pad$pad$P$stan_source,
+      digest::digest(file = stan_file, algo = "sha256")
+    )
+    expect_identical(pad$pad$A$params$seed, 123L)
+    expect_identical(pad$pad$D$data, list(prov$inputs[[1]]$artifact_ref))
+    expect_match(pad$pad$P$digest, "^[0-9a-f]{64}$")
   })
 
   it("cached fit survives saveRDS and can call $draws()", {

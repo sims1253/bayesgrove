@@ -57,8 +57,9 @@ bg_reproducibility_manifest <- function() {
 #' the original files (and machine) are gone:
 #'
 #' * Approved keys: `stan_file`. The referenced Stan program is copied together
-#'   with every file reachable through `#include "..."` directives (resolved
-#'   relative to the including file, as stanc3 does). The key list is grounded
+#'   with every file reachable through `#include` directives, bare, quoted,
+#'   or angle-bracketed (resolved relative to the including file, as stanc3
+#'   does). The key list is grounded
 #'   in what the executors actually read.
 #' * References into the installed bayesgrove package (e.g.
 #'   `system.file("stan", ...)` models) are rewritten to a machine-stable

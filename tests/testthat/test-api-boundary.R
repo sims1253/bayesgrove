@@ -95,6 +95,13 @@ describe("API boundary registry integrity", {
   it("passes internal validation helper", {
     expect_true(bg_validate_api_boundary_registry())
   })
+
+  it("classifies the execution provenance accessor as experimental", {
+    expect_identical(
+      bg_api_boundary("bg_node_pad")$classification,
+      "experimental"
+    )
+  })
 })
 
 describe("API boundary registry output shape stability", {

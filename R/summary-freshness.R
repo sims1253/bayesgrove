@@ -4,6 +4,11 @@
 
 #' Persist executor summaries
 #'
+#' Summaries written through this function are not tied to an execution.
+#' Summaries that [bg_run()] writes for an execution carry that execution's
+#' `job_id`; that field is engine-owned, so a summary payload containing
+#' `job_id` is rejected here.
+#'
 #' @param project A `bg_handle`.
 #' @param node_id Node id for the execution.
 #' @param artifact_ref Persisted artifact ref.
@@ -18,6 +23,41 @@ bg_write_summaries <- function(
   artifact_ref,
   execution_fingerprint,
   summaries
+) {
+  forged <- vapply(
+    summaries %||% list(),
+    function(summary) is.list(summary) && "job_id" %in% names(summary),
+    logical(1)
+  )
+  if (any(forged)) {
+    cli::cli_abort(c(
+      "Summaries for node {.val {node_id}} must not supply {.field job_id}.",
+      "i" = "{.field job_id} is recorded only for summaries written by an execution in {.fn bg_run}."
+    ))
+  }
+
+  bg_persist_summaries(
+    project = project,
+    node_id = node_id,
+    artifact_ref = artifact_ref,
+    execution_fingerprint = execution_fingerprint,
+    summaries = summaries
+  )
+}
+
+#' Persist summaries, stamping the execution's job id when given.
+#'
+#' The engine path (`bg_record_execution()`) passes `job_id`; the exported
+#' `bg_write_summaries()` never does.
+#' @keywords internal
+#' @noRd
+bg_persist_summaries <- function(
+  project,
+  node_id,
+  artifact_ref,
+  execution_fingerprint,
+  summaries,
+  job_id = NULL
 ) {
   bg_assert_writable(project, "write summaries in")
 
@@ -66,6 +106,9 @@ bg_write_summaries <- function(
       created_at = created_at,
       metadata = summary$metadata %||% list()
     )
+    if (!is.null(job_id)) {
+      entry$job_id <- job_id
+    }
 
     bg_append_jsonl(bg_summary_log_path(project), entry)
     persisted[[summary_id]] <- entry
@@ -152,6 +195,14 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
 
 #' Determine whether a summary is fresh
 #'
+#' A summary is fresh when its fingerprint is the node's predicted
+#' fingerprint, the node's binding to that fingerprint is active, and its
+#' `artifact_ref` is the artifact the fingerprint currently resolves to. The
+#' artifact check matters because the index shares one artifact per
+#' fingerprint across nodes: a same-fingerprint rerun that produces a new
+#' artifact makes the earlier run's summaries stale, for every node sharing
+#' the fingerprint.
+#'
 #' @param project A `bg_handle`.
 #' @param summary A persisted summary entry.
 #' @param predicted_fingerprints Optional named fingerprint map.
@@ -181,8 +232,55 @@ bg_summary_is_fresh <- function(
     summary$execution_fingerprint,
     summary$node_id
   )
+  if (is.null(binding) || !identical(binding$status, "active")) {
+    return(FALSE)
+  }
 
-  !is.null(binding) && identical(binding$status, "active")
+  active_ref <- artifact_index[[summary$execution_fingerprint]]$artifact_ref
+  identical(summary$artifact_ref, active_ref)
+}
+
+#' Group summary ids by their execution fingerprint.
+#' @return A named list mapping fingerprints to character vectors of ids.
+#' @keywords internal
+#' @noRd
+bg_summary_ids_by_fingerprint <- function(summaries) {
+  if (length(summaries) == 0L) {
+    return(list())
+  }
+  fingerprints <- vapply(
+    summaries,
+    function(summary) summary$execution_fingerprint %||% "",
+    character(1)
+  )
+  # A summary without a fingerprint can never be fresh, so it needs no entry.
+  keep <- nzchar(fingerprints)
+  lapply(split(names(summaries)[keep], fingerprints[keep]), unname)
+}
+
+#' Recompute the cached freshness flags of in-memory summaries.
+#'
+#' `bg_run()` keeps summaries in memory between waves; an execution can
+#' change the artifact a fingerprint resolves to, so flags are recomputed
+#' before holds are evaluated.
+#' @keywords internal
+#' @noRd
+bg_refresh_summary_freshness <- function(
+  project,
+  summaries,
+  predicted_fingerprints,
+  artifact_index
+) {
+  lapply(summaries, function(summary) {
+    summary$is_fresh <- bg_summary_is_fresh(
+      project = project,
+      summary = summary,
+      predicted_fingerprints = predicted_fingerprints,
+      artifact_index = artifact_index
+    )
+    summary$is_stale <- !summary$is_fresh
+    summary
+  })
 }
 
 #' Read persisted summaries

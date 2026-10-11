@@ -37,6 +37,42 @@
   resolve against the project root at bundling, fingerprinting, and
   execution time, so a project bundles and runs identically from any working
   directory.
+* Each successful execution records its provenance in its final job record:
+  the execution's own artifact and fingerprint, the inputs passed to the
+  executor (in order), what it consumed (data inputs, the fit a check
+  evaluated, and SHA-256 hashes of file-path data), the settings it actually
+  used as read back from the result, the environment of the process that
+  ran it, and a P/A/D snapshot with SHA-256 component digests. Parallel runs
+  record the same provenance from what workers return. Summaries written by
+  an execution carry its `job_id`, and `bg_write_summaries()` rejects
+  caller-supplied `job_id`s. Executors can report provenance through
+  `metadata$provenance`; the built-in fit executors report their data input
+  and effective sampler settings, and `loo`, `ppc`, and `loo_pit` report the
+  fit they evaluated. An executor may now return
+  `list(result = , metadata = )` without `summaries`. For kinds that declare
+  a pad, file-backed data is supported only as a non-empty regular file
+  hashed before the run at the identical path, resolved in the process that
+  runs the executor: a consumed data input whose value is a string must be
+  such a file (empty and special files are unsupported), the `stan_file`
+  source and its includes must exist, and none of them may change during
+  execution; otherwise the record keeps a `capture_error` and no P/A/D
+  snapshot. If provenance cannot
+  be captured at all, the succeeded job records a `capture_error` instead of
+  `provenance`, so it is distinguishable from executions made before this
+  version.
+* `bg_register_node_kind()` gains a `pad` argument that classifies a kind's
+  parameters as P, A, D, `locator`, or `other`. The declaration is stored in
+  the runtime manifest and restored on open. The built-in fit kinds
+  (`cmdstanr_fit`, `prior_fit`, `brms_fit`, `brms_prior_fit`) declare one.
+* New experimental `bg_node_pad()` returns the provenance of the execution
+  that produced a node's current artifact, or `NULL` when there is none.
+* `bg_run()` gains `rerun`, which executes the listed nodes even when their
+  result is cached. Their descendants wait for the rerun but are not
+  re-executed. Use it to record provenance for results computed before this
+  version.
+* The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
+  explicitly, from node params or else the `brms.backend` and
+  `brms.algorithm` options, so the recorded values are the ones used.
 * Added `tools/check-captured-output.R` and a `docs-check.yaml` workflow that
   verify deterministic captured README and vignette output in CI without
   CmdStan. The sampler vignettes stay intentionally precomputed and are
@@ -48,6 +84,11 @@
   any successful apply. This version reads version 1 states without
   migration, but older bayesgrove versions reject version 2, so compatibility
   is one-way.
+* Summary freshness also requires a summary's `artifact_ref` to be the
+  artifact its fingerprint currently resolves to. A same-fingerprint rerun
+  that produces a different artifact therefore makes earlier summaries stale,
+  for every node sharing the fingerprint. Stale summaries remain readable
+  with `bg_read_summaries(include_stale = TRUE)`.
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
 * Removed the ignored `auto_advance` argument from `bg_status()`.
 * Removed `bg_export_report(out_file = )`; use `path = ` instead.
@@ -66,6 +107,31 @@
 
 ## Bug fixes
 
+* Fingerprints, bundles, and execution provenance now find Stan `#include`
+  directives the way stanc does: bare (`#include prior.stan`, the form the
+  Stan reference manual documents), quoted, or angle-bracketed targets,
+  anywhere a token may appear (also mid-line, and with the target on the
+  next line), while includes inside `//` and `/* */` comments or string
+  literals are ignored. Previously only quoted includes at the start of a
+  line were followed (even inside block comments), so editing a bare
+  include did not invalidate cached results and bundles did not copy it.
+  Models whose includes are all ordinary quoted lines keep their
+  fingerprints; models using other forms, or with a quoted include inside
+  a block comment, get new fingerprints and recompute once.
+* Reading a Stan program's include closure never opens a path that is not
+  a non-empty regular file (stat only). An include, or a `stan_file`,
+  naming a FIFO, device, or empty file is treated as missing, so planning,
+  bundling, and execution can no longer block on it.
+* An upstream result that is `NULL` is passed to downstream executors as an
+  input instead of being silently dropped.
+* `bg_run()` replaces a refreshed plan's holds, blockers, and input bindings
+  instead of merging them, so a workflow hold cleared mid-run no longer keeps
+  the run "blocked", and a retargeted run no longer reports blockers of
+  nodes outside its targets.
+* Under parallel dispatch, an error while finalizing one node's result (for
+  example an invalid summary) fails that node's job, still finalizes its
+  siblings, and returns the failed run handle, instead of leaving jobs
+  "running" and throwing.
 * Parallel dispatch runs the source checkout on mirai daemons in
   `pkgload::load_all()` dev sessions instead of failing or silently running a
   stale installed copy, and daemons reload the checkout whenever its sources

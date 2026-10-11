@@ -205,7 +205,8 @@ bg_executor_fingerprint_component <- function(project, node) {
 #' the project root first (falling back to the value as-is), so projects
 #' restored from a bundle — whose archived references are project-relative —
 #' fingerprint identically from any working directory. When the param names a
-#' missing file, returns the literal `"missing_stan_file"`
+#' missing file, or anything other than a non-empty regular file, returns the
+#' literal `"missing_stan_file"`
 #' so planning still works and the eventual executor error is the user-facing
 #' signal. Returns `""` for nodes without a `stan_file` param (the formula is
 #' already hashed via params, the brms version via the environment manifest, and
@@ -227,7 +228,10 @@ bg_source_hash_component <- function(node, project_path = NULL) {
     stan_file <- bg_resolve_project_source(project_path, stan_file)
   }
 
-  if (!file.exists(stan_file)) {
+  # Classified by stat only: a path that is not a non-empty regular file (an
+  # empty or special file, a directory) is never opened, so planning cannot
+  # block on, say, a FIFO.
+  if (!identical(bg_path_kind(stan_file), "file")) {
     return("missing_stan_file")
   }
 

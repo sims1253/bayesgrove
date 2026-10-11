@@ -10,7 +10,8 @@ bg_node_kind_manifest_entry <- function(
   output_type = NULL,
   param_schema = NULL,
   executor = NULL,
-  executor_ref = NULL
+  executor_ref = NULL,
+  pad = NULL
 ) {
   entry <- list(
     kind = kind,
@@ -18,6 +19,10 @@ bg_node_kind_manifest_entry <- function(
     output_type = output_type,
     param_schema = param_schema
   )
+  # P/A/D declarations are plain data and restore on open without trust.
+  if (!is.null(pad)) {
+    entry$pad <- bg_pad_declaration_manifest(pad)
+  }
 
   # Built-in executors persist as a reference and never as source text.
   # executor_ref is passed by backends-cmdstanr.R's builtin registration path;
@@ -44,7 +49,8 @@ bg_persist_node_kind_registration <- function(
   output_type = NULL,
   param_schema = NULL,
   executor = NULL,
-  executor_ref = NULL
+  executor_ref = NULL,
+  pad = NULL
 ) {
   config <- bg_read_project_config(project)
   manifest <- config$runtime_manifest %||% bg_empty_runtime_manifest()
@@ -54,7 +60,8 @@ bg_persist_node_kind_registration <- function(
     output_type = output_type,
     param_schema = param_schema,
     executor = executor,
-    executor_ref = executor_ref
+    executor_ref = executor_ref,
+    pad = pad
   )
   config$runtime_manifest <- manifest
   bg_write_project_config_path(project@path, config)
@@ -157,7 +164,40 @@ bg_use_default_workflow <- function(project) {
 #' @param input_contract Optional input contract for the structural graph.
 #' @param output_type Optional output type string.
 #' @param param_schema Optional parameter schema.
-#' @param executor Optional R function to execute nodes of this kind.
+#' @param executor Optional R function to execute nodes of this kind. It is
+#'   called as `executor(node, inputs)`, where `inputs` is a list of upstream
+#'   artifacts named by node id. It may return the artifact itself, or an
+#'   envelope `list(result = , summaries = , metadata = )`. Without
+#'   `summaries`, a list is treated as an envelope only when it has exactly
+#'   one of `result` or `artifact`, has `metadata`, and has no other entries;
+#'   any other list is stored as the artifact. A
+#'   `metadata$provenance = list(consumed = , effective = )` entry reports what
+#'   the execution consumed (`consumed$D`, the data input ids it used;
+#'   `consumed$subject`, the input id of the fit a check evaluated;
+#'   `consumed$data_files`, `list(node_id, path)` entries naming file-path
+#'   inputs it read) and the settings it actually used (`effective$P`,
+#'   `effective$A`). Without a report, every input counts as consumed data.
+#'   For kinds that declare `pad`, file-backed data is supported only as a
+#'   non-empty regular file hashed before the run at the identical path,
+#'   resolved in the executing process: every consumed `D` input whose value
+#'   is a character string must be such a file (empty files, devices, FIFOs,
+#'   and other special files are unsupported and never opened), every
+#'   `data_files` entry must name a consumed `D` input at that path, the
+#'   `stan_file` source and its includes must exist, and none of these may
+#'   change during execution. Otherwise the provenance records a
+#'   `capture_error` and no P/A/D snapshot; inputs that were not consumed are
+#'   never checked.
+#' @param pad Optional P/A/D classification of the kind's parameters: a named
+#'   list with character vectors `P` (model), `A` (algorithm), `D` (data),
+#'   `locator` (parameters that select inputs, such as `data_input`), and
+#'   `other` (parameters that don't change the result's meaning, such as
+#'   diagnostic thresholds). Each parameter may appear in one category only.
+#'   When a node's parameters are all classified, each execution records a
+#'   P/A/D snapshot with SHA-256 digests in its provenance (see
+#'   [bg_node_pad()]); an unclassified parameter means no snapshot is
+#'   recorded. The declaration is stored in the runtime manifest and restored
+#'   by [bg_open()]. If provenance cannot be captured at all, the succeeded
+#'   job records `capture_error` instead of `provenance`.
 #' @return Invisible `TRUE`, after the kind is recorded in the graph registry
 #'   and the on-disk registration manifest. The executor is bound into the
 #'   handle's in-memory runtime registry (and its serialized source stored in
@@ -169,9 +209,11 @@ bg_register_node_kind <- function(
   input_contract = NULL,
   output_type = NULL,
   param_schema = NULL,
-  executor = NULL
+  executor = NULL,
+  pad = NULL
 ) {
   S7::check_is_S7(project, bg_handle)
+  pad <- bg_normalize_pad_declaration(pad)
 
   graph <- bg_read_graph(project)
 
@@ -206,13 +248,24 @@ bg_register_node_kind <- function(
     )
   }
 
+  # The declaration follows the latest registration, including clearing it.
+  if (!is.null(project@registries$node_kinds[[kind]]) || !is.null(pad)) {
+    if (is.null(project@registries$node_kinds)) {
+      project@registries$node_kinds <- list()
+    }
+    entry <- project@registries$node_kinds[[kind]] %||% list(name = kind)
+    entry["pad"] <- list(pad)
+    project@registries$node_kinds[[kind]] <- entry
+  }
+
   bg_persist_node_kind_registration(
     project = project,
     kind = kind,
     input_contract = input_contract,
     output_type = output_type,
     param_schema = param_schema,
-    executor = executor
+    executor = executor,
+    pad = pad
   )
 
   invisible(TRUE)

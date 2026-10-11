@@ -164,6 +164,12 @@ bg_cmdstanr_hmc_metrics <- function(fit) {
 #' `hmc_diagnostics`
 #' summaries with severity rules; no user-written diagnostic code is required.
 #'
+#' Each execution records provenance in its job record (see [bg_node_pad()]).
+#' The fit kinds report the data input they consumed and the sampler settings
+#' read back from the fitted object, and declare a P/A/D classification of
+#' their parameters (see the `pad` argument of [bg_register_node_kind()]).
+#' The `loo`, `ppc`, and `loo_pit` kinds report the fit input they evaluated.
+#'
 #' The `ppc` kind's posterior-predictive p-values are conservative checks:
 #' an extreme value flags substantial misfit, but an unremarkable value is weak
 #' evidence that the model is adequate. Treat the graphical check via
@@ -208,6 +214,7 @@ bg_use_cmdstanr <- function(project) {
     )
   )
 
+  pad_declarations <- bg_builtin_pad_declarations()
   for (id in names(kind_specs)) {
     spec <- kind_specs[[id]]
     bg_register_builtin_executor(id, spec$executor)
@@ -216,7 +223,8 @@ bg_use_cmdstanr <- function(project) {
       kind = id,
       executor_ref = paste0("builtin:", id),
       input_contract = spec$input_contract,
-      output_type = spec$output_type
+      output_type = spec$output_type,
+      pad = pad_declarations[[id]] %||% NULL
     )
   }
 
@@ -227,7 +235,8 @@ bg_use_cmdstanr <- function(project) {
 #'
 #' Registers the kind in the structural graph (so it can be added as a node)
 #' and in the runtime handle with executor_ref = "builtin:<id>" so it restores
-#' on open and fingerprints by id + version.
+#' on open and fingerprints by id + version. A `pad` declaration is stored on
+#' the runtime entry and in the manifest.
 #' @keywords internal
 #' @noRd
 bg_register_node_kind_builtin <- function(
@@ -235,9 +244,11 @@ bg_register_node_kind_builtin <- function(
   kind,
   executor_ref,
   input_contract = NULL,
-  output_type = NULL
+  output_type = NULL,
+  pad = NULL
 ) {
   bg_assert_writable(project, "register node kinds in")
+  pad <- bg_normalize_pad_declaration(pad)
 
   # Structural graph registration (so bg_add_node accepts the kind).
   graph <- bg_read_graph(project)
@@ -260,7 +271,8 @@ bg_register_node_kind_builtin <- function(
   project@registries$node_kinds[[kind]] <- list(
     name = kind,
     executor = executor,
-    executor_ref = executor_ref
+    executor_ref = executor_ref,
+    pad = pad
   )
 
   # Persist structurally (executor_ref only, no source text).
@@ -270,7 +282,8 @@ bg_register_node_kind_builtin <- function(
     kind = kind,
     input_contract = input_contract,
     output_type = output_type,
-    executor_ref = executor_ref
+    executor_ref = executor_ref,
+    pad = pad
   )
   config$runtime_manifest <- manifest
   bg_write_project_config_path(project@path, config)
@@ -283,20 +296,143 @@ bg_register_node_kind_builtin <- function(
 #' Resolve the data input for a fit executor.
 #'
 #' `data_input` may name an upstream node id directly; if it does not match a
-#' node id, the first input is used. Inputs are keyed by node id.
+#' node id, the first input is used. Inputs are keyed by node id. The
+#' selection also returns the chosen input id, which the fit reports as its
+#' consumed data (`consumed$D`), so the reported and the used input agree.
+#' @return `list(input_id, data)`; `input_id` is `NULL` and `data` is
+#'   `default` when there are no inputs.
 #' @keywords internal
 #' @noRd
 bg_resolve_fit_data <- function(node, inputs, default = NULL) {
-  if (length(inputs) == 0) {
-    return(default)
+  selected <- bg_select_input(inputs, preferred = node$params$data_input)
+  if (is.null(selected)) {
+    return(list(input_id = NULL, data = default))
+  }
+  list(input_id = selected$id, data = selected$value)
+}
+
+#' Build a fit executor's provenance report for its selected data.
+#'
+#' Reports the single consumed data input and, when that data is a file path,
+#' names it in `consumed$data_files`. The engine attaches the file's SHA-256,
+#' taken before the executor ran.
+#' @param selection Result of `bg_resolve_fit_data()`.
+#' @param effective `list(P, A)` read back from the fitted object.
+#' @keywords internal
+#' @noRd
+bg_fit_executor_report <- function(selection, effective) {
+  input_id <- selection$input_id
+  bg_executor_report(
+    D = input_id %||% character(),
+    data_files = bg_data_file_report(input_id, selection$data),
+    effective = effective
+  )
+}
+
+# --- Effective-settings read-back ------------------------------------------
+#
+# Fits report the settings actually used, read back from the fitted object on
+# the process that ran it. Every accessor is guarded: a setting that cannot be
+# read is recorded as "unavailable", and one that does not apply to the
+# algorithm as "inapplicable", never guessed. Read-back can never fail a run.
+
+#' Evaluate a read-back expression, returning NULL on error.
+#' @keywords internal
+#' @noRd
+bg_try_readback <- function(expr) {
+  tryCatch(expr, error = function(e) NULL)
+}
+
+#' Record one read-back value as plain data, or "unavailable".
+#' @keywords internal
+#' @noRd
+bg_readback_value <- function(value) {
+  if (is.null(value) || length(value) == 0L) {
+    return("unavailable")
+  }
+  if (is.factor(value)) {
+    value <- as.character(value)
+  }
+  if (!is.atomic(value) || all(is.na(value))) {
+    return("unavailable")
+  }
+  value <- unname(value)
+  if (length(value) == 1L) value else as.list(value)
+}
+
+#' Read the Stan version from cmdstanr fit metadata.
+#'
+#' CmdStan writes the version as three fields
+#' (`stan_version_major`/`_minor`/`_patch`); there is no single version key.
+#' @keywords internal
+#' @noRd
+bg_stan_version_readback <- function(meta) {
+  parts <- list(
+    meta$stan_version_major,
+    meta$stan_version_minor,
+    meta$stan_version_patch
+  )
+  available <- vapply(
+    parts,
+    function(p) length(p) >= 1L && is.atomic(p) && !is.na(p[[1]]),
+    logical(1)
+  )
+  if (!all(available)) {
+    return("unavailable")
+  }
+  paste(
+    vapply(parts, function(p) as.character(p[[1]]), character(1)),
+    collapse = "."
+  )
+}
+
+#' Sampler settings from cmdstanr fit metadata.
+#'
+#' `meta` is `fit$metadata()` (or, for brms fits run with the cmdstanr
+#' backend, `attr(fit$fit, "metadata")$metadata`). In fixed_param mode
+#' (`algorithm == "fixed_param"`) the HMC adaptation settings do not apply.
+#' @param meta Metadata list.
+#' @param chains Chain count, from `fit$num_chains()` when available.
+#' @keywords internal
+#' @noRd
+bg_cmdstan_sampler_settings <- function(meta, chains = NULL) {
+  if (!is.list(meta)) {
+    meta <- list()
+  }
+  algorithm <- bg_readback_value(meta$algorithm)
+  hmc_setting <- function(value) {
+    if (identical(algorithm, "fixed_param")) {
+      "inapplicable"
+    } else {
+      bg_readback_value(value)
+    }
   }
 
-  data_input <- node$params$data_input %||% NULL
-  if (!is.null(data_input) && data_input %in% names(inputs)) {
-    return(inputs[[data_input]])
-  }
+  list(
+    stan_version = bg_stan_version_readback(meta),
+    algorithm = algorithm,
+    chains = bg_readback_value(chains),
+    iter_warmup = bg_readback_value(meta$iter_warmup),
+    iter_sampling = bg_readback_value(meta$iter_sampling),
+    adapt_delta = hmc_setting(meta$adapt_delta),
+    max_treedepth = hmc_setting(meta$max_treedepth),
+    seed = bg_readback_value(meta$seed)
+  )
+}
 
-  inputs[[1]]
+#' Effective settings of a cmdstanr fit (`CmdStanMCMC`).
+#'
+#' `effective$A` comes from `fit$metadata()` and `fit$num_chains()`. The model
+#' (P) is identified by its Stan source, so `effective$P` is empty.
+#' @keywords internal
+#' @noRd
+bg_cmdstanr_effective <- function(fit) {
+  meta <- bg_try_readback(fit$metadata())
+  chains <- bg_try_readback(fit$num_chains())
+  list(
+    P = bg_empty_named_list(),
+    A = bg_cmdstan_sampler_settings(meta, chains)
+  )
 }
 
 #' @keywords internal
@@ -338,12 +474,12 @@ bg_executor_cmdstanr_fit <- function(node, inputs) {
     cli::cli_abort("{.field stan_file} must point to an existing Stan program.")
   }
 
-  data <- bg_resolve_fit_data(node, inputs)
+  selection <- bg_resolve_fit_data(node, inputs)
 
   model <- cmdstanr::cmdstan_model(stan_file = stan_file)
 
   sampler_args <- list(
-    data = data,
+    data = selection$data,
     chains = node$params$chains %||% 4,
     iter_warmup = node$params$iter_warmup %||% 1000,
     iter_sampling = node$params$iter_sampling %||% 1000,
@@ -371,7 +507,14 @@ bg_executor_cmdstanr_fit <- function(node, inputs) {
     metrics = metrics
   )
 
-  list(result = fit, summaries = list(summary))
+  list(
+    result = fit,
+    summaries = list(summary),
+    metadata = bg_fit_executor_report(
+      selection,
+      bg_try_readback(bg_cmdstanr_effective(fit))
+    )
+  )
 }
 
 #' @keywords internal
@@ -388,12 +531,12 @@ bg_executor_cmdstanr_prior_fit <- function(node, inputs) {
     cli::cli_abort("{.field stan_file} must point to an existing Stan program.")
   }
 
-  data <- bg_resolve_fit_data(node, inputs, default = list())
+  selection <- bg_resolve_fit_data(node, inputs, default = list())
 
   model <- cmdstanr::cmdstan_model(stan_file = stan_file)
 
   fit <- model$sample(
-    data = data,
+    data = selection$data,
     chains = 1,
     iter_warmup = node$params$iter_warmup %||% 1000,
     iter_sampling = node$params$iter_sampling %||% 1000,
@@ -415,7 +558,16 @@ bg_executor_cmdstanr_prior_fit <- function(node, inputs) {
     metrics = list(draws_summary = draws_summary, graded = FALSE)
   )
 
-  list(result = fit, summaries = list(summary))
+  # chains = 1 and fixed_param are hard-coded here; the read-back records them
+  # in effective$A.
+  list(
+    result = fit,
+    summaries = list(summary),
+    metadata = bg_fit_executor_report(
+      selection,
+      bg_try_readback(bg_cmdstanr_effective(fit))
+    )
+  )
 }
 
 #' @keywords internal
@@ -425,7 +577,11 @@ bg_executor_loo <- function(node, inputs) {
     cli::cli_abort("The {.pkg loo} package is required for loo nodes.")
   }
 
-  fit_artifact <- inputs[[1]]
+  subject <- bg_select_input(inputs)
+  if (is.null(subject)) {
+    cli::cli_abort("{.field loo} requires a fit input node.")
+  }
+  fit_artifact <- subject$value
   is_brms_fit <- inherits(fit_artifact, "brmsfit")
   if (is_brms_fit) {
     if (!requireNamespace("brms", quietly = TRUE)) {
@@ -488,7 +644,11 @@ bg_executor_loo <- function(node, inputs) {
     )
   )
 
-  list(result = loo_obj, summaries = list(summary))
+  list(
+    result = loo_obj,
+    summaries = list(summary),
+    metadata = bg_executor_report(subject = subject$id)
+  )
 }
 
 #' @keywords internal
@@ -577,20 +737,15 @@ bg_executor_ppc <- function(node, inputs) {
 
   # The fit artifact supplies posterior-predictive draws (yrep); the data
   # node supplies the observed y. Resolve by param name, falling back to
-  # fit-first / data-second ordering.
-  fit_input <- node$params$fit_input %||% NULL
-  data_input <- node$params$data_input %||% NULL
-
-  fit_artifact <- if (!is.null(fit_input) && fit_input %in% names(inputs)) {
-    inputs[[fit_input]]
-  } else {
-    inputs[[1]]
-  }
-  observed_data <- if (!is.null(data_input) && data_input %in% names(inputs)) {
-    inputs[[data_input]]
-  } else {
-    inputs[[2]]
-  }
+  # fit-first / data-second ordering. The selected fit is the reported
+  # subject.
+  subject <- bg_select_input(inputs, preferred = node$params$fit_input)
+  fit_artifact <- subject$value
+  observed_data <- bg_select_input(
+    inputs,
+    preferred = node$params$data_input,
+    position = 2L
+  )$value
 
   y_var <- node$params$y_var %||% "y"
   yrep_var <- node$params$yrep_var %||% "yrep"
@@ -720,7 +875,11 @@ bg_executor_ppc <- function(node, inputs) {
     plot_data = plot_data
   )
 
-  list(result = result, summaries = list(summary))
+  list(
+    result = result,
+    summaries = list(summary),
+    metadata = bg_executor_report(subject = subject$id)
+  )
 }
 
 #' Compute LOO-PIT (probability integral transform) calibration values.
@@ -752,18 +911,13 @@ bg_executor_loo_pit <- function(node, inputs) {
     )
   }
 
-  fit_input <- node$params$fit_input %||% NULL
-  data_input <- node$params$data_input %||% NULL
-  fit_artifact <- if (!is.null(fit_input) && fit_input %in% names(inputs)) {
-    inputs[[fit_input]]
-  } else {
-    inputs[[1]]
-  }
-  observed_data <- if (!is.null(data_input) && data_input %in% names(inputs)) {
-    inputs[[data_input]]
-  } else {
-    inputs[[2]]
-  }
+  subject <- bg_select_input(inputs, preferred = node$params$fit_input)
+  fit_artifact <- subject$value
+  observed_data <- bg_select_input(
+    inputs,
+    preferred = node$params$data_input,
+    position = 2L
+  )$value
 
   draws_matrix <- bg_extract_draws(fit_artifact, as = "matrix")
   draws_array <- bg_extract_draws(fit_artifact, as = "array")
@@ -873,7 +1027,11 @@ bg_executor_loo_pit <- function(node, inputs) {
     )
   )
 
-  list(result = result, summaries = list(summary))
+  list(
+    result = result,
+    summaries = list(summary),
+    metadata = bg_executor_report(subject = subject$id)
+  )
 }
 
 #' Kolmogorov-Smirnov distance of a sample from Uniform(0, 1).

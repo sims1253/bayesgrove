@@ -32,6 +32,36 @@ bg_register_builtin_executor <- function(id, fn) {
   invisible(fn)
 }
 
+#' Select one executor input by preferred id, else by position.
+#'
+#' The single selection rule shared by every built-in executor that picks an
+#' input (fit data, the fit a check evaluates, observed data), so the input it
+#' uses and the input id it reports as consumed can never disagree. Inputs are
+#' keyed by upstream node id; `id` is `NULL` when the inputs are unnamed.
+#' @param inputs Named list of upstream artifacts.
+#' @param preferred Optional input id (a node param such as `data_input`).
+#' @param position Fallback position when `preferred` does not name an input.
+#' @return `list(id, value)`, or `NULL` when there is no such input.
+#' @keywords internal
+#' @noRd
+bg_select_input <- function(inputs, preferred = NULL, position = 1L) {
+  ids <- names(inputs)
+  if (
+    is.character(preferred) &&
+      length(preferred) == 1L &&
+      !is.null(ids) &&
+      preferred %in% ids
+  ) {
+    return(list(id = preferred, value = inputs[[preferred]]))
+  }
+  if (length(inputs) < position) {
+    return(NULL)
+  }
+
+  id <- if (is.null(ids) || !nzchar(ids[[position]])) NULL else ids[[position]]
+  list(id = id, value = inputs[[position]])
+}
+
 #' Extract draws from a cached fit artifact.
 #'
 #' Adapter that handles both CmdStanMCMC and brmsfit objects so the shared
