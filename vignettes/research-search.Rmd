@@ -385,10 +385,15 @@ re-run between proposal and apply, the proposal is stale.
 bayesgrove ships one built-in ruleset, `bayesgrove.workflow`. Its vocabulary
 declares the ten model utilities and the two inferential goals of
 [Bürkner, Scholz, and Radev (2023)](https://doi.org/10.1214/23-SS145) and maps
-the built-in summary kinds to the utilities they inform. Its rules follow the
-paper's utility trees and *Bayesian Workflow* (2026). It is a ruleset like any
-other: plain data, built-in predicates only, loaded through the same
-validation as `lab.positive` above.
+the built-in summary kinds to the utilities they inform. Its nine rules are a
+selected, tree-informed workflow baseline: a few goal-dependent expectations
+drawn from the paper's utility trees, plus established practice from
+*Bayesian Workflow* (2026). They do not encode the trees in full. Whether
+fairness applies, which is the first, conditional gate in both trees, and how
+to weigh trade-offs between utilities are left to the analyst or lab; the lab
+extension below shows how to add such rules. It is a ruleset like any other:
+plain data, built-in predicates only, loaded through the same validation as
+`lab.positive` above.
 
 ```{r}
 bg_rulesets()[c("id", "version", "origin")]
@@ -418,9 +423,12 @@ data.frame(
 )
 ```
 
-Only three rules block, all on acceptance: convergence diagnostics derived
-from the candidate's own run, and a human review of the computation
-diagnostics that were recorded. The goal-specific expectations are advisory.
+Three explicit rules are blocking, all on acceptance: convergence
+diagnostics derived from the candidate's own run, and a human review of the
+computation diagnostics that were recorded. The goal-specific expectations are
+advisory. In Enforce, the implicit vocabulary rule additionally blocks evidence
+whose check or utility the vocabulary does not declare, or whose utility the
+check does not inform.
 Evidence asserted by a caller, like the illustrative record below, never
 satisfies the derived-convergence rule: it needs evidence the engine derives
 from a run bound to the candidate.
@@ -463,8 +471,9 @@ unlist(recoverability$references)
 ```
 
 A lab adapts the official rules by extending them rather than copying them.
-Here a lab makes the causal-consistency expectation blocking and adds a
-fairness audit, with a check that informs the `fairness` utility. Inherited
+Here a lab that has decided fairness applies to its work makes the
+causal-consistency expectation blocking and adds a fairness audit, with a
+check that informs the `fairness` utility. Inherited
 rules keep their source and record who overrode them.
 
 ```{r}
