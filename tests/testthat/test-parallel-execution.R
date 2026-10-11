@@ -466,4 +466,150 @@ describe("Parallel execution provenance", {
       )
     }
   })
+
+  it("takes file identities on the worker, before the executor runs", {
+    handle <- bg_init(path = withr::local_tempdir())
+    data_dir <- withr::local_tempdir()
+    bg_register_node_kind(handle, "path", executor = function(node, inputs) {
+      node$params$path
+    })
+    # Each reader appends to its file when asked, as an edit during a long
+    # fit would.
+    bg_register_node_kind(handle, "reader", executor = function(node, inputs) {
+      path <- inputs[[1]]
+      read <- readLines(path)
+      if (isTRUE(node$params$mutate)) {
+        cat("tampered\n", file = path, append = TRUE)
+      }
+      list(
+        result = list(read = read),
+        metadata = list(
+          provenance = list(
+            consumed = list(
+              D = names(inputs),
+              data_files = list(list(node_id = names(inputs)[[1]]))
+            )
+          )
+        )
+      )
+    })
+    files <- file.path(data_dir, c("a.csv", "b.csv"))
+    for (f in files) {
+      writeLines("y", f)
+    }
+    hashes <- vapply(
+      files,
+      function(f) digest::digest(file = f, algo = "sha256"),
+      character(1)
+    )
+    sources <- vapply(
+      files,
+      function(f) bg_add_node(handle, kind = "path", params = list(path = f)),
+      character(1)
+    )
+    readers <- c(
+      bg_add_node(
+        handle,
+        kind = "reader",
+        params = list(mutate = FALSE),
+        inputs = sources[[1]]
+      ),
+      bg_add_node(
+        handle,
+        kind = "reader",
+        params = list(mutate = TRUE),
+        inputs = sources[[2]]
+      )
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    bg_run(handle, parallel = "always")
+
+    clean <- final_job(handle, readers[[1]])$provenance
+    expect_identical(clean$consumed$data_files[[1]]$sha256, unname(hashes[[1]]))
+    expect_null(clean$capture_error)
+
+    changed <- final_job(handle, readers[[2]])$provenance
+    expect_match(changed$capture_error, "changed during execution")
+    expect_identical(
+      changed$consumed$data_files[[1]]$sha256,
+      unname(hashes[[2]])
+    )
+  })
+
+  it("fails only the node whose finalization errors", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "src", executor = function(node, inputs) 1)
+    # A worker can succeed while returning a summary the main process
+    # rejects (an invalid severity).
+    bg_register_node_kind(handle, "leaf", executor = function(node, inputs) {
+      list(
+        result = node$params$label,
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          severity = node$params$severity,
+          passed = TRUE
+        ))
+      )
+    })
+    root <- bg_add_node(handle, kind = "src")
+    bad <- bg_add_node(
+      handle,
+      kind = "leaf",
+      params = list(label = "bad", severity = "catastrophic"),
+      inputs = root
+    )
+    good <- bg_add_node(
+      handle,
+      kind = "leaf",
+      params = list(label = "good", severity = "ok"),
+      inputs = root
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run <- bg_run(handle, parallel = "always")
+
+    expect_equal(run$status, "failed")
+    expect_match(run$error$message, "invalid")
+    statuses <- vapply(bg_jobs(handle), `[[`, character(1), "status")
+    expect_false(any(statuses == "running"))
+    expect_identical(final_job(handle, bad)$status, "failed")
+    expect_identical(final_job(handle, good)$status, "succeeded")
+    expect_false(is.null(final_job(handle, good)$provenance))
+  })
+
+  it("removes finalized reruns from the pending set when a sibling fails", {
+    handle <- bg_init(path = withr::local_tempdir())
+    flag <- file.path(withr::local_tempdir(), "fail")
+    bg_register_node_kind(handle, "flaky", executor = function(node, inputs) {
+      if (isTRUE(node$params$may_fail) && file.exists(node$params$flag)) {
+        stop("flaky failure")
+      }
+      list(draw = stats::runif(1))
+    })
+    ok <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "ok",
+      params = list(flag = flag, may_fail = FALSE)
+    )
+    bad <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "bad",
+      params = list(flag = flag, may_fail = TRUE)
+    )
+    bg_run(handle, parallel = "never")
+    writeLines("x", flag)
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run <- bg_run(handle, parallel = "always", rerun = c(ok, bad))
+    expect_equal(run$status, "failed")
+    expect_identical(run$metadata$rerun_pending, bad)
+    expect_identical(final_job(handle, ok)$status, "succeeded")
+    expect_identical(final_job(handle, bad)$status, "failed")
+  })
 })

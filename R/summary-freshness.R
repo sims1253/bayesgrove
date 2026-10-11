@@ -240,6 +240,24 @@ bg_summary_is_fresh <- function(
   identical(summary$artifact_ref, active_ref)
 }
 
+#' Group summary ids by their execution fingerprint.
+#' @return A named list mapping fingerprints to character vectors of ids.
+#' @keywords internal
+#' @noRd
+bg_summary_ids_by_fingerprint <- function(summaries) {
+  if (length(summaries) == 0L) {
+    return(list())
+  }
+  fingerprints <- vapply(
+    summaries,
+    function(summary) summary$execution_fingerprint %||% "",
+    character(1)
+  )
+  # A summary without a fingerprint can never be fresh, so it needs no entry.
+  keep <- nzchar(fingerprints)
+  lapply(split(names(summaries)[keep], fingerprints[keep]), unname)
+}
+
 #' Recompute the cached freshness flags of in-memory summaries.
 #'
 #' `bg_run()` keeps summaries in memory between waves; an execution can

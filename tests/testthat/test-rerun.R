@@ -241,3 +241,75 @@ describe("artifact-aware summary freshness", {
     expect_true(refreshed$s2$is_fresh)
   })
 })
+
+describe("plan state replaced on refresh", {
+  it("drops a workflow hold that a rerun cleared", {
+    fixture <- make_workflow_hold_fixture()
+    handle <- fixture$handle
+    first <- bg_run(handle)
+    expect_equal(first$status, "blocked")
+    expect_true(fixture$compare_id %in% names(first$metadata$held_by_policy))
+
+    # The fit now produces a clean result. Rerunning it replaces the warning
+    # summary (same fingerprint, new artifact), which clears the hold, so the
+    # comparison runs in the next wave.
+    fixture$set_fit_summary_mode("ok")
+    run <- bg_run(handle, rerun = fixture$fit_id)
+    expect_equal(run$status, "succeeded")
+    expect_equal(run$summary$total_executed, 2L)
+    expect_length(run$metadata$held_by_policy, 0L)
+    expect_length(bg_next_actions(handle)$metadata$external_holds, 0L)
+  })
+
+  it("keeps no blockers of nodes outside a retargeted plan", {
+    handle <- bg_init(path = withr::local_tempdir())
+    bg_register_node_kind(handle, "src", executor = function(node, inputs) 1)
+    a <- bg_add_node(handle, kind = "src", label = "a")
+    gated <- bg_add_node(handle, kind = "src", label = "gated", inputs = a)
+    bg_add_gate(handle, a, gated, "Proceed?", "yes")
+    other <- bg_add_node(handle, kind = "src", label = "other")
+
+    full <- bg_plan(handle)
+    expect_true(gated %in% names(full$blocked))
+    graph <- bg_dagri_recompute_state(bg_active_graph(handle))
+    retargeted <- bg_retarget_run_plan(handle, full, graph, targets = other)
+    expect_identical(
+      names(retargeted$blocked),
+      names(retargeted$graph_plan$blocked)
+    )
+    expect_false(gated %in% names(retargeted$blocked))
+  })
+})
+
+describe("partial rerun failures", {
+  it("removes finalized reruns from the pending set when a sibling fails", {
+    handle <- bg_init(path = withr::local_tempdir())
+    flag <- file.path(withr::local_tempdir(), "fail")
+    bg_register_node_kind(handle, "flaky", executor = function(node, inputs) {
+      if (isTRUE(node$params$may_fail) && file.exists(node$params$flag)) {
+        stop("flaky failure")
+      }
+      list(draw = stats::runif(1))
+    })
+    ok <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "ok",
+      params = list(flag = flag, may_fail = FALSE)
+    )
+    bad <- bg_add_node(
+      handle,
+      kind = "flaky",
+      label = "bad",
+      params = list(flag = flag, may_fail = TRUE)
+    )
+    bg_run(handle)
+    writeLines("x", flag)
+
+    run <- bg_run(handle, rerun = c(ok, bad))
+    expect_equal(run$status, "failed")
+    expect_identical(run$metadata$rerun_pending, bad)
+    expect_identical(final_job_for(handle, ok)$status, "succeeded")
+    expect_identical(final_job_for(handle, bad)$status, "failed")
+  })
+})

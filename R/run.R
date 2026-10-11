@@ -436,34 +436,29 @@ bg_derive_run_plan_state <- function(
     }
   }
 
-  derived <- utils::modifyList(
-    plan,
-    list(
-      graph_plan = utils::modifyList(
-        plan$graph_plan,
-        list(external_blocked = external_blocked)
-      ),
-      targets = plan$targets %||% plan$graph_plan$targets,
-      eligible = eligible,
-      blocked = blocked,
-      external_blocked = external_blocked,
-      held_by_policy = external_blocked,
-      gates_missing_specs = gates_missing_specs,
-      cache_hits = cache_hits,
-      missing_results = missing_results,
-      to_execute = setdiff(intersect(missing_results, eligible), held_nodes),
-      input_bindings = input_bindings,
-      metadata = list(
-        artifact_refs = artifact_refs,
-        artifact_index = artifact_index
-      )
-    )
+  # Every map derived above replaces the incoming plan's value whole. A
+  # recursive merge (modifyList()) would keep entries that no longer hold:
+  # cleared workflow holds, blockers of nodes outside a retargeted plan, or
+  # the cached ref of a pending rerun.
+  derived <- plan
+  derived$graph_plan["external_blocked"] <- list(external_blocked)
+  derived_fields <- list(
+    targets = plan$targets %||% plan$graph_plan$targets,
+    eligible = eligible,
+    blocked = blocked,
+    external_blocked = external_blocked,
+    held_by_policy = external_blocked,
+    gates_missing_specs = gates_missing_specs,
+    cache_hits = cache_hits,
+    missing_results = missing_results,
+    to_execute = setdiff(intersect(missing_results, eligible), held_nodes),
+    input_bindings = input_bindings
   )
-  # modifyList() merges nested lists, which would keep stale bindings and
-  # refs from the incoming plan (e.g. a cached ref of a pending rerun). These
-  # are derived afresh above, so replace them whole.
-  derived$input_bindings <- input_bindings
-  derived$metadata$artifact_refs <- artifact_refs
+  for (field in names(derived_fields)) {
+    derived[field] <- list(derived_fields[[field]])
+  }
+  derived$metadata["artifact_refs"] <- list(artifact_refs)
+  derived$metadata["artifact_index"] <- list(artifact_index)
   derived
 }
 
@@ -676,6 +671,11 @@ bg_run <- function(
     predicted_fingerprints = plan$metadata$fingerprints,
     artifact_index = plan$metadata$artifact_index
   )
+  # Summary ids by execution fingerprint, so wave-boundary freshness refreshes
+  # touch only the summaries an execution can affect, not all history.
+  run_state$summary_ids_by_fingerprint <- bg_summary_ids_by_fingerprint(
+    run_state$summaries
+  )
   run_state$decisions <- bg_read_decisions(project)
   run_state$jobs <- bg_jobs(project)
 
@@ -769,48 +769,83 @@ bg_run <- function(
     # Main-process finalization for any parallel result that returned only a
     # blob ref (worker wrote the blob; main binds the index, copies fit
     # outputs, writes summaries, and marks the job). Sequential results are
-    # already finalized by bg_execute_node; this is a no-op for them.
+    # already finalized by bg_execute_node; this is a no-op for them. Each
+    # result has its own error boundary: a finalization error (for example an
+    # invalid summary) fails that node's job and its siblings are still
+    # finalized, matching the sequential path.
     for (node_id in wave) {
       res <- results[[node_id]]
       if (isTRUE(res$worker_origin) && isTRUE(res$ok)) {
-        ref <- res$ref
-        bg_bind_artifact_index(
-          project,
-          node_id,
-          plan$metadata$fingerprints[[node_id]],
-          ref
+        results[[node_id]] <- tryCatch(
+          {
+            ref <- res$ref
+            bg_bind_artifact_index(
+              project,
+              node_id,
+              plan$metadata$fingerprints[[node_id]],
+              ref
+            )
+            # Fit-output copying needs the artifact object; refetch from the
+            # CAS (the worker wrote the blob). Cheap relative to the fit
+            # itself. Copying is best-effort under parallel dispatch: a fit
+            # produced on a remote daemon embedded CSV paths in the daemon's
+            # tempdir, which are unreachable from this process, so
+            # bg_copy_fit_outputs silently skips them. The RDS artifact itself
+            # is preserved; only the durable CSV copies are dropped under
+            # parallel dispatch.
+            bg_copy_fit_outputs(
+              project,
+              bg_fetch_artifact(project, ref),
+              wave_jobs[[node_id]]
+            )
+            # Provenance is recorded here, on the single writer, from the
+            # executor metadata, file identities, and environment manifest
+            # the worker returned.
+            res$summaries <- bg_record_execution(
+              project = project,
+              node_id = node_id,
+              graph = graph,
+              kind_reg = project@registries$node_kinds[[
+                graph$nodes[[node_id]]$kind
+              ]],
+              fingerprint = plan$metadata$fingerprints[[node_id]],
+              artifact_ref = ref,
+              input_bindings = plan$input_bindings[[node_id]],
+              job_id = wave_jobs[[node_id]],
+              summaries = res$summaries,
+              metadata = res$metadata,
+              environment = res$environment,
+              files = res$files
+            )
+            res
+          },
+          error = function(e) {
+            res$ok <- FALSE
+            res$error <- list(message = conditionMessage(e))
+            res
+          }
         )
-        # Fit-output copying needs the artifact object; refetch from the CAS
-        # (the worker wrote the blob). Cheap relative to the fit itself.
-        # Copying is best-effort under parallel dispatch: a fit produced on a
-        # remote daemon embedded CSV paths in the daemon's tempdir, which are
-        # unreachable from this process, so bg_copy_fit_outputs silently skips
-        # them. The RDS artifact itself is preserved; only the durable CSV
-        # copies are dropped under parallel dispatch.
-        bg_copy_fit_outputs(
-          project,
-          bg_fetch_artifact(project, ref),
-          wave_jobs[[node_id]]
+      }
+    }
+
+    # Fold every successfully finalized node into the plan and run state, even
+    # when a sibling failed, so the returned handle reflects what did run. A
+    # requested rerun leaves the pending set once it has been finalized, so
+    # plan refreshes treat its new output as available and do not run it again.
+    succeeded_nodes <- Filter(function(id) isTRUE(results[[id]]$ok), wave)
+    for (node_id in succeeded_nodes) {
+      res <- results[[node_id]]
+
+      plan <- bg_run_plan_record_artifact(plan, node_id, res$ref)
+      plan$pending_rerun <- setdiff(plan$pending_rerun, node_id)
+
+      for (s in res$summaries %||% list()) {
+        run_state$summaries[[s$summary_id]] <- s
+        fingerprint <- s$execution_fingerprint
+        run_state$summary_ids_by_fingerprint[[fingerprint]] <- c(
+          run_state$summary_ids_by_fingerprint[[fingerprint]],
+          s$summary_id
         )
-        # Provenance is recorded here, on the single writer, from the
-        # executor metadata and environment manifest the worker returned.
-        res$summaries <- bg_record_execution(
-          project = project,
-          node_id = node_id,
-          graph = graph,
-          kind_reg = project@registries$node_kinds[[
-            graph$nodes[[node_id]]$kind
-          ]],
-          fingerprint = plan$metadata$fingerprints[[node_id]],
-          artifact_ref = ref,
-          input_bindings = plan$input_bindings[[node_id]],
-          job_id = wave_jobs[[node_id]],
-          summaries = res$summaries,
-          metadata = res$metadata,
-          environment = res$environment,
-          files = res$files
-        )
-        results[[node_id]] <- res
       }
     }
 
@@ -818,7 +853,7 @@ bg_run <- function(
     # parallel job first:
     # sequential bg_execute_node already updates its own job, but workers do
     # not, and a wave can contain several failures; none may be left "running".
-    failed_nodes <- Filter(function(id) !isTRUE(results[[id]]$ok), wave)
+    failed_nodes <- setdiff(wave, succeeded_nodes)
     for (node_id in failed_nodes) {
       res <- results[[node_id]]
       if (isTRUE(res$worker_origin)) {
@@ -849,31 +884,27 @@ bg_run <- function(
       ))
     }
 
-    # Fold summaries into run state + record artifacts into the plan. A
-    # requested rerun leaves the pending set once it has been finalized, so
-    # plan refreshes treat its new output as available and do not run it again.
-    for (node_id in wave) {
-      res <- results[[node_id]]
-
-      plan <- bg_run_plan_record_artifact(plan, node_id, res$ref)
-      plan$pending_rerun <- setdiff(plan$pending_rerun, node_id)
-
-      if (!is.null(res$summaries)) {
-        for (s in res$summaries) {
-          run_state$summaries[[s$summary_id]] <- s
-        }
-      }
-    }
-
     # Recompute cached freshness flags before hold evaluation: an execution
     # can replace the artifact a fingerprint resolves to, which makes earlier
-    # summaries of every node sharing that fingerprint stale.
-    run_state$summaries <- bg_refresh_summary_freshness(
-      project,
-      run_state$summaries,
-      predicted_fingerprints = plan$metadata$fingerprints %||% list(),
-      artifact_index = plan$metadata$artifact_index %||% list()
-    )
+    # summaries of every node sharing that fingerprint stale. Predicted
+    # fingerprints do not change within a run, so only summaries recorded at
+    # the fingerprints executed in this wave can change.
+    wave_fingerprints <- unique(unlist(
+      plan$metadata$fingerprints[wave],
+      use.names = FALSE
+    ))
+    refresh_ids <- unique(unlist(
+      run_state$summary_ids_by_fingerprint[wave_fingerprints],
+      use.names = FALSE
+    ))
+    if (length(refresh_ids) > 0L) {
+      run_state$summaries[refresh_ids] <- bg_refresh_summary_freshness(
+        project,
+        run_state$summaries[refresh_ids],
+        predicted_fingerprints = plan$metadata$fingerprints %||% list(),
+        artifact_index = plan$metadata$artifact_index %||% list()
+      )
+    }
 
     # Wave boundary: refresh jobs, re-evaluate protocol holds, and refresh the
     # plan so the next wave's input_bindings populate from the artifacts just
