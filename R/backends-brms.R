@@ -12,6 +12,12 @@
 #' alias of the `stan_data` executor) is registered as well, so brms-backed
 #' graphs need not label plain data frames with a Stan-specific kind.
 #'
+#' The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
+#' explicitly, from node params or else the `brms.backend` and
+#' `brms.algorithm` options resolved at execution time. Their job records'
+#' provenance (see [bg_node_pad()]) carries the family, the applied priors,
+#' and the sampler settings read back from the fit.
+#'
 #' @param project A `bg_handle`.
 #' @return Invisibly, the project handle.
 #' @export
@@ -57,6 +63,7 @@ bg_use_brms <- function(project) {
     )
   )
 
+  pad_declarations <- bg_builtin_pad_declarations()
   for (id in names(kind_specs)) {
     spec <- kind_specs[[id]]
     bg_register_builtin_executor(id, spec$executor)
@@ -65,7 +72,8 @@ bg_use_brms <- function(project) {
       kind = id,
       executor_ref = paste0("builtin:", id),
       input_contract = spec$input_contract,
-      output_type = spec$output_type
+      output_type = spec$output_type,
+      pad = pad_declarations[[id]] %||% NULL
     )
   }
 
@@ -92,19 +100,22 @@ bg_executor_brms_fit <- function(node, inputs) {
     formula <- stats::as.formula(formula)
   }
 
-  data <- bg_resolve_fit_data(node, inputs)
-  if (is.null(data)) {
+  selection <- bg_resolve_fit_data(node, inputs)
+  if (is.null(selection$data)) {
     cli::cli_abort("brms_fit requires a data input node.")
   }
 
   priors <- bg_brms_build_priors(node$params$priors)
+  engine <- bg_brms_engine(node)
 
   # Assemble the brm() argument list and drop NULL entries before do.call, so a
   # missing seed does not pass seed = NULL (brms' default is NA, not NULL, and
   # NULL errors inside brm()). Mirrors the cmdstanr executor's arg pattern.
+  # backend and algorithm are passed explicitly, so the recorded values are
+  # the ones used.
   brm_args <- list(
     formula = formula,
-    data = data,
+    data = selection$data,
     family = node$params$family %||% stats::gaussian(),
     prior = priors,
     chains = node$params$chains %||% 4,
@@ -116,6 +127,8 @@ bg_executor_brms_fit <- function(node, inputs) {
       adapt_delta = node$params$adapt_delta %||% 0.8,
       max_treedepth = node$params$max_treedepth %||% 10
     ),
+    backend = engine$backend,
+    algorithm = engine$algorithm,
     silent = 2,
     refresh = 0
   )
@@ -136,7 +149,14 @@ bg_executor_brms_fit <- function(node, inputs) {
     metrics = metrics
   )
 
-  list(result = fit, summaries = list(summary))
+  list(
+    result = fit,
+    summaries = list(summary),
+    metadata = bg_fit_executor_report(
+      selection,
+      bg_try_readback(bg_brms_effective(fit))
+    )
+  )
 }
 
 #' @keywords internal
@@ -156,17 +176,20 @@ bg_executor_brms_prior_fit <- function(node, inputs) {
     formula <- stats::as.formula(formula)
   }
 
-  data <- bg_resolve_fit_data(node, inputs, default = data.frame())
+  selection <- bg_resolve_fit_data(node, inputs, default = data.frame())
+  engine <- bg_brms_engine(node)
 
   brm_args <- list(
     formula = formula,
-    data = data,
+    data = selection$data,
     sample_prior = "only",
     chains = node$params$chains %||% 4,
     iter = (node$params$iter_warmup %||% 1000) +
       (node$params$iter_sampling %||% 1000),
     warmup = node$params$iter_warmup %||% 1000,
     seed = node$params$seed %||% NULL,
+    backend = engine$backend,
+    algorithm = engine$algorithm,
     silent = 2,
     refresh = 0
   )
@@ -188,7 +211,186 @@ bg_executor_brms_prior_fit <- function(node, inputs) {
     metrics = list(draws_summary = draws_summary, graded = FALSE)
   )
 
-  list(result = fit, summaries = list(summary))
+  list(
+    result = fit,
+    summaries = list(summary),
+    metadata = bg_fit_executor_report(
+      selection,
+      bg_try_readback(bg_brms_effective(fit))
+    )
+  )
+}
+
+#' Resolve the brms backend and algorithm for one execution.
+#'
+#' Node params win; otherwise the session options brms itself would consult
+#' are resolved now, so the executor can pass both explicitly and the recorded
+#' values are the ones used.
+#' @keywords internal
+#' @noRd
+bg_brms_engine <- function(node) {
+  list(
+    backend = node$params$backend %||% getOption("brms.backend", "rstan"),
+    algorithm = node$params$algorithm %||%
+      getOption("brms.algorithm", "sampling")
+  )
+}
+
+# --- Effective-settings read-back ------------------------------------------
+
+#' Plain-data view of a brms family object.
+#' @keywords internal
+#' @noRd
+bg_brms_family_readback <- function(family) {
+  if (!is.list(family) || is.null(family$family)) {
+    return("unavailable")
+  }
+  list(
+    family = bg_readback_value(family$family),
+    link = bg_readback_value(family$link)
+  )
+}
+
+#' Plain-data rows of `brms::prior_summary()` output.
+#'
+#' One named list per applied prior, with the columns brms reports
+#' (`prior`, `class`, `coef`, `group`, `resp`, `dpar`, `nlpar`, `lb`, `ub`,
+#' `source`) as strings.
+#' @keywords internal
+#' @noRd
+bg_brms_prior_readback <- function(priors) {
+  if (!is.data.frame(priors)) {
+    return("unavailable")
+  }
+  columns <- intersect(
+    c(
+      "prior",
+      "class",
+      "coef",
+      "group",
+      "resp",
+      "dpar",
+      "nlpar",
+      "lb",
+      "ub",
+      "source"
+    ),
+    names(priors)
+  )
+  lapply(seq_len(nrow(priors)), function(i) {
+    row <- lapply(columns, function(column) {
+      value <- as.character(priors[[column]][[i]])
+      if (length(value) == 0L || is.na(value)) "" else value
+    })
+    names(row) <- columns
+    row
+  })
+}
+
+#' Sampler settings from an rstan `stanfit` (`@sim` and `@stan_args`).
+#'
+#' `sim` and `stan_args` are the slot contents, so this helper stays pure.
+#' A control setting that was not passed is recorded as unavailable.
+#' @keywords internal
+#' @noRd
+bg_rstan_sampler_settings <- function(sim, stan_args) {
+  if (!is.list(sim)) {
+    sim <- list()
+  }
+  args <- if (is.list(stan_args) && length(stan_args) > 0L) {
+    stan_args[[1]]
+  } else {
+    list()
+  }
+  if (!is.list(args)) {
+    args <- list()
+  }
+  control <- if (is.list(args$control)) args$control else list()
+
+  iter <- sim$iter %||% args$iter %||% NULL
+  warmup <- sim$warmup %||% args$warmup %||% NULL
+  iter_sampling <- if (
+    is.numeric(iter) &&
+      is.numeric(warmup) &&
+      length(iter) == 1L &&
+      length(warmup) == 1L
+  ) {
+    iter - warmup
+  } else {
+    NULL
+  }
+
+  list(
+    sampler = bg_readback_value(args$algorithm),
+    chains = bg_readback_value(sim$chains),
+    iter_warmup = bg_readback_value(warmup),
+    iter_sampling = bg_readback_value(iter_sampling),
+    adapt_delta = bg_readback_value(control$adapt_delta),
+    max_treedepth = bg_readback_value(control$max_treedepth),
+    seed = bg_readback_value(args$seed)
+  )
+}
+
+#' Sampler settings of a brms fit, by backend.
+#'
+#' With the cmdstanr backend they come from
+#' `attr(fit$fit, "metadata")$metadata`; with rstan from `fit$fit@sim` and
+#' `fit$fit@stan_args`. For algorithms other than `"sampling"` the HMC
+#' adaptation settings do not apply.
+#' @param backend,algorithm `fit$backend` and `fit$algorithm`.
+#' @param stanfit `fit$fit`.
+#' @keywords internal
+#' @noRd
+bg_brms_sampler_settings <- function(backend, algorithm, stanfit) {
+  sim <- bg_try_readback(stanfit@sim)
+  settings <- if (identical(backend, "cmdstanr")) {
+    meta <- bg_try_readback(attr(stanfit, "metadata")$metadata)
+    bg_cmdstan_sampler_settings(meta, chains = sim$chains %||% NULL)
+  } else if (identical(backend, "rstan")) {
+    bg_rstan_sampler_settings(
+      sim,
+      bg_try_readback(stanfit@stan_args)
+    )
+  } else {
+    return("unavailable")
+  }
+
+  if (!identical(algorithm, "sampling")) {
+    settings$adapt_delta <- "inapplicable"
+    settings$max_treedepth <- "inapplicable"
+  }
+  settings
+}
+
+#' Effective settings of a brms fit.
+#'
+#' `effective$P` holds the family (`stats::family(fit)`) and the applied
+#' priors (`brms::prior_summary(fit)`); `effective$A` holds `fit$backend`,
+#' `fit$algorithm`, `fit$version`, and the sampler settings.
+#' @keywords internal
+#' @noRd
+bg_brms_effective <- function(fit) {
+  backend <- bg_readback_value(bg_try_readback(fit$backend))
+  algorithm <- bg_readback_value(bg_try_readback(fit$algorithm))
+  version <- bg_try_readback(lapply(fit$version, as.character))
+
+  list(
+    P = list(
+      family = bg_brms_family_readback(bg_try_readback(stats::family(fit))),
+      priors = bg_brms_prior_readback(
+        bg_try_readback(as.data.frame(brms::prior_summary(fit)))
+      )
+    ),
+    A = list(
+      backend = backend,
+      algorithm = algorithm,
+      version = if (length(version) > 0L) version else "unavailable",
+      sampler = bg_try_readback(
+        bg_brms_sampler_settings(backend, algorithm, fit$fit)
+      ) %||%
+        "unavailable"
+    )
+  )
 }
 
 #' Extract HMC diagnostic metrics from a brmsfit.

@@ -21,6 +21,12 @@ persisted). The fit executors compute HMC diagnostics themselves and emit
 summaries with severity rules; no user-written diagnostic code is required.
 }
 \details{
+Each execution records provenance in its job record (see \code{\link[=bg_node_pad]{bg_node_pad()}}).
+The fit kinds report the data input they consumed and the sampler settings
+read back from the fitted object, and declare a P/A/D classification of
+their parameters (see the \code{pad} argument of \code{\link[=bg_register_node_kind]{bg_register_node_kind()}}).
+The \code{loo}, \code{ppc}, and \code{loo_pit} kinds report the fit input they evaluated.
+
 The \code{ppc} kind's posterior-predictive p-values are conservative checks:
 an extreme value flags substantial misfit, but an unremarkable value is weak
 evidence that the model is adequate. Treat the graphical check via

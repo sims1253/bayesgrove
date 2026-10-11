@@ -20,3 +20,10 @@ use them without calling both setup functions. A neutral \code{data} kind (an
 alias of the \code{stan_data} executor) is registered as well, so brms-backed
 graphs need not label plain data frames with a Stan-specific kind.
 }
+\details{
+The brms fit executors pass \code{backend} and \code{algorithm} to \code{brms::brm()}
+explicitly, from node params or else the \code{brms.backend} and
+\code{brms.algorithm} options resolved at execution time. Their job records'
+provenance (see \code{\link[=bg_node_pad]{bg_node_pad()}}) carries the family, the applied priors,
+and the sampler settings read back from the fit.
+}

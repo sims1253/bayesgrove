@@ -46,6 +46,20 @@ describe("brms integration (Phase 4.5)", {
     expect_equal(hmc[[1]]$summary_kind, "hmc_diagnostics")
     expect_true(hmc[[1]]$severity %in% c("ok", "warning", "error"))
 
+    # The backend and algorithm passed explicitly are the ones recorded.
+    prov <- bg_node_pad(handle, n_fit)
+    expect_identical(prov$consumed$D, list(n_data))
+    expect_identical(
+      prov$effective$A$backend,
+      getOption("brms.backend", "rstan")
+    )
+    expect_identical(
+      prov$effective$A$algorithm,
+      getOption("brms.algorithm", "sampling")
+    )
+    expect_identical(prov$effective$P$family$family, "gaussian")
+    expect_true(is.list(prov$pad))
+
     fit <- bg_result(handle, n_fit)
     loo_result <- bayesgrove:::bg_executor_loo(
       list(params = list()),
