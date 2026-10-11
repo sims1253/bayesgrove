@@ -266,6 +266,15 @@ test_that("the vocabulary declares the taxonomy's utilities, goals, and checks",
   expect_equal(mapped$hmc_diagnostics, "convergence")
   expect_equal(mapped$loo_diagnostics, "predictive_performance")
   expect_equal(mapped$sbc_result, "parameter_recoverability")
+  # Pareto-k records inform predictive assessment but measure LOO reliability.
+  titles <- stats::setNames(
+    vapply(vocabulary$checks, `[[`, character(1), "title"),
+    checks
+  )
+  for (check in c("loo_diagnostics", "pareto_k_diagnostics")) {
+    expect_match(titles[[check]], "reliability", label = check)
+    expect_match(titles[[check]], "not predictive accuracy", label = check)
+  }
 })
 
 test_that("every check and utility the rules name is declared", {
@@ -405,6 +414,10 @@ test_that("evidence satisfies the advisory rules but asserted evidence never sat
   )
   # Only the derived-convergence rule remains: asserted convergence evidence,
   # even when reviewed, is not derived from a run.
+  # STAGING: derived evidence is not implemented on this branch yet, so no
+  # candidate can satisfy convergence-derived and Enforce can never accept.
+  # This assertion changes when derived evidence lands: a candidate bound to a
+  # run with derived hmc_diagnostics evidence must then satisfy the rule.
   expect_equal(official_finding_ids(proposal), "convergence-derived")
   expect_equal(
     proposal$findings[[1]]$require$provenance,
@@ -451,6 +464,10 @@ test_that("enforce mode holds only for blocking findings", {
     candidate_id = id,
     evidence_ids = hmc
   )
+  # STAGING: derived evidence is not implemented on this branch yet, so no
+  # candidate can satisfy convergence-derived and Enforce can never accept.
+  # This assertion changes when derived evidence lands: a candidate bound to a
+  # run with derived hmc_diagnostics evidence must then satisfy the rule.
   expect_false(proposal$allowed)
   severities <- official_severities(proposal)
   expect_equal(
@@ -491,6 +508,88 @@ test_that("enforce mode holds only for blocking findings", {
   expect_length(proposal$findings, 3)
   state <- bg_research_apply(h, proposal)
   expect_equal(tail(state$history, 1)[[1]]$action$kind, "accept")
+})
+
+test_that("the conditional review rules are silent without their evidence", {
+  official_local_registry()
+  h <- official_fixture("observable_prediction", "guide")
+  id <- official_candidate(h)
+  ppc <- official_evidence(h, id, "posterior_predictive_check")
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = ppc
+  )
+  found <- official_finding_ids(proposal)
+  expect_false("review-hmc-diagnostics" %in% found)
+  expect_false("review-optimizer-diagnostics" %in% found)
+  # Convergence evidence is still missing.
+  expect_true("convergence-derived" %in% found)
+
+  # HMC evidence activates only the HMC review rule.
+  hmc <- official_evidence(h, id, "hmc_diagnostics")
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = hmc
+  )
+  found <- official_finding_ids(proposal)
+  expect_true("review-hmc-diagnostics" %in% found)
+  expect_false("review-optimizer-diagnostics" %in% found)
+})
+
+test_that("optimizer diagnostics activate the optimizer review rule", {
+  official_local_registry()
+  h <- official_fixture("observable_prediction", "enforce")
+  id <- official_candidate(h)
+  opt <- official_evidence(h, id, "optimizer_diagnostics")
+  expect_equal(
+    bg_research_state(h)$evidence[[opt]]$utility,
+    "convergence"
+  )
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = opt
+  )
+  severities <- official_severities(proposal)
+  expect_equal(severities[["review-optimizer-diagnostics"]], "blocking")
+  expect_false("review-hmc-diagnostics" %in% names(severities))
+
+  # A second, unreviewed record keeps the rule active after a review.
+  official_apply(h, "review", candidate_id = id, evidence_ids = opt)
+  later <- official_evidence(h, id, "optimizer_diagnostics")
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = opt
+  )
+  expect_true(
+    "review-optimizer-diagnostics" %in% official_finding_ids(proposal)
+  )
+
+  official_apply(h, "review", candidate_id = id, evidence_ids = later)
+  proposal <- official_propose(
+    h,
+    "accept",
+    candidate_id = id,
+    evidence_ids = opt
+  )
+  expect_false(
+    "review-optimizer-diagnostics" %in% official_finding_ids(proposal)
+  )
+  # STAGING: still held only by convergence-derived until derived evidence
+  # lands; this assertion changes then.
+  expect_false(proposal$allowed)
+  blocking <- official_severities(proposal)
+  expect_equal(
+    names(blocking)[blocking == "blocking"],
+    "convergence-derived"
+  )
 })
 
 test_that("comparisons ask for goal-specific evidence per candidate", {

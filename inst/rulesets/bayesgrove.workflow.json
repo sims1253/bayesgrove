@@ -2,7 +2,7 @@
   "id": "bayesgrove.workflow",
   "version": "1.0.0",
   "title": "Bayesian workflow",
-  "description": "The official bayesgrove ruleset. Its vocabulary declares the ten model utilities and the two inferential goals of the Bürkner, Scholz, and Radev (2023) model taxonomy, and maps the built-in summary kinds to the utilities they inform. Its rules express goal-dependent requirements from the paper's two utility trees together with established practice from Bayesian Workflow (2026). Blocking rules cover only convergence diagnostics derived from the run and their human review before acceptance; goal-specific expectations are advisory. Rules require records: the presence of evidence or of a review never certifies that a check passed or that a model is adequate.",
+  "description": "The official bayesgrove ruleset. Its vocabulary declares the ten model utilities and the two inferential goals of the Bürkner, Scholz, and Radev (2023) model taxonomy, and maps the built-in summary kinds to the utilities they inform. Its rules are a selected, tree-informed workflow baseline: a few goal-dependent expectations drawn from the paper's two utility trees, together with established practice from Bayesian Workflow (2026). They do not encode the trees in full. Whether fairness applies, which is the first, conditional gate in both trees, and how to weigh trade-offs between utilities remain the responsibility of the analyst or lab, which can add rules by extending this ruleset. Three explicit rules are blocking, all on acceptance: convergence diagnostics derived from the candidate's run and their human review; goal-specific expectations are advisory. Rules require records: the presence of evidence or of a review never certifies that a check passed or that a model is adequate.",
   "references": [
     "Bürkner, P.-C., Scholz, M., and Radev, S. T. (2023). Some models are useful, but how do we know which ones? Towards a unified Bayesian model taxonomy. Statistics Surveys, 17, 216-310. doi:10.1214/23-SS145. Section and figure numbers follow arXiv:2209.02439v5.",
     "Gelman, A., Vehtari, A., and McElreath, R., with Simpson, D., Margossian, C. C., Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., Modrák, M., and Leos Barajas, V. (2026). Bayesian Workflow. Chapman & Hall/CRC. Section numbers follow the corrected edition of 19 August 2026.",
@@ -123,7 +123,7 @@
       },
       {
         "id": "loo_diagnostics",
-        "title": "PSIS-LOO diagnostics",
+        "title": "PSIS-LOO diagnostics: Pareto-k reliability of the LOO estimate, not predictive accuracy",
         "utilities": ["predictive_performance"]
       },
       {
@@ -133,7 +133,7 @@
       },
       {
         "id": "pareto_k_diagnostics",
-        "title": "Pareto-k diagnostic summary",
+        "title": "Pareto-k diagnostic summary: reliability of PSIS-LOO estimates, not predictive accuracy",
         "utilities": ["predictive_performance"]
       },
       {
@@ -192,8 +192,8 @@
       },
       "severity": "blocking",
       "message": "Record convergence diagnostics derived from this candidate's own run before accepting it.",
-      "explanation": "Before convergence, a posterior approximation can be almost arbitrarily wrong, so nothing drawn from it can be trusted yet. For latent inferential goals the taxonomy places convergence among the primary utilities; for observable goals it treats convergence as a supporting utility that is not strictly required, but recording the diagnostics remains the minimum established practice before a fit is accepted. Only evidence derived by the engine from the bound run counts: asserted results are not tied to the fit they describe. The rule requires a record, not a verdict, and the recorded diagnostics may still show that the approximator failed.",
-      "suggestion": "Bind the candidate to its fit node and record that fit's convergence diagnostics (for example hmc_diagnostics) as derived evidence. If they show problems, run longer, reparameterize, or simplify the model instead of accepting it.",
+      "explanation": "For latent inferential goals the taxonomy places convergence among the primary utilities: there is no external validation on real data, and before convergence a posterior approximation can be almost arbitrarily wrong, so latent conclusions drawn from it cannot be trusted. For observable goals the taxonomy treats convergence as a supporting utility that is not strictly required, because a non-converged fit may still predict well; recording the diagnostics is nonetheless the minimum established practice before a fit is accepted, and this rule asks for nothing more. Only evidence derived by the engine from the bound run counts: asserted results are not tied to the fit they describe. The rule requires a record, not a verdict, and the recorded diagnostics may still show that the approximator failed.",
+      "suggestion": "Run the fit, bind the candidate to it by giving the fit's node_id when creating or revising the candidate, and record an evidence action with that node_id (and no result) so the engine derives the convergence diagnostics, for example hmc_diagnostics, from the run. If they show problems, run longer, reparameterize, or simplify the model instead of accepting it.",
       "references": [
         "Bürkner, Scholz & Radev (2023), §3.8",
         "Bürkner, Scholz & Radev (2023), §4.3.3 and §4.4.1",
@@ -280,7 +280,7 @@
       },
       "severity": "advisory",
       "message": "For an observable goal, consider recording out-of-sample predictive evidence (PSIS-LOO) before accepting this candidate.",
-      "explanation": "For observable inferential goals predictive performance is the central utility, and out-of-sample performance is almost always what generalization requires; in-sample checks can be optimistic. PSIS-LOO estimates it without refitting, and its Pareto-k diagnostics say when the estimate is unreliable. The presence of LOO evidence does not show that the predictions are good enough or that the estimate is reliable.",
+      "explanation": "For observable inferential goals predictive performance is the central utility, and out-of-sample performance is almost always what generalization requires; in-sample checks can be optimistic. PSIS-LOO estimates it without refitting; the loo_diagnostics record summarizes the Pareto-k values, which say whether that estimate is reliable, not how accurate the predictions are. The presence of LOO evidence does not show that the predictions are good enough or that the estimate is reliable.",
       "suggestion": "Compute PSIS-LOO for the fit and record its diagnostics as loo_diagnostics evidence. If Pareto-k values are high, improve the computation (for example with moment matching or exact refits) before relying on the estimate.",
       "references": [
         "Bürkner, Scholz & Radev (2023), §3.3.3",
