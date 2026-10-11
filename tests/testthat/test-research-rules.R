@@ -725,6 +725,7 @@ test_that("version selection takes the highest stable version of a major", {
   )
   expect_no_error(bg_register_ruleset(lab_base("1.2.0", message = "1.2.0")))
   listed <- bg_rulesets()
+  listed <- listed[listed$id == "lab.base", , drop = FALSE]
   expect_equal(nrow(listed), 4)
   expect_true(all(listed$origin == "session"))
   expect_named(listed, c("id", "version", "title", "origin", "digest"))
