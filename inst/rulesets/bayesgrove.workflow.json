@@ -335,7 +335,7 @@
       },
       "severity": "advisory",
       "message": "For a latent goal, consider recording evidence of causal consistency before accepting this candidate.",
-      "explanation": "For latent inferential goals the taxonomy ranks causal consistency among the primary utilities: even a pure measurement goal needs a causal model to justify which variables inform the latent quantities, and causal discussion prevents readers from interpreting associations causally. Evidence records that the assumptions were stated and checked against the model; it does not establish that they are true.",
+      "explanation": "For latent inferential goals the taxonomy ranks causal consistency among the primary utilities: even a pure measurement goal needs a causal model to justify which variables inform the latent quantities, and causal discussion prevents readers from interpreting associations causally. The rule asks for a record relevant to causal consistency, not a verdict: a causal_framing record that only states the question and estimand satisfies it without showing that the model was assessed against the assumptions, and no record establishes that the assumptions are true.",
       "suggestion": "State the assumed causal graph, check that the model's structure and adjustment set are consistent with it (for example with causal_framing or dagitty_adjustment), and record the result as causal_consistency evidence.",
       "references": [
         "Bürkner, Scholz & Radev (2023), §3.1",
@@ -382,7 +382,7 @@
       },
       "severity": "advisory",
       "message": "For a latent goal, consider recording causal consistency evidence for every candidate in this comparison.",
-      "explanation": "For latent goals, predictive performance is only a supporting proxy for parameter recoverability, and it is valid only among causally consistent models: a causally inconsistent model should not be chosen even if it predicts better. Recording causal consistency for each compared candidate keeps a predictive comparison within that class. The evidence does not certify that the causal assumptions hold.",
+      "explanation": "For latent goals, predictive performance is only a supporting proxy for parameter recoverability, and it is valid only among causally consistent models: a causally inconsistent model should not be chosen even if it predicts better. The rule asks for a record relevant to causal consistency for each compared candidate, so that the comparison is made with the causal question in view. A record does not show that a candidate is causally consistent: framing alone does not assess the model against the assumptions, and no record certifies that the assumptions hold.",
       "suggestion": "Record causal_consistency evidence for each candidate listed in the finding before using predictive criteria to choose between them.",
       "references": [
         "Bürkner, Scholz & Radev (2023), §4.4.3",
