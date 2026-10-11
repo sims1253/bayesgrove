@@ -576,7 +576,8 @@ never make existing dated evidence false:
 
 A test loads the file through `bg_ruleset_check()` and asserts that it uses
 no internal API. The official ruleset is held to the same standard as a
-third-party ruleset.
+third-party ruleset. The JSON file is the authoritative rule list, and
+`tests/testthat/test-official-ruleset.R` is that test.
 
 ## Pull requests
 

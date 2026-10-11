@@ -380,6 +380,126 @@ Asserted evidence for the same check would not satisfy this rule. Apply
 derives bindings and evidence again under the research lock. If the node was
 re-run between proposal and apply, the proposal is stale.
 
+## Start from the official ruleset
+
+bayesgrove ships one built-in ruleset, `bayesgrove.workflow`. Its vocabulary
+declares the ten model utilities and the two inferential goals of
+[Bürkner, Scholz, and Radev (2023)](https://doi.org/10.1214/23-SS145) and maps
+the built-in summary kinds to the utilities they inform. Its rules follow the
+paper's utility trees and *Bayesian Workflow* (2026). It is a ruleset like any
+other: plain data, built-in predicates only, loaded through the same
+validation as `lab.positive` above.
+
+```{r}
+bg_rulesets()[c("id", "version", "origin")]
+bg_ruleset_check("bayesgrove.workflow@1")[c("ok", "warnings", "rule_count")]
+```
+
+Start an investigation with it by reference. The goal kind must be one the
+vocabulary declares, `observable_prediction` or `latent_inference`; any other
+kind is an error in every mode.
+
+```{r}
+h2 <- bg_init(tempfile("official-ruleset-"))
+official_state <- bg_research_init(
+  h2,
+  question = "How large is the treatment effect?",
+  goal = list(kind = "latent_inference", estimand = "average treatment effect"),
+  actor = human,
+  mode = "guide",
+  rules = "bayesgrove.workflow@1"
+)
+official <- bg_rules(h2)
+vapply(official$vocabulary$utilities, `[[`, character(1), "id")
+data.frame(
+  rule = sub("bayesgrove.workflow/", "", vapply(official$rules, `[[`, "", "id"), fixed = TRUE),
+  on = vapply(official$rules, function(r) paste(unlist(r$on), collapse = ", "), ""),
+  severity = vapply(official$rules, `[[`, "", "severity")
+)
+```
+
+Only three rules block, all on acceptance: convergence diagnostics derived
+from the candidate's own run, and a human review of the computation
+diagnostics that were recorded. The goal-specific expectations are advisory.
+Evidence asserted by a caller, like the illustrative record below, never
+satisfies the derived-convergence rule: it needs evidence the engine derives
+from a run bound to the candidate.
+
+```{r}
+record2 <- function(action, rationale, actor = human) {
+  bg_research_apply(h2, bg_research_propose(h2, action, actor, rationale))
+}
+official_state <- record2(
+  list(kind = "create", label = "Adjusted regression",
+       components = list(P = list(formula = "y ~ treatment + age"))),
+  "Start from the adjustment set implied by the assumed causal graph."
+)
+model <- tail(official_state$history, 1)[[1]]$id
+official_state <- record2(
+  list(kind = "evidence", candidate_id = model, label = "Illustrative sampler check",
+       check = "hmc_diagnostics", result = list(source = "illustrative")),
+  "Record the sampler diagnostics."
+)
+hmc <- tail(official_state$history, 1)[[1]]$id
+official_state$evidence[[hmc]]$utility
+
+proposal <- bg_research_propose(
+  h2,
+  list(kind = "accept", candidate_id = model, evidence_ids = hmc),
+  human,
+  "Accept the adjusted model."
+)
+vapply(proposal$findings, `[[`, character(1), "severity")
+```
+
+Each finding carries the rule's explanation, a suggestion, and references to
+the paper and the book. Evidence and reviews are records: the rules require
+that a check was recorded and read, never that it passed.
+
+```{r}
+recoverability <- proposal$findings[["bayesgrove.workflow/latent-parameter-recoverability"]]
+recoverability$message
+unlist(recoverability$references)
+```
+
+A lab adapts the official rules by extending them rather than copying them.
+Here a lab makes the causal-consistency expectation blocking and adds a
+fairness audit, with a check that informs the `fairness` utility. Inherited
+rules keep their source and record who overrode them.
+
+```{r}
+lab_workflow <- bg_ruleset(
+  "lab.workflow",
+  "1.0.0",
+  title = "Lab workflow",
+  extends = "bayesgrove.workflow@1",
+  override = list(
+    "bayesgrove.workflow/latent-causal-consistency" = list(severity = "blocking")
+  ),
+  vocabulary = list(checks = list(
+    list(id = "fairness_audit", title = "Fairness audit", utilities = "fairness")
+  )),
+  rules = list(bg_rule(
+    id = "fairness-audit",
+    on = "accept",
+    require = list(type = "require_evidence", check = "fairness_audit"),
+    severity = "advisory",
+    message = "Record a fairness audit before accepting a model.",
+    references = "Bürkner, Scholz & Radev (2023), §3.4"
+  ))
+)
+bg_ruleset_check(lab_workflow)[c("ok", "warnings", "rule_count")]
+bg_register_ruleset(lab_workflow)
+official_state <- bg_use_rules(h2, "lab.workflow@1", actor = human,
+                      rationale = "Adopt the lab's extension of the official rules.")
+causal <- Filter(
+  function(r) r$id == "bayesgrove.workflow/latent-causal-consistency",
+  bg_rules(h2)$rules
+)[[1]]
+causal[c("severity", "source", "overridden_by")]
+bg_close(h2)
+```
+
 ## Reopen and share
 
 ```{r}

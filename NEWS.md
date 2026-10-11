@@ -26,6 +26,19 @@
   the active policy. Installed policies are pinned with content digests, and
   ordinary actions never consult the live registry. Existing rule lists keep
   working unchanged and stay blocking.
+* bayesgrove ships an official ruleset, `bayesgrove.workflow` 1.0.0
+  (experimental), available as `"bayesgrove.workflow@1"`. Its vocabulary
+  declares the ten model utilities and the `observable_prediction` and
+  `latent_inference` goal kinds of Bürkner, Scholz, and Radev (2023), and maps
+  the built-in summary kinds to the utilities they inform. Nine rules,
+  referenced to the paper and to *Bayesian Workflow* (2026), express the
+  paper's goal-dependent utility trees with built-in predicates only. Only
+  three block, all on `accept`: convergence evidence derived from the
+  candidate's run (which asserted evidence never satisfies) and human review of
+  recorded HMC or optimizer diagnostics. Goal-specific expectations, such as
+  LOO evidence for observable goals and causal-consistency and
+  parameter-recoverability evidence for latent goals, are advisory. Labs adapt
+  it with `extends = "bayesgrove.workflow@1"`, `disable`, and `override`.
 * Bundles copy Stan programs referenced by node params, and their `#include`
   closure, into the archive and rewrite the graph to project-relative paths,
   so restored projects run after the original files are gone. Only files
