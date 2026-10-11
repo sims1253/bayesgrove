@@ -379,11 +379,9 @@ test_that("custom predicate registration and use are validated", {
 
 test_that("declared predicate arguments are required at evaluation", {
   local_rule_registry()
-  bg_register_rule_predicate(
-    "lab.has_label",
-    function(subject, args) identical(subject$action$label, args$label),
-    arguments = "label"
-  )
+  # Always TRUE, so only the argument check can produce a finding.
+  pass <- function(subject, args) TRUE
+  bg_register_rule_predicate("lab.has_label", pass, arguments = "label")
   rule <- bg_rule(
     id = "labelled",
     on = "note",
@@ -392,41 +390,49 @@ test_that("declared predicate arguments are required at evaluation", {
   )
   h <- rules_fixture(list(rule), mode = "enforce")
   id <- rules_create(h)
-  state <- bg_research_state(h)
-  # Re-registered at the pinned version with a different declaration.
+  note <- function() rules_propose(h, "note", candidate_id = id)
+  expect_true(note()$allowed)
+  # Re-registered at the pinned version with a different declaration: the
+  # state still reads, and evaluation fails instead of passing.
   bg_register_rule_predicate(
     "lab.has_label",
-    function(subject, args) identical(subject$action$label, args$label),
+    pass,
     arguments = c("label", "case"),
     replace = TRUE
   )
-  action <- list(kind = "note", candidate_id = id)
-  findings <- bg_research_findings(
-    state,
-    action,
-    state$candidates[[id]],
-    human
+  expect_no_error(bg_research_state(h))
+  proposal <- note()
+  expect_false(proposal$allowed)
+  expect_named(proposal$findings, "labelled")
+  expect_match(
+    proposal$findings$labelled$failures[[1]],
+    "omits required argument(s) 'case'",
+    fixed = TRUE
   )
-  expect_named(findings, "labelled")
-  expect_match(findings$labelled$failures[[1]], "omits required argument")
-  # A stored condition with a missing or NULL declared argument never passes.
+  expect_error(bg_research_apply(h, proposal), "held by policy")
+  # A stored condition missing a declared argument never passes either.
+  bg_register_rule_predicate(
+    "lab.has_label",
+    pass,
+    arguments = "label",
+    replace = TRUE
+  )
+  state <- bg_research_state(h)
   state$rules[[1]]$require <- list(type = "lab.has_label")
-  findings <- bg_research_findings(
-    state,
-    action,
-    state$candidates[[id]],
-    human
+  bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+  expect_no_error(bg_research_state(h))
+  proposal <- note()
+  expect_false(proposal$allowed)
+  expect_match(
+    proposal$findings$labelled$failures[[1]],
+    "omits required argument(s) 'label'",
+    fixed = TRUE
   )
-  expect_match(findings$labelled$failures[[1]], "'label', 'case'")
+  # A NULL argument is structurally invalid without consulting the registry.
+  .bg_rules_env$predicates[["lab.has_label"]] <- NULL
   state$rules[[1]]$require["label"] <- list(NULL)
   bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
   expect_error(bg_research_state(h), "Malformed")
-  # On read, a predicate registered at the pinned version is checked too.
-  state$rules[[1]]$require <- list(type = "lab.has_label", label = "Approved")
-  bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
-  expect_error(bg_research_state(h), "Malformed")
-  .bg_rules_env$predicates[["lab.has_label"]] <- NULL
-  expect_no_error(bg_research_state(h))
 })
 
 test_that("compare decides applicability per candidate", {

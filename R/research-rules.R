@@ -647,10 +647,9 @@ bg_rule_argument_problems <- function(condition, entry) {
 }
 
 # Problems with custom predicates in a rule list. Installing a policy
-# (`unknown = TRUE`) also rejects unregistered predicates. With `pins`, only
-# predicates registered at the pinned version are checked, so a session with
-# a different implementation can still read the state.
-bg_rule_predicate_problems <- function(rules, unknown = TRUE, pins = NULL) {
+# (`unknown = TRUE`) also rejects unregistered predicates. State reads never
+# call this: compatibility with the registry is checked at evaluation.
+bg_rule_predicate_problems <- function(rules, unknown = TRUE) {
   problems <- character()
   for (rule in rules) {
     for (condition in bg_rule_conditions(rule)) {
@@ -669,13 +668,6 @@ bg_rule_predicate_problems <- function(rules, unknown = TRUE, pins = NULL) {
             )
           )
         }
-        next
-      }
-      pinned <- Filter(function(p) identical(p$id, condition$type), pins)
-      if (
-        !is.null(pins) &&
-          (!length(pinned) || !identical(pinned[[1]]$version, entry$version))
-      ) {
         next
       }
       problems <- c(

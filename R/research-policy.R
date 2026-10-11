@@ -83,12 +83,9 @@ bg_research_policy_stored <- function(state) {
   if (is.null(state$rules)) {
     cli::cli_abort("Rules must be a list.")
   }
-  rules <- bg_rule_list(state$rules, shapes)
-  bg_rule_abort_problems(bg_rule_predicate_problems(
-    rules,
-    unknown = FALSE,
-    pins = state$predicates %||% list()
-  ))
+  # Structure only; predicate availability and arguments are checked at
+  # evaluation, so reads never depend on the session registry.
+  bg_rule_list(state$rules, shapes)
   if (!is.null(state$ruleset)) {
     ruleset <- state$ruleset
     bg_research_fields(

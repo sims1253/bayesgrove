@@ -132,9 +132,9 @@ bg_register_rule_predicate(id, fn, arguments = character(), version = "1",
 - Every name in `arguments` is required and must be non-`NULL`; `optional`
   lists arguments a condition may omit. `NULL` arguments are always invalid.
 - `configure` and `bg_ruleset_check()` reject unknown predicate ids, unknown
-  arguments, and missing required arguments. Rule constructors and state
-  reads check arguments when the predicate is registered (on read, at the
-  pinned version). At evaluation, a missing or `NULL` required argument is a
+  arguments, and missing required arguments. Rule constructors check
+  arguments when the predicate is registered. State reads never consult the
+  registry. At evaluation, a missing or `NULL` required argument is a
   failure, so it can never satisfy a rule.
 
 **Portability.** Pinning makes the declarative rules identical everywhere.
