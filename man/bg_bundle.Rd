@@ -44,7 +44,7 @@ environment and reproducibility manifests) can change these sources.
 \item Nothing else is copied. Executor dependencies (persisted separately as
 inert source and restored only through the trust-gated
 \code{\link[=bg_restore_executors]{bg_restore_executors()}}), external data (attach it with
-\link{bg_set_node_data} so it travels through the CAS), secrets, and
+\code{\link[=bg_set_node_data]{bg_set_node_data()}} so it travels through the CAS), secrets, and
 unreferenced siblings of a referenced file all stay outside the archive.
 Directories are never copied wholesale.
 \item A referenced file that is missing at bundle time produces a warning and
@@ -52,7 +52,7 @@ the reference is left as-is.
 }
 
 Relocation happens at bundle time: files are archived under
-\code{bundle_sources/} inside the project directory, the archived graph stores
+\verb{bundle_sources/} inside the project directory, the archived graph stores
 the archived paths relative to the project root, and
 \code{.bayesgrove/bundle_manifest.json} records a \code{source_policy} section with
 the policy name and version, the approved keys, and a relocation table

@@ -95,6 +95,14 @@ bg_build_api_boundary_registry <- function() {
     list(fn = "bg_research_state", classification = "experimental"),
     list(fn = "bg_research_propose", classification = "experimental"),
     list(fn = "bg_research_apply", classification = "experimental"),
+    list(fn = "bg_rule", classification = "experimental"),
+    list(fn = "bg_ruleset", classification = "experimental"),
+    list(fn = "bg_ruleset_check", classification = "experimental"),
+    list(fn = "bg_register_ruleset", classification = "experimental"),
+    list(fn = "bg_rulesets", classification = "experimental"),
+    list(fn = "bg_register_rule_predicate", classification = "experimental"),
+    list(fn = "bg_use_rules", classification = "experimental"),
+    list(fn = "bg_rules", classification = "experimental"),
 
     # === Experimental: Templates ===
     list(fn = "bg_list_templates", classification = "experimental"),
