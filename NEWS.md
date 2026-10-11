@@ -49,15 +49,15 @@
   `metadata$provenance`; the built-in fit executors report their data input
   and effective sampler settings, and `loo`, `ppc`, and `loo_pit` report the
   fit they evaluated. An executor may now return
-  `list(result = , metadata = )` without `summaries`. File contents (a
-  `stan_file` source closure and every input that is a file path) are hashed
-  in the process that runs the executor, before it runs, and checked again
-  after. A file's hash is recorded only for a consumed file the engine
-  hashed at exactly that path; a consumed file without one, or a change to
-  the Stan source or a consumed file, leaves the record with a
-  `capture_error` and no P/A/D snapshot. If provenance cannot be captured at all, the succeeded job
-  records a `capture_error` instead of `provenance`, so it is distinguishable
-  from executions made before this version.
+  `list(result = , metadata = )` without `summaries`. File-backed data is
+  supported only as a regular file hashed before the run at the identical
+  path, resolved in the process that runs the executor: a consumed data
+  input whose value is a string must be such a file and, like the
+  `stan_file` source, must not change during execution; otherwise the
+  record keeps a `capture_error` and no P/A/D snapshot. If provenance cannot
+  be captured at all, the succeeded job records a `capture_error` instead of
+  `provenance`, so it is distinguishable from executions made before this
+  version.
 * `bg_register_node_kind()` gains a `pad` argument that classifies a kind's
   parameters as P, A, D, `locator`, or `other`. The declaration is stored in
   the runtime manifest and restored on open. The built-in fit kinds

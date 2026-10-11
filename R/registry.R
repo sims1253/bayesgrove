@@ -177,15 +177,13 @@ bg_use_default_workflow <- function(project) {
 #'   `consumed$data_files`, `list(node_id, path)` entries naming file-path
 #'   inputs it read) and the settings it actually used (`effective$P`,
 #'   `effective$A`). Without a report, every input counts as consumed data.
-#'   File contents are hashed by the engine in the executing process before
-#'   the executor runs, for a `stan_file` param and for every input that is a
-#'   file path. A file's hash enters the provenance only when the file is
-#'   consumed (listed in `consumed$data_files`, or a consumed `D` input whose
-#'   value is that path) and the engine hashed exactly that path. A consumed
-#'   file without such a hash, a report that disagrees with it, or a change
-#'   to the Stan source or a consumed file during execution records a
-#'   `capture_error` and no P/A/D snapshot. Changes to inputs that were not
-#'   consumed are ignored.
+#'   File-backed data is supported only as a regular file hashed before the
+#'   run at the identical path, resolved in the executing process: every
+#'   consumed `D` input whose value is a character string must be such a
+#'   file, every `data_files` entry must name a consumed `D` input at that
+#'   path, and neither those files nor the `stan_file` source may change
+#'   during execution. Otherwise the provenance records a `capture_error`
+#'   and no P/A/D snapshot; inputs that were not consumed are never checked.
 #' @param pad Optional P/A/D classification of the kind's parameters: a named
 #'   list with character vectors `P` (model), `A` (algorithm), `D` (data),
 #'   `locator` (parameters that select inputs, such as `data_input`), and

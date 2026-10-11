@@ -687,6 +687,29 @@ describe("file report reconciliation", {
                 path = file.path(dirname(path), ".", basename(path))
               ))
             )
+          },
+          # Lists the input as a data file but excludes it from D, then
+          # edits it.
+          undeclared = {
+            readLines(path)
+            cat("edited\n", file = path, append = TRUE)
+            list(
+              D = character(),
+              data_files = list(list(node_id = id, path = path))
+            )
+          },
+          # The input names a directory; a child file changes during the run.
+          directory = {
+            child <- file.path(path, "child.csv")
+            readLines(child)
+            writeLines(as.character(stats::runif(1)), child)
+            list(D = id)
+          },
+          # The input names a file that only appears during execution.
+          late = {
+            writeLines(as.character(stats::runif(1)), path)
+            readLines(path)
+            list(D = id)
           }
         )
         list(
@@ -704,18 +727,29 @@ describe("file report reconciliation", {
     list(handle = handle, src = src)
   }
 
-  run_reader <- function(mode, mutate = FALSE) {
+  run_reader <- function(
+    mode,
+    mutate = FALSE,
+    input = c("file", "dir", "none")
+  ) {
+    input <- match.arg(input)
     data_file <- withr::local_tempfile(
       fileext = ".csv",
       .local_envir = parent.frame()
     )
-    writeLines("y", data_file)
-    writeLines("derived", paste0(data_file, ".derived"))
     withr::defer(
       unlink(paste0(data_file, c(".derived", ".new"))),
       envir = parent.frame()
     )
-    before <- digest::digest(file = data_file, algo = "sha256")
+    before <- NULL
+    if (identical(input, "file")) {
+      writeLines("y", data_file)
+      writeLines("derived", paste0(data_file, ".derived"))
+      before <- digest::digest(file = data_file, algo = "sha256")
+    } else if (identical(input, "dir")) {
+      dir.create(data_file)
+      writeLines("child", file.path(data_file, "child.csv"))
+    }
     project <- make_reader_project(data_file)
     reader <- bg_add_node(
       project$handle,
@@ -747,7 +781,70 @@ describe("file report reconciliation", {
   it("rejects a consumed file the engine did not hash before the run", {
     out <- run_reader("created")
     expect_null(out$provenance$pad)
-    expect_match(out$provenance$capture_error, "no pre-run identity")
+    expect_match(out$provenance$capture_error, "not a consumed D input")
+  })
+
+  it("rejects a data file reported for an input outside consumed D", {
+    out <- run_reader("undeclared")
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "not a consumed D input")
+  })
+
+  it("rejects a directory-valued D input", {
+    out <- run_reader("directory", input = "dir")
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "directory")
+  })
+
+  it("rejects a D input file that was missing before the run", {
+    out <- run_reader("late", input = "none")
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "missing")
+    expect_identical(out$provenance$consumed$data_files, list())
+  })
+
+  it("resolves relative paths in the executing process", {
+    # The executor runs in a working directory the main process does not
+    # share (a daemon started elsewhere). Its snapshot and reported paths are
+    # normalized there, so reconciliation elsewhere compares them as is.
+    worker_dir <- withr::local_tempdir()
+    writeLines("y", file.path(worker_dir, "input.csv"))
+    executed <- withr::with_dir(
+      worker_dir,
+      bg_with_file_identities(
+        list(params = list()),
+        list(n = "input.csv"),
+        NULL,
+        function() {
+          list(
+            artifact = readLines("input.csv"),
+            metadata = list(
+              provenance = list(
+                consumed = list(
+                  D = "n",
+                  data_files = list(list(node_id = "n", path = "input.csv"))
+                )
+              )
+            )
+          )
+        }
+      )
+    )
+    expected <- normalizePath(file.path(worker_dir, "input.csv"))
+    expect_identical(executed$files$data_files$n$path, expected)
+    reported <- executed$value$metadata$provenance$consumed$data_files
+    expect_identical(reported[[1]]$path, expected)
+
+    caller_dir <- withr::local_tempdir()
+    reconciled <- withr::with_dir(
+      caller_dir,
+      bg_reconcile_data_files(reported, executed$files$data_files, "n")
+    )
+    expect_identical(reconciled$errors, character())
+    expect_identical(
+      reconciled$data_files[[1]]$sha256,
+      digest::digest(file = expected, algo = "sha256")
+    )
   })
 
   it("ignores changes to file-like inputs that were not consumed", {
@@ -782,13 +879,22 @@ describe("file report reconciliation", {
       a = list(
         node_id = "a",
         path = "/data/a.csv",
+        kind = "file",
         sha256 = "h1",
         changed = FALSE
       ),
       b = list(
         node_id = "b",
         path = "/data/b.csv",
+        kind = "file",
         sha256 = "h2",
+        changed = TRUE
+      ),
+      d = list(
+        node_id = "d",
+        path = "/data/dir",
+        kind = "directory",
+        sha256 = NA_character_,
         changed = TRUE
       )
     )
@@ -802,20 +908,40 @@ describe("file report reconciliation", {
 
     by_path <- bg_reconcile_data_files(
       list(list(node_id = NULL, path = "/data/a.csv")),
-      snapshot
+      snapshot,
+      d_ids = "a"
     )
+    expect_identical(by_path$errors, character())
     expect_identical(by_path$data_files[[1]]$node_id, "a")
 
-    unknown_id <- bg_reconcile_data_files(
-      list(list(node_id = "c", path = NULL)),
-      snapshot
+    # Paths are compared as normalized strings; the main process never
+    # resolves them itself.
+    relative <- bg_reconcile_data_files(
+      list(list(node_id = "a", path = "a.csv")),
+      snapshot,
+      d_ids = "a"
     )
-    expect_match(unknown_id$errors, "no pre-run identity")
+    expect_match(relative$errors, "does not match input")
 
-    consumed_change <- bg_reconcile_data_files(
-      list(list(node_id = "b", path = NULL)),
-      snapshot
+    outside_d <- bg_reconcile_data_files(
+      list(list(node_id = "c", path = NULL)),
+      snapshot,
+      d_ids = "a"
     )
+    expect_match(outside_d$errors, "not a consumed D input")
+
+    not_a_path <- bg_reconcile_data_files(
+      list(list(node_id = "e", path = NULL)),
+      snapshot,
+      d_ids = "e"
+    )
+    expect_match(not_a_path$errors, "not a path")
+
+    consumed_change <- bg_reconcile_data_files(list(), snapshot, d_ids = "b")
     expect_match(consumed_change$errors, "changed during execution")
+
+    directory <- bg_reconcile_data_files(list(), snapshot, d_ids = "d")
+    expect_match(directory$errors, "directory")
+    expect_identical(directory$data_files, list())
   })
 })

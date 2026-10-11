@@ -253,14 +253,13 @@ bg_data_file_report <- function(input_id, data) {
 
 # --- File identities -------------------------------------------------------
 #
-# Files an execution reads are identified by content, hashed in the process
-# that runs the executor *before* it runs: the Stan source closure of the
-# node's `stan_file` param, and, speculatively, every input whose value is a
-# file path. They are hashed again after the executor returns. Which of those
-# files count is decided later, when the executor's report says what it
-# consumed (see `bg_reconcile_data_files()`): only the Stan source and
-# confirmed-consumed files must be unchanged, and a content identity enters
-# provenance only for a consumed file the engine hashed at exactly that path.
+# File-backed data is supported only as a regular file hashed before the run
+# at the identical path, resolved in the executing process. That process
+# (bg_execute_node() sequentially, the worker in parallel) snapshots, before
+# and after the executor runs, the Stan source closure of the node's
+# `stan_file` param and every input whose value is a character scalar, and
+# normalizes the paths the executor reports. The main process then compares
+# normalized absolute paths only (see `bg_reconcile_data_files()`).
 
 #' SHA-256 of a file, or `NA` when it cannot be read.
 #' @keywords internal
@@ -272,13 +271,44 @@ bg_hash_file_or_na <- function(path) {
   )
 }
 
-#' Hash the files an execution may read.
+#' Snapshot one input value as a filesystem reference.
+#'
+#' @return `list(path, kind, sha256)`: `path` normalized in this process;
+#'   `kind` one of `"file"`, `"directory"`, `"missing"`; `sha256` the content
+#'   hash of a regular file, or `NA` (also for an unreadable file).
+#' @keywords internal
+#' @noRd
+bg_snapshot_path <- function(value) {
+  if (!nzchar(value)) {
+    return(list(path = value, kind = "missing", sha256 = NA_character_))
+  }
+  path <- normalizePath(value, mustWork = FALSE)
+  kind <- if (!file.exists(path)) {
+    "missing"
+  } else if (dir.exists(path)) {
+    "directory"
+  } else {
+    "file"
+  }
+  list(
+    path = path,
+    kind = kind,
+    sha256 = if (identical(kind, "file")) {
+      bg_hash_file_or_na(path)
+    } else {
+      NA_character_
+    }
+  )
+}
+
+#' Snapshot the files an execution may read.
 #'
 #' @param node The node as passed to the executor (resolved params).
 #' @param inputs The executor inputs, named by upstream node id.
 #' @param project_path Project root for resolving a relative `stan_file`.
-#' @return `list(stan_file = list(path, sha256) or NULL,
-#'   data_files = named list of list(node_id, path, sha256))`.
+#' @return `list(stan_file = list(path, sha256) or NULL, data_files = named
+#'   list of list(node_id, path, kind, sha256))` with one `data_files` entry
+#'   per input whose value is a character scalar.
 #' @keywords internal
 #' @noRd
 bg_execution_file_identities <- function(node, inputs, project_path = NULL) {
@@ -297,27 +327,60 @@ bg_execution_file_identities <- function(node, inputs, project_path = NULL) {
   data_files <- list()
   for (id in names(inputs) %||% character()) {
     value <- inputs[[id]]
-    if (nzchar(id) && bg_is_file_path(value)) {
-      path <- normalizePath(value, mustWork = FALSE)
-      data_files[[id]] <- list(
-        node_id = id,
-        path = path,
-        sha256 = bg_hash_file_or_na(path)
-      )
+    if (
+      nzchar(id) &&
+        is.character(value) &&
+        length(value) == 1L &&
+        !is.na(value)
+    ) {
+      data_files[[id]] <- c(list(node_id = id), bg_snapshot_path(value))
     }
   }
 
   list(stan_file = stan, data_files = data_files)
 }
 
+#' Normalize the paths an executor reported, in the executing process.
+#'
+#' Relative paths resolve against this process's working directory, which
+#' is the one the executor read them from. The main process never resolves
+#' a reported path itself.
+#' @param result A normalized execution result (`artifact`, `summaries`,
+#'   `metadata`), or anything else, which is returned unchanged.
+#' @keywords internal
+#' @noRd
+bg_localize_report_paths <- function(result) {
+  files <- if (is.list(result) && is.list(result$metadata)) {
+    tryCatch(
+      result$metadata$provenance$consumed$data_files,
+      error = function(e) NULL
+    )
+  }
+  if (!is.list(files) || length(files) == 0L) {
+    return(result)
+  }
+  result$metadata$provenance$consumed$data_files <- lapply(
+    files,
+    function(entry) {
+      path <- if (is.list(entry)) entry$path else NULL
+      if (is.character(path) && length(path) == 1L && !is.na(path)) {
+        entry$path <- normalizePath(path, mustWork = FALSE)
+      }
+      entry
+    }
+  )
+  result
+}
+
 #' Run an executor between two file-identity snapshots.
 #'
-#' Hashes before invocation, calls `run()`, and hashes again. Never fails on
-#' hashing. Each snapshotted file carries `changed`: `TRUE` when it could not
-#' be read before the run or its hash differs afterwards. Whether a change
-#' matters is decided once the executor's report is known.
+#' Snapshots before invocation, calls `run()`, normalizes the paths the
+#' executor reported, and snapshots again. Never fails on hashing. Each
+#' snapshotted file carries `changed`: `TRUE` unless it was a readable
+#' regular file before the run with the same content afterwards. Whether a
+#' change matters is decided once the executor's report is known.
 #' @param run A zero-argument function invoking the executor.
-#' @return `list(value = run(), files = list(stan_file, data_files, error))`;
+#' @return `list(value, files = list(stan_file, data_files, error))`;
 #'   `error` is non-`NULL` when the snapshot itself failed.
 #' @keywords internal
 #' @noRd
@@ -329,7 +392,10 @@ bg_with_file_identities <- function(node, inputs, project_path, run) {
     )
   }
   before <- snapshot()
+  # Force the executor before localizing: an executor error must propagate
+  # once, not through a lazily evaluated argument.
   value <- run()
+  value <- bg_localize_report_paths(value)
   after <- snapshot()
 
   differs <- function(before_hash, after_hash) {
@@ -585,91 +651,90 @@ bg_pad_snapshot <- function(
 
 #' Reconcile consumed files with the engine's pre-run file identities.
 #'
-#' A file's content identity enters provenance only when the file is
-#' confirmed consumed and the engine hashed exactly that path before the
-#' executor ran. Consumed files are those the executor reported in
-#' `consumed$data_files`, plus every consumed D input whose value is a file
-#' path the engine pre-hashed (so built-in fits passing a data-file path are
-#' covered without relying on the report). Anything else is an error:
+#' File-backed data is supported only as a regular file hashed before the
+#' run at the identical path, resolved in the executing process. Paths here
+#' are already normalized there, so they are compared as strings. Fails
+#' closed: any violation is an error, which leaves the execution without a
+#' pad.
 #'
-#' - a report whose `node_id` and `path` disagree with the snapshot (for
-#'   example a file derived from the input path);
-#' - a reported file the engine did not hash before the run (for example a
-#'   file created during execution);
-#' - a consumed file that could not be read before the run or changed during
-#'   it.
-#'
-#' Changes to snapshotted inputs that are not consumed are ignored.
-#' @param reported Normalized `consumed$data_files` entries.
-#' @param snapshot Named list of `list(node_id, path, sha256, changed)` by
-#'   input id.
+#' - Every reported `data_files` entry must name an input in consumed D
+#'   (by `node_id`, or by a `path` equal to that input's snapshot path), and
+#'   a reported `path` must equal the snapshot path.
+#' - Every consumed D input whose value is a character scalar is a
+#'   filesystem reference: it must have been a readable regular file before
+#'   the run, unchanged afterwards. Its pre-run hash is its data identity;
+#'   the CAS ref of the path string is never used.
+#' - Inputs outside consumed D are never checked.
+#' @param reported `consumed$data_files` entries from the normalized report.
+#' @param snapshot Named list of `list(node_id, path, kind, sha256, changed)`
+#'   by input id, one per character-scalar input.
 #' @param d_ids Consumed D input ids, in consumed order.
 #' @return `list(data_files, errors)`: `data_files` are
-#'   `list(node_id, path, sha256)` entries with pre-run hashes; `errors` is a
-#'   character vector.
+#'   `list(node_id, path, sha256)` entries, one per file-backed D input;
+#'   `errors` is a character vector.
 #' @keywords internal
 #' @noRd
 bg_reconcile_data_files <- function(reported, snapshot, d_ids = character()) {
   snapshot <- snapshot %||% list()
-  normalize <- function(path) normalizePath(path, mustWork = FALSE)
-  snapshot_paths <- vapply(
-    snapshot,
-    function(entry) entry$path,
-    character(1)
-  )
-  consumed <- character()
   errors <- character()
 
   for (entry in reported %||% list()) {
     id <- entry$node_id %||% NULL
-    path <- if (is.null(entry$path)) NULL else normalize(entry$path)
-    if (!is.null(id)) {
-      file <- snapshot[[id]] %||% NULL
-      if (is.null(file)) {
-        errors <- c(
-          errors,
-          sprintf(
-            "consumed file %s (input %s) has no pre-run identity",
-            path %||% "<unnamed>",
-            id
-          )
-        )
-        next
-      }
-      if (!is.null(path) && !identical(path, file$path)) {
-        errors <- c(
-          errors,
-          sprintf(
-            "reported file %s does not match input %s (%s)",
-            path,
-            id,
-            file$path
-          )
-        )
-        next
-      }
-    } else {
-      match <- names(snapshot_paths)[snapshot_paths == path]
-      if (length(match) == 0L) {
-        errors <- c(
-          errors,
-          sprintf("consumed file %s has no pre-run identity", path)
-        )
-        next
-      }
-      id <- match[[1]]
+    path <- entry$path %||% NULL
+    if (is.null(id)) {
+      in_d <- Filter(
+        function(file) identical(file$path, path),
+        snapshot[intersect(d_ids, names(snapshot))]
+      )
+      id <- if (length(in_d) > 0L) names(in_d)[[1]] else NULL
     }
-    consumed <- c(consumed, id)
+    if (is.null(id) || !id %in% d_ids) {
+      errors <- c(
+        errors,
+        sprintf(
+          "reported data file %s is not a consumed D input",
+          path %||% id %||% "<unnamed>"
+        )
+      )
+      next
+    }
+    file <- snapshot[[id]] %||% NULL
+    if (is.null(file)) {
+      errors <- c(
+        errors,
+        sprintf("input %s is reported as a data file but is not a path", id)
+      )
+      next
+    }
+    if (!is.null(path) && !identical(path, file$path)) {
+      errors <- c(
+        errors,
+        sprintf(
+          "reported file %s does not match input %s (%s)",
+          path,
+          id,
+          file$path
+        )
+      )
+    }
   }
 
-  # Consumed D inputs that are themselves pre-hashed file paths count as
-  # consumed files whether or not the executor listed them.
-  consumed <- unique(c(intersect(d_ids, names(snapshot)), consumed))
-
   data_files <- list()
-  for (id in consumed) {
+  for (id in intersect(d_ids, names(snapshot))) {
     file <- snapshot[[id]]
-    if (isTRUE(file$changed) || is.na(file$sha256)) {
+    if (!identical(file$kind, "file") || is.na(file$sha256)) {
+      errors <- c(
+        errors,
+        sprintf(
+          "input %s (%s) was not a readable regular file before the run (%s)",
+          id,
+          file$path,
+          if (identical(file$kind, "file")) "unreadable" else file$kind
+        )
+      )
+      next
+    }
+    if (isTRUE(file$changed)) {
       errors <- c(
         errors,
         sprintf(
@@ -992,9 +1057,10 @@ bg_resolve_node_execution <- function(
 #' `effective` settings read back from the result, the `environment` of the
 #' process that ran it, and the `pad` snapshot (P/A/D components with SHA-256
 #' digests, or `NULL` when the node kind has no complete
-#' [bg_register_node_kind()] `pad` declaration). When the Stan source or a
-#' consumed file changed while the executor ran, or a consumed file has no
-#' matching pre-run hash, `pad` is `NULL` and `capture_error` says why.
+#' [bg_register_node_kind()] `pad` declaration). File-backed data counts only
+#' as a regular file hashed before the run at the identical path; when that
+#' rule is violated, or the Stan source or a consumed file changed while the
+#' executor ran, `pad` is `NULL` and `capture_error` says why.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id A node id.

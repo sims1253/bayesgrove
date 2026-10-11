@@ -612,4 +612,59 @@ describe("Parallel execution provenance", {
     expect_identical(final_job(handle, ok)$status, "succeeded")
     expect_identical(final_job(handle, bad)$status, "failed")
   })
+
+  it("resolves reported paths on a worker with another working directory", {
+    handle <- bg_init(path = withr::local_tempdir())
+    worker_dir <- withr::local_tempdir()
+    writeLines("y", file.path(worker_dir, "input.csv"))
+    bg_register_node_kind(handle, "path", executor = function(node, inputs) {
+      node$params$path
+    })
+    # Readers receive the relative path "input.csv", which only resolves in
+    # the daemons' working directory, and report it as read.
+    bg_register_node_kind(
+      handle,
+      "reader",
+      executor = function(node, inputs) {
+        id <- names(inputs)[[1]]
+        list(
+          result = readLines(inputs[[1]]),
+          metadata = list(
+            provenance = list(
+              consumed = list(
+                D = id,
+                data_files = list(list(node_id = id, path = inputs[[1]]))
+              )
+            )
+          )
+        )
+      },
+      pad = list(other = "n")
+    )
+    src <- bg_add_node(
+      handle,
+      kind = "path",
+      params = list(path = "input.csv")
+    )
+    readers <- vapply(
+      1:2,
+      function(n) {
+        bg_add_node(handle, kind = "reader", params = list(n = n), inputs = src)
+      },
+      character(1)
+    )
+
+    withr::with_dir(worker_dir, mirai::daemons(2, dispatcher = TRUE))
+    # Deferred after worker_dir, so the daemons stop before it is removed.
+    withr::defer(mirai::daemons(NULL))
+    expect_equal(bg_run(handle, parallel = "always")$status, "succeeded")
+
+    expected <- normalizePath(file.path(worker_dir, "input.csv"))
+    for (reader in readers) {
+      prov <- final_job(handle, reader)$provenance
+      expect_null(prov$capture_error, info = reader)
+      expect_identical(prov$consumed$data_files[[1]]$path, expected)
+      expect_true(is.list(prov$pad), info = reader)
+    }
+  })
 })
