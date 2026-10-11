@@ -275,6 +275,111 @@ length(proposal$findings)
 state <- bg_research_apply(h, proposal)
 ```
 
+## Bind a candidate to a run
+
+So far, every result was asserted by the caller. A candidate can also be
+bound to a node in the execution graph. The engine then records which
+execution it describes and derives evidence from that execution's summaries,
+instead of trusting a pasted result.
+
+This needs a node kind that declares how its parameters split into P, A, and
+D. The small kind below stands in for a real fit, so the example runs without
+Stan. Its executor reports the data input it used and writes one summary.
+
+```{r, message = FALSE}
+runs <- bg_init(tempfile("research-runs-"))
+bg_register_node_kind(runs, "measurements", executor = function(node, inputs) {
+  c(2.1, 3.4, 1.8, 2.9, 4.2)
+})
+bg_register_node_kind(
+  runs, "lognormal_fit",
+  executor = function(node, inputs) {
+    y <- log(inputs[[1]])
+    list(
+      result = list(meanlog = mean(y), sdlog = stats::sd(y)),
+      summaries = list(list(
+        summary_kind = "posterior_predictive_check", severity = "ok",
+        passed = TRUE, metrics = list(share_positive = 1)
+      )),
+      metadata = list(provenance = list(consumed = list(D = names(inputs))))
+    )
+  },
+  pad = list(P = "likelihood", A = "method")
+)
+measurements <- bg_add_node(runs, kind = "measurements")
+lognormal_fit <- bg_add_node(
+  runs, kind = "lognormal_fit", inputs = measurements,
+  params = list(likelihood = "lognormal", method = "moments")
+)
+bg_run(runs)$status
+```
+
+This investigation requires derived predictive evidence before acceptance.
+`create` with `node_id` binds the candidate to the execution behind the node's
+current artifact. Without `components`, the description defaults to that
+execution's P/A/D snapshot.
+
+```{r}
+derived_rule <- bg_rule(
+  id = "derived-ppc",
+  on = "accept",
+  require = list(type = "require_evidence", check = "posterior_predictive_check",
+                 provenance = "derived"),
+  message = "Derive the predictive check from the run before accepting."
+)
+run_state <- bg_research_init(
+  runs, "How should we model these positive measurements?",
+  goal = list(kind = "observable_prediction"), actor = human,
+  mode = "enforce", rules = list(derived_rule)
+)
+run_record <- function(action, rationale) {
+  bg_research_apply(runs, bg_research_propose(runs, action, human, rationale))
+}
+
+run_state <- run_record(
+  list(kind = "create", label = "Lognormal run", node_id = lognormal_fit),
+  "Describe the fit that was actually run."
+)
+bound <- tail(run_state$history, 1)[[1]]$id
+names(run_state$candidates[[bound]]$binding)
+run_state$candidates[[bound]]$components$P$params
+```
+
+The binding stores the node, the job that produced its artifact, the
+artifact's content address, and the P/A/D snapshot with digests. These fields
+are engine-owned: an action that supplies them is rejected. Revising with
+another `node_id` records which of P, A, and D changed by comparing digests.
+A revision without `node_id` is unbound, because it may describe a different
+model.
+
+Evidence with `node_id` instead of `result` is derived. The node here is the
+bound fit itself, so its own summary is used. A check node that evaluated the
+bound fit's exact output works as well. `check` can be omitted because only
+one summary kind matches.
+
+```{r}
+run_state <- run_record(
+  list(kind = "evidence", candidate_id = bound, label = "Positive support",
+       node_id = lognormal_fit, utility = "predictive_performance"),
+  "Use the check the run wrote."
+)
+derived <- tail(run_state$history, 1)[[1]]$id
+run_state$evidence[[derived]]$check
+run_state$evidence[[derived]]$result[c("severity", "passed")]
+run_state$evidence[[derived]]$provenance$kind
+
+proposal <- bg_research_propose(
+  runs, list(kind = "accept", candidate_id = bound, evidence_ids = derived),
+  human, "Accept on evidence derived from the run."
+)
+proposal$allowed
+bg_close(runs)
+```
+
+Asserted evidence for the same check would not satisfy this rule. Apply
+derives bindings and evidence again under the research lock. If the node was
+re-run between proposal and apply, the proposal is stale.
+
 ## Reopen and share
 
 ```{r}
@@ -289,5 +394,5 @@ bg_close(h)
 The [research-search contract](https://github.com/sims1253/bayesgrove/blob/master/architecture/research-search.md)
 lists all action fields, and the
 [rule contract](https://github.com/sims1253/bayesgrove/blob/master/architecture/rules-and-evidence.md)
-specifies rules, predicates, rulesets, and pinning. There is no built-in universal model
+specifies rules, predicates, rulesets, pinning, bindings, and derived evidence. There is no built-in universal model
 score: comparisons state their criteria and retain their evidence.

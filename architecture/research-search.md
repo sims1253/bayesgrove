@@ -22,7 +22,9 @@ workflow. It does not reinterpret old branches as candidates, alter `bg_run()`,
 or migrate existing decision records. Callers can attach evidence obtained with
 the existing executors or with other tools. They must specify what P, A, and D
 actually produced that evidence. Bayesgrove cannot verify those assertions by
-reading an arbitrary Stan program or a caller-supplied result.
+reading an arbitrary Stan program or a caller-supplied result. A candidate can
+instead be bound to an execution in the graph, and evidence can be derived from
+that execution's recorded summaries (see Bindings and derived evidence below).
 
 A candidate is data, not executable source. Store source contents, data versions,
 and approximation settings explicitly when needed to reconstruct the candidate.
@@ -40,9 +42,9 @@ that motivated it. These must refer to existing records and remain in history.
 
 | kind | Required fields besides kind | Meaning |
 | --- | --- | --- |
-| `create` | `label`, `components` | Create a root candidate. |
-| `revise` | `candidate_id`, `label`, `components` | Replace the supplied P/A/D components in a descendant. Other components are inherited. |
-| `evidence` | `candidate_id`, `label`, `check`, `utility`, `result` | Attach a result to an exact candidate. `utility` may be omitted when the vocabulary maps the check to exactly one utility. A check without a `utilities` mapping does not constrain `utility`. |
+| `create` | `label`, `components` | Create a root candidate. With optional `node_id`, bind it to the node's execution; `components` then defaults to that execution's P/A/D snapshot without digests. |
+| `revise` | `candidate_id`, `label`, `components` | Replace the supplied P/A/D components in a descendant. Other components are inherited. With optional `node_id`, bind the revision to the node's execution; `components` may then be omitted. Without `node_id` the revision is unbound. |
+| `evidence` | `candidate_id`, `label`, `check`, `utility`, and `result` or `node_id` | Attach a result to an exact candidate. With `result`, the evidence is asserted. With `node_id` instead, it is derived from a run for a bound candidate, and `check` may be omitted when exactly one summary kind matches. `utility` may be omitted when the vocabulary maps the check to exactly one utility. A check without a `utilities` mapping does not constrain `utility`. |
 | `compare` | `candidate_ids`, `evidence_ids`, `criteria`, `result` | Record a comparison covering at least two candidates, including closed ones. |
 | `review` | `candidate_id`, `evidence_ids` | Record review of specific evidence. |
 | `accept`, `reject` | `candidate_id`, `evidence_ids` | Record a judgment for the investigation's goal. Rejection does not close a lineage. |
@@ -56,6 +58,10 @@ the generated `id`; for create, revise, evidence, compare, and decisions, this i
 also the new record's ID. A root requires P. A and D can be absent or explicitly
 cleared in a revision. Components are replaced whole, not recursively merged.
 A revision that changes nothing is rejected.
+
+`binding`, `provenance`, `pad`, digests, fingerprints, artifact references, job
+ids, and summary ids are engine-owned. An action that supplies any of them, at
+the top level or inside a P/A/D component, is rejected.
 
 Plain lists, strings, finite numbers, logical values, and NULL are supported.
 Named fields must be unique. Arrays are lists on reading. Executable functions,
@@ -71,6 +77,49 @@ revisions. New evidence is not covered by earlier reviews. Reframing keeps previ
 and goals in history. Each research record carries the `goal_version` it was
 created under, referring to the initialization or reframe history entry. Human
 reviews from a previous goal do not satisfy requirements under the new goal.
+
+## Bindings and derived evidence
+
+The full contract is section 2 of
+[Rules, rulesets, and run-derived evidence](rules-and-evidence.md). A
+`node_id` resolves to the execution that produced the node's current artifact,
+which must have recorded a P/A/D snapshot (see `bg_node_pad()`). A bound
+candidate stores `binding = list(node_id, job_id, artifact_ref, pad,
+research_version)`, where `research_version` is the version its history entry
+records.
+
+| action | parent | `node_id` | result |
+| --- | --- | --- | --- |
+| `create` | none | given | Bound. `components` defaults to the snapshot without digests. |
+| `create` | none | absent | Unbound. |
+| `revise` | any | absent | Unbound. Bindings are never inherited. |
+| `revise` | unbound | given | Bound. `changed` comes from the `components` diff and may be empty. |
+| `revise` | bound | given | Bound. `changed` is the union of components whose snapshot digests differ and components whose description changed. An empty union is rejected, so an unchanged clone resolving to the same execution is not a revision. |
+
+`components` remains the caller's description, and rule paths read it. The
+binding is authoritative for provenance.
+
+Derived evidence requires a bound candidate. The evidence node is resolved,
+and its execution is eligible by content identity. A check whose execution
+consumed the bound artifact as its subject is used first, even if it returned
+the subject unchanged. Otherwise a node whose artifact is the bound artifact
+contributes the bound execution's own summaries, together with those of every
+succeeded execution with the same output and fingerprint. Anything else is
+rejected, naming the P/A/D components in which the other execution differs
+when that is known. Summaries are matched by the job id the engine stamped on
+them, and the most recent summary of the selected kind is used. `sbc` and
+`compare` nodes are not supported yet. The record stores
+`result = list(summary_kind, severity, passed, metrics)` and
+`provenance = list(kind = "derived", node_id, job_id, artifact_ref,
+subject_artifact_ref, summary_ids)`. Evidence without `provenance` is asserted.
+`require_evidence` and `require_utility_evidence` with
+`provenance = "derived"` accept only derived evidence.
+
+Propose derives bindings and evidence and reports them in the proposal's
+`derivation`. Apply derives them again under the research lock. A different
+derivation, for example after the node was re-run, makes the proposal stale,
+and the transition stores exactly the derivation apply checked. Re-running
+nodes never rewrites recorded bindings or evidence.
 
 ## Policy
 
@@ -138,8 +187,8 @@ proposal after a successful write is stale. After an ambiguous response, inspect
 the history before proposing anything again.
 
 `bg_snapshot()` includes research state. Project bundles include it, and exported
-reports contain candidate ancestry, operation history, and the exact research
-records. Older projects return NULL research state and need no migration.
+reports contain candidate ancestry, bindings, derived evidence, operation
+history, and the exact research records. Older projects return NULL research state and need no migration.
 
 The vocabulary draws on the PAD taxonomy and goal-dependent utilities in
 [Bürkner, Scholz, and Radev](https://arxiv.org/abs/2209.02439). The action and
