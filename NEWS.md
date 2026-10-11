@@ -52,8 +52,10 @@
   `list(result = , metadata = )` without `summaries`. File contents (a
   `stan_file` source closure and every input that is a file path) are hashed
   in the process that runs the executor, before it runs, and checked again
-  after; if a file changed, the record keeps a `capture_error` and no P/A/D
-  snapshot. If provenance cannot be captured at all, the succeeded job
+  after. A file's hash is recorded only for a consumed file the engine
+  hashed at exactly that path; a consumed file without one, or a change to
+  the Stan source or a consumed file, leaves the record with a
+  `capture_error` and no P/A/D snapshot. If provenance cannot be captured at all, the succeeded job
   records a `capture_error` instead of `provenance`, so it is distinguishable
   from executions made before this version.
 * `bg_register_node_kind()` gains a `pad` argument that classifies a kind's

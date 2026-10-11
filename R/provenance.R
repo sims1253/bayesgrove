@@ -254,10 +254,13 @@ bg_data_file_report <- function(input_id, data) {
 # --- File identities -------------------------------------------------------
 #
 # Files an execution reads are identified by content, hashed in the process
-# that runs the executor *before* it runs: the Stan source closure of a
-# `stan_file` param and every input that is a file path. They are hashed again
-# after the executor returns. A file that changed in between makes the
-# execution unbindable (provenance without `pad`, with `capture_error`).
+# that runs the executor *before* it runs: the Stan source closure of the
+# node's `stan_file` param, and, speculatively, every input whose value is a
+# file path. They are hashed again after the executor returns. Which of those
+# files count is decided later, when the executor's report says what it
+# consumed (see `bg_reconcile_data_files()`): only the Stan source and
+# confirmed-consumed files must be unchanged, and a content identity enters
+# provenance only for a consumed file the engine hashed at exactly that path.
 
 #' SHA-256 of a file, or `NA` when it cannot be read.
 #' @keywords internal
@@ -269,7 +272,7 @@ bg_hash_file_or_na <- function(path) {
   )
 }
 
-#' Hash the files an execution reads.
+#' Hash the files an execution may read.
 #'
 #' @param node The node as passed to the executor (resolved params).
 #' @param inputs The executor inputs, named by upstream node id.
@@ -310,9 +313,12 @@ bg_execution_file_identities <- function(node, inputs, project_path = NULL) {
 #' Run an executor between two file-identity snapshots.
 #'
 #' Hashes before invocation, calls `run()`, and hashes again. Never fails on
-#' hashing; an unreadable or changed file is reported in `changed`.
+#' hashing. Each snapshotted file carries `changed`: `TRUE` when it could not
+#' be read before the run or its hash differs afterwards. Whether a change
+#' matters is decided once the executor's report is known.
 #' @param run A zero-argument function invoking the executor.
-#' @return `list(value = run(), files = list(stan_file, data_files, changed))`.
+#' @return `list(value = run(), files = list(stan_file, data_files, error))`;
+#'   `error` is non-`NULL` when the snapshot itself failed.
 #' @keywords internal
 #' @noRd
 bg_with_file_identities <- function(node, inputs, project_path, run) {
@@ -326,45 +332,29 @@ bg_with_file_identities <- function(node, inputs, project_path, run) {
   value <- run()
   after <- snapshot()
 
-  changed <- character()
-  if (!is.null(before$error) || !is.null(after$error)) {
-    changed <- c(
-      changed,
-      sprintf(
-        "file identities could not be captured (%s)",
-        before$error %||% after$error
-      )
+  differs <- function(before_hash, after_hash) {
+    is.na(before_hash) ||
+      !identical(before_hash, after_hash %||% NA_character_)
+  }
+
+  stan <- before$stan_file
+  if (!is.null(stan)) {
+    stan$changed <- differs(stan$sha256, after$stan_file$sha256)
+  }
+  data_files <- before$data_files %||% list()
+  for (id in names(data_files)) {
+    data_files[[id]]$changed <- differs(
+      data_files[[id]]$sha256,
+      after$data_files[[id]]$sha256
     )
-  }
-  if (!is.null(before$stan_file)) {
-    before_hash <- before$stan_file$sha256
-    if (
-      is.na(before_hash) ||
-        !identical(before_hash, after$stan_file$sha256 %||% NA_character_)
-    ) {
-      changed <- c(
-        changed,
-        sprintf("stan_file %s (source closure)", before$stan_file$path)
-      )
-    }
-  }
-  for (id in names(before$data_files) %||% character()) {
-    entry <- before$data_files[[id]]
-    after_hash <- after$data_files[[id]]$sha256 %||% NA_character_
-    if (is.na(entry$sha256) || !identical(entry$sha256, after_hash)) {
-      changed <- c(
-        changed,
-        sprintf("data file %s (input %s)", entry$path, id)
-      )
-    }
   }
 
   list(
     value = value,
     files = list(
-      stan_file = before$stan_file,
-      data_files = before$data_files %||% list(),
-      changed = changed
+      stan_file = stan,
+      data_files = data_files,
+      error = before$error %||% after$error
     )
   )
 }
@@ -593,37 +583,110 @@ bg_pad_snapshot <- function(
 
 # --- Provenance capture ----------------------------------------------------
 
-#' Attach pre-invocation hashes to the data files an executor reported.
+#' Reconcile consumed files with the engine's pre-run file identities.
 #'
-#' A reported entry is matched to the engine's snapshot by input id, else by
-#' path. Entries naming no snapshotted file-path input are dropped: the engine
-#' only records hashes it took itself, before the executor ran.
+#' A file's content identity enters provenance only when the file is
+#' confirmed consumed and the engine hashed exactly that path before the
+#' executor ran. Consumed files are those the executor reported in
+#' `consumed$data_files`, plus every consumed D input whose value is a file
+#' path the engine pre-hashed (so built-in fits passing a data-file path are
+#' covered without relying on the report). Anything else is an error:
+#'
+#' - a report whose `node_id` and `path` disagree with the snapshot (for
+#'   example a file derived from the input path);
+#' - a reported file the engine did not hash before the run (for example a
+#'   file created during execution);
+#' - a consumed file that could not be read before the run or changed during
+#'   it.
+#'
+#' Changes to snapshotted inputs that are not consumed are ignored.
 #' @param reported Normalized `consumed$data_files` entries.
-#' @param snapshot Named list of `list(node_id, path, sha256)` by input id.
+#' @param snapshot Named list of `list(node_id, path, sha256, changed)` by
+#'   input id.
+#' @param d_ids Consumed D input ids, in consumed order.
+#' @return `list(data_files, errors)`: `data_files` are
+#'   `list(node_id, path, sha256)` entries with pre-run hashes; `errors` is a
+#'   character vector.
 #' @keywords internal
 #' @noRd
-bg_resolve_data_files <- function(reported, snapshot) {
+bg_reconcile_data_files <- function(reported, snapshot, d_ids = character()) {
   snapshot <- snapshot %||% list()
-  paths <- vapply(snapshot, function(entry) entry$path, character(1))
-  resolved <- list()
+  normalize <- function(path) normalizePath(path, mustWork = FALSE)
+  snapshot_paths <- vapply(
+    snapshot,
+    function(entry) entry$path,
+    character(1)
+  )
+  consumed <- character()
+  errors <- character()
+
   for (entry in reported %||% list()) {
     id <- entry$node_id %||% NULL
-    if (is.null(id) || !id %in% names(snapshot)) {
-      id <- NULL
-      if (!is.null(entry$path)) {
-        match <- names(paths)[
-          paths == normalizePath(entry$path, mustWork = FALSE)
-        ]
-        id <- if (length(match) > 0L) match[[1]] else NULL
+    path <- if (is.null(entry$path)) NULL else normalize(entry$path)
+    if (!is.null(id)) {
+      file <- snapshot[[id]] %||% NULL
+      if (is.null(file)) {
+        errors <- c(
+          errors,
+          sprintf(
+            "consumed file %s (input %s) has no pre-run identity",
+            path %||% "<unnamed>",
+            id
+          )
+        )
+        next
       }
+      if (!is.null(path) && !identical(path, file$path)) {
+        errors <- c(
+          errors,
+          sprintf(
+            "reported file %s does not match input %s (%s)",
+            path,
+            id,
+            file$path
+          )
+        )
+        next
+      }
+    } else {
+      match <- names(snapshot_paths)[snapshot_paths == path]
+      if (length(match) == 0L) {
+        errors <- c(
+          errors,
+          sprintf("consumed file %s has no pre-run identity", path)
+        )
+        next
+      }
+      id <- match[[1]]
     }
-    if (is.null(id) || id %in% names(resolved)) {
-      next
-    }
-    file <- snapshot[[id]]
-    resolved[[id]] <- list(node_id = id, path = file$path, sha256 = file$sha256)
+    consumed <- c(consumed, id)
   }
-  unname(resolved)
+
+  # Consumed D inputs that are themselves pre-hashed file paths count as
+  # consumed files whether or not the executor listed them.
+  consumed <- unique(c(intersect(d_ids, names(snapshot)), consumed))
+
+  data_files <- list()
+  for (id in consumed) {
+    file <- snapshot[[id]]
+    if (isTRUE(file$changed) || is.na(file$sha256)) {
+      errors <- c(
+        errors,
+        sprintf(
+          "data file %s (input %s) changed during execution",
+          file$path,
+          id
+        )
+      )
+    }
+    data_files[[length(data_files) + 1L]] <- list(
+      node_id = id,
+      path = file$path,
+      sha256 = file$sha256
+    )
+  }
+
+  list(data_files = data_files, errors = errors)
 }
 
 #' Build the provenance record of one successful execution.
@@ -657,10 +720,12 @@ bg_build_execution_provenance <- function(
   })
   input_ids <- unique(vapply(inputs, `[[`, character(1), "node_id"))
   report <- bg_normalize_executor_report(metadata, input_ids)
-  report$consumed$data_files <- bg_resolve_data_files(
+  reconciled <- bg_reconcile_data_files(
     report$consumed$data_files,
-    files$data_files
+    files$data_files,
+    d_ids = unlist(report$consumed$D, use.names = FALSE) %||% character()
   )
+  report$consumed$data_files <- reconciled$data_files
 
   provenance <- bg_json_roundtrip(list(
     artifact_ref = artifact_ref,
@@ -671,22 +736,33 @@ bg_build_execution_provenance <- function(
     environment = bg_as_named_list(environment)
   ))
 
-  # File identities must come from before the executor ran. Without them, or
-  # when a file changed during execution, the record stays but carries no
-  # pad, so it cannot be bound.
-  capture_error <- if (is.null(files)) {
-    "file identities were not captured for this execution"
-  } else if (length(files$changed) > 0L) {
-    paste0(
-      "files changed during execution: ",
-      paste(files$changed, collapse = "; ")
-    )
+  # File identities must come from before the executor ran, for exactly the
+  # files it consumed. Otherwise the record stays but carries no pad, so it
+  # cannot be bound.
+  errors <- reconciled$errors
+  if (is.null(files)) {
+    errors <- c("file identities were not captured for this execution", errors)
   } else {
-    NULL
+    if (!is.null(files$error)) {
+      errors <- c(
+        sprintf("file identities could not be captured (%s)", files$error),
+        errors
+      )
+    }
+    stan <- files$stan_file
+    if (!is.null(stan) && (isTRUE(stan$changed) || is.na(stan$sha256))) {
+      errors <- c(
+        sprintf(
+          "stan_file %s (source closure) changed during execution",
+          stan$path
+        ),
+        errors
+      )
+    }
   }
-  if (!is.null(capture_error)) {
+  if (length(errors) > 0L) {
     provenance["pad"] <- list(NULL)
-    provenance$capture_error <- capture_error
+    provenance$capture_error <- paste(errors, collapse = "; ")
     return(provenance)
   }
 
@@ -917,8 +993,8 @@ bg_resolve_node_execution <- function(
 #' process that ran it, and the `pad` snapshot (P/A/D components with SHA-256
 #' digests, or `NULL` when the node kind has no complete
 #' [bg_register_node_kind()] `pad` declaration). When the Stan source or a
-#' file-path input changed while the executor ran, `pad` is `NULL` and
-#' `capture_error` names the changed files.
+#' consumed file changed while the executor ran, or a consumed file has no
+#' matching pre-run hash, `pad` is `NULL` and `capture_error` says why.
 #'
 #' @param project A `bg_handle`.
 #' @param node_id A node id.

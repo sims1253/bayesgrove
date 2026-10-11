@@ -39,9 +39,14 @@ the execution consumed (\code{consumed$D}, the data input ids it used;
 inputs it read) and the settings it actually used (\code{effective$P},
 \code{effective$A}). Without a report, every input counts as consumed data.
 File contents are hashed by the engine in the executing process before
-the executor runs, both for a \code{stan_file} param and for every input that
-is a file path; if one changes during execution, the provenance records
-a \code{capture_error} and no P/A/D snapshot.}
+the executor runs, for a \code{stan_file} param and for every input that is a
+file path. A file's hash enters the provenance only when the file is
+consumed (listed in \code{consumed$data_files}, or a consumed \code{D} input whose
+value is that path) and the engine hashed exactly that path. A consumed
+file without such a hash, a report that disagrees with it, or a change
+to the Stan source or a consumed file during execution records a
+\code{capture_error} and no P/A/D snapshot. Changes to inputs that were not
+consumed are ignored.}
 
 \item{pad}{Optional P/A/D classification of the kind's parameters: a named
 list with character vectors \code{P} (model), \code{A} (algorithm), \code{D} (data),

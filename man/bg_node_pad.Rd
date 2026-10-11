@@ -36,6 +36,6 @@ The returned provenance records the execution's own output
 process that ran it, and the \code{pad} snapshot (P/A/D components with SHA-256
 digests, or \code{NULL} when the node kind has no complete
 \code{\link[=bg_register_node_kind]{bg_register_node_kind()}} \code{pad} declaration). When the Stan source or a
-file-path input changed while the executor ran, \code{pad} is \code{NULL} and
-\code{capture_error} names the changed files.
+consumed file changed while the executor ran, or a consumed file has no
+matching pre-run hash, \code{pad} is \code{NULL} and \code{capture_error} says why.
 }

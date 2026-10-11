@@ -50,9 +50,13 @@ from the result, the `environment` of the process that ran it, and a `pad`
 snapshot whose P/A/D components carry SHA-256 digests over canonical JSON.
 The main process writes it on both the sequential and the parallel path.
 File contents (a `stan_file` source closure and file-path inputs) are hashed
-in the process that runs the executor, before it runs; a file that changed by
-the time the executor returned leaves the record with a `capture_error` and
-no `pad`, so it cannot be bound. If capture fails outright, the succeeded job
+in the process that runs the executor, before it runs. A file's content
+identity enters provenance only if the file is confirmed consumed and the
+engine hashed exactly that path before the run. A consumed file without such
+an identity, a report that disagrees with it, or a change to the Stan source
+or a consumed file by the time the executor returned leaves the record with
+a `capture_error` and no `pad`, so it cannot be bound. Changes to inputs that
+were not consumed are ignored. If capture fails outright, the succeeded job
 carries a `capture_error` instead of `provenance`, distinguishing it from
 executions recorded before provenance existed.
 `bg_node_pad()` resolves a node to the most recent succeeded job that

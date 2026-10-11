@@ -548,7 +548,8 @@ describe("file identities captured around execution", {
       function() 1
     )
     expect_identical(unchanged$value, 1)
-    expect_identical(unchanged$files$changed, character())
+    expect_false(unchanged$files$data_files$n$changed)
+    expect_null(unchanged$files$error)
     expect_identical(unchanged$files$data_files$n$node_id, "n")
 
     removed <- bg_with_file_identities(
@@ -557,7 +558,7 @@ describe("file identities captured around execution", {
       NULL,
       function() unlink(path)
     )
-    expect_length(removed$files$changed, 1L)
+    expect_true(removed$files$data_files$n$changed)
   })
 })
 
@@ -622,5 +623,199 @@ describe("executor envelopes and inputs", {
 
     expect_identical(bg_result(handle, down), list(n = 1L, ids = up))
     expect_length(final_job_for(handle, down)$provenance$inputs, 1L)
+  })
+})
+
+describe("file report reconciliation", {
+  # A path source feeding a reader whose behaviour is chosen by `mode`. Every
+  # reader param is classified, so a pad is recorded unless reconciliation
+  # finds a problem.
+  make_reader_project <- function(data_file) {
+    handle <- bg_init(
+      path = withr::local_tempdir(.local_envir = parent.frame())
+    )
+    bg_register_node_kind(
+      handle,
+      "path_src",
+      executor = function(node, inputs) {
+        node$params$path
+      }
+    )
+    bg_register_node_kind(
+      handle,
+      "reader",
+      executor = function(node, inputs) {
+        id <- names(inputs)[[1]]
+        path <- inputs[[1]]
+        mode <- node$params$mode
+        consumed <- switch(
+          mode,
+          # Reads a sibling derived from the input path, reported under the
+          # input's id.
+          derived = {
+            other <- paste0(path, ".derived")
+            readLines(other)
+            list(D = id, data_files = list(list(node_id = id, path = other)))
+          },
+          # Reads a file that only appears during execution.
+          created = {
+            created <- paste0(path, ".new")
+            writeLines(as.character(stats::runif(1)), created)
+            readLines(created)
+            list(D = id, data_files = list(list(path = created)))
+          },
+          # Declares the file-like input unconsumed, then edits it.
+          unconsumed = {
+            cat("edited\n", file = path, append = TRUE)
+            list(D = character())
+          },
+          # Consumes the input as D without listing it as a data file.
+          d_only = {
+            readLines(path)
+            if (isTRUE(node$params$mutate)) {
+              cat("edited\n", file = path, append = TRUE)
+            }
+            list(D = id)
+          },
+          # Reports the input path in a different but equivalent spelling.
+          respelled = {
+            readLines(path)
+            list(
+              D = id,
+              data_files = list(list(
+                node_id = id,
+                path = file.path(dirname(path), ".", basename(path))
+              ))
+            )
+          }
+        )
+        list(
+          result = list(mode = mode),
+          metadata = list(provenance = list(consumed = consumed))
+        )
+      },
+      pad = list(other = c("mode", "mutate"))
+    )
+    src <- bg_add_node(
+      handle,
+      kind = "path_src",
+      params = list(path = data_file)
+    )
+    list(handle = handle, src = src)
+  }
+
+  run_reader <- function(mode, mutate = FALSE) {
+    data_file <- withr::local_tempfile(
+      fileext = ".csv",
+      .local_envir = parent.frame()
+    )
+    writeLines("y", data_file)
+    writeLines("derived", paste0(data_file, ".derived"))
+    withr::defer(
+      unlink(paste0(data_file, c(".derived", ".new"))),
+      envir = parent.frame()
+    )
+    before <- digest::digest(file = data_file, algo = "sha256")
+    project <- make_reader_project(data_file)
+    reader <- bg_add_node(
+      project$handle,
+      kind = "reader",
+      params = list(mode = mode, mutate = mutate),
+      inputs = project$src
+    )
+    bg_run(project$handle)
+    list(
+      provenance = final_job_for(project$handle, reader)$provenance,
+      src = project$src,
+      sha = before
+    )
+  }
+
+  it("rejects a report whose path disagrees with the input's snapshot", {
+    out <- run_reader("derived")
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "does not match input")
+    # The derived file never receives the input file's hash.
+    recorded <- vapply(
+      out$provenance$consumed$data_files,
+      function(file) file$path,
+      character(1)
+    )
+    expect_false(any(endsWith(recorded, ".derived")))
+  })
+
+  it("rejects a consumed file the engine did not hash before the run", {
+    out <- run_reader("created")
+    expect_null(out$provenance$pad)
+    expect_match(out$provenance$capture_error, "no pre-run identity")
+  })
+
+  it("ignores changes to file-like inputs that were not consumed", {
+    out <- run_reader("unconsumed")
+    expect_null(out$provenance$capture_error)
+    expect_true(is.list(out$provenance$pad))
+    expect_identical(out$provenance$consumed$data_files, list())
+  })
+
+  it("identifies a consumed D input file by its pre-run hash", {
+    out <- run_reader("d_only")
+    expect_null(out$provenance$capture_error)
+    expect_identical(out$provenance$consumed$data_files[[1]]$sha256, out$sha)
+    expect_identical(
+      out$provenance$pad$D$data,
+      list(paste0("sha256:", out$sha))
+    )
+
+    changed <- run_reader("d_only", mutate = TRUE)
+    expect_null(changed$provenance$pad)
+    expect_match(changed$provenance$capture_error, "changed during execution")
+  })
+
+  it("compares reported paths after normalization", {
+    out <- run_reader("respelled")
+    expect_null(out$provenance$capture_error)
+    expect_identical(out$provenance$consumed$data_files[[1]]$sha256, out$sha)
+  })
+
+  it("reconciles reports against the snapshot directly", {
+    snapshot <- list(
+      a = list(
+        node_id = "a",
+        path = "/data/a.csv",
+        sha256 = "h1",
+        changed = FALSE
+      ),
+      b = list(
+        node_id = "b",
+        path = "/data/b.csv",
+        sha256 = "h2",
+        changed = TRUE
+      )
+    )
+    # b changed but is not consumed; a is consumed as D only.
+    ok <- bg_reconcile_data_files(list(), snapshot, d_ids = "a")
+    expect_identical(ok$errors, character())
+    expect_identical(
+      ok$data_files,
+      list(list(node_id = "a", path = "/data/a.csv", sha256 = "h1"))
+    )
+
+    by_path <- bg_reconcile_data_files(
+      list(list(node_id = NULL, path = "/data/a.csv")),
+      snapshot
+    )
+    expect_identical(by_path$data_files[[1]]$node_id, "a")
+
+    unknown_id <- bg_reconcile_data_files(
+      list(list(node_id = "c", path = NULL)),
+      snapshot
+    )
+    expect_match(unknown_id$errors, "no pre-run identity")
+
+    consumed_change <- bg_reconcile_data_files(
+      list(list(node_id = "b", path = NULL)),
+      snapshot
+    )
+    expect_match(consumed_change$errors, "changed during execution")
   })
 })
