@@ -145,7 +145,7 @@ A ruleset is a JSON-compatible named list:
 | field | required | meaning |
 | --- | --- | --- |
 | `id` | yes | Dotted namespace, for example `bayesgrove.workflow`, `lab.prereg`. |
-| `version` | yes | `MAJOR.MINOR.PATCH`, optionally `-prerelease`. |
+| `version` | yes | `MAJOR.MINOR.PATCH` without leading zeros, optionally `-prerelease`. |
 | `title`, `description`, `references` | no | Documentation. |
 | `extends` | no | References, resolved in order: `"<id>@<major>"` or `"<id>@<exact version>"`. |
 | `disable` | no | Qualified rule ids to drop from the inherited rules. |
@@ -179,7 +179,8 @@ before a child sees the result.
 **Vocabulary.** `utilities` and `goal_kinds` are lists of
 `list(id, title, description, references)`. `checks` is a list of
 `list(id, title, utilities)`. A check is usually a summary kind, and
-`utilities` lists the utilities that check informs.
+`utilities` lists the utilities that check informs. The `utilities` mapping is
+optional: a check without one does not constrain the evidence's `utility`.
 
 - Vocabularies merge along the resolution order: later parents override
   earlier ones, and the child overrides all. An entry with the same id
