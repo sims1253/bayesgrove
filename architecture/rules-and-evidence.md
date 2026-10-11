@@ -288,11 +288,16 @@ provenance = list(
   fingerprint,
   inputs,              # list(list(node_id, artifact_ref)), in the exact order
                        # passed to the executor
-  consumed = list(D = <input node ids>, subject = <input node id or NULL>),
-  effective,           # executor-reported settings actually used (below)
-  pad                  # P/A/D snapshot with digests (below)
+  consumed = list(D = <input node ids>, subject = <input node id or NULL>,
+                  data_files = <list(path, sha256) for file-path data>),
+  effective = list(P, A),  # executor-reported settings actually used (below)
+  environment,             # manifest of the process that executed the node
+  pad                      # P/A/D snapshot with digests (below)
 )
 ```
+
+Only a **succeeded** job carries provenance. Its `provenance$artifact_ref`
+equals the job's `result_ref`.
 
 - `inputs` is built from the same input bindings `bg_execute_node()` uses to
   assemble the executor's `inputs`. Execution, D, and subject resolution
@@ -301,22 +306,38 @@ provenance = list(
 - Job compaction keeps each job's final record, so provenance survives
   compaction.
 - Parallel execution records provenance in the main process, which is the
-  single writer, like index binding.
+  single writer, like index binding. Workers return the executor's
+  `metadata` (currently dropped in `bg_wave_worker()`) and the worker's
+  environment manifest. Effective settings and environment describe the
+  process that ran the fit.
+- Summaries get `job_id` only on this engine path. The exported
+  `bg_write_summaries()` rejects caller-supplied `job_id`s, so callers cannot
+  forge execution-owned summaries.
 - Executions from before this change have no `provenance` and cannot support
-  bindings or derived evidence. Invalidating and re-running the node records
-  it.
+  bindings or derived evidence. `bg_run(project, rerun = <node ids>)` (new)
+  executes the listed nodes even on a cache hit and binds their own output.
+  This is the recovery path, including for a clone that reuses another node's
+  cached artifact, which invalidation cannot reach.
 
 **Executor reports.** An executor may return
 `metadata$provenance = list(consumed, effective)`. Built-in executors do:
 
 - **Fits** report `consumed$D`, the single data input they selected (using the
-  same helper that selects the data), and `effective`, read back from the
-  fitted object where possible:
-  - cmdstanr: CmdStan version, chains, warmup and sampling iterations,
-    `adapt_delta`, `max_treedepth`, seed, and whether `fixed_param` was used;
-  - brms: backend, algorithm, the backend's version, chains, iterations,
-    `adapt_delta`, `max_treedepth`, seed, family, and priors as brms applied
-    them.
+  same helper that selects the data). If that data is a file path, they also
+  report `consumed$data_files`, the SHA-256 of the file contents at execution
+  time. They also report `effective`, read back from the fitted object on the
+  process that ran it:
+  - cmdstanr `effective$A`: from `fit$metadata()`, the CmdStan version,
+    algorithm (`fixed_param` mode is `algorithm == "fixed_param"`),
+    `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, and seed;
+    chains from `fit$num_chains()`.
+  - brms `effective$P`: `stats::family(fit)` and the applied priors from
+    `brms::prior_summary(fit)`.
+  - brms `effective$A`: `fit$backend`, `fit$algorithm`, `fit$version`, and
+    the sampler settings. With the cmdstanr backend these come from
+    `attr(fit$fit, "metadata")$metadata`; with rstan, from
+    `fit$fit@sim`/`@stan_args`. A setting that isn't available or doesn't apply
+    is recorded as such, not guessed.
 - **brms executors** pass `backend` and `algorithm` explicitly, from node
   params or the session options resolved at execution time, so the recorded
   value is the one used.
@@ -334,39 +355,50 @@ bg_register_node_kind(..., pad = list(
   P = c("formula", "family", "priors"),
   A = c("chains", "iter_warmup", "iter_sampling", "adapt_delta",
         "max_treedepth", "seed", "backend", "algorithm"),
-  D = c("data_input"),
+  locator = c("data_input"),
   other = c("thresholds")
 ))
 ```
 
 The declaration is persisted and restored with the kind in the runtime
 manifest. Classification is total: when `pad` is declared, every parameter on
-an executed node must appear in exactly one of `P`, `A`, `D`, or `other`.
-`other` is for parameters that don't change the fitted model. An unclassified
-parameter means the execution records no `pad`, so it cannot be bound.
+an executed node must appear in exactly one of `P`, `A`, `D`, `locator`, or
+`other`.
+
+- `locator` is for parameters that select inputs, such as `data_input`. They
+  are recorded but excluded from digests.
+- `other` is for parameters that don't change the fitted model.
+
+An unclassified parameter means the execution records no `pad`, so it cannot
+be bound.
 
 The execution's `pad` snapshot:
 
-- **P**: the kind, the P parameters, and for a `stan_file` the hash of its
-  source closure **contents** (the path is only a locator and is excluded, so
-  bundling and relocation keep the same identity).
-- **A**: the executor reference or hash, the A parameters, `effective`, and
-  the environment manifest.
-- **D**: the D parameters, and each `consumed$D` input's node id and the
-  `artifact_ref` actually consumed. The upstream artifact is the realized
-  data, and its content address is the data identity.
+- **P**:
+  - the kind and the P parameters;
+  - `effective$P`;
+  - for a `stan_file`, the hash of its source closure **contents** (the path
+    is only a locator, so bundling and relocation keep the same identity).
+- **A**: the executor reference or hash, the A parameters, `effective$A`, and
+  the execution `environment`.
+- **D**: the D parameters, plus one data identity per consumed input, in
+  consumed order. That identity is the content hash from `data_files` when
+  the input was a file path, and otherwise the consumed `artifact_ref`, the
+  content address of the realized data. Producer node ids and locator
+  parameters are recorded alongside for provenance but are **not** part of the
+  digest, so identical data from different producer nodes has the same D.
 
 Each component carries a `digest`: SHA-256 over canonical JSON of the
-component without the digest field.
+component's identity fields.
 
 Built-in declarations:
 
-| kind | P | A | D | other |
+| kind | P | A | D params | other |
 | --- | --- | --- | --- | --- |
-| `cmdstanr_fit` | `stan_file` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed` | `data_input` | `thresholds` |
-| `prior_fit` | `stan_file` | `iter_warmup`, `iter_sampling`, `seed` | `data_input` | none |
-| `brms_fit` | `formula`, `family`, `priors` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed`, `backend`, `algorithm` | `data_input` | `thresholds` |
-| `brms_prior_fit` | `formula` | `chains`, `iter_warmup`, `iter_sampling`, `seed`, `backend`, `algorithm` | `data_input` | none |
+| `cmdstanr_fit` | `stan_file` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed` | none (locator `data_input`) | `thresholds` |
+| `prior_fit` | `stan_file` | `iter_warmup`, `iter_sampling`, `seed` | none (locator `data_input`) | none |
+| `brms_fit` | `formula`, `family`, `priors` | `chains`, `iter_warmup`, `iter_sampling`, `adapt_delta`, `max_treedepth`, `seed`, `backend`, `algorithm` | none (locator `data_input`) | `thresholds` |
+| `brms_prior_fit` | `formula` | `chains`, `iter_warmup`, `iter_sampling`, `seed`, `backend`, `algorithm` | none (locator `data_input`) | none |
 
 Parameters an executor ignores are deliberately unclassified, so a node
 carrying them records no `pad`. Settings an executor hard-codes, such as
@@ -383,13 +415,17 @@ To resolve a node:
 1. Compute its predicted fingerprint with `bg_predicted_fingerprints()`.
 2. Take the artifact the runner would use for that fingerprint and node
    (`bg_check_artifact()` semantics).
-3. Find the producing execution: the latest job, by `seq`, whose
+3. Find a producing execution: a succeeded job whose
    `provenance$artifact_ref` equals that artifact and whose fingerprint
    matches. The artifact must exist in the CAS with a valid digest.
 
-The producing job may belong to another node with the same fingerprint (cache
-reuse). That is truthful, because the artifact the node resolves to *is* that
-execution's output. A node with no fresh artifact, or whose artifact has no
+Several executions can produce byte-identical output at the same fingerprint,
+for example deterministic reruns. Resolution therefore picks a
+**representative**: the most recent matching job in log order. It does not
+claim to have found the unique historical execution. Identity is carried by
+the output's content address. The representative may belong to another node
+with the same fingerprint (cache reuse). That is truthful, because the
+artifact the node resolves to *is* that output. A node with no fresh artifact, or whose artifact has no
 recorded provenance, cannot be resolved. The error says to run it, or to
 invalidate and re-run it.
 
@@ -427,13 +463,19 @@ For derived evidence:
 
 1. The candidate is bound.
 2. The node is resolved to its producing execution (above).
-3. That execution evaluated the bound execution's output. Either it **is** the
-   bound execution (a fit's own diagnostics), or its `consumed$subject`
-   input's consumed `artifact_ref` equals the binding's `artifact_ref`. The
-   check is content identity. Graph reachability and the current graph are not
-   consulted.
-4. The selected `check` is a summary kind among that execution's summaries
-   (matched by `job_id`). If several match, the latest by `seq` is used.
+3. Eligibility is decided by content identity. Graph reachability and the
+   current graph are not consulted.
+   - **Self**: if the node's resolved artifact equals the binding's
+     `artifact_ref`, the evidence is the bound fit's own diagnostics. The
+     summaries come from the bound `job_id`, or, if that job lacks the check,
+     from another succeeded job with the same output and fingerprint. This way
+     a byte-identical rerun does not lock out a fit's own diagnostics.
+   - **Check**: otherwise, the representative execution's
+     `consumed$subject` input must have consumed exactly the binding's
+     `artifact_ref`.
+4. The selected `check` is a summary kind among the chosen execution's
+   summaries, matched by the engine-stamped `job_id`. If several match, the
+   most recent in log order is used.
    `check` may be omitted when exactly one kind matches. `label` is required.
    `utility` follows the vocabulary rules.
 
@@ -456,6 +498,15 @@ evidence.
 `sbc` (which runs its own model on simulated data) and `compare` (which
 covers several models) report no subject and are not supported in this
 series. Their provenance needs its own design.
+
+**Availability limits.** These can make *new* derivation impossible, but they
+never make existing dated evidence false:
+
+- Bundles relocate Stan paths that are part of fingerprints. They also copy
+  only indexed artifacts, so historical executions may not resolve from a
+  restored project.
+- There is no artifact garbage collection today. A future collector needs a
+  retention policy for artifacts referenced by bindings and jobs.
 
 ## 3. The official ruleset
 
