@@ -69,14 +69,16 @@ Run `bg_api_boundary()` to check which functions are stable or experimental.
 
 ## Background
 
-bayesgrove encodes the Bayesian workflow described by Gelman et al. (2020)
-and in the [*Bayesian Workflow*](https://avehtari.github.io/Bayesian-Workflow/)
-book (Gelman, Vehtari, McElreath, et al., 2026) as software: a guide for people learning it, and a constrained environment for
-experienced analysts and agents. Its research-search vocabulary, which describes
-a model as a joint distribution (P), posterior approximator (A), and training
-data (D) judged by goal-dependent utilities, comes from the Bayesian model
-taxonomy of Bürkner, Scholz, and Radev (2023). Simulation-based calibration
-follows Talts et al. (2018).
+bayesgrove encodes the Bayesian workflow as software, following the workflow
+paper (Gelman et al., 2020) and the
+[*Bayesian Workflow*](https://avehtari.github.io/Bayesian-Workflow/) book
+(Gelman, Vehtari, McElreath, et al., 2026). It is a guide for people learning
+the workflow and a constrained environment for experienced analysts and agents.
+Its research-search vocabulary, which describes a model as a joint distribution
+(P), posterior approximator (A), and training data (D) judged by goal-dependent
+utilities, comes from the Bayesian model taxonomy of Bürkner, Scholz, and Radev
+(2023). Simulation-based calibration checks follow the original method
+(Talts et al., 2018).
 
 The graph engine is [dagriculture](https://github.com/sims1253/dagriculture).
 [Glade](https://github.com/sims1253/glade) is an experimental interface built
