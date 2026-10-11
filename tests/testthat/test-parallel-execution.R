@@ -440,4 +440,30 @@ describe("Parallel execution provenance", {
       expect_identical(summaries[[1]]$job_id, job$job_id, info = leaf)
     }
   })
+
+  it("reruns cached nodes under parallel dispatch", {
+    handle <- bg_init(path = withr::local_tempdir())
+    ids <- make_reporting_graph(handle)
+    bg_run(handle, parallel = "never")
+    before <- vapply(
+      ids$leaves,
+      function(leaf) final_job(handle, leaf)$job_id,
+      character(1)
+    )
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run_res <- bg_run(handle, parallel = "always", rerun = ids$leaves)
+    expect_equal(run_res$status, "succeeded")
+    expect_equal(run_res$summary$total_executed, 2L)
+    expect_identical(run_res$metadata$rerun_pending, character())
+    for (i in seq_along(ids$leaves)) {
+      job <- final_job(handle, ids$leaves[[i]])
+      expect_false(identical(job$job_id, before[[i]]))
+      expect_identical(
+        bg_node_pad(handle, ids$leaves[[i]])$job_id,
+        job$job_id
+      )
+    }
+  })
 })

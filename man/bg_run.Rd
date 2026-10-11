@@ -4,7 +4,12 @@
 \alias{bg_run}
 \title{Run a project workflow}
 \usage{
-bg_run(project, targets = NULL, parallel = c("auto", "never", "always"))
+bg_run(
+  project,
+  targets = NULL,
+  parallel = c("auto", "never", "always"),
+  rerun = character()
+)
 }
 \arguments{
 \item{project}{A \code{bg_handle}.}
@@ -15,6 +20,19 @@ bg_run(project, targets = NULL, parallel = c("auto", "never", "always"))
 dispatches waves in parallel when mirai daemons are active, otherwise falls
 back to sequential execution. \code{"never"} always runs sequentially.
 \code{"always"} requires mirai and active daemons, erroring if unavailable.}
+
+\item{rerun}{Optional character vector of node IDs to execute even when
+their result is cached. Use it to record provenance for results computed
+before provenance existed, or to bind a node to its own output when it
+reuses another node's cached artifact. The listed nodes form a pending set
+for this call: a pending node's cached output does not count as
+available, so its descendants wait until it has executed, and it leaves
+the set once its execution is finalized. Gates and workflow holds apply
+as usual; a held node stays unexecuted and is reported in
+\code{metadata$rerun_pending} of the returned handle. Descendants are not
+re-executed implicitly, because their fingerprints are unchanged; list
+them too to refresh them. With \code{targets}, the listed nodes are added to
+the targets.}
 }
 \value{
 A \code{bg_run_handle} list.

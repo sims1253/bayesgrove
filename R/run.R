@@ -332,6 +332,10 @@ bg_derive_run_plan_state <- function(
   artifact_index <- plan$metadata$artifact_index %||% list()
   fingerprints <- plan$metadata$fingerprints %||% list()
   eligible <- plan$graph_plan$eligible %||% character()
+  # Nodes awaiting a requested rerun (bg_run(rerun = )): their cached output
+  # does not count as available, so they execute and their descendants wait
+  # until they have been finalized.
+  pending_rerun <- plan$pending_rerun %||% character()
   artifact_refs <- list()
   cache_hits <- character()
   missing_results <- character()
@@ -368,12 +372,16 @@ bg_derive_run_plan_state <- function(
 
     input_bindings[[node_id]] <- node_bindings
 
-    cached_ref <- bg_check_artifact(
-      project,
-      fingerprint,
-      node_id = node_id,
-      artifact_index = artifact_index
-    )
+    cached_ref <- if (node_id %in% pending_rerun) {
+      NULL
+    } else {
+      bg_check_artifact(
+        project,
+        fingerprint,
+        node_id = node_id,
+        artifact_index = artifact_index
+      )
+    }
 
     if (!is.null(cached_ref)) {
       cache_hits <- c(cache_hits, node_id)
@@ -415,7 +423,7 @@ bg_derive_run_plan_state <- function(
     }
   }
 
-  utils::modifyList(
+  derived <- utils::modifyList(
     plan,
     list(
       graph_plan = utils::modifyList(
@@ -438,6 +446,12 @@ bg_derive_run_plan_state <- function(
       )
     )
   )
+  # modifyList() merges nested lists, which would keep stale bindings and
+  # refs from the incoming plan (e.g. a cached ref of a pending rerun). These
+  # are derived afresh above, so replace them whole.
+  derived$input_bindings <- input_bindings
+  derived$metadata$artifact_refs <- artifact_refs
+  derived
 }
 
 #' @keywords internal
@@ -559,13 +573,26 @@ bg_retarget_run_plan <- function(
 #'   dispatches waves in parallel when mirai daemons are active, otherwise falls
 #'   back to sequential execution. `"never"` always runs sequentially.
 #'   `"always"` requires mirai and active daemons, erroring if unavailable.
+#' @param rerun Optional character vector of node IDs to execute even when
+#'   their result is cached. Use it to record provenance for results computed
+#'   before provenance existed, or to bind a node to its own output when it
+#'   reuses another node's cached artifact. The listed nodes form a pending set
+#'   for this call: a pending node's cached output does not count as
+#'   available, so its descendants wait until it has executed, and it leaves
+#'   the set once its execution is finalized. Gates and workflow holds apply
+#'   as usual; a held node stays unexecuted and is reported in
+#'   `metadata$rerun_pending` of the returned handle. Descendants are not
+#'   re-executed implicitly, because their fingerprints are unchanged; list
+#'   them too to refresh them. With `targets`, the listed nodes are added to
+#'   the targets.
 #'
 #' @return A `bg_run_handle` list.
 #' @export
 bg_run <- function(
   project,
   targets = NULL,
-  parallel = c("auto", "never", "always")
+  parallel = c("auto", "never", "always"),
+  rerun = character()
 ) {
   S7::check_is_S7(project, bg_handle)
   bg_assert_writable(project, "run nodes in")
@@ -583,7 +610,12 @@ bg_run <- function(
   # Compute both once per run.
   raw_graph <- bg_read_graph(project)
   graph <- bg_dagri_recompute_state(bg_active_graph(project, graph = raw_graph))
+  rerun <- bg_validate_rerun_nodes(rerun, raw_graph, graph)
+  if (length(rerun) > 0L && !is.null(targets) && length(targets) > 0L) {
+    targets <- union(targets, rerun)
+  }
   workflow_plan <- bg_plan(project)
+  workflow_plan$pending_rerun <- rerun
   external_holds <- bg_workflow_external_holds(
     project,
     plan = workflow_plan,
@@ -799,26 +831,35 @@ bg_run <- function(
           total_executed = num_executed - length(failed_nodes)
         ),
         error = list(message = first_error$message),
-        metadata = list(
-          held_by_policy = plan$held_by_policy %||% list()
-        )
+        metadata = bg_run_handle_metadata(plan, rerun)
       ))
     }
 
-    # Fold summaries into run state + record artifacts into the plan.
+    # Fold summaries into run state + record artifacts into the plan. A
+    # requested rerun leaves the pending set once it has been finalized, so
+    # plan refreshes treat its new output as available and do not run it again.
     for (node_id in wave) {
       res <- results[[node_id]]
 
       plan <- bg_run_plan_record_artifact(plan, node_id, res$ref)
+      plan$pending_rerun <- setdiff(plan$pending_rerun, node_id)
 
       if (!is.null(res$summaries)) {
         for (s in res$summaries) {
-          s$is_fresh <- TRUE
-          s$is_stale <- FALSE
           run_state$summaries[[s$summary_id]] <- s
         }
       }
     }
+
+    # Recompute cached freshness flags before hold evaluation: an execution
+    # can replace the artifact a fingerprint resolves to, which makes earlier
+    # summaries of every node sharing that fingerprint stale.
+    run_state$summaries <- bg_refresh_summary_freshness(
+      project,
+      run_state$summaries,
+      predicted_fingerprints = plan$metadata$fingerprints %||% list(),
+      artifact_index = plan$metadata$artifact_index %||% list()
+    )
 
     # Wave boundary: refresh jobs, re-evaluate protocol holds, and refresh the
     # plan so the next wave's input_bindings populate from the artifacts just
@@ -838,14 +879,24 @@ bg_run <- function(
     )
   }
 
+  rerun_pending <- plan$pending_rerun %||% character()
   final_status <- if (length(plan$to_execute) == 0) {
-    if (length(plan$held_by_policy %||% list()) > 0) {
+    if (
+      length(plan$held_by_policy %||% list()) > 0 ||
+        length(rerun_pending) > 0L
+    ) {
       "blocked"
     } else {
       "succeeded"
     }
   } else {
     "partial"
+  }
+  if (length(rerun_pending) > 0L) {
+    bg_cli_inform(c(
+      "!" = "Requested rerun{?s} did not execute: {.val {rerun_pending}}.",
+      "i" = "Resolve the holds, gates, or missing inputs, then call {.fn bg_run} with {.arg rerun} again."
+    ))
   }
 
   bg_build_run_handle(
@@ -858,10 +909,50 @@ bg_run <- function(
     finished_at = bg_now_timestamp(),
     summary = list(total_executed = num_executed),
     error = NULL,
-    metadata = list(
-      held_by_policy = plan$held_by_policy %||% list()
-    )
+    metadata = bg_run_handle_metadata(plan, rerun)
   )
+}
+
+#' Validate the `rerun` argument of `bg_run()`.
+#'
+#' @param rerun Requested node ids.
+#' @param raw_graph The full persisted graph.
+#' @param graph The active graph.
+#' @return The unique requested node ids.
+#' @keywords internal
+#' @noRd
+bg_validate_rerun_nodes <- function(rerun, raw_graph, graph) {
+  rerun <- rerun %||% character()
+  if (!is.character(rerun) || anyNA(rerun)) {
+    cli::cli_abort("{.arg rerun} must be a character vector of node IDs.")
+  }
+  rerun <- unique(rerun)
+
+  unknown <- setdiff(rerun, names(raw_graph$nodes))
+  if (length(unknown) > 0L) {
+    cli::cli_abort("Cannot rerun unknown node{?s}: {.val {unknown}}.")
+  }
+  inactive <- setdiff(rerun, names(graph$nodes))
+  if (length(inactive) > 0L) {
+    cli::cli_abort(
+      "Cannot rerun retired or disabled node{?s}: {.val {inactive}}."
+    )
+  }
+  rerun
+}
+
+#' Build the metadata block of a run handle.
+#'
+#' `rerun_pending` lists requested reruns that did not execute (held, gated,
+#' or waiting on inputs); it is present only when reruns were requested.
+#' @keywords internal
+#' @noRd
+bg_run_handle_metadata <- function(plan, rerun = character()) {
+  metadata <- list(held_by_policy = plan$held_by_policy %||% list())
+  if (length(rerun) > 0L) {
+    metadata$rerun_pending <- plan$pending_rerun %||% character()
+  }
+  metadata
 }
 
 #' Run a node's executor and normalize the result (no persistence).

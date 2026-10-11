@@ -195,6 +195,14 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
 
 #' Determine whether a summary is fresh
 #'
+#' A summary is fresh when its fingerprint is the node's predicted
+#' fingerprint, the node's binding to that fingerprint is active, and its
+#' `artifact_ref` is the artifact the fingerprint currently resolves to. The
+#' artifact check matters because the index shares one artifact per
+#' fingerprint across nodes: a same-fingerprint rerun that produces a new
+#' artifact makes the earlier run's summaries stale, for every node sharing
+#' the fingerprint.
+#'
 #' @param project A `bg_handle`.
 #' @param summary A persisted summary entry.
 #' @param predicted_fingerprints Optional named fingerprint map.
@@ -224,8 +232,37 @@ bg_summary_is_fresh <- function(
     summary$execution_fingerprint,
     summary$node_id
   )
+  if (is.null(binding) || !identical(binding$status, "active")) {
+    return(FALSE)
+  }
 
-  !is.null(binding) && identical(binding$status, "active")
+  active_ref <- artifact_index[[summary$execution_fingerprint]]$artifact_ref
+  identical(summary$artifact_ref, active_ref)
+}
+
+#' Recompute the cached freshness flags of in-memory summaries.
+#'
+#' `bg_run()` keeps summaries in memory between waves; an execution can
+#' change the artifact a fingerprint resolves to, so flags are recomputed
+#' before holds are evaluated.
+#' @keywords internal
+#' @noRd
+bg_refresh_summary_freshness <- function(
+  project,
+  summaries,
+  predicted_fingerprints,
+  artifact_index
+) {
+  lapply(summaries, function(summary) {
+    summary$is_fresh <- bg_summary_is_fresh(
+      project = project,
+      summary = summary,
+      predicted_fingerprints = predicted_fingerprints,
+      artifact_index = artifact_index
+    )
+    summary$is_stale <- !summary$is_fresh
+    summary
+  })
 }
 
 #' Read persisted summaries
