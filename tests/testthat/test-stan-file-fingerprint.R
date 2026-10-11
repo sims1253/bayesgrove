@@ -273,3 +273,86 @@ describe("Stan-file source hashing (Phase 4)", {
     expect_equal(run3$summary$total_executed, 1L)
   })
 })
+
+describe("Stan #include directive forms", {
+  it("parses bare, quoted, and angle-bracket targets", {
+    lines <- c(
+      "#include prior.stan",
+      "  #include \"parts/prior.stan\"  // comment",
+      "#include <prior.stan>",
+      "#include prior.stan// comment",
+      "#includeprior.stan",
+      "x = 1; #include prior.stan",
+      "parameters { real mu; }"
+    )
+    expect_identical(
+      bg_stan_include_targets(lines),
+      c(
+        "prior.stan",
+        "parts/prior.stan",
+        "prior.stan",
+        "prior.stan",
+        NA,
+        NA,
+        NA
+      )
+    )
+  })
+
+  it("invalidates the fingerprint when an include in any form is edited", {
+    for (directive in c(
+      "#include prior.stan",
+      "#include \"prior.stan\"",
+      "#include <prior.stan>"
+    )) {
+      model_dir <- withr::local_tempdir()
+      stan_file <- file.path(model_dir, "main.stan")
+      writeLines(
+        c("parameters { real theta; }", "model {", directive, "}"),
+        stan_file
+      )
+      prior <- file.path(model_dir, "prior.stan")
+      writeLines("theta ~ normal(0, 1);", prior)
+      node <- list(kind = "cmdstanr_fit", params = list(stan_file = stan_file))
+
+      before <- bg_source_hash_component(node)
+      # The single-file digest would ignore the include entirely.
+      expect_false(
+        identical(before, digest::digest(file = stan_file, algo = "sha256")),
+        info = directive
+      )
+      writeLines("theta ~ normal(0, 5);", prior)
+      expect_false(
+        identical(before, bg_source_hash_component(node)),
+        info = directive
+      )
+    }
+  })
+
+  it("re-executes a node after an unquoted include is edited", {
+    tmp <- withr::local_tempdir()
+    handle <- bg_init(path = tmp)
+    bg_register_node_kind(
+      handle,
+      "stan_like",
+      executor = function(node, inputs) list(ok = TRUE)
+    )
+    stan_file <- file.path(tmp, "main.stan")
+    writeLines(
+      c("parameters { real theta; }", "model {", "#include prior.stan", "}"),
+      stan_file
+    )
+    writeLines("theta ~ normal(0, 1);", file.path(tmp, "prior.stan"))
+    node <- bg_add_node(
+      handle,
+      kind = "stan_like",
+      params = list(stan_file = stan_file)
+    )
+    expect_equal(bg_run(handle)$summary$total_executed, 1L)
+    expect_equal(bg_run(handle)$summary$total_executed, 0L)
+
+    writeLines("theta ~ normal(0, 5);", file.path(tmp, "prior.stan"))
+    expect_equal(bg_run(handle)$summary$total_executed, 1L)
+    expect_true(node %in% bg_plan(handle)$cache_hits)
+  })
+})

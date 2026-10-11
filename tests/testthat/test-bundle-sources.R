@@ -142,6 +142,51 @@ describe("portable bundle sources (referenced-sources policy)", {
     }
   })
 
+  it("copies includes written in every directive form", {
+    proj <- withr::local_tempdir()
+    src_root <- withr::local_tempdir()
+    main_stan <- file.path(src_root, "main.stan")
+    writeLines(
+      c(
+        "#include bare.stan  // functions",
+        "#include \"quoted.stan\"",
+        "#include <angled.stan>",
+        "parameters { real theta; }"
+      ),
+      main_stan
+    )
+    for (name in c("bare", "quoted", "angled")) {
+      writeLines(
+        sprintf("// %s", name),
+        file.path(src_root, paste0(name, ".stan"))
+      )
+    }
+
+    handle <- bg_init(proj)
+    bg_register_node_kind(handle, "fit")
+    bg_add_node(handle, kind = "fit", params = list(stan_file = main_stan))
+    bundle_path <- file.path(withr::local_tempdir(), "forms.tar.gz")
+    bg_bundle(handle, path = bundle_path)
+    unlink(src_root, recursive = TRUE)
+
+    extract_dir <- withr::local_tempdir()
+    utils::untar(bundle_path, exdir = extract_dir)
+    restored_proj <- file.path(extract_dir, basename(proj))
+    manifest <- jsonlite::read_json(
+      file.path(restored_proj, ".bayesgrove", "bundle_manifest.json"),
+      simplifyVector = FALSE
+    )
+    entry <- manifest$source_policy$relocation[[main_stan]]
+    expect_length(entry$files, 4L)
+    restored_dir <- dirname(file.path(restored_proj, entry$archived))
+    for (name in c("bare", "quoted", "angled")) {
+      expect_true(
+        file.exists(file.path(restored_dir, paste0(name, ".stan"))),
+        info = name
+      )
+    }
+  })
+
   it("keeps referenced project files outside .bayesgrove portable too", {
     proj <- withr::local_tempdir()
     dir.create(file.path(proj, "models"))

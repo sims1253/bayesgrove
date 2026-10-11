@@ -167,22 +167,37 @@ bg_resolve_source_params <- function(params, project_path) {
   params
 }
 
-#' Extract quoted `#include` targets from Stan program lines.
+#' Extract `#include` targets from Stan program lines.
 #'
-#' stanc3 resolves `#include "rel/path.stan"` relative to the directory of the
-#' file containing the directive, so the bundler archives includes at the same
-#' relative position. Angle-bracket includes are compiler-internal and never
-#' bundled.
+#' Stan accepts the target bare (`#include rel/path.stan`, the form the
+#' reference manual documents), in double quotes, or in angle brackets, with
+#' optional leading whitespace and an optional trailing line comment. All
+#' three forms name a file that stanc3 resolves relative to the directory of
+#' the file containing the directive (the default include path), so every
+#' form is followed by fingerprints, bundles, and execution snapshots alike.
 #' @param lines Character vector of Stan program text.
 #' @return Character vector of targets (NA where a line carries none).
 #' @keywords internal
 #' @noRd
 bg_stan_include_targets <- function(lines) {
-  pattern <- "^[[:space:]]*#include[[:space:]]+\"([^\"]+)\""
+  pattern <- paste0(
+    "^[[:space:]]*#include[[:space:]]+",
+    "(\"([^\"]+)\"|<([^>]+)>|([^[:space:]\"<]+))"
+  )
   hits <- regmatches(lines, regexec(pattern, lines))
   vapply(
     hits,
-    function(m) if (length(m) > 0L) m[[2]] else NA_character_,
+    function(m) {
+      if (length(m) == 0L) {
+        return(NA_character_)
+      }
+      if (nzchar(m[[5]])) {
+        # A bare target ends at whitespace or at a trailing `//` comment.
+        m[[5]] <- sub("//.*$", "", m[[5]])
+      }
+      target <- m[3:5][nzchar(m[3:5])]
+      if (length(target) == 0L) NA_character_ else target[[1]]
+    },
     character(1)
   )
 }
@@ -194,12 +209,26 @@ bg_stan_include_targets <- function(lines) {
 #' `missing_directives` as `list(file = <referencing path>, target = <raw
 #' directive target>)` pairs so consumers can key them stably without
 #' absolute paths. Cycles terminate via the seen set.
+#'
+#' Every member is classified with `bg_path_kind()` (stat only) before it is
+#' opened. Only non-empty regular files are read; an include naming anything
+#' else (a directory, an empty or special file such as a FIFO) is treated as
+#' missing, so planning, bundling, and execution snapshots never block on a
+#' special file.
 #' @param stan_file Normalized path to an existing Stan program.
 #' @return `list(files = <normalized paths>, missing = <normalized paths>,
-#'   missing_directives = <list of pairs>)`.
+#'   missing_directives = <list of pairs>)`. A root that is not a non-empty
+#'   regular file is reported in `missing` and never opened.
 #' @keywords internal
 #' @noRd
 bg_stan_source_closure <- function(stan_file) {
+  if (!identical(bg_path_kind(stan_file), "file")) {
+    return(list(
+      files = character(),
+      missing = stan_file,
+      missing_directives = list()
+    ))
+  }
   files <- character()
   missing <- character()
   missing_directives <- list()
@@ -223,7 +252,7 @@ bg_stan_source_closure <- function(stan_file) {
         file.path(dirname(current), target),
         mustWork = FALSE
       )
-      if (file.exists(resolved) && !dir.exists(resolved)) {
+      if (identical(bg_path_kind(resolved), "file")) {
         queue <- c(queue, resolved)
       } else {
         missing <- c(missing, resolved)
@@ -367,8 +396,9 @@ bg_copy_bundle_sources <- function(graph, dest_proj_dir, project_path) {
     # project-relative reference bundles from any working directory.
     resolved <- bg_resolve_project_source(project_path, value)
     # Directories are never bundled (policy: no wholesale copies) and cannot
-    # be Stan programs; treat them like missing references.
-    if (!file.exists(resolved) || dir.exists(resolved)) {
+    # be Stan programs; neither can empty or special files, which are never
+    # opened. Treat them like missing references.
+    if (!identical(bg_path_kind(resolved), "file")) {
       cli::cli_warn(
         "Bundle is missing referenced source file {.path {value}}."
       )

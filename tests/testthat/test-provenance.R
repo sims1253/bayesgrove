@@ -689,18 +689,54 @@ describe("special, empty, and missing files", {
   })
 
   it("fails closed when the Stan source has a missing include", {
+    # Every directive form Stan accepts names a file that must exist.
+    for (directive in c(
+      "#include \"absent.stan\"",
+      "#include absent.stan",
+      "#include <absent.stan>"
+    )) {
+      handle <- bg_init(path = withr::local_tempdir())
+      bg_register_node_kind(
+        handle,
+        "stan_like",
+        executor = function(node, inputs) list(ok = TRUE),
+        pad = list(P = "stan_file")
+      )
+      stan_file <- file.path(withr::local_tempdir(), "model.stan")
+      writeLines(c(directive, "parameters { real mu; }"), stan_file)
+      node <- bg_add_node(
+        handle,
+        kind = "stan_like",
+        params = list(stan_file = stan_file)
+      )
+      bg_run(handle)
+
+      prov <- final_job_for(handle, node)$provenance
+      expect_null(prov$pad, info = directive)
+      expect_match(prov$capture_error, "missing, incomplete", info = directive)
+    }
+  })
+
+  it("detects an unquoted include edited during execution", {
     handle <- bg_init(path = withr::local_tempdir())
+    # The executor edits the include sitting next to the model.
     bg_register_node_kind(
       handle,
       "stan_like",
-      executor = function(node, inputs) list(ok = TRUE),
+      executor = function(node, inputs) {
+        include <- file.path(dirname(node$params$stan_file), "prior.stan")
+        cat("// edited\n", file = include, append = TRUE)
+        list(ok = TRUE)
+      },
       pad = list(P = "stan_file")
     )
-    stan_file <- file.path(withr::local_tempdir(), "model.stan")
+    model_dir <- withr::local_tempdir()
+    stan_file <- file.path(model_dir, "model.stan")
     writeLines(
-      c("#include \"absent.stan\"", "parameters { real mu; }"),
+      c("#include prior.stan  // the prior", "parameters { real mu; }"),
       stan_file
     )
+    writeLines("// prior", file.path(model_dir, "prior.stan"))
     node <- bg_add_node(
       handle,
       kind = "stan_like",
@@ -710,7 +746,30 @@ describe("special, empty, and missing files", {
 
     prov <- final_job_for(handle, node)$provenance
     expect_null(prov$pad)
-    expect_match(prov$capture_error, "missing, incomplete")
+    expect_match(prov$capture_error, "changed during execution")
+  })
+
+  it("never opens a FIFO named by an include", {
+    skip_on_os("windows")
+    skip_if(!nzchar(Sys.which("mkfifo")), "mkfifo is not available")
+    model_dir <- withr::local_tempdir()
+    fifo <- file.path(model_dir, "pipe.stan")
+    status <- suppressWarnings(system2("mkfifo", fifo))
+    skip_if(!identical(status, 0L) || !file.exists(fifo), "mkfifo failed")
+    stan_file <- file.path(model_dir, "model.stan")
+    writeLines(c("#include pipe.stan", "parameters { real mu; }"), stan_file)
+    node <- list(kind = "stan_like", params = list(stan_file = stan_file))
+
+    # Opening the FIFO would block: the closure walker stats it and treats it
+    # as missing, for snapshots and fingerprints alike.
+    closure <- bg_stan_source_closure(normalizePath(stan_file))
+    expect_identical(closure$missing, normalizePath(fifo))
+    expect_identical(bg_stan_source_snapshot(node), NA_character_)
+    expect_type(bg_source_hash_component(node), "character")
+    expect_identical(
+      bg_source_hash_component(list(params = list(stan_file = fifo))),
+      "missing_stan_file"
+    )
   })
 })
 

@@ -30,8 +30,9 @@ archive and their references relocated, so a restored project works after
 the original files (and machine) are gone:
 \itemize{
 \item Approved keys: \code{stan_file}. The referenced Stan program is copied together
-with every file reachable through \verb{#include "..."} directives (resolved
-relative to the including file, as stanc3 does). The key list is grounded
+with every file reachable through \verb{#include} directives, bare, quoted,
+or angle-bracketed (resolved relative to the including file, as stanc3
+does). The key list is grounded
 in what the executors actually read.
 \item References into the installed bayesgrove package (e.g.
 \code{system.file("stan", ...)} models) are rewritten to a machine-stable
