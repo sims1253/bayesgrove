@@ -48,4 +48,4 @@ Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/sims1253/bayesgrove, https://sims1253.github.io/bayesgrove/
 BugReports: https://github.com/sims1253/bayesgrove/issues
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.1

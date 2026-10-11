@@ -12,6 +12,20 @@
   research record is stamped with the `goal_version` it was created under;
   after a reframe, reviews recorded under an earlier goal no longer
   authorize acceptance, and comparisons must include a result.
+* Research policy has a public, data-first rule API (experimental). `bg_rule()`
+  defines a rule with `on`, optional `when` conditions, one requirement, and a
+  `blocking` or `advisory` severity; Enforce holds actions only for blocking
+  findings. A predicate that is missing, fails, or returns anything but `TRUE`
+  or `FALSE` produces a finding rather than switching the rule off.
+  `bg_register_rule_predicate()` adds session-local custom predicates, pinned by
+  version. `bg_ruleset()`, `bg_register_ruleset()`, and `bg_rulesets()` define
+  and register versioned rulesets that extend, disable, and override each
+  other and declare utilities, goal kinds, and checks. `bg_ruleset_check()`
+  reports problems for ruleset authors. `bg_use_rules()` installs a ruleset, a
+  reference such as `"lab.review@1"`, or a rule list, and `bg_rules()` returns
+  the active policy. Installed policies are pinned with content digests, and
+  ordinary actions never consult the live registry. Existing rule lists keep
+  working unchanged and stay blocking.
 * Bundles copy Stan programs referenced by node params, and their `#include`
   closure, into the archive and rewrite the graph to project-relative paths,
   so restored projects run after the original files are gone. Only files
@@ -30,6 +44,10 @@
 
 ## Breaking changes
 
+* Research state is written with `schema_version` 2 on initialization and on
+  any successful apply. This version reads version 1 states without
+  migration, but older bayesgrove versions reject version 2, so compatibility
+  is one-way.
 * Removed `bg_branch_with_continuation()`. Use `bg_branch(continue = )`.
 * Removed the ignored `auto_advance` argument from `bg_status()`.
 * Removed `bg_export_report(out_file = )`; use `path = ` instead.

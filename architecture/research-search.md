@@ -42,14 +42,14 @@ that motivated it. These must refer to existing records and remain in history.
 | --- | --- | --- |
 | `create` | `label`, `components` | Create a root candidate. |
 | `revise` | `candidate_id`, `label`, `components` | Replace the supplied P/A/D components in a descendant. Other components are inherited. |
-| `evidence` | `candidate_id`, `label`, `check`, `utility`, `result` | Attach a result to an exact candidate. |
+| `evidence` | `candidate_id`, `label`, `check`, `utility`, `result` | Attach a result to an exact candidate. `utility` may be omitted when the vocabulary maps the check to exactly one utility. A check without a `utilities` mapping does not constrain `utility`. |
 | `compare` | `candidate_ids`, `evidence_ids`, `criteria`, `result` | Record a comparison covering at least two candidates, including closed ones. |
 | `review` | `candidate_id`, `evidence_ids` | Record review of specific evidence. |
 | `accept`, `reject` | `candidate_id`, `evidence_ids` | Record a judgment for the investigation's goal. Rejection does not close a lineage. |
 | `note` | `candidate_id` | Record reasoning without changing a candidate. |
 | `close`, `reopen` | `candidate_id` | Close or reopen a lineage with the proposal's rationale. |
 | `reframe` | `question`, `goal` | Record a corrected or changed question and goal. Requires a declared human actor. |
-| `configure` | `mode`, `rules` | Replace intervention settings. Requires a declared human actor. |
+| `configure` | `mode`, `rules` | Replace the whole policy. `rules` is a ruleset, a reference string, or a rule list. Requires a declared human actor. |
 
 Each successful operation returns the full state. The last history entry carries
 the generated `id`; for create, revise, evidence, compare, and decisions, this is
@@ -76,12 +76,23 @@ reviews from a previous goal do not satisfy requirements under the new goal.
 
 Record preserves actions without generating policy findings. Guide returns
 findings but allows actions. Enforce returns the same findings and prevents an
-operation when any applicable rule remains unmet. Structural invariants, such
-as closed-lineage and stale-proposal checks, apply in all modes.
+operation when any applicable blocking rule remains unmet. Advisory findings
+never hold an action. Structural invariants, such as closed-lineage and
+stale-proposal checks, apply in all modes.
 
-Rules have `id`, `actions`, `type`, and `message`. Optional `explanation`,
-`suggestion`, `interpretation`, and `references` provide guidance without a UI.
-References are source strings; the engine does not fetch or verify them.
+The rule contract, including rule shape, predicates, evaluation outcomes,
+rulesets, vocabularies, and pinning, is specified in
+[Rules, rulesets, and run-derived evidence](rules-and-evidence.md), section 1.
+In short, a rule has `id`, `on`, optional `when` conditions, one `require`
+condition, `severity`, and `message`. Optional `explanation`, `suggestion`,
+`interpretation`, and `references` provide guidance without a UI. References
+are source strings; the engine does not fetch or verify them. A predicate that
+is missing, has a different version than the pinned one, raises an error, or
+returns anything other than `TRUE` or `FALSE` produces a finding in `when` as
+well as in `require`, so a failure never switches a rule off.
+
+Legacy rules (`id`, `actions`, `type`, `message`, plus `path`/`values` or
+`check`) remain valid, are stored as supplied, and are always blocking:
 
 | type | Additional fields | Requirement |
 | --- | --- | --- |
@@ -90,12 +101,22 @@ References are source strings; the engine does not fetch or verify them.
 | `require_evidence` | `check` | This candidate has evidence with that check name. |
 | `require_review` | `check` | All recorded evidence for that check has human review. Missing evidence also leaves the requirement unmet. |
 
-A path is a sequence such as `c("P", "covariates")`. Specification rules inspect
-the proposed descendant for a revision. Evidence rules refer to exact candidate
-IDs, so parent evidence cannot satisfy a requirement for a new revision.
-Comparison rules inspect all selected candidates. Evidence presence does not
-mean a check passed, and review does not certify scientific validity. There is
-no default model ranking, scalar reward, or automatic acceptance threshold.
+A path is a sequence such as `c("P", "covariates")`, relative to the
+candidate's `components`. Rules for `create` and `revise` inspect the
+prospective candidate, which has no ID. Evidence rules refer to exact
+candidate IDs, so parent evidence cannot satisfy a requirement for a new
+revision. Comparison rules decide applicability for each selected candidate.
+Evidence presence does not mean a check passed, and review does not certify
+scientific validity. There is no default model ranking, scalar reward, or
+automatic acceptance threshold.
+
+`bg_use_rules()` installs a ruleset, a reference such as `"lab.review@1"`, or a
+rule list through `configure`, and `bg_rules()` returns the active policy.
+Installing a ruleset pins its resolved rules, merged vocabulary, custom
+predicate versions, and source digests in the state. Ordinary actions are
+evaluated against that stored policy, never against the live registry. A
+`configure` proposal carries the resolved `policy_digest`; apply resolves
+again, and a different digest makes the proposal stale.
 
 Mode and rule changes are historical operations. They do not resolve concerns
 or rewrite earlier decisions. `allowed` and `findings` in a submitted proposal
@@ -108,7 +129,9 @@ can also call legacy graph operations; this API is not a sandbox.
 
 ## Persistence and handoff
 
-The state lives at `.bayesgrove/workflow/research.json`. A write requires the
+The state lives at `.bayesgrove/workflow/research.json` with
+`schema_version` 2. Readers accept versions 1 and 2; any successful apply
+writes version 2, which older bayesgrove versions reject. A write requires the
 project writer lock, a current proposal version, and an atomic replacement under
 a document lock. A failure leaves the prior research state intact. Replaying a
 proposal after a successful write is stale. After an ambiguous response, inspect

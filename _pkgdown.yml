@@ -35,6 +35,16 @@ reference:
       - bg_research_state
       - bg_research_propose
       - bg_research_apply
+  - title: Research rules (experimental)
+    contents:
+      - bg_use_rules
+      - bg_rules
+      - bg_rule
+      - bg_ruleset
+      - bg_ruleset_check
+      - bg_register_ruleset
+      - bg_rulesets
+      - bg_register_rule_predicate
   - title: Project Lifecycle
     contents:
       - bg_handle

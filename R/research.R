@@ -11,7 +11,11 @@
 #' @param actor Named list with `id` and `type` (`human` or `agent`). Authorship
 #'   is caller-declared, not authenticated.
 #' @param mode `record`, `guide`, or `enforce`.
-#' @param rules List of declarative research rules.
+#' @param rules The research policy: a ruleset (see [bg_ruleset()]), a
+#'   reference string such as `"lab.review@1"`, or a list of rules (see
+#'   [bg_rule()]). Rulesets are resolved and pinned when the investigation
+#'   starts. If the resolved vocabulary declares goal kinds, `goal$kind` must
+#'   be one of them.
 #' @return The persisted research state.
 #' @export
 bg_research_init <- function(
@@ -26,7 +30,8 @@ bg_research_init <- function(
   bg_research_string(question, "question")
   goal <- bg_research_goal(goal)
   actor <- bg_research_actor(actor)
-  policy <- bg_research_policy(mode, rules)
+  requested <- bg_research_data(rules)
+  policy <- bg_research_policy(mode, requested, goal)
   path <- bg_research_path(project)
   bg_with_file_lock(paste0(path, ".lock"), {
     if (file.exists(path)) {
@@ -34,7 +39,7 @@ bg_research_init <- function(
     }
     state <- list(
       schema_name = "bg_research",
-      schema_version = 1L,
+      schema_version = bg_research_schema_version,
       project_id = project@project_id,
       version = 1L,
       goal_version = 1L,
@@ -42,6 +47,9 @@ bg_research_init <- function(
       goal = goal,
       mode = policy$mode,
       rules = policy$rules,
+      ruleset = policy$ruleset,
+      vocabulary = policy$vocabulary,
+      predicates = policy$predicates,
       candidates = list(),
       evidence = list(),
       comparisons = list(),
@@ -53,8 +61,9 @@ bg_research_init <- function(
           question = question,
           goal = goal,
           mode = policy$mode,
-          rules = policy$rules
+          rules = requested
         ),
+        policy = policy,
         actor = actor,
         rationale = "Start the investigation.",
         created_at = bg_now_timestamp()
@@ -89,7 +98,8 @@ bg_research_state <- function(project) {
   if (
     !is.list(state) ||
       !identical(state$schema_name, "bg_research") ||
-      !identical(state$schema_version, 1L) ||
+      !(identical(state$schema_version, 1L) ||
+        identical(state$schema_version, bg_research_schema_version)) ||
       !identical(state$project_id, project@project_id) ||
       !is.numeric(state$version) ||
       length(state$version) != 1L ||
@@ -98,7 +108,7 @@ bg_research_state <- function(project) {
       !isTRUE(tryCatch(
         {
           bg_research_string(state$question, "question")
-          bg_research_policy(state$mode, state$rules)
+          bg_research_policy_stored(state)
           TRUE
         },
         error = function(e) FALSE
@@ -117,6 +127,9 @@ bg_research_state <- function(project) {
   ) {
     cli::cli_abort("Malformed or unsupported research state at {.path {path}}.")
   }
+  # Raw and resolved rules are read in their validated form, as construction
+  # returns them: empty optional fields are absent. Legacy rules are unchanged.
+  state["rules"] <- list(bg_research_policy_stored(state))
   tryCatch(
     bg_research_validate_candidates(state),
     error = function(e) {
@@ -190,7 +203,12 @@ bg_research_validate_candidates <- function(state) {
 #' @param actor Named list with `id` and `type` (`human` or `agent`).
 #' @param rationale Why this action is proposed.
 #' @return A proposal with `version`, `action`, `actor`, `rationale`, `allowed`,
-#'   and `findings`. A finding includes its rule and explanation.
+#'   and `findings`. A finding is the rule with its `severity`, plus
+#'   `failures` when a predicate failed and `candidate_ids` for comparisons.
+#'   Enforce holds an action only for blocking findings. A `configure` proposal
+#'   also carries the resolved `policy` and its `policy_digest`; apply resolves
+#'   the requested rules again, and a different digest makes the proposal
+#'   stale.
 #' @export
 bg_research_propose <- function(project, action, actor, rationale) {
   state <- bg_research_state(project)
@@ -218,14 +236,17 @@ bg_research_apply <- function(project, proposal) {
   path <- bg_research_path(project)
   bg_with_file_lock(paste0(path, ".lock"), {
     state <- bg_research_state(project)
+    stale <- function() {
+      cli::cli_abort(
+        "Stale research proposal. Read the current state and propose again."
+      )
+    }
     if (
       is.null(state) ||
         !identical(proposal$version, state$version) ||
         !identical(proposal$project_id, state$project_id)
     ) {
-      cli::cli_abort(
-        "Stale research proposal. Read the current state and propose again."
-      )
+      stale()
     }
     checked <- bg_research_prepare(
       state,
@@ -233,8 +254,17 @@ bg_research_apply <- function(project, proposal) {
       proposal$actor,
       proposal$rationale
     )
+    # Only policy-installing proposals resolve again; a registry change since
+    # the proposal makes it stale.
+    if (!identical(proposal$policy_digest, checked$policy_digest)) {
+      stale()
+    }
     if (!checked$allowed) {
-      reasons <- vapply(checked$findings, `[[`, character(1), "message")
+      blocking <- Filter(
+        bg_rule_blocking,
+        checked$findings
+      )
+      reasons <- vapply(blocking, `[[`, character(1), "message")
       held <- paste(reasons, collapse = " ")
       cli::cli_abort(c(
         "Research action is held by policy.",
@@ -246,6 +276,55 @@ bg_research_apply <- function(project, proposal) {
   })
   bg_research_state(project)
 }
+
+#' Install research rules
+#'
+#' Proposes and applies a `configure` action, which replaces the whole research
+#' policy. A ruleset or reference is resolved and pinned: the state stores the
+#' resolved rules, the merged vocabulary, the versions of custom predicates in
+#' use, and content digests for every source ruleset. The history entry keeps
+#' both the requested rules and the resolved policy. Earlier records and
+#' `goal_version` are unchanged.
+#'
+#' @param project A writable `bg_handle` with an investigation.
+#' @param rules A ruleset (see [bg_ruleset()]), a reference string such as
+#'   `"lab.review@1"` or `"lab.review@1.2.0"`, or a list of rules.
+#' @param mode `record`, `guide`, or `enforce`. `NULL` keeps the current mode.
+#' @param actor Named list with `id` and `type`. Only a human may change policy.
+#' @param rationale Why the policy changes.
+#' @return The new research state, invisibly.
+#' @seealso [bg_rules()] to read the active policy.
+#' @export
+bg_use_rules <- function(project, rules, mode = NULL, actor, rationale) {
+  state <- bg_research_state(project)
+  if (is.null(state)) {
+    cli::cli_abort("Start an investigation with {.fn bg_research_init}.")
+  }
+  action <- list(kind = "configure", mode = mode %||% state$mode, rules = rules)
+  proposal <- bg_research_prepare(state, action, actor, rationale)
+  invisible(bg_research_apply(project, proposal))
+}
+
+#' Read the active research policy
+#'
+#' Returns what an agent should read before acting: the intervention mode, the
+#' pinned ruleset (with `sources` and `policy_digest`), the rules in force, the
+#' merged vocabulary, and the custom predicate versions the rules rely on.
+#'
+#' @param project A `bg_handle` with an investigation.
+#' @return A named list with `mode`, `ruleset`, `rules`, `vocabulary`, and
+#'   `predicates`. `ruleset`, `vocabulary`, and `predicates` are `NULL` when
+#'   not in use.
+#' @export
+bg_rules <- function(project) {
+  state <- bg_research_state(project)
+  if (is.null(state)) {
+    cli::cli_abort("Start an investigation with {.fn bg_research_init}.")
+  }
+  bg_research_policy_view(state)
+}
+
+bg_research_schema_version <- 2L
 
 bg_research_path <- function(project) {
   bg_storage_path(project, "workflow", "research.json")
@@ -395,7 +474,7 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     action$kind,
     create = c("label", "components"),
     revise = c("candidate_id", "label", "components"),
-    evidence = c("candidate_id", "label", "check", "utility", "result"),
+    evidence = c("candidate_id", "label", "check", "result"),
     compare = c("candidate_ids", "evidence_ids", "criteria", "result"),
     review = c("candidate_id", "evidence_ids"),
     accept = c("candidate_id", "evidence_ids"),
@@ -407,10 +486,11 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     reframe = c("question", "goal"),
     cli::cli_abort("Unknown research action {.val {action$kind}}.")
   )
+  optional <- if (action$kind == "evidence") "utility"
   bg_research_fields(
     action,
     c("kind", fields),
-    c("kind", fields, "basis"),
+    c("kind", fields, optional, "basis"),
     "action"
   )
   if (!is.null(action$basis)) {
@@ -456,12 +536,14 @@ bg_research_prepare <- function(state, action, actor, rationale) {
         "A revision must change P, A, or D. Record a note or gather evidence instead."
       )
     }
-    candidate <- list(components = components)
+    # The prospective candidate has no id, so it never sees parent evidence.
+    candidate <- list(components = components, parent_id = candidate$id)
   }
   if (action$kind == "evidence") {
     bg_research_string(action$label, "label")
-    bg_research_string(action$utility, "utility")
     bg_research_string(action$check, "check")
+    action <- bg_research_fill_utility(action, state$vocabulary)
+    bg_research_string(action$utility, "utility")
     if (is.null(action$result) || length(action$result) == 0L) {
       cli::cli_abort("Evidence must include a result.")
     }
@@ -527,7 +609,7 @@ bg_research_prepare <- function(state, action, actor, rationale) {
       cli::cli_abort("Only a human actor may reframe the investigation.")
     }
     bg_research_string(action$question, "question")
-    bg_research_goal(action$goal)
+    bg_research_goal_kind(bg_research_goal(action$goal), state$vocabulary)
     if (
       identical(action$question, state$question) &&
         identical(action$goal, state$goal)
@@ -539,14 +621,15 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     if (!identical(actor$type, "human")) {
       cli::cli_abort("Only a human actor may change research policy.")
     }
-    bg_research_policy(action$mode, action$rules)
+    policy <- bg_research_policy(action$mode, action$rules, state$goal)
   }
   findings <- if (state$mode == "record") {
     list()
   } else {
-    bg_research_findings(state, action, candidate)
+    bg_research_findings(state, action, candidate, actor)
   }
-  list(
+  blocking <- vapply(findings, bg_rule_blocking, logical(1))
+  proposal <- list(
     project_id = state$project_id,
     version = state$version,
     action = action,
@@ -554,8 +637,13 @@ bg_research_prepare <- function(state, action, actor, rationale) {
     rationale = rationale,
     mode = state$mode,
     findings = findings,
-    allowed = state$mode != "enforce" || length(findings) == 0L
+    allowed = state$mode != "enforce" || !any(blocking)
   )
+  if (action$kind == "configure") {
+    proposal$policy <- policy
+    proposal$policy_digest <- bg_research_policy_digest(policy)
+  }
+  proposal
 }
 
 bg_research_transition <- function(state, proposal) {
@@ -615,9 +703,14 @@ bg_research_transition <- function(state, proposal) {
     state$goal <- a$goal
     state$goal_version <- state$version + 1L
   } else if (a$kind == "configure") {
-    policy <- bg_research_policy(a$mode, a$rules)
-    state$mode <- policy$mode
-    state$rules <- policy$rules
+    # configure replaces the whole policy; absent fields become NULL.
+    state[names(proposal$policy)] <- proposal$policy
+  }
+  # Any successful apply writes the current schema. Version 1 needs no content
+  # migration, only the policy fields.
+  state$schema_version <- bg_research_schema_version
+  for (field in c("ruleset", "vocabulary", "predicates")) {
+    if (!field %in% names(state)) state[field] <- list(NULL)
   }
   state$version <- state$version + 1L
   state$history[[length(state$history) + 1L]] <- c(
@@ -627,7 +720,8 @@ bg_research_transition <- function(state, proposal) {
       action = a,
       mode = proposal$mode %||% state$mode,
       findings = proposal$findings
-    )
+    ),
+    if (a$kind == "configure") list(policy = proposal$policy)
   )
   state
 }
@@ -645,6 +739,9 @@ bg_research_report <- function(state) {
     paste0(
       "Intervention: ",
       state$mode,
+      if (!is.null(state$ruleset)) {
+        paste0(". Ruleset: ", bg_ruleset_ref(state$ruleset))
+      },
       ". Research version: ",
       state$version,
       "."

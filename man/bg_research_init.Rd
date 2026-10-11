@@ -25,7 +25,11 @@ is caller-declared, not authenticated.}
 
 \item{mode}{\code{record}, \code{guide}, or \code{enforce}.}
 
-\item{rules}{List of declarative research rules.}
+\item{rules}{The research policy: a ruleset (see \code{\link[=bg_ruleset]{bg_ruleset()}}), a
+reference string such as \code{"lab.review@1"}, or a list of rules (see
+\code{\link[=bg_rule]{bg_rule()}}). Rulesets are resolved and pinned when the investigation
+starts. If the resolved vocabulary declares goal kinds, \code{goal$kind} must
+be one of them.}
 }
 \value{
 The persisted research state.

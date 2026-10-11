@@ -17,7 +17,12 @@ bg_research_propose(project, action, actor, rationale)
 }
 \value{
 A proposal with \code{version}, \code{action}, \code{actor}, \code{rationale}, \code{allowed},
-and \code{findings}. A finding includes its rule and explanation.
+and \code{findings}. A finding is the rule with its \code{severity}, plus
+\code{failures} when a predicate failed and \code{candidate_ids} for comparisons.
+Enforce holds an action only for blocking findings. A \code{configure} proposal
+also carries the resolved \code{policy} and its \code{policy_digest}; apply resolves
+the requested rules again, and a different digest makes the proposal
+stale.
 }
 \description{
 Validates an action without changing the project. In Guide and Enforce
