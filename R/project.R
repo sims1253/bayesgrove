@@ -229,13 +229,29 @@ bg_restore_runtime_manifest <- function(project) {
 
     # Built-in executors are safe to restore by reference: they resolve
     # through the package-internal bg_builtin_executors() registry.
+    # P/A/D declarations are plain data. A malformed persisted declaration
+    # restores as no declaration (executions then record no pad) rather than
+    # failing to open the project.
+    pad <- tryCatch(
+      bg_normalize_pad_declaration(entry$pad %||% NULL),
+      error = function(e) NULL
+    )
+
     executor_ref <- entry$executor_ref %||% NULL
     if (!is.null(executor_ref) && startsWith(executor_ref, "builtin:")) {
       executor <- bg_resolve_builtin_executor(executor_ref)
+      # Projects registered before built-in declarations existed fall back to
+      # the declaration shipped with the built-in executor.
+      builtin_id <- sub("^builtin:", "", executor_ref)
+      pad <- pad %||%
+        bg_normalize_pad_declaration(
+          bg_builtin_pad_declarations()[[builtin_id]] %||% NULL
+        )
       project@registries$node_kinds[[kind]] <- list(
         name = kind,
         executor = executor,
-        executor_ref = executor_ref
+        executor_ref = executor_ref,
+        pad = pad
       )
       next
     }
@@ -246,7 +262,8 @@ bg_restore_runtime_manifest <- function(project) {
     project@registries$node_kinds[[kind]] <- list(
       name = kind,
       executor = NULL,
-      executor_source = entry$executor_source %||% NULL
+      executor_source = entry$executor_source %||% NULL,
+      pad = pad
     )
   }
 

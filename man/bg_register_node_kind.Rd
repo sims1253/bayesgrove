@@ -10,7 +10,8 @@ bg_register_node_kind(
   input_contract = NULL,
   output_type = NULL,
   param_schema = NULL,
-  executor = NULL
+  executor = NULL,
+  pad = NULL
 )
 }
 \arguments{
@@ -24,7 +25,26 @@ bg_register_node_kind(
 
 \item{param_schema}{Optional parameter schema.}
 
-\item{executor}{Optional R function to execute nodes of this kind.}
+\item{executor}{Optional R function to execute nodes of this kind. It is
+called as \code{executor(node, inputs)}, where \code{inputs} is a list of upstream
+artifacts named by node id. It may return the artifact itself, or
+\code{list(result = , summaries = , metadata = )}. A
+\code{metadata$provenance = list(consumed = , effective = )} entry reports what
+the execution consumed (\code{consumed$D}, the data input ids it used;
+\code{consumed$subject}, the input id of the fit a check evaluated) and the
+settings it actually used (\code{effective$P}, \code{effective$A}). Without a
+report, every input counts as consumed data.}
+
+\item{pad}{Optional P/A/D classification of the kind's parameters: a named
+list with character vectors \code{P} (model), \code{A} (algorithm), \code{D} (data),
+\code{locator} (parameters that select inputs, such as \code{data_input}), and
+\code{other} (parameters that don't change the result's meaning, such as
+diagnostic thresholds). Each parameter may appear in one category only.
+When a node's parameters are all classified, each execution records a
+P/A/D snapshot with SHA-256 digests in its provenance (see
+\code{\link[=bg_node_pad]{bg_node_pad()}}); an unclassified parameter means no snapshot is
+recorded. The declaration is stored in the runtime manifest and restored
+by \code{\link[=bg_open]{bg_open()}}.}
 }
 \value{
 Invisible \code{TRUE}, after the kind is recorded in the graph registry

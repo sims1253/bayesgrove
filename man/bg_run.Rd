@@ -29,3 +29,10 @@ runs sequentially in topological order. Either way the protocol holds and the
 pause flag are evaluated at wave boundaries, so a hold discovered from a fresh
 summary in one wave takes effect before the next wave is dispatched.
 }
+\details{
+Each successful execution records its provenance in its final job record
+(see \code{\link[=bg_jobs]{bg_jobs()}} and \code{\link[=bg_node_pad]{bg_node_pad()}}): the inputs passed to the executor,
+what the executor consumed, the settings it actually used, the environment
+that ran it, and a P/A/D snapshot when the node kind declares one.
+Summaries written by an execution carry its \code{job_id}.
+}

@@ -4,6 +4,11 @@
 
 #' Persist executor summaries
 #'
+#' Summaries written through this function are not tied to an execution.
+#' Summaries that [bg_run()] writes for an execution carry that execution's
+#' `job_id`; that field is engine-owned, so a summary payload containing
+#' `job_id` is rejected here.
+#'
 #' @param project A `bg_handle`.
 #' @param node_id Node id for the execution.
 #' @param artifact_ref Persisted artifact ref.
@@ -18,6 +23,41 @@ bg_write_summaries <- function(
   artifact_ref,
   execution_fingerprint,
   summaries
+) {
+  forged <- vapply(
+    summaries %||% list(),
+    function(summary) is.list(summary) && "job_id" %in% names(summary),
+    logical(1)
+  )
+  if (any(forged)) {
+    cli::cli_abort(c(
+      "Summaries for node {.val {node_id}} must not supply {.field job_id}.",
+      "i" = "{.field job_id} is recorded only for summaries written by an execution in {.fn bg_run}."
+    ))
+  }
+
+  bg_persist_summaries(
+    project = project,
+    node_id = node_id,
+    artifact_ref = artifact_ref,
+    execution_fingerprint = execution_fingerprint,
+    summaries = summaries
+  )
+}
+
+#' Persist summaries, stamping the execution's job id when given.
+#'
+#' The engine path (`bg_record_execution()`) passes `job_id`; the exported
+#' `bg_write_summaries()` never does.
+#' @keywords internal
+#' @noRd
+bg_persist_summaries <- function(
+  project,
+  node_id,
+  artifact_ref,
+  execution_fingerprint,
+  summaries,
+  job_id = NULL
 ) {
   bg_assert_writable(project, "write summaries in")
 
@@ -66,6 +106,9 @@ bg_write_summaries <- function(
       created_at = created_at,
       metadata = summary$metadata %||% list()
     )
+    if (!is.null(job_id)) {
+      entry$job_id <- job_id
+    }
 
     bg_append_jsonl(bg_summary_log_path(project), entry)
     persisted[[summary_id]] <- entry

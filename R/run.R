@@ -151,16 +151,7 @@ bg_fetch_artifact <- function(project, ref) {
   }
 
   hash <- sub("^cas:sha256:", "", ref)
-  prefix <- substr(hash, 1, 2)
-
-  path <- file.path(
-    project@path,
-    ".bayesgrove",
-    "cache",
-    "sha256",
-    prefix,
-    paste0(hash, ".rds")
-  )
+  path <- bg_cas_blob_path(project, ref)
 
   if (!file.exists(path)) {
     cli::cli_abort("Artifact file missing at {.path {path}}")
@@ -177,6 +168,21 @@ bg_fetch_artifact <- function(project, ref) {
   }
 
   readRDS(path)
+}
+
+#' File-system path of the CAS blob for a `cas:sha256:` ref.
+#' @keywords internal
+#' @noRd
+bg_cas_blob_path <- function(project, ref) {
+  hash <- sub("^cas:sha256:", "", ref)
+  file.path(
+    project@path,
+    ".bayesgrove",
+    "cache",
+    "sha256",
+    substr(hash, 1, 2),
+    paste0(hash, ".rds")
+  )
 }
 
 bg_read_artifact_index <- function(project) {
@@ -541,6 +547,12 @@ bg_retarget_run_plan <- function(
 #' pause flag are evaluated at wave boundaries, so a hold discovered from a fresh
 #' summary in one wave takes effect before the next wave is dispatched.
 #'
+#' Each successful execution records its provenance in its final job record
+#' (see [bg_jobs()] and [bg_node_pad()]): the inputs passed to the executor,
+#' what the executor consumed, the settings it actually used, the environment
+#' that ran it, and a P/A/D snapshot when the node kind declares one.
+#' Summaries written by an execution carry its `job_id`.
+#'
 #' @param project A `bg_handle`.
 #' @param targets Optional character vector of target node IDs.
 #' @param parallel One of `"auto"`, `"never"`, `"always"`. `"auto"` (default)
@@ -735,22 +747,24 @@ bg_run <- function(
           bg_fetch_artifact(project, ref),
           wave_jobs[[node_id]]
         )
-        written <- bg_write_summaries(
+        # Provenance is recorded here, on the single writer, from the
+        # executor metadata and environment manifest the worker returned.
+        res$summaries <- bg_record_execution(
           project = project,
           node_id = node_id,
+          graph = graph,
+          kind_reg = project@registries$node_kinds[[
+            graph$nodes[[node_id]]$kind
+          ]],
+          fingerprint = plan$metadata$fingerprints[[node_id]],
           artifact_ref = ref,
-          execution_fingerprint = plan$metadata$fingerprints[[node_id]],
-          summaries = res$summaries
+          input_bindings = plan$input_bindings[[node_id]],
+          job_id = wave_jobs[[node_id]],
+          summaries = res$summaries,
+          metadata = res$metadata,
+          environment = res$environment
         )
-        res$summaries <- written
         results[[node_id]] <- res
-        bg_update_job(
-          project,
-          wave_jobs[[node_id]],
-          status = "succeeded",
-          result_ref = ref,
-          finished_at = bg_now_timestamp()
-        )
       }
     }
 
@@ -856,12 +870,12 @@ bg_run <- function(
 #' the parallel wave worker: given the node (with `$resolved$data` already
 #' attached for `cas:` data refs), the resolved input artifacts, and the kind
 #' registry entry, call the executor and normalize what it returns into
-#' `list(artifact=, summaries=)`. Throws on executor error; callers handle
-#' persistence and job-status updates.
+#' `list(artifact=, summaries=, metadata=)`. Throws on executor error; callers
+#' handle persistence and job-status updates.
 #' @param node The graph node list (with `$resolved$data` set if applicable).
 #' @param resolved_inputs Named list of fetched upstream artifacts.
 #' @param kind_reg The node-kind registry entry carrying `$executor`.
-#' @return `list(artifact = <object>, summaries = <list>)`.
+#' @return `list(artifact = <object>, summaries = <list>, metadata = <list>)`.
 #' @keywords internal
 #' @noRd
 bg_run_executor <- function(node, resolved_inputs, kind_reg) {
@@ -950,6 +964,7 @@ bg_execute_node <- function(
   tryCatch(
     {
       normalized <- bg_run_executor(node, resolved_inputs, kind_reg)
+      environment <- bg_execution_environment()
 
       ref <- bg_store_artifact(
         handle,
@@ -961,20 +976,21 @@ bg_execute_node <- function(
       # Copy durable CSV output files for fit executors into runs/<job_id>/.
       bg_copy_fit_outputs(handle, normalized$artifact, job_id)
 
-      written_summaries <- bg_write_summaries(
+      # Write job-stamped summaries and the final job record with its
+      # provenance. `inputs` follows input_bindings, the same order used to
+      # assemble resolved_inputs above.
+      written_summaries <- bg_record_execution(
         project = handle,
         node_id = node_id,
+        graph = graph,
+        kind_reg = kind_reg,
+        fingerprint = fingerprint,
         artifact_ref = ref,
-        execution_fingerprint = fingerprint,
-        summaries = normalized$summaries
-      )
-
-      bg_update_job(
-        handle,
-        job_id,
-        status = "succeeded",
-        result_ref = ref,
-        finished_at = bg_now_timestamp()
+        input_bindings = input_bindings,
+        job_id = job_id,
+        summaries = normalized$summaries,
+        metadata = normalized$metadata,
+        environment = environment
       )
 
       list(ok = TRUE, ref = ref, summaries = written_summaries)

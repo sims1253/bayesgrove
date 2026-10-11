@@ -356,3 +356,88 @@ describe("bg_compute_wave / bg_parallel_active (Milestone 3)", {
     }
   })
 })
+
+describe("Parallel execution provenance", {
+  skip_on_cran()
+  skip_if_not_installed("mirai")
+  skip_if_not_installed("carrier")
+  skip_if_not_installed("purrr")
+
+  # Each node reports its consumed inputs and an effective setting read on
+  # the process that ran it (its pid), so the record can be traced to the
+  # worker.
+  make_reporting_graph <- function(handle) {
+    bg_register_node_kind(handle, "data", executor = function(node, inputs) {
+      list(
+        result = list(suffix = node$params$suffix %||% "root"),
+        summaries = list(list(
+          summary_kind = "hmc_diagnostics",
+          severity = "ok",
+          passed = TRUE,
+          metrics = list(max_rhat = 1)
+        )),
+        metadata = list(
+          provenance = list(
+            consumed = list(D = names(inputs)),
+            effective = list(A = list(pid = Sys.getpid()))
+          )
+        )
+      )
+    })
+    root <- bg_add_node(handle, kind = "data", label = "root")
+    leaves <- vapply(
+      c("1", "2"),
+      function(suffix) {
+        bg_add_node(
+          handle,
+          kind = "data",
+          label = paste0("leaf", suffix),
+          params = list(suffix = suffix),
+          inputs = root
+        )
+      },
+      character(1)
+    )
+    list(root = root, leaves = unname(leaves))
+  }
+
+  final_job <- function(handle, node_id) {
+    jobs <- Filter(
+      function(job) identical(job$node_id, node_id),
+      bg_jobs(handle)
+    )
+    jobs[[length(jobs)]]
+  }
+
+  it("records provenance from worker metadata on the main process", {
+    handle <- bg_init(path = withr::local_tempdir())
+    ids <- make_reporting_graph(handle)
+
+    mirai::daemons(2, dispatcher = TRUE)
+    on.exit(mirai::daemons(NULL), add = TRUE)
+    run_res <- bg_run(handle, parallel = "always")
+    expect_equal(run_res$status, "succeeded")
+
+    root_job <- final_job(handle, ids$root)
+    for (leaf in ids$leaves) {
+      job <- final_job(handle, leaf)
+      prov <- job$provenance
+      expect_identical(prov$artifact_ref, job$result_ref, info = leaf)
+      expect_identical(prov$consumed$D, list(ids$root), info = leaf)
+      expect_identical(
+        prov$inputs[[1]]$artifact_ref,
+        root_job$result_ref,
+        info = leaf
+      )
+      # The effective setting describes the worker that ran the executor.
+      expect_false(identical(prov$effective$A$pid, Sys.getpid()), info = leaf)
+      expect_true("bayesgrove" %in% names(prov$environment), info = leaf)
+
+      summaries <- Filter(
+        function(s) identical(s$node_id, leaf),
+        bg_read_summaries(handle)
+      )
+      expect_identical(summaries[[1]]$job_id, job$job_id, info = leaf)
+    }
+  })
+})

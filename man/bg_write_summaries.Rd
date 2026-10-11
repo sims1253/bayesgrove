@@ -27,5 +27,8 @@ bg_write_summaries(
 Named list of persisted summary entries.
 }
 \description{
-Persist executor summaries
+Summaries written through this function are not tied to an execution.
+Summaries that \code{\link[=bg_run]{bg_run()}} writes for an execution carry that execution's
+\code{job_id}; that field is engine-owned, so a summary payload containing
+\code{job_id} is rejected here.
 }

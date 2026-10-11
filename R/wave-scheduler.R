@@ -220,8 +220,9 @@ bg_daemon_state <- new.env(parent = emptyenv())
 # Workers run the executor and write artifact blobs. Content-addressed writes
 # are idempotent and atomic, so workers can write concurrently. The main
 # process is the single writer of the artifact index, summaries JSONL, and
-# jobs JSONL. Each worker returns list(node_id, ref, summaries, error); the
-# main process updates the plan and run state from these results.
+# jobs JSONL. Each worker returns list(node_id, ref, summaries, metadata,
+# environment, error); the main process records provenance and updates the
+# plan and run state from these results.
 
 #' Build a worker task bundle for one node in a wave.
 #'
@@ -474,9 +475,11 @@ bg_dispatch_wave_parallel <- function(project, wave, plan, graph) {
 #' Resolves the executor (built-in by ref, or uses the crated user function),
 #' calls `bg_run_executor`, and writes the artifact blob via `bg_store_cas_blob`
 #' (idempotent + atomic, safe under concurrent writes). The main process
-#' writes the artifact index, summaries JSONL, and jobs JSONL. Returns
-#' `list(node_id, ref, summaries, ok, error)`; `ref`/`summaries` are populated
-#' on success, `error` on failure.
+#' writes the artifact index, summaries JSONL, and jobs JSONL (including the
+#' job's provenance). Returns
+#' `list(node_id, ref, summaries, metadata, environment, ok, error)`;
+#' `ref`/`summaries`/`metadata`/`environment` are populated on success,
+#' `error` on failure.
 #' @param task A worker task bundle from `bg_build_worker_task`.
 #' @return Result list for the main process to finalize.
 #' @keywords internal
@@ -516,11 +519,16 @@ bg_wave_worker <- function(task) {
         kind_reg
       )
       ref <- bg_store_cas_blob(project, normalized$artifact)
+      # The executor metadata (its provenance report) and this worker's
+      # environment manifest travel back so the main process can record the
+      # execution's provenance as it ran here.
       list(
         node_id = task$node_id,
         ok = TRUE,
         ref = ref,
         summaries = normalized$summaries,
+        metadata = normalized$metadata,
+        environment = bg_execution_environment(),
         fingerprint = task$fingerprint
       )
     },
