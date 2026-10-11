@@ -24,7 +24,17 @@ bg_rule_actions <- function() {
 
 bg_rule_id_pattern <- "^[a-z0-9_-]+$"
 bg_rule_dotted_pattern <- "^[a-z0-9_-]+(\\.[a-z0-9_-]+)+$"
-bg_rule_version_pattern <- "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+# Canonical semver: no leading zeros, so each version has one spelling.
+bg_rule_number_pattern <- "(0|[1-9][0-9]*)"
+bg_rule_version_pattern <- paste0(
+  "^",
+  bg_rule_number_pattern,
+  "\\.",
+  bg_rule_number_pattern,
+  "\\.",
+  bg_rule_number_pattern,
+  "(-[0-9A-Za-z.-]+)?$"
+)
 
 bg_rule_required_fields <- function() c("id", "on", "require", "message")
 
@@ -163,7 +173,10 @@ bg_rule_scalars <- function(values) {
         !all(vapply(
           values,
           function(value) {
-            is.atomic(value) && !is.null(value) && length(value) == 1L
+            is.atomic(value) &&
+              !is.null(value) &&
+              length(value) == 1L &&
+              !is.na(value)
           },
           logical(1)
         )))
@@ -205,24 +218,32 @@ bg_rule_condition <- function(condition, label) {
   }
   allowed <- c("type", spec$required, spec$optional)
   bg_research_fields(condition, c("type", spec$required), allowed, label)
-  for (key in intersect(c("check", "utility"), names(condition))) {
-    bg_research_string(condition[[key]], paste0(label, ".", key))
-  }
-  if (!is.null(condition$provenance)) {
-    bg_research_string(condition$provenance, paste0(label, ".provenance"))
-    if (!condition$provenance %in% c("any", "derived")) {
-      cli::cli_abort("Evidence provenance must be any or derived.")
-    }
-  }
-  if (!is.null(condition$path)) {
-    condition$path <- bg_rule_path(condition$path)
-  }
-  if (!is.null(condition$values)) {
-    condition$values <- if (condition$type %in% c("goal_kind", "actor_type")) {
-      bg_rule_strings(condition$values, paste0(label, ".values"))
-    } else {
-      bg_rule_scalars(condition$values)
-    }
+  # Every supplied argument is validated, including a present NULL: a missing
+  # value must never weaken a requirement or switch a rule off.
+  for (key in setdiff(names(condition), "type")) {
+    value <- condition[[key]]
+    field <- paste0(label, ".", key)
+    condition[key] <- list(switch(
+      key,
+      check = ,
+      utility = {
+        bg_research_string(value, field)
+        value
+      },
+      provenance = {
+        bg_research_string(value, field)
+        if (!value %in% c("any", "derived")) {
+          cli::cli_abort("Evidence provenance must be any or derived.")
+        }
+        value
+      },
+      path = bg_rule_path(value),
+      values = if (condition$type %in% c("goal_kind", "actor_type")) {
+        bg_rule_strings(value, field)
+      } else {
+        bg_rule_scalars(value)
+      }
+    ))
   }
   condition
 }
@@ -775,7 +796,7 @@ bg_ruleset_parse_ref <- function(ref) {
   if (
     length(parts) != 3L ||
       !grepl(bg_rule_dotted_pattern, parts[[2]]) ||
-      !(grepl("^[0-9]+$", parts[[3]]) ||
+      !(grepl(paste0("^", bg_rule_number_pattern, "$"), parts[[3]]) ||
         grepl(bg_rule_version_pattern, parts[[3]]))
   ) {
     cli::cli_abort(
@@ -1019,6 +1040,29 @@ bg_ruleset_builtin <- function() {
   .bg_rules_env$builtin
 }
 
+# The registered ruleset with the same id and an equal version, or NULL.
+# Canonical versions make this a key match; comparing numerically as well
+# keeps resolution independent of registration order.
+bg_ruleset_registered <- function(ruleset) {
+  split <- function(version) {
+    list(
+      core = numeric_version(sub("-.*$", "", version)),
+      pre = sub("^[^-]*", "", version)
+    )
+  }
+  target <- split(ruleset$version)
+  matches <- Filter(
+    function(r) {
+      other <- split(r$version)
+      identical(r$id, ruleset$id) &&
+        other$core == target$core &&
+        identical(other$pre, target$pre)
+    },
+    bg_ruleset_registry()
+  )
+  if (length(matches)) matches[[1]]
+}
+
 bg_ruleset_registry <- function() {
   c(bg_ruleset_builtin(), .bg_rules_env$rulesets)
 }
@@ -1048,7 +1092,7 @@ bg_rule_registry_reset <- function() {
 bg_register_ruleset <- function(ruleset) {
   ruleset <- bg_ruleset_normalize(ruleset)
   key <- bg_ruleset_ref(ruleset)
-  existing <- bg_ruleset_registry()[[key]]
+  existing <- bg_ruleset_registered(ruleset)
   if (!is.null(existing)) {
     if (
       identical(bg_canonical_digest(existing), bg_canonical_digest(ruleset))
@@ -1133,13 +1177,14 @@ bg_ruleset_coalesce <- function(rules) {
 
 # Returns list(rules, vocabulary, sources) in resolution order.
 bg_ruleset_resolve <- function(ruleset, stack = character()) {
-  if (ruleset$id %in% stack) {
+  # Exact versions, so a ruleset may extend an earlier version of itself.
+  ref <- bg_ruleset_ref(ruleset)
+  if (ref %in% stack) {
     cli::cli_abort(
-      "Ruleset inheritance has a cycle: {.val {c(stack, ruleset$id)}}."
+      "Ruleset inheritance has a cycle: {.val {c(stack, ref)}}."
     )
   }
-  stack <- c(stack, ruleset$id)
-  ref <- bg_ruleset_ref(ruleset)
+  stack <- c(stack, ref)
   rules <- list()
   vocabulary <- NULL
   sources <- list()
@@ -1178,6 +1223,11 @@ bg_ruleset_resolve <- function(ruleset, stack = character()) {
   }
   own <- lapply(ruleset$rules, function(rule) {
     rule$id <- paste0(ruleset$id, "/", rule$id)
+    if (rule$id %in% ids) {
+      cli::cli_abort(
+        "Ruleset {.val {ref}} redefines inherited rule {.val {rule$id}}. Override it instead."
+      )
+    }
     rule$source <- ref
     rule
   })
@@ -1204,7 +1254,7 @@ bg_ruleset_policy <- function(ruleset) {
     ruleset <- bg_ruleset_lookup(ruleset)
   } else {
     ruleset <- bg_ruleset_normalize(ruleset)
-    registered <- bg_ruleset_registry()[[bg_ruleset_ref(ruleset)]]
+    registered <- bg_ruleset_registered(ruleset)
     if (
       !is.null(registered) &&
         !identical(

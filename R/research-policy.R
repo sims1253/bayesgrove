@@ -49,6 +49,15 @@ bg_research_policy_digest <- function(policy) {
 # Validates the structure of a stored policy. Predicate availability is only
 # checked at evaluation.
 bg_research_policy_stored <- function(state) {
+  fields <- c("mode", "rules", "ruleset", "vocabulary", "predicates")
+  if (anyDuplicated(names(state)[names(state) %in% fields])) {
+    cli::cli_abort("Policy fields must be unique.")
+  }
+  # Data validation rejects duplicate keys, which JSON readers keep and `$`
+  # would silently resolve to the first. Stored rules are not rewritten.
+  for (field in fields) {
+    bg_research_data(state[[field]])
+  }
   bg_research_mode(state$mode)
   legacy <- identical(state$schema_version, 1L)
   if (

@@ -1103,3 +1103,205 @@ test_that("rule messages remain literal data in the policy", {
   expect_match(conditionMessage(error), rule$message, fixed = TRUE)
   expect_false(file.exists(marker))
 })
+
+test_that("present NULL predicate arguments are validation errors everywhere", {
+  local_rule_registry()
+  rule_with <- function(require = NULL, when = NULL) {
+    list(
+      id = "r",
+      on = "create",
+      when = when,
+      require = require %||% list(type = "actor_type", values = "human"),
+      message = "Required."
+    )
+  }
+  requires <- list(
+    list(type = "require_values", path = "P", values = NULL),
+    list(type = "require_values", path = NULL, values = "a"),
+    list(type = "forbid_values", path = c("P", "x"), values = list()),
+    list(
+      type = "candidate_values",
+      path = c("P", "x"),
+      values = list("a", NULL)
+    ),
+    list(type = "require_evidence", check = NULL),
+    list(type = "require_evidence", check = "ppc", provenance = NULL),
+    list(type = "require_utility_evidence", utility = NULL),
+    list(type = "require_review", check = NULL),
+    list(type = "actor_type", values = NULL)
+  )
+  whens <- list(
+    list(list(type = "goal_kind", values = NULL)),
+    list(list(type = "goal_kind", values = list()))
+  )
+  bad <- c(
+    lapply(requires, function(r) rule_with(require = r)),
+    lapply(whens, function(w) rule_with(when = w))
+  )
+  h <- rules_fixture(mode = "enforce")
+  for (rule in bad) {
+    expect_error(do.call(bg_rule, rule))
+    expect_error(bg_ruleset("lab.x", "1.0.0", rules = list(rule)))
+    expect_error(
+      rules_propose(h, "configure", mode = "enforce", rules = list(rule))
+    )
+  }
+  bg_register_ruleset(bg_ruleset(
+    "lab.base",
+    "1.0.0",
+    rules = list(bg_rule(
+      id = "r",
+      on = "create",
+      require = list(type = "require_values", path = "P", values = "a"),
+      message = "Required."
+    ))
+  ))
+  for (patch in list(
+    list(require = list(type = "require_values", path = "P", values = NULL)),
+    list(when = list(list(type = "goal_kind", values = NULL)))
+  )) {
+    expect_error(bg_ruleset(
+      "lab.child",
+      "1.0.0",
+      extends = "lab.base@1",
+      override = list("lab.base/r" = patch)
+    ))
+  }
+})
+
+test_that("stored raw and resolved rules with NULL arguments are malformed", {
+  local_rule_registry()
+  raw <- bg_rule(
+    id = "r",
+    on = "create",
+    require = list(type = "require_values", path = "P", values = "a"),
+    message = "Required."
+  )
+  bg_register_ruleset(bg_ruleset("lab.base", "1.0.0", rules = list(raw)))
+  for (rules in list(list(raw), "lab.base@1")) {
+    h <- rules_fixture(rules, mode = "enforce")
+    original <- bg_research_state(h)
+    for (arg in c("values", "path")) {
+      state <- original
+      state$rules[[1]]$require[arg] <- list(NULL)
+      bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+      expect_error(bg_research_state(h), "Malformed")
+    }
+    state <- original
+    state$rules[[1]]$when <- list(list(type = "goal_kind", values = NULL))
+    bg_write_json_atomic(bg_research_path(h), state, sort_keys = FALSE)
+    expect_error(bg_research_state(h), "Malformed")
+  }
+})
+
+test_that("duplicate keys in stored legacy rules are rejected", {
+  rule <- list(
+    id = "review",
+    actions = "accept",
+    type = "require_review",
+    check = "ppc",
+    message = "Review first."
+  )
+  h <- rules_fixture(list(rule), mode = "enforce")
+  id <- rules_create(h)
+  ev <- rules_evidence(h, id)
+  proposal <- rules_propose(h, "accept", candidate_id = id, evidence_ids = ev)
+  state <- bg_research_state(h)
+  state$schema_version <- 1L
+  state[c("ruleset", "vocabulary", "predicates")] <- NULL
+  path <- bg_research_path(h)
+  bg_write_json_atomic(path, state, sort_keys = FALSE)
+  text <- readLines(path)
+  # jsonlite would rename duplicates, so inject the key into the JSON text.
+  at <- grep('"actions": "accept"', text, fixed = TRUE)[[1]]
+  text[at] <- sub('"actions"', '"actions": ["note"], "actions"', text[at])
+  writeLines(text, path)
+  expect_length(
+    jsonlite::read_json(path, simplifyVector = FALSE)$rules[[1]],
+    6L
+  )
+  expect_error(bg_research_state(h), "Malformed")
+  expect_error(bg_research_apply(h, proposal), "Malformed")
+})
+
+test_that("a ruleset may extend an earlier version of itself", {
+  local_rule_registry()
+  bg_register_ruleset(lab_base("1.0.0"))
+  next_major <- bg_ruleset(
+    "lab.base",
+    "2.0.0",
+    extends = "lab.base@1.0.0",
+    rules = list(review_rule("added"))
+  )
+  policy <- bg_research_policy("guide", next_major)
+  expect_equal(
+    vapply(policy$rules, `[[`, "", "id"),
+    c("lab.base/review", "lab.base/evidence", "lab.base/added")
+  )
+  expect_equal(
+    vapply(policy$rules, `[[`, "", "source"),
+    c("lab.base@1.0.0", "lab.base@1.0.0", "lab.base@2.0.0")
+  )
+  expect_error(
+    bg_research_policy(
+      "guide",
+      bg_ruleset(
+        "lab.base",
+        "2.0.0",
+        extends = "lab.base@1.0.0",
+        rules = list(review_rule("review"))
+      )
+    ),
+    "Override it instead"
+  )
+  # A ruleset whose major reference selects itself is a genuine cycle.
+  bg_register_ruleset(bg_ruleset("lab.loop", "1.0.0", extends = "lab.loop@1"))
+  expect_error(bg_research_policy("guide", "lab.loop@1"), "cycle")
+})
+
+test_that("versions have one spelling and selection ignores registration order", {
+  local_rule_registry()
+  for (version in c("01.0.0", "1.00.0", "1.0.01", "1.0", "1.0.0-")) {
+    expect_error(bg_ruleset("lab.x", version), "MAJOR")
+  }
+  expect_error(bg_ruleset_parse_ref("lab.x@01"), "must be")
+  expect_no_error(bg_ruleset("lab.x", "10.0.0-rc.01"))
+  selected <- function(order) {
+    bg_rule_registry_reset()
+    for (version in order) {
+      bg_register_ruleset(lab_base(version, message = version))
+    }
+    bg_ruleset_lookup("lab.base@1")$version
+  }
+  expect_equal(selected(c("1.2.0", "1.10.0", "1.9.9")), "1.10.0")
+  expect_equal(selected(c("1.9.9", "1.10.0", "1.2.0")), "1.10.0")
+  expect_error(
+    bg_register_ruleset(lab_base("1.10.0", message = "other")),
+    "different content"
+  )
+})
+
+test_that("canonical digests match an independent fixture", {
+  x <- list(
+    b = list(z = 1L, a = c(0.1, 2)),
+    a = "text",
+    n = NULL,
+    t = TRUE,
+    e = list()
+  )
+  json <- '{"a":"text","b":{"a":[0.10000000000000001,2],"z":1},"e":[],"n":null,"t":true}'
+  expect_identical(bg_canonical_json(x), json)
+  # sha256sum of the JSON text above, computed outside R.
+  expect_identical(
+    bg_canonical_digest(x),
+    "daf786de676f0fcefbd2417e5eba8d3be5d403f544ca88a579353da95f84d2fb"
+  )
+  expect_identical(
+    bg_canonical_digest(jsonlite::parse_json(json)),
+    bg_canonical_digest(x)
+  )
+  expect_identical(
+    bg_canonical_digest(list(t = TRUE, b = list(a = c(0.1, 2), z = 1))),
+    bg_canonical_digest(list(b = list(z = 1, a = list(0.1, 2L)), t = TRUE))
+  )
+})
