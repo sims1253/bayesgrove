@@ -91,8 +91,11 @@
   provenance. Apply derives the engine-owned fields again under the research
   lock, and a proposal whose derivation changed, for example because the node
   was re-run, is stale. Reading the state checks the structure of derived
-  evidence. Research id lists, including `basis`, must be unnamed lists of
-  ids. Reports list bindings and derived evidence.
+  evidence, and apply never writes a state that would fail that check.
+  Research id lists, including `basis`, must be unnamed lists of ids. Reports
+  list bindings and derived evidence.
+* Summaries reject a dimensioned `passed`, `summary_kind`, or `severity`
+  (for example a matrix); `passed` may still be a logical vector.
 * The brms fit executors pass `backend` and `algorithm` to `brms::brm()`
   explicitly, from node params or else the `brms.backend` and
   `brms.algorithm` options, so the recorded values are the ones used.

@@ -564,16 +564,19 @@ describe("derived evidence", {
       node_id = p$fit,
       utility = "convergence"
     )
+    # Only the transitioned state, the first with evidence, is unreadable.
     local_mocked_bindings(
       bg_research_validate_evidence = function(state) {
-        cli::cli_abort("Unreadable evidence.")
+        if (length(state$evidence)) {
+          cli::cli_abort("Unreadable evidence.")
+        }
+        invisible(NULL)
       }
     )
     expect_error(bg_research_apply(p$handle, proposal), "Unreadable")
-    local_mocked_bindings(
-      bg_research_validate_evidence = function(state) invisible(NULL)
-    )
-    expect_identical(bg_research_state(p$handle)$version, before$version)
+    after <- bg_research_state(p$handle)
+    expect_identical(after$version, before$version)
+    expect_length(after$evidence, 0L)
   })
 
   it("derives a check's diagnostics through the check path", {

@@ -157,6 +157,30 @@ describe("Summary vocabulary (Phase 3)", {
     )
   })
 
+  it("aborts on dimensioned summary fields", {
+    validate <- function(...) {
+      bayesgrove:::bg_validate_summary(
+        utils::modifyList(
+          list(summary_kind = "prior_spec", severity = "ok", metrics = list()),
+          list(...)
+        ),
+        "n1",
+        "prior_spec"
+      )
+    }
+    expect_error(
+      validate(summary_kind = matrix("prior_spec")),
+      "single non-empty"
+    )
+    expect_error(validate(severity = matrix("ok")), "invalid")
+    expect_error(validate(severity = c("ok", "ok")), "invalid")
+    expect_error(
+      validate(passed = matrix(c(TRUE, FALSE), nrow = 1)),
+      "dimensioned"
+    )
+    expect_no_error(validate(passed = c(TRUE, FALSE)))
+  })
+
   it("returns NULL instead of crashing on NA or empty nearest-kind lookups", {
     known <- c("prior_spec", "hmc_diagnostics")
 

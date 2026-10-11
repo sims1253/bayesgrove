@@ -120,7 +120,7 @@ bg_persist_summaries <- function(
 #' Validate a summary record before writing.
 #'
 #' Aborts on malformed structure (missing/non-string summary_kind, bad severity,
-#' non-logical passed, non-named-list metrics). Warns but allows the write
+#' non-logical or dimensioned passed, non-named-list metrics). Warns but allows the write
 #' when the summary_kind is not in the vocabulary, naming the nearest
 #' known kind as a typo suggestion.
 #' @keywords internal
@@ -138,6 +138,7 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
   if (
     !is.character(kind) ||
       length(kind) != 1 ||
+      !is.null(dim(kind)) ||
       is.na(kind) ||
       !nzchar(kind)
   ) {
@@ -148,7 +149,12 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
 
   severity <- summary$severity %||% "ok"
   valid_severities <- c("ok", "warning", "error")
-  if (!severity %in% valid_severities) {
+  if (
+    !is.character(severity) ||
+      length(severity) != 1 ||
+      !is.null(dim(severity)) ||
+      !severity %in% valid_severities
+  ) {
     cli::cli_abort(
       paste0(
         "Summary {.val {kind}} for node {.val {node_id}} has invalid ",
@@ -162,6 +168,12 @@ bg_validate_summary <- function(summary, node_id, known_kinds) {
   if (!is.null(passed) && !is.logical(passed)) {
     cli::cli_abort(
       "Summary {.val {kind}} for node {.val {node_id}} has non-logical {.field passed}."
+    )
+  }
+  # Arrays would be stored as nested JSON arrays, which evidence cannot hold.
+  if (!is.null(dim(passed))) {
+    cli::cli_abort(
+      "Summary {.val {kind}} for node {.val {node_id}} has a dimensioned {.field passed}; use a logical vector."
     )
   }
 
