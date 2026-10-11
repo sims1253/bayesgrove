@@ -86,7 +86,11 @@ is caller-declared, not authenticated.</p></dd>
 
 
 <dt id="arg-rules">rules<a class="anchor" aria-label="anchor" href="#arg-rules"></a></dt>
-<dd><p>List of declarative research rules.</p></dd>
+<dd><p>The research policy: a ruleset (see <code><a href="bg_ruleset.html">bg_ruleset()</a></code>), a
+reference string such as <code>"lab.review@1"</code>, or a list of rules (see
+<code><a href="bg_rule.html">bg_rule()</a></code>). Rulesets are resolved and pinned when the investigation
+starts. If the resolved vocabulary declares goal kinds, <code>goal$kind</code> must
+be one of them.</p></dd>
 
 </dl></div>
     <div class="section level2">

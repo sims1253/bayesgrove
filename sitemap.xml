@@ -67,6 +67,8 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_read_summaries.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_record_decision.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_node_kind.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_rule_predicate.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_ruleset.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_register_summary_kind.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_remove_node.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_repair_orphan_gates.html</loc></url>
@@ -81,6 +83,11 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_retire_branch.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_retire_node.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_rollback_gate_graph.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_rule.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_rules.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_ruleset.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_ruleset_check.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_rulesets.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_run.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_scope_label.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_set_goal.html</loc></url>
@@ -92,6 +99,7 @@
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_use_brms.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_use_cmdstanr.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_use_default_workflow.html</loc></url>
+<url><loc>https://sims1253.github.io/bayesgrove/reference/bg_use_rules.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_use_workflow_packs.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_valid_classifications.html</loc></url>
 <url><loc>https://sims1253.github.io/bayesgrove/reference/bg_validate_api_boundary_registry.html</loc></url>

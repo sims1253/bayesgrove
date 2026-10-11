@@ -76,7 +76,12 @@ it again before writing.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A proposal with <code>version</code>, <code>action</code>, <code>actor</code>, <code>rationale</code>, <code>allowed</code>,
-and <code>findings</code>. A finding includes its rule and explanation.</p>
+and <code>findings</code>. A finding is the rule with its <code>severity</code>, plus
+<code>failures</code> when a predicate failed and <code>candidate_ids</code> for comparisons.
+Enforce holds an action only for blocking findings. A <code>configure</code> proposal
+also carries the resolved <code>policy</code> and its <code>policy_digest</code>; apply resolves
+the requested rules again, and a different digest makes the proposal
+stale.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

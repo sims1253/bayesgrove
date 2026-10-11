@@ -91,7 +91,7 @@ environment and reproducibility manifests) can change these sources.</p></li>
 <li><p>Nothing else is copied. Executor dependencies (persisted separately as
 inert source and restored only through the trust-gated
 <code><a href="bg_restore_executors.html">bg_restore_executors()</a></code>), external data (attach it with
-<a href="bg_set_node_data.html">bg_set_node_data</a> so it travels through the CAS), secrets, and
+<code><a href="bg_set_node_data.html">bg_set_node_data()</a></code> so it travels through the CAS), secrets, and
 unreferenced siblings of a referenced file all stay outside the archive.
 Directories are never copied wholesale.</p></li>
 <li><p>A referenced file that is missing at bundle time produces a warning and

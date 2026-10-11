@@ -238,9 +238,105 @@ evidence itself remains available.</p>
 <span><span class="co">#&gt; [1] FALSE</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="share-rules-as-a-ruleset">Share rules as a ruleset<a class="anchor" aria-label="anchor" href="#share-rules-as-a-ruleset"></a>
+</h2>
+<p>Rules are data. <code><a href="../reference/bg_rule.html">bg_rule()</a></code> validates one rule: the
+actions it governs (<code>on</code>), optional <code>when</code>
+conditions, one requirement, and a <code>severity</code>. Enforce holds
+an action only for blocking findings; advisory findings guide without
+holding. A ruleset collects rules under a dotted id and version, and can
+declare the utilities, goal kinds, and checks it uses. This one extends
+nothing.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">review_ppc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_rule.html">bg_rule</a></span><span class="op">(</span></span>
+<span>  id <span class="op">=</span> <span class="st">"review-ppc"</span>,</span>
+<span>  on <span class="op">=</span> <span class="st">"accept"</span>,</span>
+<span>  require <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"require_review"</span>, check <span class="op">=</span> <span class="st">"ppc"</span><span class="op">)</span>,</span>
+<span>  message <span class="op">=</span> <span class="st">"Review the predictive evidence before accepting this candidate."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">tail_check</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_rule.html">bg_rule</a></span><span class="op">(</span></span>
+<span>  id <span class="op">=</span> <span class="st">"tail-check"</span>,</span>
+<span>  on <span class="op">=</span> <span class="st">"accept"</span>,</span>
+<span>  when <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"goal_kind"</span>, values <span class="op">=</span> <span class="st">"observable_prediction"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  require <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"require_evidence"</span>, check <span class="op">=</span> <span class="st">"tail_ppc"</span><span class="op">)</span>,</span>
+<span>  severity <span class="op">=</span> <span class="st">"advisory"</span>,</span>
+<span>  message <span class="op">=</span> <span class="st">"Consider a check focused on the upper tail."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">lab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_ruleset.html">bg_ruleset</a></span><span class="op">(</span></span>
+<span>  <span class="st">"lab.positive"</span>,</span>
+<span>  <span class="st">"1.0.0"</span>,</span>
+<span>  title <span class="op">=</span> <span class="st">"Positive measurements"</span>,</span>
+<span>  vocabulary <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    utilities <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"predictive_performance"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    goal_kinds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"observable_prediction"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    checks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"ppc"</span>, utilities <span class="op">=</span> <span class="st">"predictive_performance"</span><span class="op">)</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"tail_ppc"</span>, utilities <span class="op">=</span> <span class="st">"predictive_performance"</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  rules <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">review_ppc</span>, <span class="va">tail_check</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_ruleset_check.html">bg_ruleset_check</a></span><span class="op">(</span><span class="va">lab</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ok"</span>, <span class="st">"rule_count"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $ok</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rule_count</span></span>
+<span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
+<p>Registering a ruleset makes it available by reference in this
+session. <code><a href="../reference/bg_use_rules.html">bg_use_rules()</a></code> replaces the whole policy through a
+recorded <code>configure</code> action. The state pins the resolved
+rules and vocabulary, so later changes to the registry do not change the
+policy in force. <code><a href="../reference/bg_rules.html">bg_rules()</a></code> returns what an agent should
+read before acting.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_register_ruleset.html">bg_register_ruleset</a></span><span class="op">(</span><span class="va">lab</span><span class="op">)</span></span>
+<span><span class="va">state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_use_rules.html">bg_use_rules</a></span><span class="op">(</span><span class="va">h</span>, <span class="st">"lab.positive@1"</span>, mode <span class="op">=</span> <span class="st">"enforce"</span>, actor <span class="op">=</span> <span class="va">human</span>,</span>
+<span>                      rationale <span class="op">=</span> <span class="st">"Adopt the shared rules for this lab."</span><span class="op">)</span></span>
+<span><span class="va">active</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_rules.html">bg_rules</a></span><span class="op">(</span><span class="va">h</span><span class="op">)</span></span>
+<span><span class="va">active</span><span class="op">$</span><span class="va">ruleset</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"version"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $id</span></span>
+<span><span class="co">#&gt; [1] "lab.positive"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $version</span></span>
+<span><span class="co">#&gt; [1] "1.0.0"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">active</span><span class="op">$</span><span class="va">rules</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"id"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "lab.positive/review-ppc" "lab.positive/tail-check"</span></span>
+<span></span>
+<span><span class="va">proposal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span><span class="va">h</span>, <span class="va">acceptance</span>, <span class="va">human</span>,</span>
+<span>                                <span class="st">"Reconsider the candidate under the shared rules."</span><span class="op">)</span></span>
+<span><span class="va">proposal</span><span class="op">$</span><span class="va">allowed</span></span>
+<span><span class="co">#&gt; [1] FALSE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">proposal</span><span class="op">$</span><span class="va">findings</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"severity"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; lab.positive/review-ppc lab.positive/tail-check </span></span>
+<span><span class="co">#&gt;              "blocking"              "advisory"</span></span></code></pre></div>
+<p>The review from the previous goal no longer counts, so the blocking
+rule holds the acceptance. The advisory finding alone would not. The
+vocabulary maps <code>tail_ppc</code> to a single utility, so evidence
+for that check can omit <code>utility</code>. After the tail check and a
+review under the current goal, no findings remain.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">state</span> <span class="op">&lt;-</span> <span class="fu">record</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"evidence"</span>, candidate_id <span class="op">=</span> <span class="va">lognormal</span>, label <span class="op">=</span> <span class="st">"Illustrative tail check"</span>,</span>
+<span>       check <span class="op">=</span> <span class="st">"tail_ppc"</span>, result <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>source <span class="op">=</span> <span class="st">"illustrative"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="st">"Check the upper tail for the revised goal."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">state</span><span class="op">$</span><span class="va">evidence</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">state</span><span class="op">$</span><span class="va">history</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">id</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">utility</span></span>
+<span><span class="co">#&gt; [1] "predictive_performance"</span></span>
+<span><span class="va">state</span> <span class="op">&lt;-</span> <span class="fu">record</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"review"</span>, candidate_id <span class="op">=</span> <span class="va">lognormal</span>,</span>
+<span>                     evidence_ids <span class="op">=</span> <span class="va">lognormal_evidence</span><span class="op">)</span>,</span>
+<span>                <span class="st">"Review the predictive check again under the revised goal."</span><span class="op">)</span></span>
+<span><span class="va">proposal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span><span class="va">h</span>, <span class="va">acceptance</span>, <span class="va">human</span>,</span>
+<span>                                <span class="st">"Accept for the revised goal, subject to further checks."</span><span class="op">)</span></span>
+<span><span class="va">proposal</span><span class="op">$</span><span class="va">allowed</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">proposal</span><span class="op">$</span><span class="va">findings</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0</span></span>
+<span><span class="va">state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_apply.html">bg_research_apply</a></span><span class="op">(</span><span class="va">h</span>, <span class="va">proposal</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="reopen-and-share">Reopen and share<a class="anchor" aria-label="anchor" href="#reopen-and-share"></a>
 </h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="va">h</span><span class="op">@</span><span class="va">path</span></span>
 <span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">h</span><span class="op">)</span></span>
 <span><span class="va">h</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
@@ -248,10 +344,10 @@ evidence itself remains available.</p>
 <span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">h</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/bg_snapshot.html">bg_snapshot()</a></code>, <code><a href="../reference/bg_bundle.html">bg_bundle()</a></code>, and
 <code><a href="../reference/bg_export_report.html">bg_export_report()</a></code> include research state. The <a href="https://github.com/sims1253/bayesgrove/blob/master/architecture/research-search.md" class="external-link">research-search
-contract</a> lists all action fields and declarative rule types,
-including specification constraints and evidence requirements. There is
-no built-in universal model score: comparisons state their criteria and
-retain their evidence.</p>
+contract</a> lists all action fields, and the <a href="https://github.com/sims1253/bayesgrove/blob/master/architecture/rules-and-evidence.md" class="external-link">rule
+contract</a> specifies rules, predicates, rulesets, and pinning. There
+is no built-in universal model score: comparisons state their criteria
+and retain their evidence.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
