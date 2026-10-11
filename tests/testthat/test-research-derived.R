@@ -521,6 +521,61 @@ describe("derived evidence", {
     )
   })
 
+  it("keeps a vector of pass flags readable", {
+    p <- derived_project()
+    bg_register_node_kind(p$handle, "multi", executor = function(node, inputs) {
+      subject <- names(inputs)[[1]]
+      list(
+        result = list(checked = inputs[[subject]]$mean),
+        summaries = list(list(
+          summary_kind = "posterior_predictive_check",
+          severity = "warning",
+          passed = c(TRUE, FALSE)
+        )),
+        metadata = list(
+          provenance = list(consumed = list(D = list(), subject = subject))
+        )
+      )
+    })
+    root <- act(p, "create", label = "Scale 3", node_id = p$fit)
+    check <- add_check(p, p$fit, kind = "multi")
+    id <- act(
+      p,
+      "evidence",
+      candidate_id = root,
+      label = "Two pass flags",
+      node_id = check,
+      utility = "observable_fit"
+    )
+    passed <- evidence_of(p, id)$result$passed
+    expect_identical(unlist(passed), c(TRUE, FALSE))
+    expect_no_error(act(p, "note", candidate_id = root))
+  })
+
+  it("never writes a state it could not read back", {
+    p <- derived_project()
+    root <- act(p, "create", label = "Scale 3", node_id = p$fit)
+    before <- bg_research_state(p$handle)
+    proposal <- propose(
+      p,
+      "evidence",
+      candidate_id = root,
+      label = "Sampler diagnostics",
+      node_id = p$fit,
+      utility = "convergence"
+    )
+    local_mocked_bindings(
+      bg_research_validate_evidence = function(state) {
+        cli::cli_abort("Unreadable evidence.")
+      }
+    )
+    expect_error(bg_research_apply(p$handle, proposal), "Unreadable")
+    local_mocked_bindings(
+      bg_research_validate_evidence = function(state) invisible(NULL)
+    )
+    expect_identical(bg_research_state(p$handle)$version, before$version)
+  })
+
   it("derives a check's diagnostics through the check path", {
     p <- derived_project()
     root <- act(p, "create", label = "Scale 3", node_id = p$fit)

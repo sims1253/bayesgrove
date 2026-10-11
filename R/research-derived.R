@@ -496,11 +496,23 @@ bg_research_validate_evidence <- function(state) {
     }
     result <- record$result
     bg_research_fields(result, result_fields, result_fields, "result")
+    # Summaries allow a logical vector, which JSON stores as an array.
     passed <- result$passed
+    if (is.list(passed)) {
+      passed <- if (
+        all(vapply(
+          passed,
+          function(x) is.null(x) || (is.logical(x) && length(x) == 1L),
+          logical(1)
+        ))
+      ) {
+        TRUE
+      }
+    }
     if (
       !scalar_string(result$summary_kind) ||
         !scalar_string(result$severity) ||
-        !(is.null(passed) || (is.logical(passed) && length(passed) == 1L)) ||
+        !(is.null(result$passed) || is.logical(passed)) ||
         !is.list(result$metrics) ||
         !identical(record$check, result$summary_kind)
     ) {

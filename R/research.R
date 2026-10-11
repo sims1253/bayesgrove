@@ -328,6 +328,9 @@ bg_research_apply <- function(project, proposal) {
       ))
     }
     state <- bg_research_transition(state, checked)
+    # The new state must be readable before it replaces the old one.
+    bg_research_validate_candidates(state)
+    bg_research_validate_evidence(state)
     bg_write_json_atomic(path, state, sort_keys = FALSE)
   })
   bg_research_state(project)
