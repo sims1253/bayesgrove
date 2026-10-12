@@ -446,9 +446,188 @@ the node was re-run between proposal and apply, the proposal is
 stale.</p>
 </div>
 <div class="section level2">
+<h2 id="start-from-the-official-ruleset">Start from the official ruleset<a class="anchor" aria-label="anchor" href="#start-from-the-official-ruleset"></a>
+</h2>
+<p>bayesgrove ships one built-in ruleset,
+<code>bayesgrove.workflow</code>. Its vocabulary declares the ten model
+utilities and the two inferential goals of <a href="https://doi.org/10.1214/23-SS145" class="external-link">Bürkner, Scholz, and Radev
+(2023)</a> and maps the built-in summary kinds to the utilities they
+inform. Its nine rules are a selected, tree-informed workflow baseline:
+a few goal-dependent expectations drawn from the paper’s utility trees,
+plus established practice from <em>Bayesian Workflow</em> (2026). They
+do not encode the trees in full. Whether fairness applies, which is the
+first, conditional gate in both trees, and how to weigh trade-offs
+between utilities are left to the analyst or lab; the lab extension
+below shows how to add such rules. It is a ruleset like any other: plain
+data, built-in predicates only, loaded through the same validation as
+<code>lab.positive</code> above.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/bg_rulesets.html">bg_rulesets</a></span><span class="op">(</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"version"</span>, <span class="st">"origin"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                    id version  origin</span></span>
+<span><span class="co">#&gt; 1 bayesgrove.workflow   1.0.0 builtin</span></span>
+<span><span class="co">#&gt; 2        lab.positive   1.0.0 session</span></span>
+<span><span class="fu"><a href="../reference/bg_ruleset_check.html">bg_ruleset_check</a></span><span class="op">(</span><span class="st">"bayesgrove.workflow@1"</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ok"</span>, <span class="st">"warnings"</span>, <span class="st">"rule_count"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $ok</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $warnings</span></span>
+<span><span class="co">#&gt; character(0)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rule_count</span></span>
+<span><span class="co">#&gt; [1] 9</span></span></code></pre></div>
+<p>Start an investigation with it by reference. The goal kind must be
+one the vocabulary declares, <code>observable_prediction</code> or
+<code>latent_inference</code>; any other kind is an error in every
+mode.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">h2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_init.html">bg_init</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"official-ruleset-"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">official_state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_init.html">bg_research_init</a></span><span class="op">(</span></span>
+<span>  <span class="va">h2</span>,</span>
+<span>  question <span class="op">=</span> <span class="st">"How large is the treatment effect?"</span>,</span>
+<span>  goal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"latent_inference"</span>, estimand <span class="op">=</span> <span class="st">"average treatment effect"</span><span class="op">)</span>,</span>
+<span>  actor <span class="op">=</span> <span class="va">human</span>,</span>
+<span>  mode <span class="op">=</span> <span class="st">"guide"</span>,</span>
+<span>  rules <span class="op">=</span> <span class="st">"bayesgrove.workflow@1"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">official</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_rules.html">bg_rules</a></span><span class="op">(</span><span class="va">h2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">official</span><span class="op">$</span><span class="va">vocabulary</span><span class="op">$</span><span class="va">utilities</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"id"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;  [1] "causal_consistency"       "parameter_recoverability"</span></span>
+<span><span class="co">#&gt;  [3] "predictive_performance"   "fairness"                </span></span>
+<span><span class="co">#&gt;  [5] "structural_faithfulness"  "parsimony"               </span></span>
+<span><span class="co">#&gt;  [7] "interpretability"         "convergence"             </span></span>
+<span><span class="co">#&gt;  [9] "estimation_speed"         "robustness"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  rule <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"bayesgrove.workflow/"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">official</span><span class="op">$</span><span class="va">rules</span>, <span class="va">`[[`</span>, <span class="st">""</span>, <span class="st">"id"</span><span class="op">)</span>, fixed <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  on <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">official</span><span class="op">$</span><span class="va">rules</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">on</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">""</span><span class="op">)</span>,</span>
+<span>  severity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">official</span><span class="op">$</span><span class="va">rules</span>, <span class="va">`[[`</span>, <span class="st">""</span>, <span class="st">"severity"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt;                                rule      on severity</span></span>
+<span><span class="co">#&gt; 1               convergence-derived  accept blocking</span></span>
+<span><span class="co">#&gt; 2            review-hmc-diagnostics  accept blocking</span></span>
+<span><span class="co">#&gt; 3      review-optimizer-diagnostics  accept blocking</span></span>
+<span><span class="co">#&gt; 4        posterior-predictive-check  accept advisory</span></span>
+<span><span class="co">#&gt; 5                    observable-loo  accept advisory</span></span>
+<span><span class="co">#&gt; 6            observable-compare-loo compare advisory</span></span>
+<span><span class="co">#&gt; 7         latent-causal-consistency  accept advisory</span></span>
+<span><span class="co">#&gt; 8   latent-parameter-recoverability  accept advisory</span></span>
+<span><span class="co">#&gt; 9 latent-compare-causal-consistency compare advisory</span></span></code></pre></div>
+<p>Three explicit rules are blocking, all on acceptance: convergence
+diagnostics derived from the candidate’s own run, and a human review of
+the computation diagnostics that were recorded. The goal-specific
+expectations are advisory. In Enforce, the implicit vocabulary rule
+additionally blocks evidence whose check or utility the vocabulary does
+not declare, or whose utility the check does not inform. Evidence
+asserted by a caller, like the illustrative record below, never
+satisfies the derived-convergence rule: it needs evidence the engine
+derives from a run bound to the candidate, as in “Bind a candidate to a
+run” above.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">record2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">action</span>, <span class="va">rationale</span>, <span class="va">actor</span> <span class="op">=</span> <span class="va">human</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/bg_research_apply.html">bg_research_apply</a></span><span class="op">(</span><span class="va">h2</span>, <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span><span class="va">h2</span>, <span class="va">action</span>, <span class="va">actor</span>, <span class="va">rationale</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">official_state</span> <span class="op">&lt;-</span> <span class="fu">record2</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"create"</span>, label <span class="op">=</span> <span class="st">"Adjusted regression"</span>,</span>
+<span>       components <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>P <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>formula <span class="op">=</span> <span class="st">"y ~ treatment + age"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="st">"Start from the adjustment set implied by the assumed causal graph."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">official_state</span><span class="op">$</span><span class="va">history</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">id</span></span>
+<span><span class="va">official_state</span> <span class="op">&lt;-</span> <span class="fu">record2</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"evidence"</span>, candidate_id <span class="op">=</span> <span class="va">model</span>, label <span class="op">=</span> <span class="st">"Illustrative sampler check"</span>,</span>
+<span>       check <span class="op">=</span> <span class="st">"hmc_diagnostics"</span>, result <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>source <span class="op">=</span> <span class="st">"illustrative"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="st">"Record the sampler diagnostics."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">hmc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">official_state</span><span class="op">$</span><span class="va">history</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">id</span></span>
+<span><span class="va">official_state</span><span class="op">$</span><span class="va">evidence</span><span class="op">[[</span><span class="va">hmc</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">utility</span></span>
+<span><span class="co">#&gt; [1] "convergence"</span></span>
+<span></span>
+<span><span class="va">proposal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_research_propose.html">bg_research_propose</a></span><span class="op">(</span></span>
+<span>  <span class="va">h2</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kind <span class="op">=</span> <span class="st">"accept"</span>, candidate_id <span class="op">=</span> <span class="va">model</span>, evidence_ids <span class="op">=</span> <span class="va">hmc</span><span class="op">)</span>,</span>
+<span>  <span class="va">human</span>,</span>
+<span>  <span class="st">"Accept the adjusted model."</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">proposal</span><span class="op">$</span><span class="va">findings</span>, <span class="va">`[[`</span>, <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, <span class="st">"severity"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;             bayesgrove.workflow/convergence-derived </span></span>
+<span><span class="co">#&gt;                                          "blocking" </span></span>
+<span><span class="co">#&gt;          bayesgrove.workflow/review-hmc-diagnostics </span></span>
+<span><span class="co">#&gt;                                          "blocking" </span></span>
+<span><span class="co">#&gt;      bayesgrove.workflow/posterior-predictive-check </span></span>
+<span><span class="co">#&gt;                                          "advisory" </span></span>
+<span><span class="co">#&gt;       bayesgrove.workflow/latent-causal-consistency </span></span>
+<span><span class="co">#&gt;                                          "advisory" </span></span>
+<span><span class="co">#&gt; bayesgrove.workflow/latent-parameter-recoverability </span></span>
+<span><span class="co">#&gt;                                          "advisory"</span></span></code></pre></div>
+<p>Each finding carries the rule’s explanation, a suggestion, and
+references to the paper and the book. Evidence and reviews are records:
+the rules require that a check was recorded and read, never that it
+passed.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">recoverability</span> <span class="op">&lt;-</span> <span class="va">proposal</span><span class="op">$</span><span class="va">findings</span><span class="op">[[</span><span class="st">"bayesgrove.workflow/latent-parameter-recoverability"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">recoverability</span><span class="op">$</span><span class="va">message</span></span>
+<span><span class="co">#&gt; [1] "For a latent goal, consider recording parameter recoverability evidence, such as simulation-based calibration, before accepting this candidate."</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">recoverability</span><span class="op">$</span><span class="va">references</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Bürkner, Scholz &amp; Radev (2023), §3.2.3"              </span></span>
+<span><span class="co">#&gt; [2] "Bürkner, Scholz &amp; Radev (2023), §4.4.2 and Figure 14"</span></span>
+<span><span class="co">#&gt; [3] "Bayesian Workflow (2026), §6.3"                      </span></span>
+<span><span class="co">#&gt; [4] "Bayesian Workflow (2026), §14.3"</span></span></code></pre></div>
+<p>A lab adapts the official rules by extending them rather than copying
+them. Here a lab that has decided fairness applies to its work makes the
+causal-consistency expectation blocking and adds a fairness audit, with
+a check that informs the <code>fairness</code> utility. Inherited rules
+keep their source and record who overrode them.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lab_workflow</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_ruleset.html">bg_ruleset</a></span><span class="op">(</span></span>
+<span>  <span class="st">"lab.workflow"</span>,</span>
+<span>  <span class="st">"1.0.0"</span>,</span>
+<span>  title <span class="op">=</span> <span class="st">"Lab workflow"</span>,</span>
+<span>  extends <span class="op">=</span> <span class="st">"bayesgrove.workflow@1"</span>,</span>
+<span>  override <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    <span class="st">"bayesgrove.workflow/latent-causal-consistency"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>severity <span class="op">=</span> <span class="st">"blocking"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  vocabulary <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>checks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"fairness_audit"</span>, title <span class="op">=</span> <span class="st">"Fairness audit"</span>, utilities <span class="op">=</span> <span class="st">"fairness"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span><span class="op">)</span>,</span>
+<span>  rules <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/bg_rule.html">bg_rule</a></span><span class="op">(</span></span>
+<span>    id <span class="op">=</span> <span class="st">"fairness-audit"</span>,</span>
+<span>    on <span class="op">=</span> <span class="st">"accept"</span>,</span>
+<span>    require <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"require_evidence"</span>, check <span class="op">=</span> <span class="st">"fairness_audit"</span><span class="op">)</span>,</span>
+<span>    severity <span class="op">=</span> <span class="st">"advisory"</span>,</span>
+<span>    message <span class="op">=</span> <span class="st">"Record a fairness audit before accepting a model."</span>,</span>
+<span>    references <span class="op">=</span> <span class="st">"Bürkner, Scholz &amp; Radev (2023), §3.4"</span></span>
+<span>  <span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/bg_ruleset_check.html">bg_ruleset_check</a></span><span class="op">(</span><span class="va">lab_workflow</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ok"</span>, <span class="st">"warnings"</span>, <span class="st">"rule_count"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $ok</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $warnings</span></span>
+<span><span class="co">#&gt; character(0)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rule_count</span></span>
+<span><span class="co">#&gt; [1] 10</span></span>
+<span><span class="fu"><a href="../reference/bg_register_ruleset.html">bg_register_ruleset</a></span><span class="op">(</span><span class="va">lab_workflow</span><span class="op">)</span></span>
+<span><span class="va">official_state</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_use_rules.html">bg_use_rules</a></span><span class="op">(</span><span class="va">h2</span>, <span class="st">"lab.workflow@1"</span>, actor <span class="op">=</span> <span class="va">human</span>,</span>
+<span>                      rationale <span class="op">=</span> <span class="st">"Adopt the lab's extension of the official rules."</span><span class="op">)</span></span>
+<span><span class="va">causal</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Filter</a></span><span class="op">(</span></span>
+<span>  <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="va">r</span><span class="op">$</span><span class="va">id</span> <span class="op">==</span> <span class="st">"bayesgrove.workflow/latent-causal-consistency"</span>,</span>
+<span>  <span class="fu"><a href="../reference/bg_rules.html">bg_rules</a></span><span class="op">(</span><span class="va">h2</span><span class="op">)</span><span class="op">$</span><span class="va">rules</span></span>
+<span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">causal</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"severity"</span>, <span class="st">"source"</span>, <span class="st">"overridden_by"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $severity</span></span>
+<span><span class="co">#&gt; [1] "blocking"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $source</span></span>
+<span><span class="co">#&gt; [1] "bayesgrove.workflow@1.0.0"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $overridden_by</span></span>
+<span><span class="co">#&gt; $overridden_by[[1]]</span></span>
+<span><span class="co">#&gt; [1] "lab.workflow@1.0.0"</span></span>
+<span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">h2</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="reopen-and-share">Reopen and share<a class="anchor" aria-label="anchor" href="#reopen-and-share"></a>
 </h2>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="va">h</span><span class="op">@</span><span class="va">path</span></span>
 <span><span class="fu"><a href="../reference/bg_close.html">bg_close</a></span><span class="op">(</span><span class="va">h</span><span class="op">)</span></span>
 <span><span class="va">h</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bg_open.html">bg_open</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
