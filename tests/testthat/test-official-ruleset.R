@@ -244,7 +244,9 @@ test_that("the vocabulary declares the taxonomy's utilities, goals, and checks",
   )
 
   checks <- official_ids(vocabulary$checks)
-  expect_true(all(checks %in% names(bg_summary_vocabulary())))
+  # Every built-in summary kind is declared, so Enforce never rejects one as
+  # undeclared, and every declared check is a built-in summary kind.
+  expect_setequal(checks, names(bg_summary_vocabulary()))
   expect_true(all(
     c(
       "hmc_diagnostics",
