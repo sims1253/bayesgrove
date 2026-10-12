@@ -1,0 +1,394 @@
+{
+  "id": "bayesgrove.workflow",
+  "version": "1.0.0",
+  "title": "Bayesian workflow",
+  "description": "The official bayesgrove ruleset. Its vocabulary declares the ten model utilities and the two inferential goals of the Bürkner, Scholz, and Radev (2023) model taxonomy, and maps the built-in summary kinds to the utilities they inform. Its rules are a selected, tree-informed workflow baseline: a few goal-dependent expectations drawn from the paper's two utility trees, together with established practice from Bayesian Workflow (2026). They do not encode the trees in full. Whether fairness applies, which is the first, conditional gate in both trees, and how to weigh trade-offs between utilities remain the responsibility of the analyst or lab, which can add rules by extending this ruleset. Three explicit rules are blocking, all on acceptance: convergence diagnostics derived from the candidate's run and their human review; goal-specific expectations are advisory. Rules require records: the presence of evidence or of a review never certifies that a check passed or that a model is adequate.",
+  "references": [
+    "Bürkner, P.-C., Scholz, M., and Radev, S. T. (2023). Some models are useful, but how do we know which ones? Towards a unified Bayesian model taxonomy. Statistics Surveys, 17, 216-310. doi:10.1214/23-SS145. Section and figure numbers follow arXiv:2209.02439v5.",
+    "Gelman, A., Vehtari, A., and McElreath, R., with Simpson, D., Margossian, C. C., Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., Modrák, M., and Leos Barajas, V. (2026). Bayesian Workflow. Chapman & Hall/CRC. Section numbers follow the corrected edition of 19 August 2026.",
+    "Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B., Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., and Modrák, M. (2020). Bayesian workflow. arXiv:2011.01808."
+  ],
+  "vocabulary": {
+    "utilities": [
+      {
+        "id": "causal_consistency",
+        "title": "Causal consistency",
+        "description": "Whether the probabilistic structure of the P model is consistent with a set of external causal assumptions, so that the model is a valid recipe for answering the causal query in principle.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.1"]
+      },
+      {
+        "id": "parameter_recoverability",
+        "title": "Parameter recoverability",
+        "description": "The ability of a P model, and of a PA model through the calibration of its posterior approximation, to gain information from data and to quantify uncertainty about latent quantities of interest faithfully.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.2"]
+      },
+      {
+        "id": "predictive_performance",
+        "title": "Predictive performance",
+        "description": "How well model-based predictions of observable quantities agree with test data, judged in absolute or relative terms, before or after conditioning on the training data, and in-sample or out-of-sample.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.3"]
+      },
+      {
+        "id": "fairness",
+        "title": "Fairness",
+        "description": "Whether model-guided decisions are equitable, in particular for groups that differ in protected attributes such as sex, gender, or ethnic background.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.4"]
+      },
+      {
+        "id": "structural_faithfulness",
+        "title": "Structural faithfulness",
+        "description": "How well a P model incorporates qualitative knowledge about the data-generating process, such as variable scales, dependencies between observations, and physical constraints.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.5"]
+      },
+      {
+        "id": "parsimony",
+        "title": "Parsimony",
+        "description": "The formal simplicity of a model, measured for the joint distribution (P-parsimony) and for the interface of the approximator (A-parsimony).",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.6"]
+      },
+      {
+        "id": "interpretability",
+        "title": "Interpretability",
+        "description": "The degree to which a human can understand why a model behaves as it does from its own structure and parameters (intrinsic interpretability).",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.7"]
+      },
+      {
+        "id": "convergence",
+        "title": "Convergence",
+        "description": "How close a finitely run approximator is to the best approximation it could attain under ideal conditions, as judged by approximator-specific convergence diagnostics.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.8"]
+      },
+      {
+        "id": "estimation_speed",
+        "title": "Estimation speed",
+        "description": "The time from starting the approximator until convergence or, less strictly, until it terminates with useful results.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.9"]
+      },
+      {
+        "id": "robustness",
+        "title": "Robustness",
+        "description": "How much a model's implications change when its components, such as priors, likelihood, data, or approximator settings, are systematically perturbed.",
+        "references": ["Bürkner, Scholz & Radev (2023), §3.10"]
+      }
+    ],
+    "goal_kinds": [
+      {
+        "id": "observable_prediction",
+        "title": "Observable inferential goal",
+        "description": "Decisions rest on observable (manifest) quantities, so predictive performance is the central utility, for example in prediction.",
+        "references": [
+          "Bürkner, Scholz & Radev (2023), §4.2",
+          "Bürkner, Scholz & Radev (2023), §4.3 and Figure 13"
+        ]
+      },
+      {
+        "id": "latent_inference",
+        "title": "Latent inferential goal",
+        "description": "Decisions rest on latent (unobservable) quantities, so parameter recoverability is the central utility, for example in parameter estimation.",
+        "references": [
+          "Bürkner, Scholz & Radev (2023), §4.2",
+          "Bürkner, Scholz & Radev (2023), §4.4 and Figure 14"
+        ]
+      }
+    ],
+    "checks": [
+      {
+        "id": "hmc_diagnostics",
+        "title": "Hamiltonian Monte Carlo sampler diagnostics",
+        "utilities": ["convergence"]
+      },
+      {
+        "id": "optimizer_diagnostics",
+        "title": "Optimization-based approximator diagnostics",
+        "utilities": ["convergence"]
+      },
+      {
+        "id": "prior_spec",
+        "title": "Recorded prior specification",
+        "utilities": ["structural_faithfulness", "interpretability"]
+      },
+      {
+        "id": "prior_predictive_check",
+        "title": "Prior predictive check",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "posterior_predictive_check",
+        "title": "Posterior predictive check",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "sbc_result",
+        "title": "Simulation-based calibration result",
+        "utilities": ["parameter_recoverability"]
+      },
+      {
+        "id": "loo_diagnostics",
+        "title": "PSIS-LOO diagnostics: Pareto-k reliability of the LOO estimate, not predictive accuracy",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "loo_pit_calibration",
+        "title": "LOO-PIT calibration",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "pareto_k_diagnostics",
+        "title": "Pareto-k diagnostic summary: reliability of PSIS-LOO estimates, not predictive accuracy",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "comparison_results",
+        "title": "Model comparison results (ELPD differences)",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "stacking_weights",
+        "title": "Stacking model-averaging weights",
+        "utilities": ["predictive_performance"]
+      },
+      {
+        "id": "model_comparison",
+        "title": "Model comparison decision context",
+        "utilities": ["predictive_performance", "parsimony"]
+      },
+      {
+        "id": "projpred_selection",
+        "title": "Projection-predictive variable selection result",
+        "utilities": ["parsimony"]
+      },
+      {
+        "id": "causal_framing",
+        "title": "Causal question framing",
+        "utilities": ["causal_consistency"]
+      },
+      {
+        "id": "causal_selection_contract",
+        "title": "Causal selection contract",
+        "utilities": ["causal_consistency"]
+      },
+      {
+        "id": "dagitty_adjustment",
+        "title": "dagitty-derived adjustment set",
+        "utilities": ["causal_consistency"]
+      },
+      {
+        "id": "dagitty_implications",
+        "title": "dagitty-derived conditional independence implications",
+        "utilities": ["causal_consistency"]
+      },
+      {
+        "id": "pad_annotation",
+        "title": "PAD annotation",
+        "utilities": [
+          "structural_faithfulness",
+          "interpretability",
+          "parsimony"
+        ]
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "convergence-derived",
+      "on": ["accept"],
+      "require": {
+        "type": "require_utility_evidence",
+        "utility": "convergence",
+        "provenance": "derived"
+      },
+      "severity": "blocking",
+      "message": "Record convergence diagnostics derived from this candidate's own run before accepting it.",
+      "explanation": "For latent inferential goals the taxonomy places convergence among the primary utilities: there is no external validation on real data, and before convergence a posterior approximation can be almost arbitrarily wrong, so latent conclusions drawn from it cannot be trusted. For observable goals the taxonomy treats convergence as a supporting utility that is not strictly required, because a non-converged fit may still predict well; recording the diagnostics is nonetheless the minimum established practice before a fit is accepted, and this rule asks for nothing more. Only evidence derived by the engine from the bound run counts: asserted results are not tied to the fit they describe. The rule requires a record, not a verdict, and the recorded diagnostics may still show that the approximator failed.",
+      "suggestion": "Run the fit, bind the candidate to it by giving the fit's node_id when creating or revising the candidate, and record an evidence action with that node_id (and no result) so the engine derives the convergence diagnostics, for example hmc_diagnostics, from the run. If they show problems, run longer, reparameterize, or simplify the model instead of accepting it.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.8",
+        "Bürkner, Scholz & Radev (2023), §4.3.3 and §4.4.1",
+        "Bayesian Workflow (2026), §7.4",
+        "Bayesian Workflow (2026), §11.4",
+        "Bayesian Workflow (2026), §12.5"
+      ]
+    },
+    {
+      "id": "review-hmc-diagnostics",
+      "on": ["accept"],
+      "when": [
+        {
+          "type": "require_evidence",
+          "check": "hmc_diagnostics"
+        }
+      ],
+      "require": {
+        "type": "require_review",
+        "check": "hmc_diagnostics"
+      },
+      "severity": "blocking",
+      "message": "A human must review every HMC diagnostics record of this candidate before accepting it.",
+      "explanation": "Divergent transitions, saturated tree depth, R-hat above 1.01, and low bulk or tail effective sample size signal problems with the computation and often with the model. Reading them takes judgment that thresholds alone do not supply. Only a human review recorded under the current goal counts, and a review records that someone looked: it does not certify that the sampler converged.",
+      "suggestion": "Inspect the diagnostics, with trace or rank plots where they raise doubts, then record a human review that cites every hmc_diagnostics evidence record of the candidate.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.8.1",
+        "Bayesian Workflow (2026), §11.4 and §11.5",
+        "Bayesian Workflow (2026), §12.3"
+      ]
+    },
+    {
+      "id": "review-optimizer-diagnostics",
+      "on": ["accept"],
+      "when": [
+        {
+          "type": "require_evidence",
+          "check": "optimizer_diagnostics"
+        }
+      ],
+      "require": {
+        "type": "require_review",
+        "check": "optimizer_diagnostics"
+      },
+      "severity": "blocking",
+      "message": "A human must review every optimizer diagnostics record of this candidate before accepting it.",
+      "explanation": "Optimization-based approximators such as posterior modes, Laplace approximations, and variational inference can stop at a local optimum or report convergence of the objective while the approximation stays poor. Whether the approximation is good enough for the goal takes judgment. Only a human review recorded under the current goal counts, and a review does not certify that the approximation is adequate.",
+      "suggestion": "Inspect the optimizer diagnostics, and where possible compare the approximation with a longer or exact run, then record a human review that cites every optimizer_diagnostics evidence record of the candidate.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.8.2",
+        "Bayesian Workflow (2026), §13.1",
+        "Bayesian Workflow (2026), §13.6"
+      ]
+    },
+    {
+      "id": "posterior-predictive-check",
+      "on": ["accept"],
+      "require": {
+        "type": "require_evidence",
+        "check": "posterior_predictive_check"
+      },
+      "severity": "advisory",
+      "message": "Consider a posterior predictive check before accepting this candidate.",
+      "explanation": "Comparing replicated data with the observed data can rule out a model whose predictions are strikingly poor without needing a better model first. Predictive performance is the central utility for observable goals and an observable proxy for latent goals. A recorded check does not mean the model fits: the evidence has to be read for the features that matter to the question.",
+      "suggestion": "Run a posterior predictive check on the fit, record it as evidence for this candidate, and look at the discrepancies that matter for the analysis question.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.3.1",
+        "Bürkner, Scholz & Radev (2023), §4.3.2 and §4.4.3",
+        "Bayesian Workflow (2026), §8.2"
+      ]
+    },
+    {
+      "id": "observable-loo",
+      "on": ["accept"],
+      "when": [
+        {
+          "type": "goal_kind",
+          "values": ["observable_prediction"]
+        }
+      ],
+      "require": {
+        "type": "require_evidence",
+        "check": "loo_diagnostics"
+      },
+      "severity": "advisory",
+      "message": "For an observable goal, consider recording out-of-sample predictive evidence (PSIS-LOO) before accepting this candidate.",
+      "explanation": "For observable inferential goals predictive performance is the central utility, and out-of-sample performance is almost always what generalization requires; in-sample checks can be optimistic. PSIS-LOO estimates it without refitting; the loo_diagnostics record summarizes the Pareto-k values, which say whether that estimate is reliable, not how accurate the predictions are. The presence of LOO evidence does not show that the predictions are good enough or that the estimate is reliable.",
+      "suggestion": "Compute PSIS-LOO for the fit and record its diagnostics as loo_diagnostics evidence. If Pareto-k values are high, improve the computation (for example with moment matching or exact refits) before relying on the estimate.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.3.3",
+        "Bürkner, Scholz & Radev (2023), §4.3 and Figure 13",
+        "Bayesian Workflow (2026), §8.3",
+        "Bayesian Workflow (2026), Chapter 24"
+      ]
+    },
+    {
+      "id": "observable-compare-loo",
+      "on": ["compare"],
+      "when": [
+        {
+          "type": "goal_kind",
+          "values": ["observable_prediction"]
+        }
+      ],
+      "require": {
+        "type": "require_evidence",
+        "check": "loo_diagnostics"
+      },
+      "severity": "advisory",
+      "message": "For an observable goal, consider recording PSIS-LOO evidence for every candidate in this comparison.",
+      "explanation": "Absolute predictive performance is rarely known, so observable goals usually rest on relative predictive performance, which is only meaningful when every candidate is evaluated on the same data with the same out-of-sample method. Comparing many models iteratively can still overfit the selection. LOO evidence makes the comparison possible; it does not decide it, and small ELPD differences need their uncertainty.",
+      "suggestion": "Record loo_diagnostics evidence for each candidate listed in the finding, then compare ELPD differences together with their standard errors.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.3.1 and §3.3.3",
+        "Bürkner, Scholz & Radev (2023), §4.3.2",
+        "Bayesian Workflow (2026), §9.4",
+        "Bayesian Workflow (2026), §9.5"
+      ]
+    },
+    {
+      "id": "latent-causal-consistency",
+      "on": ["accept"],
+      "when": [
+        {
+          "type": "goal_kind",
+          "values": ["latent_inference"]
+        }
+      ],
+      "require": {
+        "type": "require_utility_evidence",
+        "utility": "causal_consistency"
+      },
+      "severity": "advisory",
+      "message": "For a latent goal, consider recording evidence of causal consistency before accepting this candidate.",
+      "explanation": "For latent inferential goals the taxonomy ranks causal consistency among the primary utilities: even a pure measurement goal needs a causal model to justify which variables inform the latent quantities, and causal discussion prevents readers from interpreting associations causally. The rule asks for a record relevant to causal consistency, not a verdict: a causal_framing record that only states the question and estimand satisfies it without showing that the model was assessed against the assumptions, and no record establishes that the assumptions are true.",
+      "suggestion": "State the assumed causal graph, check that the model's structure and adjustment set are consistent with it (for example with causal_framing or dagitty_adjustment), and record the result as causal_consistency evidence.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.1",
+        "Bürkner, Scholz & Radev (2023), §4.4.1 and Figure 14",
+        "Bayesian Workflow (2026), §7.2"
+      ]
+    },
+    {
+      "id": "latent-parameter-recoverability",
+      "on": ["accept"],
+      "when": [
+        {
+          "type": "goal_kind",
+          "values": ["latent_inference"]
+        }
+      ],
+      "require": {
+        "type": "require_utility_evidence",
+        "utility": "parameter_recoverability"
+      },
+      "severity": "advisory",
+      "message": "For a latent goal, consider recording parameter recoverability evidence, such as simulation-based calibration, before accepting this candidate.",
+      "explanation": "Parameter recoverability is the central utility for latent inferential goals. Apart from identification, it cannot be studied on the real data, because the true values are unknown, so it is usually checked by simulation: fitting data simulated from known parameters, or simulation-based calibration of the posterior approximation. Recorded evidence shows that recovery was studied, not that it succeeded.",
+      "suggestion": "Run simulation-based calibration (sbc_result) or a recovery study with known parameters, and record the result as parameter_recoverability evidence for this candidate.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §3.2.3",
+        "Bürkner, Scholz & Radev (2023), §4.4.2 and Figure 14",
+        "Bayesian Workflow (2026), §6.3",
+        "Bayesian Workflow (2026), §14.3"
+      ]
+    },
+    {
+      "id": "latent-compare-causal-consistency",
+      "on": ["compare"],
+      "when": [
+        {
+          "type": "goal_kind",
+          "values": ["latent_inference"]
+        }
+      ],
+      "require": {
+        "type": "require_utility_evidence",
+        "utility": "causal_consistency"
+      },
+      "severity": "advisory",
+      "message": "For a latent goal, consider recording causal consistency evidence for every candidate in this comparison.",
+      "explanation": "For latent goals, predictive performance is only a supporting proxy for parameter recoverability, and it is valid only among causally consistent models: a causally inconsistent model should not be chosen even if it predicts better. The rule asks for a record relevant to causal consistency for each compared candidate, so that the comparison is made with the causal question in view. A record does not show that a candidate is causally consistent: framing alone does not assess the model against the assumptions, and no record certifies that the assumptions hold.",
+      "suggestion": "Record causal_consistency evidence for each candidate listed in the finding before using predictive criteria to choose between them.",
+      "references": [
+        "Bürkner, Scholz & Radev (2023), §4.4.3",
+        "Bayesian Workflow (2026), §7.2",
+        "Bayesian Workflow (2026), §9.4"
+      ]
+    }
+  ]
+}
